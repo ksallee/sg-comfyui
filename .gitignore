@@ -6,3 +6,4 @@ probes/out/
 .DS_Store
 profile.local.json
 *.local.json
+.schema-cache/

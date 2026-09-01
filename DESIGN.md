@@ -30,6 +30,25 @@ Requirements this imposes:
 
 No wrapper over `fpt-api` or `shotgun_api3`. A ComfyUI node ships into someone else's Python env; every dependency is a support burden. `requests` only.
 
+## Schema cache
+
+The schema is the only source of truth for what a site calls things: which `CustomEntityNN` are enabled and
+their display names, which fields exist, their types, per-project status lists. It changes when anyone adds a
+field, so it is cached and refreshable, never assumed.
+
+Two layers, because a real studio site has hundreds of entity types by hundreds of fields:
+
+- **raw** — full JSON, per site and per project, on disk, timestamped, gitignored. Refresh explicitly; the node
+  never refreshes on the publish path.
+- **digest** — compact, generated from raw: entity types actually in use, display name to programmatic name,
+  fields with type and mandatory flag.
+
+"Consultable by the LLM" means a query CLI over the cache, not a blob in context — `python schema.py field
+Version sg_task`, `python schema.py entities --enabled`. An agent that has to read the raw dump to answer one
+question will burn its context on the first call and be useless for the rest of the session.
+
+Per site *and* per project: some field configuration and every status list is project-scoped.
+
 ## Site profile
 
 Every site is different: custom fields, custom entity types, different mandatory fields, different status lists,
@@ -37,6 +56,10 @@ and no agreement on whether a Version hangs off a Task, a Shot, an Asset or a pl
 because they hardcode one studio's conventions, or expose every field and become unusable.
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
+
+The schema cache says what *exists*. The profile says what is *practiced* and what to expose.
+Different lifetimes: the cache refreshes when the schema changes, the profile is inference plus
+operator edits layered on top.
 
 - Schema says what is *possible*; recent Versions say what is *practiced*. Rank fields by fill rate over the
   project's last N Versions, not by what the schema permits — sites carry hundreds of dead legacy fields.
