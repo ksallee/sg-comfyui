@@ -1,0 +1,71 @@
+"""Shared probe plumbing: env, client, sanitised finding output."""
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / "src"))
+
+from comfyui_fpt.client import FPT  # noqa: E402
+
+FINDINGS = ROOT / "probes" / "findings"
+
+
+def load_env():
+    env = {}
+    f = ROOT / ".env.local"
+    if not f.exists():
+        raise SystemExit("no .env.local — copy .env.local.example")
+    for line in f.read_text().splitlines():
+        line = line.strip()
+        if line and not line.startswith("#") and "=" in line:
+            k, v = line.split("=", 1)
+            env[k.strip()] = v.strip()
+    return env
+
+
+def client():
+    return FPT.from_env(load_env())
+
+
+def writes_allowed():
+    return "--write" in sys.argv
+
+
+def sanitize(text, env):
+    for key in ("FPT_SITE_URL", "FPT_SCRIPT_NAME", "FPT_SCRIPT_KEY"):
+        v = env.get(key)
+        if v:
+            text = text.replace(v, f"<{key}>")
+    host = (env.get("FPT_SITE_URL") or "").split("//")[-1].split(".")[0]
+    if host:
+        text = text.replace(host, "<site>")
+    text = re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text)
+    text = re.sub(r"(?i)(bearer\s+|access_token\"?\s*[:=]\s*\"?)[\w.\-]{20,}", r"\1<token>", text)
+    return text
+
+
+def record(slug, endpoint, doc_claim, actual, verdict, env):
+    body = f"""# {slug}
+
+**Endpoint** `{endpoint}`
+
+**Docs claim** {doc_claim}
+
+**Actual**
+
+```
+{actual.strip()}
+```
+
+**Verdict** {verdict}
+"""
+    FINDINGS.mkdir(parents=True, exist_ok=True)
+    (FINDINGS / f"{slug}.md").write_text(sanitize(body, env))
+    print(f"wrote probes/findings/{slug}.md")
+
+
+def dump(obj, limit=2000):
+    return json.dumps(obj, indent=2, default=str)[:limit]

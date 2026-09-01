@@ -1,0 +1,6 @@
+.env.local
+__pycache__/
+*.pyc
+.venv/
+probes/out/
+.DS_Store
