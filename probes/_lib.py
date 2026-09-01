@@ -47,8 +47,16 @@ def sanitize(text, env):
     return text
 
 
-def record(slug, endpoint, doc_claim, actual, verdict, env):
-    body = f"""# {slug}
+def record(slug, endpoint, doc_claim, actual, verdict, env, tags=(), python_equivalent=None):
+    """Write a finding. `verdict` is one actionable sentence — it lands in INDEX.md and is often
+    all an agent reads. `tags` drive retrieval; see probes/index.py."""
+    extra = f"\n**Python equivalent**\n\n```python\n{python_equivalent.strip()}\n```\n" if python_equivalent else ""
+    body = f"""---
+tags: [{", ".join(tags)}]
+verdict: {verdict}
+---
+
+# {slug}
 
 **Endpoint** `{endpoint}`
 
@@ -61,7 +69,7 @@ def record(slug, endpoint, doc_claim, actual, verdict, env):
 ```
 
 **Verdict** {verdict}
-"""
+{extra}"""
     FINDINGS.mkdir(parents=True, exist_ok=True)
     (FINDINGS / f"{slug}.md").write_text(sanitize(body, env))
     print(f"wrote probes/findings/{slug}.md")

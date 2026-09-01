@@ -1,3 +1,8 @@
+---
+tags: [auth, client, token]
+verdict: client_credentials works; token lives 600s; refresh_token returned but the client re-auths instead.
+---
+
 # 001_auth
 
 **Endpoint** `POST /api/v1/auth/access_token  +  GET /api/v1/entity/projects`
@@ -19,5 +24,4 @@ GET /entity/projects -> 200
 projects: [(63, 'Start From Scratch'), (70, 'Big Buck Bunny'), (78, 'Game Template')]
 ```
 
-**Verdict** Docs correct. `expires_in` is 600s. A `refresh_token` is returned; the client ignores it and
-re-authenticates instead — 600s comfortably outlives a single publish and refresh is one more failure mode.
+**Verdict** client_credentials works; token lives 600s; refresh_token returned but the client re-auths instead.

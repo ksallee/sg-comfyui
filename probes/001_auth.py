@@ -34,6 +34,7 @@ _lib.record(
     "POST /api/v1/auth/access_token  +  GET /api/v1/entity/projects",
     "client_credentials with script name/key returns a bearer token; expires_in documented as 600s.",
     actual,
-    "Auth confirmed. See expires_in above for the real lifetime.",
+    "client_credentials works; token lives 600s; refresh_token returned but the client re-auths instead.",
     env,
+    tags=("auth", "client", "token"),
 )

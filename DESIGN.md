@@ -28,7 +28,28 @@ Requirements this imposes:
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
 
-No wrapper over `fpt-api` or `shotgun_api3`. A ComfyUI node ships into someone else's Python env; every dependency is a support burden. `requests` only.
+### Two paths
+
+**Publish path** — the node at runtime. REST and `requests` only, no exceptions. A ComfyUI node ships into
+someone else's Python env; every dependency is a support burden, and `shotgun_api3` is heavyweight.
+
+**Setup path** — schema cache, inspector, field creation. Runs on the operator's machine at configuration time
+with an agent present, so it may use the Python API where that is genuinely better. If REST cannot create
+schema fields but `shotgun_api3` can, provenance-as-typed-fields survives as a setup step.
+
+Same line as "LLM at configuration time, never in the publish path".
+
+Probes exercise REST, always — their job is to prove the *node's* behaviour, and the two APIs differ in filter
+syntax, return shape and upload flow. Findings carry a Python equivalent where the mapping is non-obvious; TDs
+read Python, and REST-and-Python-side-by-side-both-verified does not exist anywhere else.
+
+### Cheap index, expensive body
+
+The pattern repeats, and it is deliberate: `probes/findings/INDEX.md` over the findings, the schema digest over
+the raw schema. An agent reads the index, then opens only what it needs. An agent that must read the corpus to
+answer one question burns its context on the first call and is useless for the rest of the session.
+
+Findings are therefore tagged, and a verdict is one actionable sentence — often the only thing read.
 
 ## Schema cache
 
