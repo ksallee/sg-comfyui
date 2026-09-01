@@ -30,9 +30,28 @@ Requirements this imposes:
 
 No wrapper over `fpt-api` or `shotgun_api3`. A ComfyUI node ships into someone else's Python env; every dependency is a support burden. `requests` only.
 
+## Site profile
+
+Every site is different: custom fields, custom entity types, different mandatory fields, different status lists,
+and no agreement on whether a Version hangs off a Task, a Shot, an Asset or a playlist. Integrations here fail
+because they hardcode one studio's conventions, or expose every field and become unusable.
+
+Instead the operator's agent inspects their site and writes a profile the node consumes.
+
+- Schema says what is *possible*; recent Versions say what is *practiced*. Rank fields by fill rate over the
+  project's last N Versions, not by what the schema permits — sites carry hundreds of dead legacy fields.
+- Keyed per project, not per site. One studio runs shows with different conventions.
+- Plain JSON, human-editable, regenerable. Operator edits win over inference.
+- Gitignored. Field naming and pipeline conventions are potentially confidential — unlike `probes/findings/`,
+  which document the API itself and are safe to publish.
+
+**The LLM runs at configuration time, never in the publish path.** It probes, then writes data. Publishing is
+deterministic, offline, and costs no tokens.
+
 ## Nodes (v0)
 
-- `FPT Publish Version` — image in, Version created on a Task/Asset/Shot, media uploaded, provenance attached
+- `FPT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
+  the site profile: link target and exposed fields are resolved, not hardcoded.
 - `FPT Fetch Media` — Version or Attachment out as an image, to feed a graph
 
 ## Provenance

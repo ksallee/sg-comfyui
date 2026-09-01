@@ -25,10 +25,10 @@ class FPT:
     @classmethod
     def from_env(cls, env=None):
         e = env or os.environ
-        missing = [k for k in ("FPT_SITE_URL", "FPT_SCRIPT_NAME", "FPT_SCRIPT_KEY") if not e.get(k)]
+        missing = [k for k in ("FPT_API_SITE_URL", "FPT_API_SCRIPT_NAME", "FPT_API_API_KEY") if not e.get(k)]
         if missing:
             raise FPTError(f"missing in .env.local: {', '.join(missing)}")
-        return cls(e["FPT_SITE_URL"], e["FPT_SCRIPT_NAME"], e["FPT_SCRIPT_KEY"])
+        return cls(e["FPT_API_SITE_URL"], e["FPT_API_SCRIPT_NAME"], e["FPT_API_API_KEY"])
 
     def _authenticate(self):
         r = requests.post(

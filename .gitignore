@@ -4,3 +4,5 @@ __pycache__/
 .venv/
 probes/out/
 .DS_Store
+profile.local.json
+*.local.json

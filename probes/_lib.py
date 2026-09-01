@@ -35,11 +35,11 @@ def writes_allowed():
 
 
 def sanitize(text, env):
-    for key in ("FPT_SITE_URL", "FPT_SCRIPT_NAME", "FPT_SCRIPT_KEY"):
+    for key in ("FPT_API_SITE_URL", "FPT_API_SCRIPT_NAME", "FPT_API_API_KEY"):
         v = env.get(key)
         if v:
             text = text.replace(v, f"<{key}>")
-    host = (env.get("FPT_SITE_URL") or "").split("//")[-1].split(".")[0]
+    host = (env.get("FPT_API_SITE_URL") or "").split("//")[-1].split(".")[0]
     if host:
         text = text.replace(host, "<site>")
     text = re.sub(r"[\w.+-]+@[\w-]+\.[\w.]+", "<email>", text)
