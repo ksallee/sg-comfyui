@@ -9,21 +9,22 @@ Derive only from public Flow PT REST docs and this repo's probe findings.
 
 Out of scope, permanently: charts, dashboards, scheduled reports, webhooks, automations. Do not add them.
 
-## Probes are the source of truth
+## The corpus lives next door
 
-The REST docs are incomplete and sometimes wrong. Never code against documented behaviour — probe it, record it, code against the finding.
+`../fpt-llm-api` holds every verified truth about the API, and the client. This repo probes nothing and
+duplicates nothing.
 
-- One question per probe: `probes/NNN_slug.py`
-- Each writes `probes/findings/NNN_slug.md`: endpoint, doc claim, actual, verdict
-- Read-only by default; writes require `--write`
-- Sanitize before commit: no tokens, no site URL, no real names
-- Code cites findings: `# probe 004`
+Read `../fpt-llm-api/corpus/INDEX.md` first, always. Never code against behaviour no entry covers — that is a
+gap, and the probe that closes it belongs in `fpt-llm-api`. Code cites entries: `# probe 004`.
 
-Run: `python probes/004_slug.py`
+Plan for both repos: `../fpt-llm-api/PLAN.md`.
 
 ## Stack
 
-Python 3.11. Only what ComfyUI already ships: `requests`, `Pillow`. A new dependency needs a line in DESIGN.md justifying it.
+Python 3.11. `fpt_llm_api` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
+`shotgun_api3`, never `fpt-api` — it is AGPL. A new dependency needs a line in DESIGN.md justifying it.
+
+`fpt-llm-api` is expected as a sibling checkout; override with `FPT_LLM_API_PATH`.
 
 ## Secrets
 

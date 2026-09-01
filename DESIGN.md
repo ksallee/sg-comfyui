@@ -28,6 +28,8 @@ Requirements this imposes:
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
 
+Site access goes through `fpt_llm_api`, the sibling corpus repo's client. This repo holds node code only.
+
 ### Two paths
 
 **Publish path** — the node at runtime. REST and `requests` only, no exceptions. A ComfyUI node ships into
