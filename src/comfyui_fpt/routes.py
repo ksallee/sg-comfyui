@@ -69,6 +69,34 @@ def register():
         except Exception as e:
             return web.json_response({"items": [], "error": str(e)[:200]})
 
+    @routes.get("/fpt/resolve")
+    async def resolve_one(request):
+        """What the Fetch node WOULD pull, and what that Version is.
+
+        Editor-time, so an artist sees which Version a rule lands on and what made it before running
+        anything — the same resolution the node performs, so the preview cannot disagree with the run.
+        """
+        try:
+            from . import media, resolve
+            q = request.rel_url.query
+            project_id = int(q.get("project_id") or 0) or site.default_project()
+            p = site.for_project(project_id)
+            link_type = p.get("link_type", "Shot")
+            fpt = site.client()
+            if q.get("select") == resolve.PINNED:
+                vid, code, why = int(q.get("version_id") or 0), "", "pinned"
+            else:
+                vid, code, why = resolve.pick(link_type, int(q.get("link_id") or 0), project_id,
+                                              q.get("match", ""), q.get("status", ""),
+                                              q.get("order", resolve.BY_ID), p.get("code_regex", ""))
+            if not vid:
+                return web.json_response({"id": 0, "why": why, "summary": why})
+            return web.json_response({"id": vid, "code": code, "why": why,
+                                      "summary": media.summary(fpt, vid, site.statuses(project_id)),
+                                      "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
+        except Exception as e:
+            return web.json_response({"id": 0, "summary": str(e)[:200]})
+
     @routes.get("/fpt/statuses")
     async def statuses(request):
         return pairs(site.statuses, int(request.rel_url.query.get("project_id") or 0))
