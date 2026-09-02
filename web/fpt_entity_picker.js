@@ -19,9 +19,10 @@ async function get(url) {
 }
 
 // Keeps a combo's options in step with the site without touching its value unless the value is gone.
-function setOptions(widget, labels) {
+function setOptions(widget, labels, keep) {
   widget.options.values = [NONE].concat(labels);
-  if (!widget.options.values.includes(widget.value)) widget.value = NONE;
+  const wanted = keep ?? widget.value;
+  widget.value = widget.options.values.includes(wanted) ? wanted : NONE;
 }
 
 app.registerExtension({
@@ -61,16 +62,18 @@ app.registerExtension({
         await loadTasks();
       };
 
-      const loadProject = async () => {
+      const loadProject = async (picked) => {
+        const chosen = picked ?? project.value;
         const d = await get("/fpt/projects");
-        projectId = (d.items.find((x) => x.label === project.value) || {}).id || 0;
-        setOptions(project, d.items.map((x) => x.label));
+        projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
+        setOptions(project, d.items.map((x) => x.label), chosen);
         // link_type is per project: one show hangs Versions off Shots, the next off Assets. Asking
         // the server is what lets two graphs in one ComfyUI target two shows that disagree.
         const prof = await get(`/fpt/profile?project_id=${projectId}`);
         linkType = prof.link_type || "Shot";
         link.tooltip = "What this Version belongs to — each option carries its own type.";
-        search.tooltip = "Type to search across every entity type this project uses.";
+        search.tooltip = "Listing the most recently updated. Type to search every type this "
+        + "project uses — several words all have to match, as in Flow PT.";
         if (status) {
           const s = await get(`/fpt/statuses?project_id=${projectId}`);
           setOptions(status, s.items.map((x) => x.label));
@@ -88,9 +91,12 @@ app.registerExtension({
 
       const wrap = (widget, after) => {
         const prev = widget.callback;
-        widget.callback = function () {
+        widget.callback = function (value) {
           const r = prev?.apply(this, arguments);
-          after();
+          // The widget's own `value` is not always assigned yet when the callback fires, so take the
+          // new one from the argument. Reading widget.value here saw the PREVIOUS project, which is
+          // why switching project needed a second click before the links matched it.
+          after(value);
           return r;
         };
       };
@@ -167,10 +173,11 @@ function fetchPickers(nodeType) {
       await loadVersions(search.value);
     };
 
-    const loadProject = async () => {
+    const loadProject = async (picked) => {
+      const chosen = picked ?? project.value;
       const d = await get("/fpt/projects");
-      projectId = (d.items.find((x) => x.label === project.value) || {}).id || 0;
-      setOptions(project, d.items.map((x) => x.label));
+      projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
+      setOptions(project, d.items.map((x) => x.label), chosen);
       const prof = await get(`/fpt/profile?project_id=${projectId}`);
       linkType = prof.link_type || "Shot";
       if (link) link.tooltip = "Narrow to one entity — each option carries its own type.";
@@ -192,9 +199,9 @@ function fetchPickers(nodeType) {
     const wrap = (widget, after) => {
       if (!widget) return;
       const prev = widget.callback;
-      widget.callback = function () {
+      widget.callback = function (value) {
         const r = prev?.apply(this, arguments);
-        after();
+        after(value);   // see the note on the publish-side wrap: widget.value lags the callback
         return r;
       };
     };
