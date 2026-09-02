@@ -6,7 +6,7 @@ import numpy as np
 from PIL import Image
 
 from .. import fields as fpt_fields
-from .. import provenance, publish, site
+from .. import lineage, naming, provenance, publish, site
 
 MAX_ID = 2 ** 31 - 1
 NONE = ""
@@ -45,7 +45,8 @@ class FPTPublishVersion:
         return {
             "required": {
                 "images": ("IMAGE",),
-                "code": ("STRING", {"default": p.get("code_prefix", "comfy_v001")}),
+                "code": ("STRING", {"default": p.get("code_prefix", "comfy_v001"),
+                         "tooltip": "Leave as `auto` to follow this show's naming convention."}),
             },
             "optional": {
                 "project": (_labels(site.projects()),
@@ -112,10 +113,24 @@ class FPTPublishVersion:
         # Typed ids first, then whatever a Fetch node upstream already proves. The operator can add
         # a source the graph cannot see; they should never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
-        for vid in provenance.fetched_versions(prompt or {}, unique_id):
+        # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
+        upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
+        for vid in (provenance.fetched_versions(prompt or {}, unique_id)
+                    + lineage.for_nodes(upstream)):
             if vid not in src_ids:
                 src_ids.append(vid)
         typed = {k: v for k, v in fpt_fields.values_for(prov, src_ids).items() if k in have}
+
+        # `auto` means: follow the convention this show already uses, numbering per link. There is no
+        # version-number field on Version (it lives in `code`), so the convention is the only source.
+        if code.strip().lower() == "auto":
+            rx, tpl = p.get("code_regex", ""), p.get("code_template", "")
+            if not (rx and tpl):
+                raise ValueError("code=auto needs code_regex and code_template in the profile — "
+                                 "run /inspect-site, which infers them and reports their coverage")
+            existing = [c for c, _, _ in site.versions_on(link_type, target, project_id)]
+            task_token = (naming.parse(existing[0], rx) or {}).get("task", "") if existing else ""
+            code = naming.next_code(tpl, rx, existing, link or "", task_token)
 
         published = []
         for i, frame in enumerate(images):

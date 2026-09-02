@@ -182,6 +182,27 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
     return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
 
 
+def versions_on(link_type, link_id, project_id, limit=200):
+    """(code, status, id) for every Version on one entity, newest first.
+
+    probe 017 — an entity field filters on a full {type, id} hash. Status comes back so the caller can
+    ask for the latest APPROVED one without a second round trip.
+    """
+    if not link_type or not link_id:
+        return []
+
+    def fetch():
+        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
+                          json={"filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
+                                            ["entity", "is", {"type": link_type, "id": int(link_id)}]],
+                                "fields": ["code", "sg_status_list"], "sort": "-id",
+                                "page": {"size": limit}})
+        return [] if not r.ok else [(d["attributes"].get("code") or "",
+                                     d["attributes"].get("sg_status_list") or "", d["id"])
+                                    for d in r.json()["data"]]
+    return _cached(("versions_on", link_type, int(link_id), int(project_id)), fetch)
+
+
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 

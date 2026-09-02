@@ -110,9 +110,13 @@ function fetchPickers(nodeType) {
 
     let projectId = 0, linkType = "Shot", linkIds = {}, versionIds = {};
 
+    const select = w("select");
     const loadSources = async () => {
       const id = versionIds[version.value] || 0;
-      versionId.value = id;   // the widget the graph carries, and the only thing lineage reads
+      versionId.value = id;
+      // Picking a Version by hand means you meant that one; leaving it on "latest" would silently
+      // ignore the pick at run time.
+      if (select && id && select.value !== "pinned id") select.value = "pinned id";
       if (source) {
         const d = await get(`/fpt/version_sources?version_id=${id}`);
         source.options.values = ["auto"].concat(d.items.map((x) => x.label));
