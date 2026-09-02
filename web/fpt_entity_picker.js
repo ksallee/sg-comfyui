@@ -158,12 +158,12 @@ function fetchPickers(nodeType) {
     // the readout it belongs to, where its height is ours to choose.
     const filterBox = w("filters");
     if (filterBox) filterBox.hidden = true;
-    const onToggleFilters = () => {
+    const relayout = () => {
       this.setSize(this.computeSize());
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const panel = addPanel(this, "Flow PT Fetch", onToggleFilters);
+    const panel = addPanel(this, "Flow PT Fetch", relayout);
     panel.editor((text) => {
       if (filterBox) filterBox.value = text;
       refresh();

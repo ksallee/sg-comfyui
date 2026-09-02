@@ -36,8 +36,6 @@ const CSS = `
 .fpt-ok { color: #7fd18b; }
 .fpt-err { color: #f08a8a; white-space: pre-wrap; }
 .fpt-dim { color: #7f868f; }
-.fpt-filter { color: #9aa7b8; background: #1d2024; border: 1px solid #313640; border-radius: 4px;
-              padding: 4px 6px; white-space: pre-wrap; word-break: break-all; font-size: 10px; }
 /* The editor lives here, below the readout, rather than as a node widget: a declared widget renders
    above this panel and cannot be moved below it, because widgets_values is positional. */
 .fpt-editor { display: none; border-top: 1px solid #35393f; padding: 6px 8px; flex: none; }
@@ -82,14 +80,15 @@ function pill(label, rgb) {
 // The query in Flow PT's own language, so it can be read, copied, and pasted into `filters`.
 function filterBlock(d) {
   if (!d || !d.filters) return "";
+  // Only the heading: the filter itself is in the editable box below, and showing it twice was just
+  // two copies of the same thing.
   return `<div class="fpt-sec fpt-toggle" title="Show or hide the SG Filters box">` +
-    `SG Filters <span class="fpt-dim">— click to edit</span></div>` +
-    `<div class="fpt-filter">${esc(JSON.stringify(d.filters))}</div>`;
+    `SG Filters <span class="fpt-dim">— click to edit</span></div>`;
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-export function addPanel(node, title = "Flow PT", onToggleFilters = null) {
+export function addPanel(node, title = "Flow PT", onLayout = null) {
   ensureCss();
   const root = document.createElement("div");
   root.className = "fpt-panel";
@@ -104,14 +103,19 @@ export function addPanel(node, title = "Flow PT", onToggleFilters = null) {
   // Kept outside the body so redrawing the readout cannot destroy it mid-edit.
   const editor = root.querySelector(".fpt-editor");
   const area = editor.querySelector("textarea");
-  head.addEventListener("click", () => root.classList.toggle("collapsed"));
+  // Every fold has to re-measure the node: hiding the content without that leaves the widget
+  // holding its old height and the box looks unchanged.
+  head.addEventListener("click", () => {
+    root.classList.toggle("collapsed");
+    if (onLayout) onLayout();
+  });
   // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
   // control belongs here rather than in a button appended somewhere else on the node.
   body.addEventListener("click", (e) => {
     if (!e.target.closest(".fpt-toggle")) return;
     root.classList.toggle("editing");
     if (root.classList.contains("editing")) area.focus();
-    if (onToggleFilters) onToggleFilters(root.classList.contains("editing"));
+    if (onLayout) onLayout();
   });
 
   const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
