@@ -1,552 +1,555 @@
 {
- "last_node_id": 12,
- "last_link_id": 11,
- "nodes": [
-  {
-   "id": 1,
-   "type": "LoadImage",
-   "pos": [
-    40,
-    320
-   ],
-   "size": [
-    320,
-    314
-   ],
-   "flags": {},
-   "order": 1,
-   "mode": 0,
-   "inputs": [],
-   "outputs": [
+  "last_node_id": 12,
+  "last_link_id": 11,
+  "nodes": [
     {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
-      1
-     ],
-     "slot_index": 0
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        320
+      ],
+      "size": [
+        320,
+        314
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            1
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "fpt_plate_figure.png",
+        "image"
+      ],
+      "title": "Plate"
     },
     {
-     "name": "MASK",
-     "type": "MASK",
-     "links": [],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "LoadImage"
-   },
-   "widgets_values": [
-    "fpt_plate_figure.png",
-    "image"
-   ],
-   "title": "Plate"
-  },
-  {
-   "id": 2,
-   "type": "LoadMoGeModel",
-   "pos": [
-    40,
-    60
-   ],
-   "size": [
-    320,
-    58
-   ],
-   "flags": {},
-   "order": 2,
-   "mode": 0,
-   "inputs": [],
-   "outputs": [
-    {
-     "name": "MOGE_MODEL",
-     "type": "MOGE_MODEL",
-     "links": [
-      2
-     ],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "LoadMoGeModel"
-   },
-   "widgets_values": [
-    "moge-2-vitl-normal.pt"
-   ]
-  },
-  {
-   "id": 3,
-   "type": "MoGeInference",
-   "pos": [
-    420,
-    60
-   ],
-   "size": [
-    320,
-    170
-   ],
-   "flags": {},
-   "order": 3,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "moge_model",
-     "type": "MOGE_MODEL",
-     "link": 2
+      "id": 2,
+      "type": "LoadMoGeModel",
+      "pos": [
+        40,
+        60
+      ],
+      "size": [
+        320,
+        58
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MOGE_MODEL",
+          "type": "MOGE_MODEL",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadMoGeModel"
+      },
+      "widgets_values": [
+        "moge-2-vitl-normal.pt"
+      ]
     },
     {
-     "name": "image",
-     "type": "IMAGE",
-     "link": 1
-    }
-   ],
-   "outputs": [
+      "id": 3,
+      "type": "MoGeInference",
+      "pos": [
+        420,
+        60
+      ],
+      "size": [
+        320,
+        170
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "moge_model",
+          "type": "MOGE_MODEL",
+          "link": 2
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "moge_geometry",
+          "type": "MOGE_GEOMETRY",
+          "links": [
+            3,
+            4,
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MoGeInference"
+      },
+      "widgets_values": [
+        9,
+        0.0,
+        1,
+        true,
+        true
+      ]
+    },
     {
-     "name": "moge_geometry",
-     "type": "MOGE_GEOMETRY",
-     "links": [
+      "id": 4,
+      "type": "MoGeRender",
+      "pos": [
+        820,
+        40
+      ],
+      "size": [
+        280,
+        58
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "moge_geometry",
+          "type": "MOGE_GEOMETRY",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6,
+            9
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MoGeRender"
+      },
+      "widgets_values": [
+        "depth"
+      ],
+      "title": "depth"
+    },
+    {
+      "id": 5,
+      "type": "MoGeRender",
+      "pos": [
+        820,
+        170
+      ],
+      "size": [
+        280,
+        58
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "moge_geometry",
+          "type": "MOGE_GEOMETRY",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            7,
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MoGeRender"
+      },
+      "widgets_values": [
+        "normal_opengl"
+      ],
+      "title": "normal_opengl"
+    },
+    {
+      "id": 6,
+      "type": "MoGeRender",
+      "pos": [
+        820,
+        300
+      ],
+      "size": [
+        280,
+        58
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "moge_geometry",
+          "type": "MOGE_GEOMETRY",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8,
+            11
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MoGeRender"
+      },
+      "widgets_values": [
+        "mask"
+      ],
+      "title": "mask"
+    },
+    {
+      "id": 7,
+      "type": "PreviewImage",
+      "pos": [
+        1160,
+        40
+      ],
+      "size": [
+        240,
+        220
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 8,
+      "type": "PreviewImage",
+      "pos": [
+        1160,
+        290
+      ],
+      "size": [
+        240,
+        220
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 9,
+      "type": "PreviewImage",
+      "pos": [
+        1160,
+        540
+      ],
+      "size": [
+        240,
+        220
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1450,
+        40
+      ],
+      "size": [
+        400,
+        330
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "auto",
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "",
+        "depth",
+        "MoGe depth pass",
+        "",
+        true,
+        0
+      ],
+      "title": "Flow PT Publish \u2014 depth"
+    },
+    {
+      "id": 11,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1450,
+        400
+      ],
+      "size": [
+        400,
+        330
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "auto",
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "",
+        "normal_opengl",
+        "MoGe normals pass",
+        "",
+        true,
+        0
+      ],
+      "title": "Flow PT Publish \u2014 normals"
+    },
+    {
+      "id": 12,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1450,
+        760
+      ],
+      "size": [
+        400,
+        330
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 11
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "auto",
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "",
+        "mask",
+        "MoGe mask pass",
+        "",
+        true,
+        0
+      ],
+      "title": "Flow PT Publish \u2014 mask"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
       3,
+      1,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "MOGE_MODEL"
+    ],
+    [
+      3,
+      3,
+      0,
       4,
-      5
-     ],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "MoGeInference"
-   },
-   "widgets_values": [
-    9,
-    0.0,
-    1,
-    true,
-    true
-   ]
-  },
-  {
-   "id": 4,
-   "type": "MoGeRender",
-   "pos": [
-    820,
-    40
-   ],
-   "size": [
-    280,
-    58
-   ],
-   "flags": {},
-   "order": 4,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "moge_geometry",
-     "type": "MOGE_GEOMETRY",
-     "link": 3
-    }
-   ],
-   "outputs": [
-    {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
+      0,
+      "MOGE_GEOMETRY"
+    ],
+    [
+      4,
+      3,
+      0,
+      5,
+      0,
+      "MOGE_GEOMETRY"
+    ],
+    [
+      5,
+      3,
+      0,
       6,
-      9
-     ],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "MoGeRender"
-   },
-   "widgets_values": [
-    "depth"
-   ],
-   "title": "depth"
-  },
-  {
-   "id": 5,
-   "type": "MoGeRender",
-   "pos": [
-    820,
-    170
-   ],
-   "size": [
-    280,
-    58
-   ],
-   "flags": {},
-   "order": 5,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "moge_geometry",
-     "type": "MOGE_GEOMETRY",
-     "link": 4
-    }
-   ],
-   "outputs": [
-    {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
+      0,
+      "MOGE_GEOMETRY"
+    ],
+    [
+      6,
+      4,
+      0,
       7,
-      10
-     ],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "MoGeRender"
-   },
-   "widgets_values": [
-    "normal_opengl"
-   ],
-   "title": "normal_opengl"
-  },
-  {
-   "id": 6,
-   "type": "MoGeRender",
-   "pos": [
-    820,
-    300
-   ],
-   "size": [
-    280,
-    58
-   ],
-   "flags": {},
-   "order": 6,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "moge_geometry",
-     "type": "MOGE_GEOMETRY",
-     "link": 5
-    }
-   ],
-   "outputs": [
-    {
-     "name": "IMAGE",
-     "type": "IMAGE",
-     "links": [
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      5,
+      0,
       8,
-      11
-     ],
-     "slot_index": 0
-    }
-   ],
-   "properties": {
-    "Node name for S&R": "MoGeRender"
-   },
-   "widgets_values": [
-    "mask"
-   ],
-   "title": "mask"
-  },
-  {
-   "id": 7,
-   "type": "PreviewImage",
-   "pos": [
-    1160,
-    40
-   ],
-   "size": [
-    240,
-    220
-   ],
-   "flags": {},
-   "order": 7,
-   "mode": 0,
-   "inputs": [
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      6,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      4,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      5,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      6,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
     {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 6
+      "title": "one image in, three tracked Versions out",
+      "bounding": [
+        20,
+        0,
+        1860,
+        900
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
     }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "PreviewImage"
-   },
-   "widgets_values": []
-  },
-  {
-   "id": 8,
-   "type": "PreviewImage",
-   "pos": [
-    1160,
-    290
-   ],
-   "size": [
-    240,
-    220
-   ],
-   "flags": {},
-   "order": 8,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 7
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "PreviewImage"
-   },
-   "widgets_values": []
-  },
-  {
-   "id": 9,
-   "type": "PreviewImage",
-   "pos": [
-    1160,
-    540
-   ],
-   "size": [
-    240,
-    220
-   ],
-   "flags": {},
-   "order": 9,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 8
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "PreviewImage"
-   },
-   "widgets_values": []
-  },
-  {
-   "id": 10,
-   "type": "FPTPublishVersion",
-   "pos": [
-    1450,
-    40
-   ],
-   "size": [
-    400,
-    330
-   ],
-   "flags": {},
-   "order": 10,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 9
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "FPTPublishVersion"
-   },
-   "widgets_values": [
-    "auto",
-    "comfyui-fpt sandbox",
-    "sbx_0020 (Shot)",
-    "",
-    "",
-    "depth",
-    "MoGe depth pass",
-    "",
-    true,
-    0
-   ],
-   "title": "Flow PT Publish \u2014 depth"
-  },
-  {
-   "id": 11,
-   "type": "FPTPublishVersion",
-   "pos": [
-    1450,
-    400
-   ],
-   "size": [
-    400,
-    330
-   ],
-   "flags": {},
-   "order": 11,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 10
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "FPTPublishVersion"
-   },
-   "widgets_values": [
-    "auto",
-    "comfyui-fpt sandbox",
-    "sbx_0020 (Shot)",
-    "",
-    "",
-    "normal_opengl",
-    "MoGe normals pass",
-    "",
-    true,
-    0
-   ],
-   "title": "Flow PT Publish \u2014 normals"
-  },
-  {
-   "id": 12,
-   "type": "FPTPublishVersion",
-   "pos": [
-    1450,
-    760
-   ],
-   "size": [
-    400,
-    330
-   ],
-   "flags": {},
-   "order": 12,
-   "mode": 0,
-   "inputs": [
-    {
-     "name": "images",
-     "type": "IMAGE",
-     "link": 11
-    }
-   ],
-   "outputs": [],
-   "properties": {
-    "Node name for S&R": "FPTPublishVersion"
-   },
-   "widgets_values": [
-    "auto",
-    "comfyui-fpt sandbox",
-    "sbx_0020 (Shot)",
-    "",
-    "",
-    "mask",
-    "MoGe mask pass",
-    "",
-    true,
-    0
-   ],
-   "title": "Flow PT Publish \u2014 mask"
-  }
- ],
- "links": [
-  [
-   1,
-   1,
-   0,
-   3,
-   1,
-   "IMAGE"
   ],
-  [
-   2,
-   2,
-   0,
-   3,
-   0,
-   "MOGE_MODEL"
-  ],
-  [
-   3,
-   3,
-   0,
-   4,
-   0,
-   "MOGE_GEOMETRY"
-  ],
-  [
-   4,
-   3,
-   0,
-   5,
-   0,
-   "MOGE_GEOMETRY"
-  ],
-  [
-   5,
-   3,
-   0,
-   6,
-   0,
-   "MOGE_GEOMETRY"
-  ],
-  [
-   6,
-   4,
-   0,
-   7,
-   0,
-   "IMAGE"
-  ],
-  [
-   7,
-   5,
-   0,
-   8,
-   0,
-   "IMAGE"
-  ],
-  [
-   8,
-   6,
-   0,
-   9,
-   0,
-   "IMAGE"
-  ],
-  [
-   9,
-   4,
-   0,
-   10,
-   0,
-   "IMAGE"
-  ],
-  [
-   10,
-   5,
-   0,
-   11,
-   0,
-   "IMAGE"
-  ],
-  [
-   11,
-   6,
-   0,
-   12,
-   0,
-   "IMAGE"
-  ]
- ],
- "groups": [
-  {
-   "title": "one image in, three tracked Versions out",
-   "bounding": [
-    20,
-    0,
-    1860,
-    900
-   ],
-   "color": "#3f789e",
-   "font_size": 24,
-   "flags": {}
-  }
- ],
- "config": {},
- "extra": {},
- "version": 0.4
+  "config": {},
+  "extra": {},
+  "version": 0.4
 }

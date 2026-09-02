@@ -31,6 +31,9 @@ class FPTFetchVersion:
             "optional": {
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id)}),
+                "link_type": (site.link_type_choices(project_id),
+                              {"tooltip": "Restrict the list to one type. Empty means every type "
+                                          "this project uses."}),
                 "link": (_labels([(l, i) for l, _, i in site.links(project_id)]),
                          {"tooltip": "Narrow to one entity. Each option carries its own type, "
                                      "because Version.entity accepts many."}),
@@ -54,8 +57,8 @@ class FPTFetchVersion:
         }
 
     @classmethod
-    def IS_CHANGED(cls, version_id=0, select=resolve.NEWEST, project=NONE, link=NONE,
-                   source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, **kw):
+    def IS_CHANGED(cls, version_id=0, select=resolve.NEWEST, project=NONE, link_type=NONE,
+                   link=NONE, source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, **kw):
         """Re-resolve at queue time, so the graph sees what has been published since.
 
         Without this ComfyUI caches on unchanged widgets and a second run costs 0.00s without ever
@@ -87,12 +90,14 @@ class FPTFetchVersion:
     CATEGORY = "Flow PT"
     DESCRIPTION = "Pull a Flow PT Version's media into the graph, recording it as a source."
 
-    def fetch(self, version_id, select=resolve.NEWEST, project=NONE, link=NONE, version=NONE,
-              source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, unique_id=None):
+    def fetch(self, version_id, select=resolve.NEWEST, project=NONE, link_type=NONE, link=NONE,
+              version=NONE, source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1,
+              unique_id=None):
         project_id = _id_for(site.projects(), project) or site.default_project()
         p = site.for_project(project_id)
         picked_type, picked_name = site.split_link(link)
-        link_type = picked_type or p.get("link_type", "Shot")
+        link_type = (picked_type or (site.chosen_types(link_type, project_id) or [""])[0]
+                     or p.get("link_type", "Shot"))
 
         if select == resolve.PINNED:
             vid, why = int(version_id), "pinned"

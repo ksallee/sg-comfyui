@@ -2,6 +2,7 @@ import { app } from "../../scripts/app.js";
 import { ComfyWidgets } from "../../scripts/widgets.js";
 
 const NONE = "";
+const ALL_TYPES = "(all types)";
 
 // Labels read `name (Type)` — the type is context, never part of what is searched.
 function typeFromLabel(label) {
@@ -25,14 +26,10 @@ function setOptions(widget, labels, keep) {
   widget.value = widget.options.values.includes(wanted) ? wanted : NONE;
 }
 
-// The search box is deliberately NOT moved above the combo it drives, tempting as that is: ComfyUI
-// serialises widgets_values positionally, and inserting a widget mid-list shifts every value after it
-// into the wrong field on reload — `serialize = false` is not honoured here, so a moved box produced
-// nulls in the array and a node that came back pointing at the wrong project.
-//
-// So the combo's own dropdown stays available, and it filters only what is already loaded with a plain
-// substring match: `f` finds Giraffe Ruler, `f r` does not. The `search links` box below queries the
-// site instead, where several words must all match. The tooltip says so, because the two look alike.
+// There is deliberately no search box of our own. ComfyUI's combo dropdown already searches, and a
+// second box beside it behaved differently — its filter is a plain substring over what is loaded, so
+// `f` found Giraffe Ruler and `f r` did not. Narrowing is `link_type` instead: the list stays whole,
+// and the editor searches it the way it searches everything else.
 
 app.registerExtension({
   name: "fpt.pickers",
@@ -47,6 +44,7 @@ app.registerExtension({
 
       const w = (n) => this.widgets?.find((x) => x.name === n);
       const project = w("project"), link = w("link"), task = w("task"), status = w("status");
+      const linkTypeW = w("link_type");
       if (!project || !link) return;
 
       // project ids are not on the widgets - the combos carry labels, so the server resolves them.
@@ -62,10 +60,11 @@ app.registerExtension({
         app.graph.setDirtyCanvas(true, true);
       };
 
-      const loadLinks = async (q) => {
-        // No type filter: Version.entity accepts many types and a show may use several at once.
-        const d = await get(
-          `/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q || "")}`);
+      const loadLinks = async (picked) => {
+        // The picked value again, not the widget's: it lags the callback.
+        const chosen = picked ?? linkTypeW?.value;
+        const t = (chosen && chosen !== ALL_TYPES) ? `&type=${encodeURIComponent(chosen)}` : "";
+        const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
         linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
         setOptions(link, d.items.map((x) => x.label));
         await loadTasks();
@@ -84,24 +83,23 @@ app.registerExtension({
         const prof = await get(`/fpt/profile?project_id=${projectId}`);
         linkType = prof.link_type || "Shot";
         link.tooltip = "What this Version belongs to — each option carries its own type.";
-        search.tooltip = "Search the site: several words must ALL match the name, as in Flow PT "
-        + "(`gir ruler` finds Giraffe Ruler). The list below shows the most recently updated until "
-        + "you type. Typing inside the dropdown only filters what is already loaded.";
         if (status) {
           const s = await get(`/fpt/statuses?project_id=${projectId}`);
           setOptions(status, s.items.map((x) => x.label));
         }
-        await loadLinks(search.value);
+        if (linkTypeW) {
+          const t = await get(`/fpt/link_types?project_id=${projectId}`);
+          const vals = t.items.map((x) => x.label);
+          linkTypeW.options.values = vals;
+          if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
+        }
+        await loadLinks();
       };
 
       // Type-ahead. Filtering is server-side (probe 017 `contains`), so this scales past the page size.
-      let pending;
-      const search = this.addWidget("text", "search links", "", (v) => {
-        clearTimeout(pending);
-        pending = setTimeout(() => loadLinks(v), 250);
-      });
 
       const wrap = (widget, after) => {
+        if (!widget) return;
         const prev = widget.callback;
         widget.callback = function (value) {
           const r = prev?.apply(this, arguments);
@@ -113,6 +111,7 @@ app.registerExtension({
         };
       };
       wrap(project, loadProject);
+      wrap(linkTypeW, loadLinks);
       wrap(link, loadTasks);
 
       this.addWidget("button", "refresh from site", null, loadProject);
@@ -131,6 +130,7 @@ function fetchPickers(nodeType) {
 
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), link = w("link"), version = w("version");
+    const linkTypeW = w("link_type");
     const source = w("source"), versionId = w("version_id");
     if (!project || !version || !versionId) return;
 
@@ -169,20 +169,22 @@ function fetchPickers(nodeType) {
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const loadVersions = async (q) => {
+    const loadVersions = async () => {
       const d = await get(`/fpt/versions?project_id=${projectId}` +
-        `&type=${encodeURIComponent(linkType)}&link_id=${linkIds[link?.value] || 0}` +
-        `&q=${encodeURIComponent(q || "")}`);
+        `&type=${encodeURIComponent(typeFromLabel(link?.value) || linkType)}` +
+        `&link_id=${linkIds[link?.value] || 0}`);
       versionIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
       setOptions(version, d.items.map((x) => x.label));
       await loadSources();
     };
 
-    const loadLinks = async () => {
-      const d = await get(`/fpt/entities?project_id=${projectId}`);
+    const loadLinks = async (picked) => {
+      const chosen = picked ?? linkTypeW?.value;   // lags the callback; see the publish-side note
+      const t = (chosen && chosen !== ALL_TYPES) ? `&type=${encodeURIComponent(chosen)}` : "";
+      const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
       linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
       if (link) setOptions(link, d.items.map((x) => x.label));
-      await loadVersions(search.value);
+      await loadVersions();
     };
 
     const loadProject = async (picked) => {
@@ -202,11 +204,6 @@ function fetchPickers(nodeType) {
       await loadLinks();
     };
 
-    let pending;
-    const search = this.addWidget("text", "search versions", "", (v) => {
-      clearTimeout(pending);
-      pending = setTimeout(() => loadVersions(v), 250);
-    });
 
     const wrap = (widget, after) => {
       if (!widget) return;
@@ -218,7 +215,8 @@ function fetchPickers(nodeType) {
       };
     };
     wrap(project, loadProject);
-    wrap(link, () => loadVersions(search.value));
+    wrap(linkTypeW, loadLinks);
+    wrap(link, loadVersions);
     wrap(version, loadSources);
     // Anything that changes which Version the rule lands on refreshes the panel.
     [select, status, order, match].forEach((x) => wrap(x, loadSources));

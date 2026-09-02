@@ -52,6 +52,11 @@ class FPTPublishVersion:
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id),
                              "tooltip": "Project to publish into."}),
+                # Narrowing lives here, not in a search box beside the combo: the editor's own
+                # dropdown already searches, and a second one behaves differently.
+                "link_type": (site.link_type_choices(project_id),
+                              {"tooltip": "Restrict the list to one type. Empty means every type "
+                                          "this project uses."}),
                 "link": (_labels(links),
                          {"tooltip": "What this Version belongs to. Version.entity accepts many "
                                      "types, so each option carries its own."}),
@@ -87,7 +92,8 @@ class FPTPublishVersion:
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
-    def publish(self, images, code, project=NONE, link=NONE, task=NONE, status=NONE, output_name="", note="",
+    def publish(self, images, code, project=NONE, link_type=NONE, link=NONE, task=NONE,
+                status=NONE, output_name="", note="",
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         # The picked project decides, then the profile answers for THAT project — two graphs open in
@@ -100,7 +106,9 @@ class FPTPublishVersion:
         # The type comes from what was picked, not from a profile default: Version.entity accepts 15
         # types and a show may use several at once.
         picked_type, picked_name = site.split_link(link)
-        link_type = picked_type or p.get("link_type", "Shot")
+        # The label's own type wins; the filter is only a way to shorten the list.
+        link_type = (picked_type or (site.chosen_types(link_type, project_id) or [""])[0]
+                     or p.get("link_type", "Shot"))
 
         # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
         target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),

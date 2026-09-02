@@ -29,14 +29,23 @@ def register():
     async def projects(request):
         return pairs(site.projects)
 
+    @routes.get("/fpt/link_types")
+    async def link_types(request):
+        """Entity types this project links Versions to. Empty choice means all of them."""
+        try:
+            ts = site.link_type_choices(int(request.rel_url.query.get("project_id") or 0))
+            return web.json_response({"items": [{"label": t, "id": t} for t in ts]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": str(e)[:200]})
+
     @routes.get("/fpt/entities")
     async def entities(request):
         """Every type this project links Versions to, not one. Version.entity accepts 15 types."""
         q = request.rel_url.query
         try:
             # probe 017 — `contains` filters server-side, so the list is never fetched whole.
-            rows = site.links(int(q.get("project_id") or 0), q.get("q", ""),
-                              [q["type"]] if q.get("type") else None)
+            pid = int(q.get("project_id") or 0)
+            rows = site.links(pid, q.get("q", ""), site.chosen_types(q.get("type", ""), pid))
             return web.json_response({"items": [{"label": l, "type": t, "id": i} for l, t, i in rows]})
         except Exception as e:
             return web.json_response({"items": [], "error": str(e)[:200]})
