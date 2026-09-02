@@ -94,6 +94,21 @@ operator edits layered on top.
 - Schema says what is *possible*; recent Versions say what is *practiced*. Rank fields by fill rate over the
   project's last N Versions, not by what the schema permits — sites carry hundreds of dead legacy fields.
 - Keyed per project, not per site. One studio runs shows with different conventions.
+
+Top-level keys are the site default; a `projects` block overrides them per show. Nothing is global that a
+show can disagree about:
+
+    {
+      "default_project": 1180,
+      "projects": {
+        "1180": {"name": "sandbox",   "link_type": "Shot",  "link_field": "entity", "code_prefix": "corridor_v001"},
+        "91":   {"name": "Kids Room", "link_type": "Asset", "link_field": "entity", "code_prefix": "comfy_v001"}
+      }
+    }
+
+This is what lets two graphs open in one ComfyUI publish into two shows that link Versions differently. The
+node resolves `link_type` from the project the operator picked on that node, and `/fpt/profile` tells the
+editor the same thing so the link picker searches the right entity type. One ComfyUI, one profile, many shows.
 - Plain JSON, human-editable, regenerable. Operator edits win over inference.
 - Gitignored. Field naming and pipeline conventions are potentially confidential — unlike `probes/findings/`,
   which document the API itself and are safe to publish.

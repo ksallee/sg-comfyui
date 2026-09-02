@@ -33,7 +33,7 @@ app.registerExtension({
 
       // project ids are not on the widgets - the combos carry labels, so the server resolves them.
       let projectId = 0;
-      let linkType = "Shot";
+      let linkType = "Shot";   // replaced per project by /fpt/profile; never assume (probe 005)
       let linkIds = {};
 
       const loadTasks = async () => {
@@ -56,6 +56,12 @@ app.registerExtension({
         const d = await get("/fpt/projects");
         projectId = (d.items.find((x) => x.label === project.value) || {}).id || 0;
         setOptions(project, d.items.map((x) => x.label));
+        // link_type is per project: one show hangs Versions off Shots, the next off Assets. Asking
+        // the server is what lets two graphs in one ComfyUI target two shows that disagree.
+        const prof = await get(`/fpt/profile?project_id=${projectId}`);
+        linkType = prof.link_type || "Shot";
+        link.tooltip = `${linkType} this Version belongs to.`;
+        search.tooltip = `Type to search ${linkType}s by name.`;
         if (status) {
           const s = await get(`/fpt/statuses?project_id=${projectId}`);
           setOptions(status, s.items.map((x) => x.label));

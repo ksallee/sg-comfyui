@@ -1,4 +1,4 @@
-"""FPT Publish Version — an image out of the graph becomes a Version with its provenance."""
+"""Flow PT Publish Version — an image out of the graph becomes a Version with its provenance."""
 import io
 import json
 
@@ -34,11 +34,13 @@ class FPTPublishVersion:
         # Re-evaluated on every /object_info request (server.py:756), so a profile edit or a new Shot
         # reaches the operator on a browser refresh. The JS extension keeps the dependent lists in step
         # while the graph is open; these are only the seed values.
-        p = site.profile()
-        project_id = int(p.get("project_id", 0))
+        project_id = site.default_project()
+        p = site.for_project(project_id)
         link_type = p.get("link_type", "Shot")
         links = site.entities(link_type, project_id)
         first_link = links[0][1] if len(links) == 1 else 0
+        statuses = site.statuses(project_id)
+        status_label = next((l for l, c in statuses if c == p.get("status")), NONE)
 
         return {
             "required": {
@@ -54,8 +56,9 @@ class FPTPublishVersion:
                 "task": (_labels(site.tasks_for(link_type, first_link)),
                          {"tooltip": "Task on that entity. Often empty — probe 005 found sg_task "
                                      "filled on 1% of Versions, so it is optional by design."}),
-                "status": (_labels(site.statuses(project_id)),
-                           {"default": "", "tooltip": "Usable statuses for this project (probe 009)."}),
+                "status": (_labels(statuses),
+                           {"default": status_label,
+                            "tooltip": "Usable statuses for this project (probe 009)."}),
                 "note": ("STRING", {"multiline": True, "default": "",
                                     "tooltip": "Human note. Provenance is recorded separately."}),
                 "source_versions": ("STRING", {"default": "",
@@ -81,13 +84,14 @@ class FPTPublishVersion:
     def publish(self, images, code, project=NONE, link=NONE, task=NONE, status=NONE, note="",
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
-        p = site.profile()
+        # The picked project decides, then the profile answers for THAT project — two graphs open in
+        # one ComfyUI can target two shows that link Versions differently.
+        project_id = _id_for(site.projects(), project) or site.default_project()
+        if not project_id:
+            raise ValueError("no project: pick one, or set default_project in profile.local.json")
+        p = site.for_project(project_id)
         link_type = p.get("link_type", "Shot")
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
-
-        project_id = _id_for(site.projects(), project) or int(p.get("project_id", 0))
-        if not project_id:
-            raise ValueError("no project: pick one, or set project_id in profile.local.json")
 
         # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
         target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=link), link) if link else 0)
