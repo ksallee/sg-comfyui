@@ -64,6 +64,26 @@ def next_number(existing_numbers):
     return max(ns, default=0) + 1
 
 
+# What each token may contain when a template is turned into a concrete regex.
+TOKEN_RX = {"link": r".+?", "task": r"[A-Za-z][A-Za-z0-9]*", "output": r".+?", "version": r"\d+"}
+
+
+def regex_from_template(template, link=""):
+    """A concrete regex for one template, anchoring {link} literally when the link is known.
+
+    Without that anchor a non-greedy {link} swallows part of {output}: `sbx_0020_depth_v001` parsed as
+    link='sbx', output='0020_depth', so numbering for 'depth' never found its own history and every
+    publish produced v001 again — two Versions, one code.
+    """
+    out, i = "", 0
+    for m in re.finditer(r"\{(\w+)\}", template):
+        out += re.escape(template[i:m.start()])
+        name = m.group(1)
+        out += re.escape(link) if (name == "link" and link) else f"(?P<{name}>{TOKEN_RX.get(name, '.+?')})"
+        i = m.end()
+    return "^" + out + re.escape(template[i:]) + "$"
+
+
 def parse(code, regex):
     m = re.match(regex, code or "")
     if not m:
@@ -82,12 +102,15 @@ def width(regex, codes):
 def next_code(template, regex, existing, link="", task="", output=""):
     """The next code for one link, following the convention the site already uses.
 
-    `existing` is every code already on that link. Numbering is per link, not global — two shots each
-    have their own v001.
+    `existing` is every code already on that link. Numbering is per link AND per output: two shots
+    each have their own v001, and a depth pass does not count a normals pass as history.
     """
-    parsed = [p for p in (parse(c, regex) for c in existing) if p]
-    n = max((p["version"] for p in parsed), default=0) + 1
-    w = width(regex, existing)
+    # Anchored on this link, so `depth` finds its own history and not another output's.
+    rx = regex_from_template(template, link) if template else regex
+    kept = [c for c in existing
+            if (p := parse(c, rx)) and (not output or p.get("output") == output)]
+    n = max((parse(c, rx)["version"] for c in kept), default=0) + 1
+    w = width(rx, kept) if kept else width(regex, existing)
     out = template.replace("{version}", str(n).zfill(w))
     return (out.replace("{link}", link or "").replace("{task}", task or "")
                .replace("{output}", output or ""))
