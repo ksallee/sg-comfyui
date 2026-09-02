@@ -50,11 +50,11 @@
         "",
         "depth",
         "Approved",
-        "",
         "version number in the name",
         0,
         "auto",
-        1
+        1,
+        ""
       ],
       "title": "Flow PT Fetch \u2014 newest Approved depth on this Shot"
     },

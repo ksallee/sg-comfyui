@@ -88,15 +88,6 @@ class FPTFetchVersion:
                              "tooltip": "Any of these will do; empty means any status. Comma "
                                         "separated. This project allows: "
                                         + ", ".join(l for l, _ in statuses)}),
-                # The API's own language, for when the fields above cannot say it. Empty means the
-                # fields decide; the panel shows what they add up to, so this starts as a copy of
-                # something that already works rather than a blank page.
-                "filters": ("STRING", {"default": "", "multiline": True,
-                            "display_name": "SG Filters",
-                            "tooltip": "The Flow PT filter the fields above add up to, shown as you "
-                                       "change them. Edit it and it takes over. An array is an "
-                                       "implicit AND; for OR use a group: {\"logical_operator\": "
-                                       "\"or\", \"conditions\": [...]} (probe 030)."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent."}),
@@ -108,6 +99,21 @@ class FPTFetchVersion:
                                                "Version can actually deliver."}),
                 "frame": ("INT", {"default": 1, "min": 1, "max": 1048576,
                                   "tooltip": "Frame to read from a sequence or a movie."}),
+                # The API's own language, for when the fields here cannot say it. Empty means the
+                # fields decide; the panel shows what they add up to, so this starts as a copy of
+                # something that already works rather than a blank page.
+                "filters": ("STRING", {"default": "", "multiline": True,
+                            "display_name": "SG Filters",
+                            # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A
+                            # hand-rolled toggle button ends up appended at the bottom, nowhere near
+                            # the widget it controls, and cannot be moved next to it because
+                            # widgets_values is positional.
+                            "advanced": True,
+                            "tooltip": "The Flow PT filter the fields here add up to, shown as you "
+                                       "change them. Edit it and it takes over. An array is an "
+                                       "implicit AND; for OR use a group: {\"logical_operator\": "
+                                       "\"or\", \"conditions\": [...]} (probe 030)."}),
+
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }

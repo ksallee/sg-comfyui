@@ -152,25 +152,20 @@ function fetchPickers(nodeType) {
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
     let mirrored = "";
 
-    // SG Filters is advanced: folded away by default so the node stays short, and resizable when
-    // opened because a nested filter is taller than any height we could pick for it.
+    // `advanced: true` on the input is a V3-schema feature and is ignored for a legacy dict
+    // INPUT_TYPES, so the fold is ours — but the widget is declared LAST, directly above this panel,
+    // so the control sits next to the thing it controls. No CSS resize: a `resize: vertical`
+    // textarea tells the node nothing and grows over its neighbours; drag the node instead.
     const filterBox = w("filters");
-    if (filterBox) {
-      filterBox.hidden = true;
-      if (filterBox.inputEl) {
-        filterBox.inputEl.style.resize = "vertical";
-        filterBox.inputEl.style.minHeight = "48px";
-      }
-      this.addWidget("button", "▸ SG Filters", null, () => {
-        filterBox.hidden = !filterBox.hidden;
-        const btn = this.widgets.find((x) => x.name.endsWith("SG Filters"));
-        if (btn) btn.name = (filterBox.hidden ? "▸" : "▾") + " SG Filters";
-        this.setSize(this.computeSize());
-        app.graph.setDirtyCanvas(true, true);
-      }).serialize = false;
-    }
+    if (filterBox) filterBox.hidden = true;
+    const toggleFilters = () => {
+      if (!filterBox) return;
+      filterBox.hidden = !filterBox.hidden;
+      this.setSize(this.computeSize());
+      app.graph.setDirtyCanvas(true, true);
+    };
 
-    const panel = addPanel(this, "Flow PT Fetch");
+    const panel = addPanel(this, "Flow PT Fetch", toggleFilters);
 
     const refresh = async () => {
       const q = new URLSearchParams({
@@ -181,8 +176,10 @@ function fetchPickers(nodeType) {
         pin_version_id: w("pin_version_id")?.value || 0,
         // Only when it is an override. While the box is still mirroring, sending it back would let
         // its own (now stale) content win over the very fields it is meant to reflect.
-        filters: (w("filters")?.value || "").trim() === mirrored.trim()
-          ? "" : (w("filters")?.value || ""),
+        // String(): a workflow saved before this widget moved can land a number here, and a raw
+        // .trim() on it takes the whole picker down.
+        filters: String(w("filters")?.value ?? "").trim() === mirrored.trim()
+          ? "" : String(w("filters")?.value ?? ""),
       });
       for (const s of String(statuses?.value || "").split(",")) {
         const t = s.trim();
@@ -191,7 +188,7 @@ function fetchPickers(nodeType) {
       const d = await get(`/fpt/resolve?${q}`);
       panel.show(d);
       const box = w("filters");
-      if (box && d.filters && (box.value || "").trim() === mirrored) {
+      if (box && d.filters && String(box.value ?? "").trim() === mirrored) {
         mirrored = JSON.stringify(d.filters, null, 1);
         box.value = mirrored;
       }
