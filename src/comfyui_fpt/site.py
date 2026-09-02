@@ -170,32 +170,60 @@ def link_types(project_id, limit=100):
     for t in (p.get("link_type", "Shot"), "Shot", "Asset", "Sequence"):
         if t and t not in out:
             out.append(t)
-    return out
+    # Keep only what the field will actually accept. Old rows can point at a type the schema no
+    # longer allows — this site has Versions on Project, which is not in valid_types — and offering
+    # it would produce a picker that cannot be written back.
+    allowed = valid_link_types(project_id)
+    return [t for t in out if t in allowed] or out
 
 
-BROWSE_TYPES = 2     # while browsing, only the types this show mostly uses
-BROWSE_EACH = 20     # and only the most recently touched of each
-SEARCH_EACH = 40
+def valid_link_types(project_id=None, field="entity", entity_type="Version"):
+    """What the link field accepts, straight from the schema. 15 types on this site."""
+    def fetch():
+        params = {"project_id": int(project_id)} if project_id else {}
+        r = client().get(f"/schema/{entity_type}/fields/{field}", params=params)
+        if not r.ok:
+            return []
+        return r.json()["data"]["properties"].get("valid_types", {}).get("value") or []
+    return _cached(("valid_link_types", int(project_id or 0), entity_type, field), fetch)
+
+
+# A readable, selectable "no restriction". An empty string cannot be chosen back once you leave it —
+# a combo shows nothing to click — so the absence of a filter has to be a real option.
+ALL_TYPES = "(all types)"
+PER_TYPE = 500       # a full list, capped so a pathological show cannot wedge the editor
+
+
+def link_type_choices(project_id):
+    """What to offer in the link_type combo: no restriction, then what this show uses, then the rest
+    the field accepts. A type nothing links to yet still has to be pickable — that is precisely the
+    case when a show is starting."""
+    used = link_types(project_id)
+    rest = [t for t in valid_link_types(project_id) if t not in used]
+    return [ALL_TYPES] + used + sorted(rest)
+
+
+def chosen_types(link_type, project_id):
+    """None when the operator asked for everything, else the one type they picked."""
+    if not link_type or link_type == ALL_TYPES:
+        return None
+    return [link_type]
 
 
 def links(project_id, q="", types=None):
-    """(label, type, id) — recent entities to browse, or search hits when a query is given.
+    """(label, type, id) — the whole list, for ComfyUI's own dropdown to search.
 
-    A show with 4000 Shots cannot be put in a combo, so an empty query lists only the most recently
-    UPDATED few of the couple of types the show actually uses — recency is what makes a short list
-    useful, since the thing you are publishing against is almost always something touched lately.
-    Typing widens it: every observed type, more of each, matched server-side.
+    Narrowing belongs to `link_type`, not to a second search box: the editor already has a searchable
+    dropdown, and a bespoke one beside it behaves differently (its filter is a plain substring over
+    what is loaded) which is worse than having none. So this returns everything for the chosen type,
+    or for every type the show uses when none is chosen, sorted by name because a browsable list
+    should be predictable.
     """
     if not project_id:
         return []
-    ts = types or link_types(project_id)
-    if not q:
-        ts = ts[:BROWSE_TYPES]
     out = []
-    for t in ts:
-        for name, eid in entities(t, project_id, q=q,
-                                  limit=SEARCH_EACH if q else BROWSE_EACH,
-                                  sort="code" if q else "-updated_at"):
+    for t in (types or link_types(project_id)):
+        for name, eid in entities(t, project_id, q=q, limit=PER_TYPE, sort="code"):
             out.append((label_for(name, t), t, eid))
     return out
 
