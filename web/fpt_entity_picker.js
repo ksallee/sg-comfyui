@@ -21,6 +21,7 @@ app.registerExtension({
   name: "fpt.pickers",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
+    if (nodeData.name === "FPTFetchVersion") return fetchPickers(nodeType);
     if (nodeData.name !== "FPTPublishVersion") return;
 
     const onCreated = nodeType.prototype.onNodeCreated;
@@ -93,3 +94,79 @@ app.registerExtension({
     };
   },
 });
+
+// Fetch node. Same shape as the publish pickers, with one extra step: which media a Version can
+// deliver is a property of that Version, not of the site (probe 021), so `source` is reloaded per
+// pick and only ever offers tiers that resolve to something.
+function fetchPickers(nodeType) {
+  const onCreated = nodeType.prototype.onNodeCreated;
+  nodeType.prototype.onNodeCreated = function () {
+    onCreated?.apply(this, arguments);
+
+    const w = (n) => this.widgets?.find((x) => x.name === n);
+    const project = w("project"), link = w("link"), version = w("version");
+    const source = w("source"), versionId = w("version_id");
+    if (!project || !version || !versionId) return;
+
+    let projectId = 0, linkType = "Shot", linkIds = {}, versionIds = {};
+
+    const loadSources = async () => {
+      const id = versionIds[version.value] || 0;
+      versionId.value = id;   // the widget the graph carries, and the only thing lineage reads
+      if (source) {
+        const d = await get(`/fpt/version_sources?version_id=${id}`);
+        source.options.values = ["auto"].concat(d.items.map((x) => x.label));
+        if (!source.options.values.includes(source.value)) source.value = "auto";
+      }
+      app.graph.setDirtyCanvas(true, true);
+    };
+
+    const loadVersions = async (q) => {
+      const d = await get(`/fpt/versions?project_id=${projectId}` +
+        `&type=${encodeURIComponent(linkType)}&link_id=${linkIds[link?.value] || 0}` +
+        `&q=${encodeURIComponent(q || "")}`);
+      versionIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
+      setOptions(version, d.items.map((x) => x.label));
+      await loadSources();
+    };
+
+    const loadLinks = async () => {
+      const d = await get(`/fpt/entities?type=${encodeURIComponent(linkType)}&project_id=${projectId}`);
+      linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
+      if (link) setOptions(link, d.items.map((x) => x.label));
+      await loadVersions(search.value);
+    };
+
+    const loadProject = async () => {
+      const d = await get("/fpt/projects");
+      projectId = (d.items.find((x) => x.label === project.value) || {}).id || 0;
+      setOptions(project, d.items.map((x) => x.label));
+      const prof = await get(`/fpt/profile?project_id=${projectId}`);
+      linkType = prof.link_type || "Shot";
+      if (link) link.tooltip = `Narrow to one ${linkType}.`;
+      await loadLinks();
+    };
+
+    let pending;
+    const search = this.addWidget("text", "version_search", "", (v) => {
+      clearTimeout(pending);
+      pending = setTimeout(() => loadVersions(v), 200);
+    });
+
+    const wrap = (widget, after) => {
+      if (!widget) return;
+      const prev = widget.callback;
+      widget.callback = function () {
+        const r = prev?.apply(this, arguments);
+        after();
+        return r;
+      };
+    };
+    wrap(project, loadProject);
+    wrap(link, () => loadVersions(search.value));
+    wrap(version, loadSources);
+
+    this.addWidget("button", "refresh from site", null, loadProject);
+    loadProject();
+  };
+}

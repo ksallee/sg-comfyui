@@ -81,6 +81,27 @@ def ancestors(prompt, node_id):
     return seen
 
 
+def fetched_versions(prompt, node_id):
+    """Version ids pulled from Flow PT upstream of node_id, in graph order.
+
+    Lineage the operator never types. A Fetch node's `version_id` is a plain widget, so it is already
+    in the prompt — the branch walk that scopes provenance (ancestors) also answers "what did this
+    come from". A plate feeding a previs records the plate; three Versions feeding one output record
+    all three.
+    """
+    ids, scope = [], ancestors(prompt, node_id)
+    for nid in _order(prompt):
+        if nid not in scope:
+            continue
+        node = prompt.get(nid) or {}
+        if node.get("class_type") != "FPTFetchVersion":
+            continue
+        vid = (node.get("inputs") or {}).get("version_id")
+        if isinstance(vid, int) and vid > 0 and vid not in ids:
+            ids.append(vid)
+    return ids
+
+
 def extract(prompt, extra_pnginfo=None, node_id=None):
     """Everything the graph knows about how this image was made.
 

@@ -109,7 +109,12 @@ class FPTPublishVersion:
         # Which typed fields this site actually has. Absent until `python -m comfyui_fpt.fields` has
         # run, so the blob fallback is the honest default, not a bug.
         have = fpt_fields.available(fpt)
+        # Typed ids first, then whatever a Fetch node upstream already proves. The operator can add
+        # a source the graph cannot see; they should never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
+        for vid in provenance.fetched_versions(prompt or {}, unique_id):
+            if vid not in src_ids:
+                src_ids.append(vid)
         typed = {k: v for k, v in fpt_fields.values_for(prov, src_ids).items() if k in have}
 
         published = []
