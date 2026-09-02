@@ -132,7 +132,10 @@ def project_name(project_id):
     return next((n for n, i in projects() if i == int(project_id or 0)), "")
 
 
-SEP = " · "   # unlikely inside a real name, and the label must round-trip to (type, id)
+# Flow PT's own convention: the name leads, the type is shown after it as context. Putting the type
+# first would mean typing a name no longer jumps to it in a combo.
+def label_for(name, entity_type):
+    return f"{name} ({entity_type})"
 
 
 def link_types(project_id, limit=100):
@@ -181,16 +184,17 @@ def links(project_id, q="", types=None, limit=100):
     out = []
     for t in (types or link_types(project_id)):
         for name, eid in entities(t, project_id, q=q, limit=limit):
-            out.append((f"{t}{SEP}{name}", t, eid))
+            out.append((label_for(name, t), t, eid))
     return out
 
 
 def split_link(label):
-    """`Shot · bunny_030_0090` -> ("Shot", "bunny_030_0090"). A bare name keeps its type unknown."""
-    if label and SEP in label:
-        t, _, name = label.partition(SEP)
+    """`bunny_030_0090 (Shot)` -> ("Shot", "bunny_030_0090"). A bare name keeps its type unknown."""
+    label = (label or "").strip()
+    if label.endswith(")") and " (" in label:
+        name, _, t = label[:-1].rpartition(" (")
         return t, name
-    return "", label or ""
+    return "", label
 
 
 def entities(entity_type, project_id, q="", field="code", limit=200):
@@ -204,8 +208,10 @@ def entities(entity_type, project_id, q="", field="code", limit=200):
 
     def fetch():
         filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
-        if q:
-            filters.append([field, "contains", q])
+        # Multi-word search the way the Flow PT UI does it: `foo bar` matches names containing BOTH,
+        # and only the name is searched — the type is shown, never matched (probe 017: filters AND,
+        # and `contains` is real).
+        filters += [[field, "contains", term] for term in (q or "").split()]
         r = client().post(f"{route(entity_type)}/_search", headers=ARRAY_JSON,
                           json={"filters": filters, "fields": [field], "page": {"size": limit}})
         return [] if not r.ok else [(d["attributes"][field], d["id"]) for d in r.json()["data"]
