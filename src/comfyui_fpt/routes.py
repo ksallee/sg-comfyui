@@ -88,29 +88,29 @@ def register():
     async def resolve_one(request):
         """What the Fetch node WOULD pull, and what that Version is.
 
-        Editor-time, so an artist sees which Version a rule lands on and what made it before running
-        anything — the same resolution the node performs, so the preview cannot disagree with the run.
+        Editor-time, and it calls the node's own resolver, so the preview cannot disagree with the run.
         """
         try:
-            from . import media, resolve
+            from . import media
+            from .nodes.fetch_version import FPTFetchVersion
             q = request.rel_url.query
-            project_id = int(q.get("project_id") or 0) or site.default_project()
-            p = site.for_project(project_id)
-            link_type = q.get("link_type") or p.get("link_type", "Shot")
-            fpt = site.client()
-            if q.get("select") == resolve.PINNED:
-                vid, code, why = int(q.get("version_id") or 0), "", "pinned"
+            pin = int(q.get("pin_version_id") or 0)
+            if pin:
+                vid, code, why = pin, "", "pinned by id"
             else:
-                vid, code, why = resolve.pick(link_type, int(q.get("link_id") or 0), project_id,
-                                              q.get("match", ""), q.get("status", ""),
-                                              q.get("order", resolve.BY_ID), p.get("code_regex", ""))
+                vid, code, why = FPTFetchVersion._resolve(
+                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
+                    q.get("task", ""), q.get("name_contains", ""),
+                    [x for x in q.getall("statuses", []) if x], q.get("newest_by", ""))
             if not vid:
-                return web.json_response({"id": 0, "why": why, "summary": why})
+                return web.json_response({"id": 0, "why": why, "summary": why, "sources": []})
+            fpt = site.client()
+            project_id = int(q.get("project_id") or 0) or site.default_project()
             return web.json_response({"id": vid, "code": code, "why": why,
                                       "summary": media.summary(fpt, vid, site.statuses(project_id)),
                                       "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
-            return web.json_response({"id": 0, "summary": str(e)[:200]})
+            return web.json_response({"id": 0, "summary": str(e)[:200], "sources": []})
 
     @routes.get("/fpt/statuses")
     async def statuses(request):

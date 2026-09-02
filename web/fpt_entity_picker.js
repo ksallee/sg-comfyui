@@ -120,48 +120,38 @@ app.registerExtension({
   },
 });
 
-// Fetch node. Same shape as the publish pickers, with one extra step: which media a Version can
-// deliver is a property of that Version, not of the site (probe 021), so `source` is reloaded per
-// pick and only ever offers tiers that resolve to something.
+// Fetch node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
+// and what made it — resolved by the node's own code, so the preview cannot disagree with the run.
 function fetchPickers(nodeType) {
   const onCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
     onCreated?.apply(this, arguments);
 
     const w = (n) => this.widgets?.find((x) => x.name === n);
-    const project = w("project"), link = w("link"), version = w("version");
-    const linkTypeW = w("link_type");
-    const source = w("source"), versionId = w("version_id");
-    if (!project || !version || !versionId) return;
+    const project = w("project"), linkTypeW = w("link_type"), link = w("link"), task = w("task");
+    const source = w("source"), statuses = w("statuses");
+    if (!project || !link) return;
 
-    let projectId = 0, linkType = "Shot", linkIds = {}, versionIds = {}, statusCodes = {};
+    let projectId = 0, linkIds = {}, statusLabels = [];
 
-    const select = w("select"), status = w("status"), order = w("order"), match = w("match");
-
-    // What this rule lands on, and what made it — shown before anything runs. It calls the same
-    // resolver the node uses, so the preview cannot disagree with the run.
     let panel = null;
     try {
-      panel = ComfyWidgets.STRING(this, "resolves to",
-        ["STRING", { multiline: true }], app).widget;
+      panel = ComfyWidgets.STRING(this, "resolves to", ["STRING", { multiline: true }], app).widget;
       panel.inputEl.readOnly = true;
       panel.inputEl.style.opacity = 0.75;
     } catch (e) { /* older frontend: the pickers still work without the panel */ }
 
-    const loadSources = async () => {
-      const id = versionIds[version.value] || 0;
-      versionId.value = id;
-      if (select && id && select.value !== "pinned id") select.value = "pinned id";
-      const picked = link?.value || "";
+    const refresh = async () => {
       const q = new URLSearchParams({
-        project_id: projectId, link_id: linkIds[picked] || 0,
-        link_type: typeFromLabel(picked),
-        select: select?.value || "", version_id: versionId.value || 0,
-        status: statusCodes[status?.value] || "", order: order?.value || "",
-        match: match?.value || "",
+        project_id: projectId, project: project.value || "",
+        link_type: linkTypeW?.value || "", link: link.value || "", task: task?.value || "",
+        name_contains: w("name_contains")?.value || "",
+        newest_by: w("newest_by")?.value || "",
+        pin_version_id: w("pin_version_id")?.value || 0,
       });
+      for (const s of [].concat(statuses?.value || [])) if (s) q.append("statuses", s);
       const d = await get(`/fpt/resolve?${q}`);
-      if (panel) panel.value = d.summary || "nothing resolves yet";
+      if (panel) panel.value = d.summary || "nothing matches this rule yet";
       if (source) {
         source.options.values = ["auto"].concat(d.sources || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
@@ -169,57 +159,57 @@ function fetchPickers(nodeType) {
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const loadVersions = async () => {
-      const d = await get(`/fpt/versions?project_id=${projectId}` +
-        `&type=${encodeURIComponent(typeFromLabel(link?.value) || linkType)}` +
-        `&link_id=${linkIds[link?.value] || 0}`);
-      versionIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
-      setOptions(version, d.items.map((x) => x.label));
-      await loadSources();
+    const loadTasks = async (picked) => {
+      const chosen = picked ?? link.value;
+      const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeFromLabel(chosen))}` +
+        `&id=${linkIds[chosen] || 0}`);
+      if (task) setOptions(task, d.items.map((x) => x.label));
+      await refresh();
     };
 
     const loadLinks = async (picked) => {
-      const chosen = picked ?? linkTypeW?.value;   // lags the callback; see the publish-side note
+      const chosen = picked ?? linkTypeW?.value;
       const t = (chosen && chosen !== ALL_TYPES) ? `&type=${encodeURIComponent(chosen)}` : "";
       const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
       linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
-      if (link) setOptions(link, d.items.map((x) => x.label));
-      await loadVersions();
+      setOptions(link, d.items.map((x) => x.label));
+      await loadTasks();
     };
 
     const loadProject = async (picked) => {
       const d = await get("/fpt/projects");
-      const chosen = picked ?? project.value;   // after the await; see the publish-side note
+      const chosen = picked ?? project.value;   // after the await; the widget value lags
       projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
       setOptions(project, d.items.map((x) => x.label), chosen);
-      const prof = await get(`/fpt/profile?project_id=${projectId}`);
-      linkType = prof.link_type || "Shot";
-      if (link) link.tooltip = "Narrow to one entity — each option carries its own type.";
-      // Status codes are per project (probe 009), so the filter list follows the project too.
-      if (status) {
-        const d2 = await get(`/fpt/statuses?project_id=${projectId}`);
-        statusCodes = Object.fromEntries(d2.items.map((x) => [x.label, x.id]));
-        setOptions(status, d2.items.map((x) => x.label));
+      if (statuses) {
+        const st = await get(`/fpt/statuses?project_id=${projectId}`);
+        statusLabels = st.items.map((x) => x.label);
+        statuses.options.values = statusLabels;
+        statuses.value = [].concat(statuses.value || []).filter((v) => statusLabels.includes(v));
+      }
+      if (linkTypeW) {
+        const t = await get(`/fpt/link_types?project_id=${projectId}`);
+        const vals = t.items.map((x) => x.label);
+        linkTypeW.options.values = vals;
+        if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
       }
       await loadLinks();
     };
-
 
     const wrap = (widget, after) => {
       if (!widget) return;
       const prev = widget.callback;
       widget.callback = function (value) {
         const r = prev?.apply(this, arguments);
-        after(value);   // see the note on the publish-side wrap: widget.value lags the callback
+        after(value);
         return r;
       };
     };
     wrap(project, loadProject);
     wrap(linkTypeW, loadLinks);
-    wrap(link, loadVersions);
-    wrap(version, loadSources);
-    // Anything that changes which Version the rule lands on refreshes the panel.
-    [select, status, order, match].forEach((x) => wrap(x, loadSources));
+    wrap(link, loadTasks);
+    ["task", "name_contains", "statuses", "newest_by", "pin_version_id"].forEach((n) =>
+      wrap(w(n), refresh));
 
     this.addWidget("button", "refresh from site", null, loadProject);
     loadProject();

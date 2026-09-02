@@ -1,0 +1,99 @@
+{
+  "last_node_id": 2,
+  "last_link_id": 1,
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "FPTFetchVersion",
+      "pos": [
+        60,
+        60
+      ],
+      "size": [
+        420,
+        420
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTFetchVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "depth",
+        [
+          "Approved"
+        ],
+        "version number in the name",
+        0,
+        "auto",
+        1
+      ],
+      "title": "Flow PT Fetch \u2014 newest Approved depth on this Shot"
+    },
+    {
+      "id": 2,
+      "type": "PreviewImage",
+      "pos": [
+        560,
+        60
+      ],
+      "size": [
+        320,
+        320
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage"
+      }
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ]
+  ]
+}
