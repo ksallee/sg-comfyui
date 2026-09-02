@@ -26,8 +26,8 @@ class FPTFetchVersion:
                 # to be re-resolved against a site that may have moved on.
                 "version_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
                                        "tooltip": "Used when select is 'pinned id'; the picker sets it."}),
-                "select": (resolve.MODES, {"default": resolve.LATEST,
-                           "tooltip": "Resolve at run time, so a graph re-run picks up whatever was "
+                "select": (resolve.MODES, {"default": resolve.NEWEST,
+                           "tooltip": "Resolve at run time, so a re-run picks up whatever was "
                                       "published since. 'pinned id' freezes one Version."}),
             },
             "optional": {
@@ -40,6 +40,12 @@ class FPTFetchVersion:
                 # are offered (probe 021), because a filled path field is not the same as a file.
                 "source": ([AUTO], {"default": AUTO,
                                     "tooltip": "Which media to pull. `auto` takes the best available."}),
+                "status": (_labels(site.statuses(site.default_project())),
+                           {"default": NONE,
+                            "tooltip": "Require this status. Empty means any. The list is what this "
+                                       "project actually allows (probe 009)."}),
+                "order": (resolve.ORDERS, {"default": resolve.BY_ID,
+                          "tooltip": "Which 'newest' means here."}),
                 "match": ("STRING", {"default": "",
                           "tooltip": "Substring the code must contain, e.g. 'comp'. Empty means any."}),
                 "frame": ("INT", {"default": 1, "min": 1, "max": 1048576,
@@ -54,8 +60,8 @@ class FPTFetchVersion:
     CATEGORY = "Flow PT"
     DESCRIPTION = "Pull a Flow PT Version's media into the graph, recording it as a source."
 
-    def fetch(self, version_id, select=resolve.LATEST, project=NONE, link=NONE, version=NONE,
-              source=AUTO, match="", frame=1, unique_id=None):
+    def fetch(self, version_id, select=resolve.NEWEST, project=NONE, link=NONE, version=NONE,
+              source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, unique_id=None):
         project_id = _id_for(site.projects(), project) or site.default_project()
         p = site.for_project(project_id)
         link_type = p.get("link_type", "Shot")
@@ -66,8 +72,9 @@ class FPTFetchVersion:
             target = _id_for(site.entities(link_type, project_id, q=link), link) if link else 0
             if not target:
                 raise ValueError(f"select={select!r} resolves against a {link_type}; pick one in `link`")
-            vid, code, why = resolve.pick(select, link_type, target, project_id, match,
-                                          p.get("approved_status", ""), p.get("code_regex", ""))
+            code_for = next((c for l, c in site.statuses(project_id) if l == status), "")
+            vid, code, why = resolve.pick(link_type, target, project_id, match, code_for,
+                                          order, p.get("code_regex", ""))
             if not vid:
                 raise ValueError(why)
             why = f"{code} ({why})"

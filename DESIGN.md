@@ -138,11 +138,13 @@ asks per pick and offers only tiers that resolve to a real file. Published files
 only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
 absent — `docs/quirks.md` in the corpus repo names what would close it.
 
-## Version naming is a convention, never a field
+## Where the version number lives is site-specific
 
-A Version has **no version-number field** — `PublishedFile` has `version_number`, `Version` does not —
-so the version lives inside `code`. It is a naming convention, it differs per site and per show, and
-nothing here may hardcode one.
+A Toolkit-driven site usually carries a real numeric field on Version — `sg_version_number` or
+similar — and that is authoritative when present, so `version_number_field` names it in the profile
+and the node writes it. Many sites have none (this one has none; `PublishedFile.version_number` is a
+different entity), and then the version lives inside `code` as a freeform convention that differs per
+show. Both paths are supported and neither is assumed.
 
 So the convention is inferred from the codes a show already uses, shown to the operator with its
 coverage, and stored in the profile as data:
@@ -155,15 +157,19 @@ Measured on three real projects: the reference show scores 100/100, this sandbox
 ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
 operator sees it rather than getting a confident wrong guess.
 
-`approved_status` is separate because status vocabularies are per project (probe 009); which code
-means approved cannot be assumed.
+There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
+code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
+custom code, or none. So a Fetch node takes a status the operator picks from that project's real list,
+and empty means any. An earlier version of this hardcoded "latest approved", which was this project
+inventing vocabulary the API does not have.
 
 ### Which makes two nodes a pipeline
 
-`code = auto` numbers per link, from the codes already on that link. `select = latest` resolves at run
-time, ordering by the convention's version number rather than by id — a re-published v002 is newer by
-id but older by intent. So step N publishes and step N+1 consumes it, with no id copied between graphs,
-and the lineage field records the join by itself.
+`code = auto` numbers per link. `select = newest matching` resolves at run time using Flow PT's own
+rule — order newest-first (`id` or `created_at`), optionally require a status, optionally require a
+substring in the code. Ordering by the convention's version number is offered as a third option,
+because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
+consumes it, with no id copied between graphs, and the lineage field records the join by itself.
 
 A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
 actually resolved and the publish node reads back only its own ancestors' entries.
@@ -227,11 +233,13 @@ asks per pick and offers only tiers that resolve to a real file. Published files
 only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
 absent — `docs/quirks.md` in the corpus repo names what would close it.
 
-## Version naming is a convention, never a field
+## Where the version number lives is site-specific
 
-A Version has **no version-number field** — `PublishedFile` has `version_number`, `Version` does not —
-so the version lives inside `code`. It is a naming convention, it differs per site and per show, and
-nothing here may hardcode one.
+A Toolkit-driven site usually carries a real numeric field on Version — `sg_version_number` or
+similar — and that is authoritative when present, so `version_number_field` names it in the profile
+and the node writes it. Many sites have none (this one has none; `PublishedFile.version_number` is a
+different entity), and then the version lives inside `code` as a freeform convention that differs per
+show. Both paths are supported and neither is assumed.
 
 So the convention is inferred from the codes a show already uses, shown to the operator with its
 coverage, and stored in the profile as data:
@@ -244,15 +252,19 @@ Measured on three real projects: the reference show scores 100/100, this sandbox
 ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
 operator sees it rather than getting a confident wrong guess.
 
-`approved_status` is separate because status vocabularies are per project (probe 009); which code
-means approved cannot be assumed.
+There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
+code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
+custom code, or none. So a Fetch node takes a status the operator picks from that project's real list,
+and empty means any. An earlier version of this hardcoded "latest approved", which was this project
+inventing vocabulary the API does not have.
 
 ### Which makes two nodes a pipeline
 
-`code = auto` numbers per link, from the codes already on that link. `select = latest` resolves at run
-time, ordering by the convention's version number rather than by id — a re-published v002 is newer by
-id but older by intent. So step N publishes and step N+1 consumes it, with no id copied between graphs,
-and the lineage field records the join by itself.
+`code = auto` numbers per link. `select = newest matching` resolves at run time using Flow PT's own
+rule — order newest-first (`id` or `created_at`), optionally require a status, optionally require a
+substring in the code. Ordering by the convention's version number is offered as a third option,
+because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
+consumes it, with no id copied between graphs, and the lineage field records the join by itself.
 
 A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
 actually resolved and the publish node reads back only its own ancestors' entries.

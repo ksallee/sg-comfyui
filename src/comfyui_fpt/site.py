@@ -182,7 +182,7 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
     return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
 
 
-def versions_on(link_type, link_id, project_id, limit=200):
+def versions_on(link_type, link_id, project_id, limit=200, sort="-id"):
     """(code, status, id) for every Version on one entity, newest first.
 
     probe 017 — an entity field filters on a full {type, id} hash. Status comes back so the caller can
@@ -195,12 +195,26 @@ def versions_on(link_type, link_id, project_id, limit=200):
         r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
                           json={"filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
                                             ["entity", "is", {"type": link_type, "id": int(link_id)}]],
-                                "fields": ["code", "sg_status_list"], "sort": "-id",
+                                "fields": ["code", "sg_status_list"], "sort": sort,
                                 "page": {"size": limit}})
         return [] if not r.ok else [(d["attributes"].get("code") or "",
                                      d["attributes"].get("sg_status_list") or "", d["id"])
                                     for d in r.json()["data"]]
-    return _cached(("versions_on", link_type, int(link_id), int(project_id)), fetch)
+    return _cached(("versions_on", link_type, int(link_id), int(project_id), sort), fetch)
+
+
+def version_numbers(link_type, link_id, project_id, field, limit=200):
+    """Existing values of a site's real version-number field, for the next one."""
+    if not (link_type and link_id and field):
+        return []
+
+    def fetch():
+        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
+                          json={"filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
+                                            ["entity", "is", {"type": link_type, "id": int(link_id)}]],
+                                "fields": [field], "page": {"size": limit}})
+        return [] if not r.ok else [d["attributes"].get(field) for d in r.json()["data"]]
+    return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
 
 
 def statuses(project_id, entity_type="Version", field="sg_status_list"):

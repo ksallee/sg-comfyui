@@ -1,9 +1,11 @@
 """Version naming conventions: infer one, match it, produce the next.
 
-A Version has NO version-number field — PublishedFile does, Version does not — so the version lives
-inside `code` as a naming convention that differs per site and per show. Nothing here may be
-hardcoded; the convention is inferred, shown to the operator with its coverage, and stored in the
-profile as data.
+Where the version number lives is site-specific. A Toolkit-driven site usually carries a real numeric
+field (`sg_version_number` or similar) and that is authoritative when present. Many sites do not — this
+one has none — and then the version lives inside `code` as a freeform convention that differs per show.
+
+So: use the field if the profile names one, otherwise infer the convention, show it to the operator
+with its coverage, and store it as data. Nothing here is hardcoded either way.
 
 Validated against the reference show, where one pattern covers 99 of 100 codes:
 
@@ -38,6 +40,23 @@ def infer(codes):
     best = max(((t, rx, sum(1 for c in codes if re.match(rx, c))) for t, rx in PATTERNS),
                key=lambda x: x[2])
     return best[0], best[1], best[2], len(codes)
+
+
+def version_field_candidates(schema):
+    """Numeric Version fields that could be the version number, for the operator to choose from.
+
+    Proposed, never auto-adopted: `sg_first_frame` is numeric too, and picking wrong would silently
+    misnumber every publish.
+    """
+    return sorted(k for k, v in (schema or {}).items()
+                  if v.get("data_type", {}).get("value") in ("number", "float")
+                  and "version" in k.lower() and "transcoding" not in k.lower())
+
+
+def next_number(existing_numbers):
+    """Next value for a real version-number field. Authoritative when the site has one."""
+    ns = [int(n) for n in existing_numbers if isinstance(n, (int, float))]
+    return max(ns, default=0) + 1
 
 
 def parse(code, regex):

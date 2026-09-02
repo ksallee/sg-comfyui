@@ -123,14 +123,20 @@ class FPTPublishVersion:
 
         # `auto` means: follow the convention this show already uses, numbering per link. There is no
         # version-number field on Version (it lives in `code`), so the convention is the only source.
+        # A real version-number field is authoritative where the site has one (Toolkit sites usually
+        # do); the code convention is the fallback for the many sites that do not.
+        vnum_field = p.get("version_number_field", "")
+        next_num = None
         if code.strip().lower() == "auto":
+            existing = [c for c, _, _ in site.versions_on(link_type, target, project_id)]
             rx, tpl = p.get("code_regex", ""), p.get("code_template", "")
             if not (rx and tpl):
                 raise ValueError("code=auto needs code_regex and code_template in the profile — "
                                  "run /inspect-site, which infers them and reports their coverage")
-            existing = [c for c, _, _ in site.versions_on(link_type, target, project_id)]
             task_token = (naming.parse(existing[0], rx) or {}).get("task", "") if existing else ""
             code = naming.next_code(tpl, rx, existing, link or "", task_token)
+        if vnum_field and target:
+            next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
 
         published = []
         for i, frame in enumerate(images):
@@ -146,6 +152,8 @@ class FPTPublishVersion:
                 fields[link_field] = {"type": link_type, "id": target}
             if task_id:
                 fields["sg_task"] = {"type": "Task", "id": task_id}
+            if next_num is not None:
+                fields[vnum_field] = next_num + i
 
             vid = publish.create_version(fpt, project_id, name, fields)
             png = _png(frame)

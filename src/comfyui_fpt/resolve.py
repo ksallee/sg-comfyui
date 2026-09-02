@@ -1,43 +1,50 @@
-"""Pick the one Version a Fetch node should read, from a rule rather than an id.
+"""Pick the one Version a Fetch node should read, from a filter rather than an id.
 
-This is what turns two nodes into a pipeline: step N publishes `shot010_comp_v003`, step N+1 asks for
-"the latest on this Shot" and gets it, without anyone copying an id between graphs.
+The rule is Flow PT's own, not one this project invents: **order newest-first, optionally require a
+status**. There is no "approved" concept in the API — approved is one status code among many, the
+codes differ per project (probe 009), and a show may care about `rev`, `ip`, a custom code, or none at
+all. So the operator picks the status and empty means any.
 
-Ordering prefers the convention's version number over creation order, because a re-published v002 is
-newer by id but older by intent. Falls back to id when no convention matches (probe: Kids Room scores
-0% and there is nothing to parse).
+An earlier version of this module hardcoded "latest approved". That was this project inventing
+vocabulary the API does not have.
 """
-from . import naming, site
+from . import site
 
-LATEST = "latest"
-LATEST_APPROVED = "latest approved"
 PINNED = "pinned id"
-MODES = [PINNED, LATEST, LATEST_APPROVED]
+NEWEST = "newest matching"
+MODES = [NEWEST, PINNED]
+
+BY_ID = "id (creation order)"
+BY_CREATED = "created_at"
+BY_VERSION = "version number in the code"
+ORDERS = [BY_ID, BY_CREATED, BY_VERSION]
 
 
-def candidates(link_type, link_id, project_id, match=""):
-    rows = site.versions_on(link_type, link_id, project_id)
-    return [r for r in rows if not match or match.lower() in r[0].lower()]
-
-
-def pick(mode, link_type, link_id, project_id, match="", approved_status="", regex=""):
-    """(version_id, code, why) — `why` is shown to the operator, never guessed at silently."""
-    rows = candidates(link_type, link_id, project_id, match)
+def pick(link_type, link_id, project_id, match="", status="", order=BY_ID, regex=""):
+    """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently."""
+    rows = site.versions_on(link_type, link_id, project_id,
+                            sort="-created_at" if order == BY_CREATED else "-id")
     if not rows:
-        return 0, "", f"no Versions on {link_type} {link_id}" + (f" matching {match!r}" if match else "")
+        return 0, "", f"no Versions on {link_type} {link_id}"
 
-    if mode == LATEST_APPROVED:
-        if not approved_status:
-            return 0, "", ("no approved status in the profile — status codes are per project "
-                           "(probe 009), so which one means approved cannot be assumed")
-        rows = [r for r in rows if r[1] == approved_status]
+    if match:
+        rows = [r for r in rows if match.lower() in (r[0] or "").lower()]
         if not rows:
-            return 0, "", f"nothing on {link_type} {link_id} has status {approved_status!r}"
+            return 0, "", f"nothing on {link_type} {link_id} has {match!r} in its code"
+    if status:
+        rows = [r for r in rows if r[1] == status]
+        if not rows:
+            return 0, "", f"nothing on {link_type} {link_id} has status {status!r}"
 
-    parsed = [(naming.parse(c, regex), c, i) for c, _, i in rows] if regex else []
-    usable = [(p["version"], c, i) for p, c, i in parsed if p]
-    if usable:
-        v, code, vid = max(usable, key=lambda x: x[0])
-        return vid, code, f"highest version in {len(usable)} matching the convention"
-    code, _, vid = rows[0]
-    return vid, code, "newest by id — no code matched the convention"
+    if order == BY_VERSION and regex:
+        from . import naming
+        ranked = [(p["version"], c, i) for c, _, i in rows if (p := naming.parse(c, regex))]
+        if ranked:
+            _, code, vid = max(ranked, key=lambda x: x[0])
+            return vid, code, f"highest version among {len(ranked)} matching the convention"
+        # fall through: nothing parsed, so ordering by code would be a lie
+
+    code, st, vid = rows[0]
+    where = "created_at" if order == BY_CREATED else "id"
+    return vid, code, (f"newest by {where} of {len(rows)}"
+                       + (f" with status {status!r}" if status else ""))
