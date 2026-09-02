@@ -25,6 +25,15 @@ function setOptions(widget, labels, keep) {
   widget.value = widget.options.values.includes(wanted) ? wanted : NONE;
 }
 
+// The search box is deliberately NOT moved above the combo it drives, tempting as that is: ComfyUI
+// serialises widgets_values positionally, and inserting a widget mid-list shifts every value after it
+// into the wrong field on reload — `serialize = false` is not honoured here, so a moved box produced
+// nulls in the array and a node that came back pointing at the wrong project.
+//
+// So the combo's own dropdown stays available, and it filters only what is already loaded with a plain
+// substring match: `f` finds Giraffe Ruler, `f r` does not. The `search links` box below queries the
+// site instead, where several words must all match. The tooltip says so, because the two look alike.
+
 app.registerExtension({
   name: "fpt.pickers",
 
@@ -63,8 +72,11 @@ app.registerExtension({
       };
 
       const loadProject = async (picked) => {
-        const chosen = picked ?? project.value;
         const d = await get("/fpt/projects");
+        // Read AFTER the fetch: ComfyUI applies a saved workflow's widget values while this is in
+        // flight, so a value captured before the await is stale and writing it back reverts the node
+        // to the default project — which then needs a manual click or two to correct.
+        const chosen = picked ?? project.value;
         projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
         setOptions(project, d.items.map((x) => x.label), chosen);
         // link_type is per project: one show hangs Versions off Shots, the next off Assets. Asking
@@ -72,8 +84,9 @@ app.registerExtension({
         const prof = await get(`/fpt/profile?project_id=${projectId}`);
         linkType = prof.link_type || "Shot";
         link.tooltip = "What this Version belongs to — each option carries its own type.";
-        search.tooltip = "Listing the most recently updated. Type to search every type this "
-        + "project uses — several words all have to match, as in Flow PT.";
+        search.tooltip = "Search the site: several words must ALL match the name, as in Flow PT "
+        + "(`gir ruler` finds Giraffe Ruler). The list below shows the most recently updated until "
+        + "you type. Typing inside the dropdown only filters what is already loaded.";
         if (status) {
           const s = await get(`/fpt/statuses?project_id=${projectId}`);
           setOptions(status, s.items.map((x) => x.label));
@@ -83,11 +96,10 @@ app.registerExtension({
 
       // Type-ahead. Filtering is server-side (probe 017 `contains`), so this scales past the page size.
       let pending;
-      const search = this.addWidget("text", "link_search", "", (v) => {
+      const search = this.addWidget("text", "search links", "", (v) => {
         clearTimeout(pending);
-        pending = setTimeout(() => loadLinks(v), 200);
+        pending = setTimeout(() => loadLinks(v), 250);
       });
-      search.tooltip = `Type to search ${linkType}s by name.`;
 
       const wrap = (widget, after) => {
         const prev = widget.callback;
@@ -174,8 +186,8 @@ function fetchPickers(nodeType) {
     };
 
     const loadProject = async (picked) => {
-      const chosen = picked ?? project.value;
       const d = await get("/fpt/projects");
+      const chosen = picked ?? project.value;   // after the await; see the publish-side note
       projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
       setOptions(project, d.items.map((x) => x.label), chosen);
       const prof = await get(`/fpt/profile?project_id=${projectId}`);
@@ -191,9 +203,9 @@ function fetchPickers(nodeType) {
     };
 
     let pending;
-    const search = this.addWidget("text", "version_search", "", (v) => {
+    const search = this.addWidget("text", "search versions", "", (v) => {
       clearTimeout(pending);
-      pending = setTimeout(() => loadVersions(v), 200);
+      pending = setTimeout(() => loadVersions(v), 250);
     });
 
     const wrap = (widget, after) => {
