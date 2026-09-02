@@ -72,9 +72,10 @@ Two layers, because a real studio site has hundreds of entity types by hundreds 
 - **digest** — compact, generated from raw: entity types actually in use, display name to programmatic name,
   fields with type and mandatory flag.
 
-"Consultable by the LLM" means a query CLI over the cache, not a blob in context — `python schema.py field
-Version sg_task`, `python schema.py entities --enabled`. An agent that has to read the raw dump to answer one
-question will burn its context on the first call and be useless for the rest of the session.
+"Consultable by the LLM" means a query CLI over the cache, not a blob in context. It lives in the corpus repo
+with the client — `python -m fpt_llm_api.schema field Version sg_task`, `python -m fpt_llm_api.schema entities
+--custom`. An agent that has to read the raw dump to answer one question will burn its context on the first
+call and be useless for the rest of the session.
 
 Per site *and* per project: some field configuration and every status list is project-scoped.
 
