@@ -12,4 +12,4 @@ The corpus lives in the sibling repo `../fpt-llm-api`. This repo never probes; i
 4. A gap is not this repo's to fill. Say so and stop — the probe belongs in `fpt-llm-api`.
 5. Otherwise do the job, citing entries in the code: `# probe 004`.
 
-Publish path is REST and `requests` only, through `fpt_llm_api.client`. Never `shotgun_api3`, never `fpt-api`.
+Publish path is REST and `requests` only, through `sg_groundtruth.client`. Never `shotgun_api3`, never `fpt-api`.

@@ -60,6 +60,10 @@ class FPTPublishVersion:
                 "status": (_labels(statuses),
                            {"default": status_label,
                             "tooltip": "Usable statuses for this project (probe 009)."}),
+                "output_name": ("STRING", {"default": "",
+                                "tooltip": "What this stream IS — depth, normals, mask. Appears where "
+                                           "the convention has {output}. Distinct from `task`, which "
+                                           "is the Flow PT Task this Version hangs off."}),
                 "note": ("STRING", {"multiline": True, "default": "",
                                     "tooltip": "Human note. Provenance is recorded separately."}),
                 "source_versions": ("STRING", {"default": "",
@@ -82,7 +86,7 @@ class FPTPublishVersion:
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
-    def publish(self, images, code, project=NONE, link=NONE, task=NONE, status=NONE, note="",
+    def publish(self, images, code, project=NONE, link=NONE, task=NONE, status=NONE, output_name="", note="",
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         # The picked project decides, then the profile answers for THAT project — two graphs open in
@@ -133,8 +137,15 @@ class FPTPublishVersion:
             if not (rx and tpl):
                 raise ValueError("code=auto needs code_regex and code_template in the profile — "
                                  "run /inspect-site, which infers them and reports their coverage")
-            task_token = (naming.parse(existing[0], rx) or {}).get("task", "") if existing else ""
-            code = naming.next_code(tpl, rx, existing, link or "", task_token)
+            # {task} is the show's pipeline step, taken from the Task the operator picked or from
+            # whatever token the show already uses. {output} is what this stream is.
+            task_token = (task or (naming.parse(existing[0], rx) or {}).get("task", "")
+                          if existing else task or "")
+            # Only codes for THIS output decide the number: a depth and a normals pass of one version
+            # are one version in two passes, not versions three and four.
+            same = [c for c in existing
+                    if not output_name or (naming.parse(c, rx) or {}).get("output") == output_name]
+            code = naming.next_code(tpl, rx, same, link or "", task_token, output_name)
         if vnum_field and target:
             next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
 
@@ -156,6 +167,7 @@ class FPTPublishVersion:
                 fields[vnum_field] = next_num + i
 
             vid = publish.create_version(fpt, project_id, name, fields)
+            site.forget("versions_on", "vnums")   # the next node must see this one
             png = _png(frame)
             publish.upload(fpt, vid, png, f"{name}.png", field="image")
             publish.upload(fpt, vid, png, f"{name}.png", field="sg_uploaded_movie")

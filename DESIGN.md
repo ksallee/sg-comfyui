@@ -30,10 +30,10 @@ Requirements this imposes:
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
 
-Site access goes through `fpt_llm_api`, the sibling corpus repo's client. This repo holds node code only.
+Site access goes through `sg_groundtruth`, the sibling corpus repo's client. This repo holds node code only.
 
 The root `__init__.py` is not optional and not decoration: ComfyUI imports `custom_nodes/<dir>/__init__.py`
-directly (`nodes.py:2263`) and a `src/` layout is invisible to it. Any module importing `fpt_llm_api` must
+directly (`nodes.py:2263`) and a `src/` layout is invisible to it. Any module importing `sg_groundtruth` must
 import `_deps` first — import order inside the package decides whether the path is set up yet.
 
 ### Two paths
@@ -73,7 +73,7 @@ Two layers, because a real studio site has hundreds of entity types by hundreds 
   fields with type and mandatory flag.
 
 "Consultable by the LLM" means a query CLI over the cache, not a blob in context. It lives in the corpus repo
-with the client — `python -m fpt_llm_api.schema field Version sg_task`, `python -m fpt_llm_api.schema entities
+with the client — `python -m sg_groundtruth.schema field Version sg_task`, `python -m sg_groundtruth.schema entities
 --custom`. An agent that has to read the raw dump to answer one question will burn its context on the first
 call and be useless for the rest of the session.
 
@@ -339,7 +339,7 @@ Two ways in, and they are not the same thing:
 
 ### The dependency problem
 
-`_deps.py` resolves `fpt_llm_api` from a sibling checkout. That works here and is **not distributable** — a
+`_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a
 registry install gets this repo and nothing else, and `fpt-llm-api` is private.
 
 Three ways out, in order of preference:

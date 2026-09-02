@@ -20,6 +20,11 @@ from collections import Counter
 # Ordered: the first pattern that covers the sample wins. Each must name `version`; `link` and `task`
 # are optional captures, present when the convention encodes them.
 PATTERNS = [
+    # {output} is what a stream IS — depth, normals, mask. A graph with several image outputs needs it,
+    # or every pass collapses onto one name. {task} is the show's pipeline step, a different thing.
+    ("{link}_{task}_{output}_v{version}",
+     r"^(?P<link>.+)_(?P<task>[A-Za-z]+)_(?P<output>[A-Za-z0-9]+)_v(?P<version>\d+)$"),
+    ("{link}_{output}_v{version}", r"^(?P<link>.+)_(?P<output>[A-Za-z0-9]+)_v(?P<version>\d+)$"),
     ("{link}_{task}_v{version}", r"^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\d+)$"),
     ("{link}_v{version}",        r"^(?P<link>.+)_v(?P<version>\d+)$"),
     ("{link}.v{version}",        r"^(?P<link>.+)\.v(?P<version>\d+)$"),
@@ -74,7 +79,7 @@ def width(regex, codes):
     return Counter(len(n) for n in ns).most_common(1)[0][0] if ns else 3
 
 
-def next_code(template, regex, existing, link="", task=""):
+def next_code(template, regex, existing, link="", task="", output=""):
     """The next code for one link, following the convention the site already uses.
 
     `existing` is every code already on that link. Numbering is per link, not global — two shots each
@@ -84,7 +89,8 @@ def next_code(template, regex, existing, link="", task=""):
     n = max((p["version"] for p in parsed), default=0) + 1
     w = width(regex, existing)
     out = template.replace("{version}", str(n).zfill(w))
-    return out.replace("{link}", link or "").replace("{task}", task or "")
+    return (out.replace("{link}", link or "").replace("{task}", task or "")
+               .replace("{output}", output or ""))
 
 
 def describe(template, regex, matched, total):

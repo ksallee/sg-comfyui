@@ -13,8 +13,8 @@ import os
 import time
 from pathlib import Path
 
-from . import _deps  # noqa: F401  puts fpt_llm_api on sys.path
-from fpt_llm_api.client import FPT, FPTError
+from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
+from sg_groundtruth.client import FPT, FPTError
 
 ROOT = Path(__file__).resolve().parents[2]
 ENV = ROOT / ".env.local"
@@ -90,6 +90,16 @@ def _cached(key, fetch):
         return hit[1] if hit else []   # stale beats empty; empty beats an unopenable graph
     _cache[key] = (time.time(), value)
     return value
+
+
+def forget(*prefixes):
+    """Drop cached lookups a write just invalidated.
+
+    Without this, three publish nodes in one execution each read the version count from before any of
+    them wrote, and all three propose the same next version.
+    """
+    for key in [k for k in _cache if k and k[0] in prefixes]:
+        _cache.pop(key, None)
 
 
 def route(entity_type):
