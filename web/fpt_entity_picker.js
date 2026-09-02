@@ -3,6 +3,12 @@ import { ComfyWidgets } from "../../scripts/widgets.js";
 
 const NONE = "";
 
+// Labels read `name (Type)` — the type is context, never part of what is searched.
+function typeFromLabel(label) {
+  const m = /\s\(([^()]+)\)$/.exec(label || "");
+  return m ? m[1] : "";
+}
+
 async function get(url) {
   try {
     const r = await fetch(url);
@@ -38,7 +44,7 @@ app.registerExtension({
       let linkType = "Shot";   // replaced per project by /fpt/profile; never assume (probe 005)
       let linkIds = {};
 
-      const typeOf = (label) => (label && label.includes(" · ")) ? label.split(" · ")[0] : linkType;
+      const typeOf = (label) => typeFromLabel(label) || linkType;
       const loadTasks = async () => {
         const id = linkIds[link.value] || 0;
         const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(link.value))}&id=${id}`);
@@ -131,7 +137,7 @@ function fetchPickers(nodeType) {
       const picked = link?.value || "";
       const q = new URLSearchParams({
         project_id: projectId, link_id: linkIds[picked] || 0,
-        link_type: picked.includes(" · ") ? picked.split(" · ")[0] : "",
+        link_type: typeFromLabel(picked),
         select: select?.value || "", version_id: versionId.value || 0,
         status: statusCodes[status?.value] || "", order: order?.value || "",
         match: match?.value || "",

@@ -278,7 +278,7 @@
    ],
    "size": [
     400,
-    340
+    330
    ],
    "flags": {},
    "order": 4,
@@ -295,17 +295,18 @@
     "Node name for S&R": "FPTPublishVersion"
    },
    "widgets_values": [
-    "corridor_beauty_v001",
+    "auto",
     "comfyui-fpt sandbox",
-    "sbx_0010",
+    "sbx_0020 (Shot)",
     "",
-    "Pending Review",
-    "beauty pass",
+    "",
+    "beauty",
+    "publishes into the sandbox, linked to a Shot",
     "",
     true,
     0
    ],
-   "title": "Flow PT \u2014 sandbox (links to a Shot)"
+   "title": "Flow PT \u2014 sandbox (a Shot)"
   },
   {
    "id": 8,
@@ -417,7 +418,7 @@
    ],
    "size": [
     400,
-    340
+    330
    ],
    "flags": {},
    "order": 4,
@@ -434,17 +435,18 @@
     "Node name for S&R": "FPTPublishVersion"
    },
    "widgets_values": [
-    "kids_django_v001",
+    "auto",
     "Kids Room",
-    "Django",
+    "Django (Asset)",
     "",
-    "Pending Review",
-    "same graph, different show",
+    "",
+    "beauty",
+    "same graph, different show, linked to an Asset",
     "",
     true,
     0
    ],
-   "title": "Flow PT \u2014 Kids Room (links to an Asset)"
+   "title": "Flow PT \u2014 Kids Room (an Asset)"
   }
  ],
  "links": [
