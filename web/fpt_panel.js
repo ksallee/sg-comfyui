@@ -92,10 +92,20 @@ function filterBlock(d) {
 function writesBlock(d) {
   const f = d && d.fields;
   if (!f || !f.length) return "";
-  return `<div class="fpt-sec">will write</div>` + f.map((x) =>
-    `<div class="fpt-row"><span class="fpt-k${x.present ? "" : " fpt-gone"}">${
-      esc(x.name.replace(/^sg_ai_/, ""))}</span><span class="fpt-v${
-      x.present ? "" : " fpt-gone"}">${esc(x.value)}</span></div>`).join("") +
+  // Everything, including what will be left empty and why. A field with no value is dimmed, not
+  // hidden: an absent seed on a graph with no sampler is worth knowing before you publish.
+  const row = (x) => {
+    const dead = !x.present;
+    const empty = !x.value;
+    return `<div class="fpt-row"><span class="fpt-k${dead ? " fpt-gone" : ""}">${
+      esc(x.name.replace(/^ai_/, ""))}</span><span class="fpt-v${
+      dead ? " fpt-gone" : empty ? " fpt-dim" : ""}">${
+      esc(x.value || x.note || "—")}</span></div>`;
+  };
+  return `<div class="fpt-sec">will write</div>` + f.map(row).join("") +
+    ((d.uploads || []).length
+      ? `<div class="fpt-sec">uploads</div>` + d.uploads.map((u) =>
+          `<div class="fpt-row"><span class="fpt-v fpt-dim">${esc(u)}</span></div>`).join("") : "") +
     ((d.missing_fields || []).length
       ? `<div class="fpt-why">${d.missing_fields.length} provenance field(s) missing on this site` +
         ` — run: python -m comfyui_fpt.fields</div>` : "");
