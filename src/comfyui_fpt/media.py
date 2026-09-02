@@ -60,6 +60,37 @@ def version(fpt, version_id):
     return {**d.get("attributes", {}), "id": d["id"]}
 
 
+def describe(fpt, version_id, statuses=(), colors=None, icons=None):
+    """One Version as structured fields, for the editor to render rather than a wall of text."""
+    r = fpt.get(f"/entity/versions/{int(version_id)}",
+                params={"fields": ",".join(SUMMARY_FIELDS + ["entity", "sg_task",
+                                                             "sg_ai_generated_from"])})
+    if not r.ok:
+        return {"code": f"Version {version_id}", "error": f"{r.status_code}"}
+    d = r.json()["data"]
+    a, rel = d.get("attributes", {}), d.get("relationships", {})
+    code = a.get("sg_status_list")
+    ent = (rel.get("entity") or {}).get("data") or {}
+    task = (rel.get("sg_task") or {}).get("data") or {}
+    facts = []
+    for f in SUMMARY_FIELDS:
+        if f in ("code", "sg_status_list", "created_at"):
+            continue
+        v = a.get(f)
+        if v not in (None, "", []):
+            facts.append({"label": SUMMARY_LABELS.get(f, f), "value": str(v).replace("\n", " ")[:200]})
+    src = (rel.get("sg_ai_generated_from") or {}).get("data") or []
+    return {
+        "id": d["id"], "code": a.get("code") or str(d["id"]),
+        "status": {"code": code, "label": {c: l for l, c in statuses}.get(code, code or ""),
+                   "rgb": (colors or {}).get(code), "icon": (icons or {}).get(code)},
+        "link": f'{ent.get("type", "")} {ent.get("name", "")}'.strip(),
+        "task": task.get("name") or "",
+        "facts": facts,
+        "generated_from": [x.get("name", str(x.get("id"))) for x in src],
+    }
+
+
 def summary(fpt, version_id, statuses=()):
     """A few lines describing one Version: what it is, and what made it.
 

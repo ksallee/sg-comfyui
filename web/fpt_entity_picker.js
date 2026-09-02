@@ -1,5 +1,5 @@
 import { app } from "../../scripts/app.js";
-import { ComfyWidgets } from "../../scripts/widgets.js";
+import { addPanel } from "./fpt_panel.js";
 
 const NONE = "";
 const ALL_TYPES = "(all types)";
@@ -45,6 +45,21 @@ app.registerExtension({
       const w = (n) => this.widgets?.find((x) => x.name === n);
       const project = w("project"), link = w("link"), task = w("task"), status = w("status");
       const linkTypeW = w("link_type");
+      const panel = addPanel(this, "Flow PT Publish");
+      panel.show({ why: "nothing published from this node yet" });
+      const node = this;
+      app.api.addEventListener("executed", ({ detail }) => {
+        if (String(detail.node) !== String(node.id)) return;
+        const rows = (detail.output && detail.output.published) || [];
+        panel.clearLog();
+        if (rows.length) {
+          panel.show({ id: rows[0].id, code: rows[0].code, link: rows[0].link,
+                       facts: rows[0].outputs && rows[0].outputs.length
+                         ? [{ label: "fields", value: rows[0].outputs.join(", ") }] : [] });
+        }
+        const text = (detail.output && detail.output.text) || [];
+        if (text.length) panel.log(text, rows.length > 0);
+      });
       if (!project || !link) return;
 
       // project ids are not on the widgets - the combos carry labels, so the server resolves them.
@@ -132,14 +147,9 @@ function fetchPickers(nodeType) {
     const source = w("source"), statuses = w("statuses");
     if (!project || !link) return;
 
-    let projectId = 0, linkIds = {}, statusLabels = [];
+    let projectId = 0, linkIds = {};
 
-    let panel = null;
-    try {
-      panel = ComfyWidgets.STRING(this, "resolves to", ["STRING", { multiline: true }], app).widget;
-      panel.inputEl.readOnly = true;
-      panel.inputEl.style.opacity = 0.75;
-    } catch (e) { /* older frontend: the pickers still work without the panel */ }
+    const panel = addPanel(this, "Flow PT Fetch");
 
     const refresh = async () => {
       const q = new URLSearchParams({
@@ -149,9 +159,12 @@ function fetchPickers(nodeType) {
         newest_by: w("newest_by")?.value || "",
         pin_version_id: w("pin_version_id")?.value || 0,
       });
-      for (const s of [].concat(statuses?.value || [])) if (s) q.append("statuses", s);
+      for (const s of String(statuses?.value || "").split(",")) {
+        const t = s.trim();
+        if (t) q.append("statuses", t);
+      }
       const d = await get(`/fpt/resolve?${q}`);
-      if (panel) panel.value = d.summary || "nothing matches this rule yet";
+      panel.show(d);
       if (source) {
         source.options.values = ["auto"].concat(d.sources || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
@@ -181,12 +194,6 @@ function fetchPickers(nodeType) {
       const chosen = picked ?? project.value;   // after the await; the widget value lags
       projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
       setOptions(project, d.items.map((x) => x.label), chosen);
-      if (statuses) {
-        const st = await get(`/fpt/statuses?project_id=${projectId}`);
-        statusLabels = st.items.map((x) => x.label);
-        statuses.options.values = statusLabels;
-        statuses.value = [].concat(statuses.value || []).filter((v) => statusLabels.includes(v));
-      }
       if (linkTypeW) {
         const t = await get(`/fpt/link_types?project_id=${projectId}`);
         const vals = t.items.map((x) => x.label);

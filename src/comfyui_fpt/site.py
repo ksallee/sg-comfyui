@@ -369,6 +369,56 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
     return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
 
 
+def status_colors():
+    """{code: "r,g,b"} for every status the site defines.
+
+    probe 010 — Status.bg_color is comma-separated RGB, not hex, and is enough to render a badge
+    without resolving the icon sprite. Site-wide: the colour of `apr` does not change per project,
+    only whether a project offers it (probe 009).
+    """
+    def fetch():
+        r = client().get("/entity/statuses", params={"fields": "code,bg_color", "page[size]": 200})
+        return {} if not r.ok else {d["attributes"]["code"]: d["attributes"].get("bg_color")
+                                    for d in r.json()["data"] if d["attributes"].get("code")}
+    return _cached(("status_colors",), fetch)
+
+
+def status_icons():
+    """{code: {"kind", "url", "html"}} — what can actually be drawn for a status.
+
+    probe 010 — Status.icon is an ENTITY link, so it arrives under relationships, and resolves three
+    ways by display_type. `image` is a custom upload whose url IS a self-contained data: URI, and
+    `html` is a text badge. `image_map` is the 94 standard icons, addressed by a key like `icon_apr`
+    into a sprite whose location that probe never found — 23 of 25 icons here are that kind, so the
+    colour badge is not a fallback, it is the main path.
+    """
+    def fetch():
+        r = client().get("/entity/statuses", params={"fields": "code,icon", "page[size]": 200})
+        if not r.ok:
+            return {}
+        by_icon = {}
+        for d in r.json()["data"]:
+            ic = ((d.get("relationships") or {}).get("icon") or {}).get("data")
+            if ic and d["attributes"].get("code"):
+                by_icon.setdefault(ic["id"], []).append(d["attributes"]["code"])
+        if not by_icon:
+            return {}
+        r2 = client().post("/entity/icons/_search", headers=ARRAY_JSON,
+                           json={"filters": [["id", "in", list(by_icon)]],
+                                 "fields": ["display_type", "url", "html"],
+                                 "page": {"size": 200}})
+        out = {}
+        for d in (r2.json().get("data", []) if r2.ok else []):
+            a = d["attributes"]
+            for code in by_icon.get(d["id"], []):
+                out[code] = {"kind": a.get("display_type"),
+                             # newlines in the base64 break an <img src> (probe 010)
+                             "url": (a.get("url") or "").replace("\n", ""),
+                             "html": a.get("html") or ""}
+        return out
+    return _cached(("status_icons",), fetch)
+
+
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 

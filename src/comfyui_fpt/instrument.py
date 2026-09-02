@@ -27,7 +27,7 @@ PUBLISH_WIDGETS = ["code", "project", "link_type", "link", "task", "status", "ou
 FETCH_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses",
                  "newest_by", "pin_version_id", "source", "frame"]
 PUBLISH_DEFAULTS = {"code": "auto", "attach_workflow": True, "link_id": 0}
-FETCH_DEFAULTS = {"statuses": [], "newest_by": "version number in the name", "source": "auto",
+FETCH_DEFAULTS = {"statuses": "", "newest_by": "version number in the name", "source": "auto",
                   "pin_version_id": 0, "frame": 1, "link_type": "(all types)"}
 
 
