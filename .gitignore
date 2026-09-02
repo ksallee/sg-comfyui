@@ -7,3 +7,4 @@ probes/out/
 profile.local.json
 *.local.json
 .schema-cache/
+.playwright-mcp/

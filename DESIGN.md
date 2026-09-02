@@ -22,13 +22,19 @@ Requirements this imposes:
 
 ## Architecture
 
+    __init__.py      re-exports the mappings; ComfyUI reads this file and no other
     src/comfyui_fpt/
-      client.py      thin REST client: token, refresh, request
+      site.py        .env.local, profile.local.json, a connected client
+      publish.py     create Version, three-step upload, attach — one probe citation per call
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
 
 Site access goes through `fpt_llm_api`, the sibling corpus repo's client. This repo holds node code only.
+
+The root `__init__.py` is not optional and not decoration: ComfyUI imports `custom_nodes/<dir>/__init__.py`
+directly (`nodes.py:2263`) and a `src/` layout is invisible to it. Any module importing `fpt_llm_api` must
+import `_deps` first — import order inside the package decides whether the path is set up yet.
 
 ### Two paths
 
@@ -107,9 +113,50 @@ Captured per publish:
 | field | source |
 |---|---|
 | model, prompt, seed, sampler | ComfyUI prompt graph |
-| workflow JSON | attachment |
+| workflow JSON | attachment — best effort, see below |
+| submitting client | `COMFY_USAGE_SOURCE` |
 | input Version ids | node inputs |
 | user, timestamp | client |
+
+### The workflow attachment is best effort
+
+`PROMPT` is guaranteed — execution cannot happen without it. `EXTRA_PNGINFO` is not: it is whatever the
+client put in `extra_data`, and `None` otherwise (`execution.py:199`). The standard frontend sends it; the
+`comfy` CLI, the ComfyUI MCP server, and every wrapper UI that builds its own API-format prompt do not.
+
+So a publish must never depend on the workflow, and must say when it is missing rather than quietly
+omitting it. `COMFY_USAGE_SOURCE` records which client submitted the prompt, which is exactly the
+information needed to explain an absent workflow later.
+
+This is also the reason the demo drives ComfyUI over plain HTTP rather than through its MCP server:
+an MCP-submitted prompt exercises the degraded provenance path.
+
+### Typed fields, not a JSON blob
+
+`fields.py` defines nine fields on Version and creates them idempotently (`python -m comfyui_fpt.fields`).
+`description` is then the operator's note, and the complete structure still rides up as a
+`.provenance.json` attachment — the fields are the queryable summary, the attachment is the record.
+
+Three constraints came out of probe 019 and are not negotiable:
+
+- **Seed is `text`.** A `number` field takes 2**31-1 but 400s at 2**63; ComfyUI seeds reach 2**64-1.
+- **`ensure()` reads `/schema` first.** Re-POSTing an existing display name does not error, it silently
+  creates `<name>_1`, so a POST-and-hope ensure quietly multiplies fields on every run.
+- **Field names are permanent.** DELETE frees the field but never its name, and trashed fields cannot be
+  enumerated, so the collision is invisible. Adding to `FIELDS` spends a name site-wide, forever.
+
+Lineage is `sg_ai_source_versions`, a `multi_entity` of Version — probe 019 confirms multi_entity
+round-trips `{type, id}` hashes and takes exactly one `valid_types` element.
+
+### Provenance is per branch, not per graph
+
+One graph holds several independent branches — three lookdev variants off a shared depth pass. The
+publish node takes `UNIQUE_ID` and walks back through its own inputs (`provenance.ancestors`), so each
+Version describes only what produced *its* image. Without it every Version carries every other variant's
+prompt and seed, and a depth AOV claims sampler settings it never used.
+
+Tracing conditioning respects the input it started from: `ControlNetApplyAdvanced` takes both `positive`
+and `negative`, so following every link merges the two prompts into one.
 
 C2PA where the writer supports it; custom fields plus attachment otherwise. Field names are decided by probe, not by the docs.
 
@@ -142,6 +189,13 @@ A custom node is a Python class registered from `__init__.py`. Verified against 
     NODE_DISPLAY_NAME_MAPPINGS = {"FPTPublishVersion": "Publish Version to Flow PT"}
 
 `INPUT_TYPES` is a classmethod evaluated at load, which is what lets the mapping drive the inputs.
+
+There is a second, newer schema — `io.ComfyNode` with `define_schema()` returning an `io.Schema`, which is
+how the stock `comfy_extras/*` nodes are now written; `execution.py` branches on `is_v3`. Both are live and
+v1 is not deprecated. **This repo targets v1**, because a registry node should load on the older ComfyUI a
+studio actually has installed, and because the dict form is the one a forker's agent can read without
+learning a second vocabulary. The cost is that v1 hidden inputs are raw dict lookups, where v3's
+`HiddenHolder` returns `None` for anything absent (`_io.py:1545`) — so we handle the `None` cases ourselves.
 
 ### Where provenance comes from
 

@@ -1,0 +1,139 @@
+"""FPT Publish Version — an image out of the graph becomes a Version with its provenance."""
+import io
+import json
+
+import numpy as np
+from PIL import Image
+
+from .. import fields as fpt_fields
+from .. import provenance, publish, site
+
+MAX_ID = 2 ** 31 - 1
+NONE = ""
+
+
+def _png(frame):
+    """One frame of a ComfyUI IMAGE batch ([H,W,C] float 0-1) as PNG bytes."""
+    a = (frame.cpu().numpy() * 255.0).round().clip(0, 255).astype(np.uint8)
+    buf = io.BytesIO()
+    Image.fromarray(a).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _labels(pairs):
+    return [NONE] + [label for label, _ in pairs]
+
+
+def _id_for(pairs, label):
+    return next((i for l, i in pairs if l == label), 0)
+
+
+class FPTPublishVersion:
+    @classmethod
+    def INPUT_TYPES(cls):
+        # Re-evaluated on every /object_info request (server.py:756), so a profile edit or a new Shot
+        # reaches the operator on a browser refresh. The JS extension keeps the dependent lists in step
+        # while the graph is open; these are only the seed values.
+        p = site.profile()
+        project_id = int(p.get("project_id", 0))
+        link_type = p.get("link_type", "Shot")
+        links = site.entities(link_type, project_id)
+        first_link = links[0][1] if len(links) == 1 else 0
+
+        return {
+            "required": {
+                "images": ("IMAGE",),
+                "code": ("STRING", {"default": p.get("code_prefix", "comfy_v001")}),
+            },
+            "optional": {
+                "project": (_labels(site.projects()),
+                            {"default": site.project_name(project_id),
+                             "tooltip": "Project to publish into."}),
+                "link": (_labels(links),
+                         {"tooltip": f"{link_type} this Version belongs to."}),
+                "task": (_labels(site.tasks_for(link_type, first_link)),
+                         {"tooltip": "Task on that entity. Often empty — probe 005 found sg_task "
+                                     "filled on 1% of Versions, so it is optional by design."}),
+                "status": (_labels(site.statuses(project_id)),
+                           {"default": "", "tooltip": "Usable statuses for this project (probe 009)."}),
+                "note": ("STRING", {"multiline": True, "default": "",
+                                    "tooltip": "Human note. Provenance is recorded separately."}),
+                "source_versions": ("STRING", {"default": "",
+                                    "tooltip": "Comma-separated Version ids this was derived from."}),
+                "attach_workflow": ("BOOLEAN", {"default": True}),
+                "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
+                                    "tooltip": "Overrides `link` when non-zero, for a stale list."}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "usage_source": "COMFY_USAGE_SOURCE",
+                "unique_id": "UNIQUE_ID",
+            },
+        }
+
+    RETURN_TYPES = ()
+    FUNCTION = "publish"
+    CATEGORY = "Flow PT"
+    OUTPUT_NODE = True
+    DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
+
+    def publish(self, images, code, project=NONE, link=NONE, task=NONE, status=NONE, note="",
+                source_versions="", attach_workflow=True, link_id=0,
+                prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
+        p = site.profile()
+        link_type = p.get("link_type", "Shot")
+        link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
+
+        project_id = _id_for(site.projects(), project) or int(p.get("project_id", 0))
+        if not project_id:
+            raise ValueError("no project: pick one, or set project_id in profile.local.json")
+
+        # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
+        target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=link), link) if link else 0)
+        if link and not target:
+            raise ValueError(f"no {link_type} named {link!r} in project {project_id}")
+        task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
+        status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
+
+        # unique_id scopes provenance to this node's branch (provenance.ancestors).
+        prov = provenance.extract(prompt, extra_pnginfo, node_id=unique_id)
+        prov["comfy_usage_source"] = usage_source  # which client submitted this (execution.py:216)
+        wf = provenance.workflow(extra_pnginfo)
+
+        fpt = site.client()
+        # Which typed fields this site actually has. Absent until `python -m comfyui_fpt.fields` has
+        # run, so the blob fallback is the honest default, not a bug.
+        have = fpt_fields.available(fpt)
+        src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
+        typed = {k: v for k, v in fpt_fields.values_for(prov, src_ids).items() if k in have}
+
+        published = []
+        for i, frame in enumerate(images):
+            name = code if len(images) == 1 else f"{code}_{i + 1:02d}"
+            fields = dict(typed)
+            # description is the human note. The full graph goes up as an attachment, so it stays
+            # readable; only a site with no provenance fields falls back to a blob here.
+            fields["description"] = note if typed else json.dumps(
+                {"note": note, "provenance": prov}, indent=2)
+            if status_code:
+                fields["sg_status_list"] = status_code
+            if target:
+                fields[link_field] = {"type": link_type, "id": target}
+            if task_id:
+                fields["sg_task"] = {"type": "Task", "id": task_id}
+
+            vid = publish.create_version(fpt, project_id, name, fields)
+            png = _png(frame)
+            publish.upload(fpt, vid, png, f"{name}.png", field="image")
+            publish.upload(fpt, vid, png, f"{name}.png", field="sg_uploaded_movie")
+            publish.attach_json(fpt, vid, prov, f"{name}.provenance.json")
+            if attach_workflow and wf is not None:
+                publish.attach_json(fpt, vid, wf, f"{name}.workflow.json")
+            published.append(f"{name} -> Version {vid}")
+
+        if attach_workflow and wf is None:
+            published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
+        if not typed:
+            published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
+        return {"ui": {"text": published}}
