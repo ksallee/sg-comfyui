@@ -300,6 +300,40 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
     return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
 
 
+def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=(),
+                  sort="-id", limit=200):
+    """(code, status, id) for Versions matching a rule, newest first.
+
+    Every part is optional and narrows: an entity, a Task on it, words that must all appear in the
+    code, a set of statuses any of which will do. That is the shape an artist thinks in — "the newest
+    approved depth on this shot" — rather than an id.
+    """
+    if not project_id:
+        return []
+    filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
+    if link_type and link_id:
+        filters.append(["entity", "is", {"type": link_type, "id": int(link_id)}])
+    if task_id:
+        filters.append(["sg_task", "is", {"type": "Task", "id": int(task_id)}])
+    # Same multi-word rule as the pickers: every word must appear (probe 017).
+    filters += [["code", "contains", t] for t in terms if t]
+    # `in` takes a plain list for a scalar field, so several statuses are one filter, not a fight
+    # with filter_operator (probe 017).
+    if statuses:
+        filters.append(["sg_status_list", "in", list(statuses)])
+
+    def fetch():
+        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
+                          json={"filters": filters, "fields": ["code", "sg_status_list"],
+                                "sort": sort, "page": {"size": limit}})
+        return [] if not r.ok else [(d["attributes"].get("code") or "",
+                                     d["attributes"].get("sg_status_list") or "", d["id"])
+                                    for d in r.json()["data"]]
+    key = ("find", int(project_id), link_type, int(link_id), int(task_id),
+           tuple(terms), tuple(statuses), sort)
+    return _cached(key, fetch)
+
+
 def versions_on(link_type, link_id, project_id, limit=200, sort="-id"):
     """(code, status, id) for every Version on one entity, newest first.
 
