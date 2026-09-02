@@ -212,20 +212,44 @@ def register():
 
             fpt = site.client()
             have = fpt_fields.available(fpt)
-            typed = fpt_fields.values_for(prov, [s["id"] for s in sources if s["id"]])
-            by_id = {s["id"]: (s.get("code") or f'Version {s["id"]}') for s in sources}
+            typed = fpt_fields.values_for(prov, [x["id"] for x in sources if x["id"]])
+            by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
+            w = (prompt.get(node_id) or {}).get("inputs") or {}
 
-            def show(k, v):
-                if isinstance(v, list):   # multi_entity: names, not a dict repr
+            def show(v):
+                if isinstance(v, list):     # multi_entity: names, not a dict repr
                     return ", ".join(by_id.get(x.get("id"), str(x.get("id"))) for x in v)
                 return str(v)[:160]
 
+            rows = []
+            # Every provenance field, not only the ones with a value: an empty seed on a graph with
+            # no sampler is information, and hiding it makes the list look arbitrary.
+            for label, name in sorted(fpt_fields.names().items(), key=lambda kv: kv[1]):
+                v = typed.get(name)
+                rows.append({
+                    "name": name[3:] if name.startswith("sg_") else name,
+                    "value": show(v) if v not in (None, "", []) else "",
+                    "present": name in have,
+                    "note": "" if name in have else "field missing on this site"
+                            if v not in (None, "", []) else "nothing in this graph",
+                })
+            # The rest of the Version, which is not provenance but is still what gets written.
+            plain = [("description", w.get("note") or "", "the note below"),
+                     ("sg_status_list", w.get("status") or "", "" if w.get("status") else "left unset"),
+                     ("entity", w.get("link") or "", "" if w.get("link") else "not linked"),
+                     ("sg_task", w.get("task") or "", "" if w.get("task") else "no task")]
+            for name, val, note in plain:
+                rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
+
+            # Media and attachments are uploads, not fields, but they are part of "what gets saved".
+            uploads = ["image (thumbnail)", "sg_uploaded_movie", "<name>.provenance.json"]
+            if w.get("attach_workflow", True):
+                uploads.append("<name>.workflow.json — only if this client sends EXTRA_PNGINFO")
             return web.json_response({
-                "fields": [{"name": k, "value": show(k, v), "present": k in have}
-                           for k, v in sorted(typed.items())],
+                "fields": rows,
+                "uploads": uploads,
                 "sources": sources,
                 "missing_fields": sorted(n for n in fpt_fields.names().values() if n not in have),
-                "workflow": prov.get("workflow_attached", False),
             })
         except Exception as e:
             return web.json_response({"error": str(e)[:300], "fields": [], "sources": []})
