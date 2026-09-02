@@ -4,6 +4,10 @@ Setup path. Run once per site by the operator; the node only reads the result.
 
 Field names are permanent. probe 019 — DELETE frees the field but never the name, and trashed fields
 cannot be enumerated, so a name spent here is spent forever. Add to this list deliberately.
+
+Display and programmatic names are kept in step on purpose: the site derives one from the other at
+creation, and a TD reading `sg_ai_generated_from` in the schema should find "AI Generated From" in the
+UI. Renaming only the label would break that correspondence for everyone who comes later.
 """
 import re
 
@@ -23,7 +27,9 @@ FIELDS = [
     ("AI Steps",           "number",       {}),
     ("AI CFG",             "float",        {}),
     # probe 019 — valid_types takes exactly one element; two returns 400.
-    ("AI Source Versions", "multi_entity", {"valid_types": ["Version"]}),
+    # "Generated From", not "Source Versions": the sources need not be AI — a scanned plate feeding a
+    # previs is the ordinary case. The AI modifies THIS Version's generation, not its inputs.
+    ("AI Generated From",  "multi_entity", {"valid_types": ["Version"]}),
 ]
 
 
@@ -149,6 +155,6 @@ def values_for(prov, source_version_ids=()):
         "sg_ai_steps": last.get("steps"),
         "sg_ai_cfg": last.get("cfg"),
         # probe 019 — multi_entity round-trips {type, id} hashes and reads back under relationships.
-        "sg_ai_source_versions": [{"type": "Version", "id": int(i)} for i in source_version_ids],
+        "sg_ai_generated_from": [{"type": "Version", "id": int(i)} for i in source_version_ids],
     }
     return {k: v for k, v in out.items() if v not in (None, "", [])}
