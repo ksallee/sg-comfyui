@@ -151,4 +151,5 @@ def register():
     async def statuses(request):
         return pairs(site.statuses, int(request.rel_url.query.get("project_id") or 0))
 
+    site.warm()   # prime the setup caches now, not on the operator's first page load
     return True

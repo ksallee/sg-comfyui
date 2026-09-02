@@ -10,6 +10,7 @@ load, or the operator cannot open a graph that contains it.
 """
 import json
 import os
+import threading
 import time
 from pathlib import Path
 
@@ -31,7 +32,12 @@ def filter_headers(filters):
     """The Content-Type this filter shape requires (probe 030). The two are not interchangeable."""
     return HASH_JSON if isinstance(filters, dict) else ARRAY_JSON
 
-TTL = 60.0
+# Setup-path data: projects, entities, statuses, schema. It changes when someone edits the site, not
+# while a graph is open, and every one of these lookups happens inside INPUT_TYPES — which ComfyUI
+# re-runs on every /object_info, i.e. every page load and every node search. At 60s a tab opened a
+# minute after the last one paid 4.2s on the largest endpoint in the app and looked hung. The
+# "refresh from site" button exists for when the wait is actually wanted.
+TTL = 600.0
 _cache = {}
 
 
@@ -108,6 +114,27 @@ def forget(*prefixes):
     """
     for key in [k for k in _cache if k and k[0] in prefixes]:
         _cache.pop(key, None)
+
+
+def warm():
+    """Fill the setup caches in the background at import, off the first page load.
+
+    Everything here is read on the first /object_info, and doing it then costs ~4s on the largest
+    endpoint in the app — which reads as ComfyUI hanging. Failures are ignored: an unreachable site
+    must still let the editor open (that is what _cached already guarantees), this only decides when
+    the waiting happens.
+    """
+    def run():
+        try:
+            pid = default_project()
+            projects()
+            if pid:
+                statuses(pid)
+                link_type_choices(pid)
+                links(pid)
+        except Exception:
+            pass
+    threading.Thread(target=run, name="fpt-warm", daemon=True).start()
 
 
 def route(entity_type):
