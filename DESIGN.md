@@ -138,6 +138,36 @@ asks per pick and offers only tiers that resolve to a real file. Published files
 only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
 absent — `docs/quirks.md` in the corpus repo names what would close it.
 
+## Version naming is a convention, never a field
+
+A Version has **no version-number field** — `PublishedFile` has `version_number`, `Version` does not —
+so the version lives inside `code`. It is a naming convention, it differs per site and per show, and
+nothing here may hardcode one.
+
+So the convention is inferred from the codes a show already uses, shown to the operator with its
+coverage, and stored in the profile as data:
+
+    "code_template":   "{link}_{task}_v{version}",
+    "code_regex":      "^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\\d+)$",
+    "approved_status": "apr"
+
+Measured on three real projects: the reference show scores 100/100, this sandbox 2/3, and a project of
+ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
+operator sees it rather than getting a confident wrong guess.
+
+`approved_status` is separate because status vocabularies are per project (probe 009); which code
+means approved cannot be assumed.
+
+### Which makes two nodes a pipeline
+
+`code = auto` numbers per link, from the codes already on that link. `select = latest` resolves at run
+time, ordering by the convention's version number rather than by id — a re-published v002 is newer by
+id but older by intent. So step N publishes and step N+1 consumes it, with no id copied between graphs,
+and the lineage field records the join by itself.
+
+A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
+actually resolved and the publish node reads back only its own ancestors' entries.
+
 ## Provenance
 
 Captured per publish:
@@ -196,6 +226,36 @@ Which media a Version can deliver is a property of that Version, not of the site
 asks per pick and offers only tiers that resolve to a real file. Published files are not a tier yet: on the
 only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
 absent — `docs/quirks.md` in the corpus repo names what would close it.
+
+## Version naming is a convention, never a field
+
+A Version has **no version-number field** — `PublishedFile` has `version_number`, `Version` does not —
+so the version lives inside `code`. It is a naming convention, it differs per site and per show, and
+nothing here may hardcode one.
+
+So the convention is inferred from the codes a show already uses, shown to the operator with its
+coverage, and stored in the profile as data:
+
+    "code_template":   "{link}_{task}_v{version}",
+    "code_regex":      "^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\\d+)$",
+    "approved_status": "apr"
+
+Measured on three real projects: the reference show scores 100/100, this sandbox 2/3, and a project of
+ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
+operator sees it rather than getting a confident wrong guess.
+
+`approved_status` is separate because status vocabularies are per project (probe 009); which code
+means approved cannot be assumed.
+
+### Which makes two nodes a pipeline
+
+`code = auto` numbers per link, from the codes already on that link. `select = latest` resolves at run
+time, ordering by the convention's version number rather than by id — a re-published v002 is newer by
+id but older by intent. So step N publishes and step N+1 consumes it, with no id copied between graphs,
+and the lineage field records the join by itself.
+
+A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
+actually resolved and the publish node reads back only its own ancestors' entries.
 
 ## Provenance is per branch, not per graph
 
