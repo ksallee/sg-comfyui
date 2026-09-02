@@ -22,11 +22,11 @@ FETCH = "FPTFetchVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
-PUBLISH_WIDGETS = ["code", "project", "link_type", "link", "task", "status", "output_name", "note",
+PUBLISH_WIDGETS = ["code_template", "project", "link_type", "link", "task", "status", "output_name", "note",
                    "source_versions", "attach_workflow", "link_id"]
 FETCH_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses",
                  "newest_by", "pin_version_id", "source", "frame", "filters"]
-PUBLISH_DEFAULTS = {"code": "auto", "attach_workflow": True, "link_id": 0}
+PUBLISH_DEFAULTS = {"code_template": "{entity.code}_{output}_v{version:03d}", "attach_workflow": True, "link_id": 0}
 FETCH_DEFAULTS = {"statuses": "", "filters": "", "newest_by": "version number in the name", "source": "auto",
                   "pin_version_id": 0, "frame": 1, "link_type": "(all types)"}
 

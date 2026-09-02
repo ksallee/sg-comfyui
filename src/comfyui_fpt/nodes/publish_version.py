@@ -45,8 +45,15 @@ class FPTPublishVersion:
         return {
             "required": {
                 "images": ("IMAGE",),
-                "code": ("STRING", {"default": p.get("code_prefix", "comfy_v001"),
-                         "tooltip": "Leave as `auto` to follow this show's naming convention."}),
+                # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
+                # and ?fields use (probe 003). `{version:03d}` and `v%04d` both work. The panel shows
+                # what it renders to before anything is published.
+                "code_template": ("STRING", {
+                    "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
+                    "display_name": "name template",
+                    "tooltip": "e.g. {entity.Shot.code}_{task.Task.content}_v%04d — "
+                               "`entity` is what the Version hangs off, `task` its Task, `output` "
+                               "the pass below. Leave a literal name to use it as-is."}),
             },
             "optional": {
                 "project": (_labels(site.projects()),
@@ -67,9 +74,8 @@ class FPTPublishVersion:
                            {"default": status_label,
                             "tooltip": "Usable statuses for this project (probe 009)."}),
                 "output_name": ("STRING", {"default": "",
-                                "tooltip": "What this stream IS — depth, normals, mask. Appears where "
-                                           "the convention has {output}. Distinct from `task`, which "
-                                           "is the Flow PT Task this Version hangs off."}),
+                                "tooltip": "What this stream is — depth, normals, mask. Fills "
+                                           "{output} in the template."}),
                 "note": ("STRING", {"multiline": True, "default": "",
                                     "tooltip": "Human note. Provenance is recorded separately."}),
                 "source_versions": ("STRING", {"default": "",
@@ -86,13 +92,25 @@ class FPTPublishVersion:
             },
         }
 
+    @classmethod
+    def next_code(cls, template, project_id, link_type, link_id, task_id, output_name):
+        """The code this node would publish next. Shared with /fpt/preview_code so what the panel
+        shows is what gets written."""
+        template = (template or naming.DEFAULT_TEMPLATE).strip()
+        if not naming.template_fields(template) and "{version" not in naming.normalise_template(template):
+            return template          # a literal name, used as-is
+        vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, link_id,
+                                  task_id, {"output": output_name})
+        codes = [c for c, _, _ in site.find_versions(project_id, link_type, link_id)]
+        return naming.render(template, vals, naming.next_version(codes, template, vals))
+
     RETURN_TYPES = ()
     FUNCTION = "publish"
     CATEGORY = "Flow PT"
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
-    def publish(self, images, code, project=NONE, link_type=NONE, link=NONE, task=NONE,
+    def publish(self, images, code_template=NONE, project=NONE, link_type=NONE, link=NONE, task=NONE,
                 status=NONE, output_name="", note="",
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
@@ -138,26 +156,13 @@ class FPTPublishVersion:
                 src_ids.append(vid)
         typed = {k: v for k, v in fpt_fields.values_for(prov, src_ids).items() if k in have}
 
-        # `auto` means: follow the convention this show already uses, numbering per link. There is no
-        # version-number field on Version (it lives in `code`), so the convention is the only source.
-        # A real version-number field is authoritative where the site has one (Toolkit sites usually
-        # do); the code convention is the fallback for the many sites that do not.
+        # The template decides the name, rendered from the entity and task it is actually linked
+        # to. A real version-number field is authoritative where the site has one (Toolkit sites
+        # usually do); the template's own {version} is the fallback for the many sites that do not.
+        code = self.next_code(code_template, project_id, link_type, target, task_id, output_name)
         vnum_field = p.get("version_number_field", "")
-        next_num = None
-        if code.strip().lower() == "auto":
-            existing = [c for c, _, _ in site.versions_on(link_type, target, project_id)]
-            rx, tpl = p.get("code_regex", ""), p.get("code_template", "")
-            if not (rx and tpl):
-                raise ValueError("code=auto needs code_regex and code_template in the profile — "
-                                 "run /inspect-site, which infers them and reports their coverage")
-            # {task} is the show's pipeline step, taken from the Task the operator picked or from
-            # whatever token the show already uses. {output} is what this stream is.
-            task_token = (task or (naming.parse(existing[0], rx) or {}).get("task", "")
-                          if existing else task or "")
-            code = naming.next_code(tpl, rx, existing, picked_name or link or "",
-                                    task_token, output_name)
-        if vnum_field and target:
-            next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
+        next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
+                    if vnum_field and target else None)
 
         published, done = [], []
         for i, frame in enumerate(images):
@@ -177,7 +182,9 @@ class FPTPublishVersion:
                 fields[vnum_field] = next_num + i
 
             vid = publish.create_version(fpt, project_id, name, fields)
-            site.forget("versions_on", "vnums")   # the next node must see this one
+            # Every lookup a name depends on. `find` is the one the template reads; missing it let
+            # two publish nodes in one run propose the same version again.
+            site.forget("find", "versions_on", "vnums", "paths")
             png = _png(frame)
             publish.upload(fpt, vid, png, f"{name}.png", field="image")
             publish.upload(fpt, vid, png, f"{name}.png", field="sg_uploaded_movie")

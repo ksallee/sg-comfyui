@@ -494,6 +494,41 @@ def status_icons():
     return _cached(("status_icons",), fetch)
 
 
+def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=None):
+    """{path: value} for template paths like `entity.Shot.code` or `task.Task.content`.
+
+    The prefix names which entity to read — `entity` the thing the Version hangs off, `task` its Task,
+    `project` the show — and the last segment is the field. A middle segment is the entity type, which
+    Flow PT's own dotted syntax carries (probe 003) and which we can ignore because the id already
+    tells us what we are reading.
+    """
+    out = dict(extra or {})
+    wanted = {}
+    for p in paths:
+        if p in out:
+            continue
+        bits = p.split(".")
+        prefix, field = bits[0], bits[-1]
+        if prefix == "entity" and link_type and link_id:
+            wanted.setdefault((link_type, int(link_id)), []).append((p, field))
+        elif prefix in ("task", "sg_task") and task_id:
+            wanted.setdefault(("Task", int(task_id)), []).append((p, field))
+        elif prefix == "project" and project_id:
+            wanted.setdefault(("Project", int(project_id)), []).append((p, field))
+
+    for (etype, eid), items in wanted.items():
+        fields = sorted({f for _, f in items})
+
+        def fetch(etype=etype, eid=eid, fields=tuple(fields)):
+            r = client().get(f"{route(etype)}/{eid}", params={"fields": ",".join(fields)})
+            return r.json()["data"]["attributes"] if r.ok else {}
+        attrs = _cached(("paths", etype, eid, tuple(fields)), fetch) or {}
+        for path, field in items:
+            v = attrs.get(field)
+            out[path] = v.get("name") if isinstance(v, dict) else v
+    return out
+
+
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 

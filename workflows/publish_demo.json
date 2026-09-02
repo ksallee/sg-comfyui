@@ -319,7 +319,7 @@
         "Node name for S&R": "FPTPublishVersion"
       },
       "widgets_values": [
-        "auto",
+        "{entity.code}_{output}_v{version:03d}",
         "comfyui-fpt sandbox",
         "Shot",
         "sbx_0020 (Shot)",

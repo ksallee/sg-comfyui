@@ -46,7 +46,20 @@ app.registerExtension({
       const project = w("project"), link = w("link"), task = w("task"), status = w("status");
       const linkTypeW = w("link_type");
       const panel = addPanel(this, "Flow PT Publish");
-      panel.show({ why: "nothing published from this node yet" });
+      const preview = async () => {
+        const q = new URLSearchParams({
+          project: project.value || "", link_type: linkTypeW?.value || "",
+          link: link.value || "", task: task?.value || "",
+          code_template: w("code_template")?.value || "",
+          output_name: w("output_name")?.value || "",
+        });
+        const d = await get(`/fpt/preview_code?${q}`);
+        panel.clearLog();
+        panel.show(d.code
+          ? { id: -1, code: d.code, link: d.link, task: d.task,
+              why: "this is what the next Run will create" }
+          : { error: d.error || "the template does not resolve yet" });
+      };
       const node = this;
       app.api.addEventListener("executed", ({ detail }) => {
         if (String(detail.node) !== String(node.id)) return;
@@ -59,6 +72,8 @@ app.registerExtension({
         }
         const text = (detail.output && detail.output.text) || [];
         if (text.length) panel.log(text, rows.length > 0);
+        // What the NEXT run would create, now that this one has taken a number.
+        setTimeout(preview, 1200);
       });
       if (!project || !link) return;
 
@@ -72,6 +87,7 @@ app.registerExtension({
         const id = linkIds[link.value] || 0;
         const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(link.value))}&id=${id}`);
         if (task) setOptions(task, d.items.map((x) => x.label));
+        await preview();
         app.graph.setDirtyCanvas(true, true);
       };
 
@@ -109,6 +125,7 @@ app.registerExtension({
           if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
         }
         await loadLinks();
+        await preview();
       };
 
       // Type-ahead. Filtering is server-side (probe 017 `contains`), so this scales past the page size.
@@ -128,6 +145,7 @@ app.registerExtension({
       wrap(project, loadProject);
       wrap(linkTypeW, loadLinks);
       wrap(link, loadTasks);
+      ["code_template", "output_name", "task"].forEach((n) => wrap(w(n), preview));
 
       this.addWidget("button", "refresh from site", null, loadProject);
       loadProject();
