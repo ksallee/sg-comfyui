@@ -30,6 +30,8 @@ const CSS = `
 .fpt-ok { color: #7fd18b; }
 .fpt-err { color: #f08a8a; white-space: pre-wrap; }
 .fpt-dim { color: #7f868f; }
+.fpt-filter { color: #9aa7b8; background: #1d2024; border: 1px solid #313640; border-radius: 4px;
+              padding: 4px 6px; white-space: pre-wrap; word-break: break-all; font-size: 10px; }
 `;
 
 let injected = false;
@@ -60,6 +62,13 @@ function pill(label, rgb) {
     fg = (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#1b1d21" : "#e8ebee";
   }
   return `<span class="fpt-pill" style="background:${bg};color:${fg}">${label}</span>`;
+}
+
+// The query in Flow PT's own language, so it can be read, copied, and pasted into `filters`.
+function filterBlock(d) {
+  if (!d || !d.filters) return "";
+  return `<div class="fpt-sec">filter</div><div class="fpt-filter">${
+    esc(JSON.stringify(d.filters))}</div>`;
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -94,7 +103,14 @@ export function addPanel(node, title = "Flow PT") {
       }
       if (!d || !d.id) {
         t.innerHTML = esc(title);
-        body.innerHTML = `<div class="fpt-dim">${esc((d && d.why) || "nothing resolved yet")}</div>`;
+        const near = (d && d.candidates) || [];
+        body.innerHTML =
+          `<div class="fpt-dim">${esc((d && d.why) || "nothing resolved yet")}</div>` +
+          (near.length
+            ? `<div class="fpt-sec">what is there</div>` + near.map((v) =>
+                `<div class="fpt-row"><span class="fpt-v" style="flex:1">${esc(v.code)}</span>
+                 ${v.status && v.status.label ? badge(v.status) : ""}</div>`).join("")
+            : "") + filterBlock(d);
         return;
       }
       t.innerHTML = `${esc(d.code)} ${d.status && d.status.label ? badge(d.status) : ""}`;
@@ -106,7 +122,7 @@ export function addPanel(node, title = "Flow PT") {
       body.innerHTML =
         rows.map(([k, v]) => `<div class="fpt-row"><span class="fpt-k">${esc(k)}</span>
           <span class="fpt-v">${esc(v)}</span></div>`).join("") +
-        (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "");
+        (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") + filterBlock(d);
     },
     /** What the node last did. Appended under the description, not instead of it. */
     log(lines, ok = true) {

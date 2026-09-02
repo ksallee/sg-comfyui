@@ -18,13 +18,24 @@ ORDERS = [BY_VERSION, BY_CREATED, BY_ID]
 SORT = {BY_CREATED: "-created_at", BY_ID: "-id", BY_VERSION: "-id"}
 
 
+def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=()):
+    return site.version_filters(project_id, link_type, link_id, task_id,
+                                [t for t in (name_contains or "").split() if t], statuses)
+
+
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
-         order=BY_VERSION, regex=""):
-    """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently."""
+         order=BY_VERSION, regex="", filters=None):
+    """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently.
+
+    `filters` replaces everything the widgets add up to, so a power user or an agent owns the query
+    outright rather than fighting the fields.
+    """
     terms = [t for t in (name_contains or "").split() if t]
     rows = site.find_versions(project_id, link_type, link_id, task_id, terms, statuses,
-                              sort=SORT.get(order, "-id"))
+                              sort=SORT.get(order, "-id"), filters=filters)
     if not rows:
+        if filters:
+            return 0, "", "nothing matches the filter you supplied"
         where = f"{link_type} {link_id}" if link_id else f"project {project_id}"
         bits = [b for b in (f"name containing {name_contains!r}" if terms else "",
                             f"status in {list(statuses)}" if statuses else "",

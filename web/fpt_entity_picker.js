@@ -158,6 +158,7 @@ function fetchPickers(nodeType) {
         name_contains: w("name_contains")?.value || "",
         newest_by: w("newest_by")?.value || "",
         pin_version_id: w("pin_version_id")?.value || 0,
+        filters: w("filters")?.value || "",
       });
       for (const s of String(statuses?.value || "").split(",")) {
         const t = s.trim();
@@ -215,7 +216,7 @@ function fetchPickers(nodeType) {
     wrap(project, loadProject);
     wrap(linkTypeW, loadLinks);
     wrap(link, loadTasks);
-    ["task", "name_contains", "statuses", "newest_by", "pin_version_id"].forEach((n) =>
+    ["task", "name_contains", "statuses", "filters", "newest_by", "pin_version_id"].forEach((n) =>
       wrap(w(n), refresh));
 
     this.addWidget("button", "refresh from site", null, loadProject);
