@@ -177,8 +177,13 @@ Three constraints came out of probe 019 and are not negotiable:
 - **Field names are permanent.** DELETE frees the field but never its name, and trashed fields cannot be
   enumerated, so the collision is invisible. Adding to `FIELDS` spends a name site-wide, forever.
 
-Lineage is `sg_ai_source_versions`, a `multi_entity` of Version — probe 019 confirms multi_entity
+Lineage is `sg_ai_generated_from`, a `multi_entity` of Version — probe 019 confirms multi_entity
 round-trips `{type, id}` hashes and takes exactly one `valid_types` element.
+
+Not "source versions": the sources need not be AI, and a scanned plate feeding a previs is the ordinary
+case. The `AI` describes this Version's generation, not its inputs. Display and programmatic names are
+kept in step — a TD reading `sg_ai_generated_from` should find "AI Generated From" in the UI — so a
+rename means a new field, never a relabel.
 
 ### Media comes back the same way it went out
 
