@@ -54,6 +54,33 @@ class FPTFetchVersion:
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 
+    @classmethod
+    def IS_CHANGED(cls, version_id=0, select=resolve.NEWEST, project=NONE, link=NONE,
+                   source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, **kw):
+        """Re-resolve at queue time, so the graph sees what has been published since.
+
+        Without this ComfyUI caches on unchanged widgets and a second run costs 0.00s without ever
+        asking the site — the read node silently keeps serving v001 after v002 lands, which defeats
+        the entire point of resolving by rule instead of by id.
+
+        Returns the id it WOULD fetch, so the node re-executes when that changes and only then. The
+        lookup cache is dropped first: a status someone flipped a moment ago must be visible now.
+        """
+        if select == resolve.PINNED:
+            return f"{int(version_id)}:{source}:{frame}"
+        try:
+            site.forget("versions_on")
+            project_id = _id_for(site.projects(), project) or site.default_project()
+            p = site.for_project(project_id)
+            link_type = p.get("link_type", "Shot")
+            target = _id_for(site.entities(link_type, project_id, q=link), link) if link else 0
+            code_for = next((c for l, c in site.statuses(project_id) if l == status), "")
+            vid, _, _ = resolve.pick(link_type, target, project_id, match, code_for,
+                                     order, p.get("code_regex", ""))
+            return f"{vid}:{source}:{frame}"
+        except Exception:
+            return float("nan")   # unreachable site: re-run rather than serve something stale
+
     RETURN_TYPES = ("IMAGE", "INT", "STRING")
     RETURN_NAMES = ("image", "version_id", "code")
     FUNCTION = "fetch"

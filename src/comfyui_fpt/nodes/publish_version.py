@@ -141,11 +141,7 @@ class FPTPublishVersion:
             # whatever token the show already uses. {output} is what this stream is.
             task_token = (task or (naming.parse(existing[0], rx) or {}).get("task", "")
                           if existing else task or "")
-            # Only codes for THIS output decide the number: a depth and a normals pass of one version
-            # are one version in two passes, not versions three and four.
-            same = [c for c in existing
-                    if not output_name or (naming.parse(c, rx) or {}).get("output") == output_name]
-            code = naming.next_code(tpl, rx, same, link or "", task_token, output_name)
+            code = naming.next_code(tpl, rx, existing, link or "", task_token, output_name)
         if vnum_field and target:
             next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
 
