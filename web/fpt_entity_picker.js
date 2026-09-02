@@ -1,4 +1,5 @@
 import { app } from "../../scripts/app.js";
+import { ComfyWidgets } from "../../scripts/widgets.js";
 
 const NONE = "";
 
@@ -108,18 +109,34 @@ function fetchPickers(nodeType) {
     const source = w("source"), versionId = w("version_id");
     if (!project || !version || !versionId) return;
 
-    let projectId = 0, linkType = "Shot", linkIds = {}, versionIds = {};
+    let projectId = 0, linkType = "Shot", linkIds = {}, versionIds = {}, statusCodes = {};
 
-    const select = w("select");
+    const select = w("select"), status = w("status"), order = w("order"), match = w("match");
+
+    // What this rule lands on, and what made it — shown before anything runs. It calls the same
+    // resolver the node uses, so the preview cannot disagree with the run.
+    let panel = null;
+    try {
+      panel = ComfyWidgets.STRING(this, "resolves to",
+        ["STRING", { multiline: true }], app).widget;
+      panel.inputEl.readOnly = true;
+      panel.inputEl.style.opacity = 0.75;
+    } catch (e) { /* older frontend: the pickers still work without the panel */ }
+
     const loadSources = async () => {
       const id = versionIds[version.value] || 0;
       versionId.value = id;
-      // Picking a Version by hand means you meant that one; leaving it on "latest" would silently
-      // ignore the pick at run time.
       if (select && id && select.value !== "pinned id") select.value = "pinned id";
+      const q = new URLSearchParams({
+        project_id: projectId, link_id: linkIds[link?.value] || 0,
+        select: select?.value || "", version_id: versionId.value || 0,
+        status: statusCodes[status?.value] || "", order: order?.value || "",
+        match: match?.value || "",
+      });
+      const d = await get(`/fpt/resolve?${q}`);
+      if (panel) panel.value = d.summary || "nothing resolves yet";
       if (source) {
-        const d = await get(`/fpt/version_sources?version_id=${id}`);
-        source.options.values = ["auto"].concat(d.items.map((x) => x.label));
+        source.options.values = ["auto"].concat(d.sources || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
       }
       app.graph.setDirtyCanvas(true, true);
@@ -149,10 +166,10 @@ function fetchPickers(nodeType) {
       linkType = prof.link_type || "Shot";
       if (link) link.tooltip = `Narrow to one ${linkType}.`;
       // Status codes are per project (probe 009), so the filter list follows the project too.
-      const st = w("status");
-      if (st) {
+      if (status) {
         const d2 = await get(`/fpt/statuses?project_id=${projectId}`);
-        setOptions(st, d2.items.map((x) => x.label));
+        statusCodes = Object.fromEntries(d2.items.map((x) => [x.label, x.id]));
+        setOptions(status, d2.items.map((x) => x.label));
       }
       await loadLinks();
     };
@@ -175,6 +192,8 @@ function fetchPickers(nodeType) {
     wrap(project, loadProject);
     wrap(link, () => loadVersions(search.value));
     wrap(version, loadSources);
+    // Anything that changes which Version the rule lands on refreshes the panel.
+    [select, status, order, match].forEach((x) => wrap(x, loadSources));
 
     this.addWidget("button", "refresh from site", null, loadProject);
     loadProject();

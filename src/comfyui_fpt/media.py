@@ -19,6 +19,15 @@ from sg_groundtruth.client import FPTError
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
           "sg_first_frame", "sg_last_frame"]
 
+# Provenance the publish node writes (fields.py). Shown on the Fetch node so an artist can see what
+# they are building on before they run anything.
+SUMMARY_FIELDS = ["code", "description", "sg_status_list", "created_at", "sg_ai_generator",
+                  "sg_ai_model", "sg_ai_prompt", "sg_ai_seed", "sg_ai_sampler", "sg_ai_steps",
+                  "sg_ai_cfg"]
+SUMMARY_LABELS = {"sg_ai_generator": "made by", "sg_ai_model": "model", "sg_ai_prompt": "prompt",
+                  "sg_ai_seed": "seed", "sg_ai_sampler": "sampler", "sg_ai_steps": "steps",
+                  "sg_ai_cfg": "cfg", "description": "note"}
+
 # Best first. `auto` walks this order and takes the first that resolves.
 TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
          ("uploaded", "uploaded media"), ("thumbnail", "thumbnail")]
@@ -49,6 +58,43 @@ def version(fpt, version_id):
         raise FPTError(f"Version {version_id}: {r.status_code} {r.text[:200]}")
     d = r.json()["data"]
     return {**d.get("attributes", {}), "id": d["id"]}
+
+
+def summary(fpt, version_id, statuses=()):
+    """A few lines describing one Version: what it is, and what made it.
+
+    Absent fields are omitted rather than shown empty — a site with no provenance fields should see a
+    short honest summary, not a column of blanks.
+    """
+    r = fpt.get(f"/entity/versions/{int(version_id)}",
+                params={"fields": ",".join(SUMMARY_FIELDS + ["entity", "sg_task",
+                                                             "sg_ai_generated_from"])})
+    if not r.ok:
+        return f"Version {version_id}: {r.status_code}"
+    d = r.json()["data"]
+    a, rel = d.get("attributes", {}), d.get("relationships", {})
+    # site.statuses yields (label, code); an artist reads "Approved", never "apr" (probe 009).
+    label = {c: l for l, c in statuses}.get(a.get("sg_status_list"), a.get("sg_status_list") or "")
+    head = f'{a.get("code") or version_id}   {label}'.strip()
+    lines = [head]
+    ent = (rel.get("entity") or {}).get("data") or {}
+    task = (rel.get("sg_task") or {}).get("data") or {}
+    where = "  ".join(x for x in (f'{ent.get("type","")} {ent.get("name","")}'.strip(),
+                                  f'task {task.get("name")}' if task.get("name") else "") if x)
+    if where:
+        lines.append(where)
+    for f in SUMMARY_FIELDS:
+        if f in ("code", "sg_status_list", "created_at"):
+            continue
+        v = a.get(f)
+        if v in (None, "", []):
+            continue
+        text = str(v).replace("\n", " ")
+        lines.append(f'{SUMMARY_LABELS.get(f, f)}: {text[:110]}' + ("…" if len(text) > 110 else ""))
+    src = (rel.get("sg_ai_generated_from") or {}).get("data") or []
+    if src:
+        lines.append("generated from: " + ", ".join(x.get("name", str(x.get("id"))) for x in src))
+    return "\n".join(lines)
 
 
 def sources(v):
