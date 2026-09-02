@@ -148,6 +148,9 @@ function fetchPickers(nodeType) {
     if (!project || !link) return;
 
     let projectId = 0, linkIds = {};
+    // The SG Filters box mirrors the pickers until someone edits it, then it is theirs. Comparing
+    // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
+    let mirrored = "";
 
     const panel = addPanel(this, "Flow PT Fetch");
 
@@ -158,7 +161,10 @@ function fetchPickers(nodeType) {
         name_contains: w("name_contains")?.value || "",
         newest_by: w("newest_by")?.value || "",
         pin_version_id: w("pin_version_id")?.value || 0,
-        filters: w("filters")?.value || "",
+        // Only when it is an override. While the box is still mirroring, sending it back would let
+        // its own (now stale) content win over the very fields it is meant to reflect.
+        filters: (w("filters")?.value || "").trim() === mirrored.trim()
+          ? "" : (w("filters")?.value || ""),
       });
       for (const s of String(statuses?.value || "").split(",")) {
         const t = s.trim();
@@ -166,6 +172,11 @@ function fetchPickers(nodeType) {
       }
       const d = await get(`/fpt/resolve?${q}`);
       panel.show(d);
+      const box = w("filters");
+      if (box && d.filters && (box.value || "").trim() === mirrored) {
+        mirrored = JSON.stringify(d.filters, null, 1);
+        box.value = mirrored;
+      }
       if (source) {
         source.options.values = ["auto"].concat(d.sources || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
