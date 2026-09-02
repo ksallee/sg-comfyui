@@ -132,6 +132,67 @@ def project_name(project_id):
     return next((n for n, i in projects() if i == int(project_id or 0)), "")
 
 
+SEP = " · "   # unlikely inside a real name, and the label must round-trip to (type, id)
+
+
+def link_types(project_id, limit=100):
+    """Entity types Versions on this project ACTUALLY link to, most used first.
+
+    `Version.entity` accepts 15 types site-wide (Asset, Shot, Sequence, Level, MocapTake, Reel,
+    ShootDay, Delivery, Launch, Camera, Slate, SourceClip and three CustomEntity slots), so a single
+    link type was never Flow PT's model — one show hangs Versions off Shots, another off Assets, and
+    plenty use several at once. Searching all 15 would be slow and mostly empty, so this asks what the
+    show does and searches that. `link_types` in the profile overrides it.
+    """
+    p = for_project(project_id)
+    if p.get("link_types"):
+        return list(p["link_types"])
+
+    def fetch():
+        r = client().get("/entity/versions", params={
+            "filter[project.Project.id]": int(project_id), "fields": "entity",
+            "sort": "-id", "page[size]": limit})
+        if not r.ok:
+            return []
+        seen = {}
+        for d in r.json()["data"]:
+            e = ((d.get("relationships") or {}).get("entity") or {}).get("data") or {}
+            if e.get("type"):
+                seen[e["type"]] = seen.get(e["type"], 0) + 1
+        return [t for t, _ in sorted(seen.items(), key=lambda kv: -kv[1])]
+
+    # Observed first, then the common containers. Observation alone is circular: a brand new Asset
+    # cannot be picked because no Version points at one yet, which is exactly when you need to.
+    out = list(_cached(("link_types", int(project_id)), fetch))
+    for t in (p.get("link_type", "Shot"), "Shot", "Asset", "Sequence"):
+        if t and t not in out:
+            out.append(t)
+    return out
+
+
+def links(project_id, q="", types=None, limit=100):
+    """(label, type, id) across every type this project links to, newest-heavy types first.
+
+    The label carries the type — `Shot · bunny_030_0090` — because a Shot and an Asset may share a
+    name, and the operator has to be able to tell them apart in one flat combo.
+    """
+    if not project_id:
+        return []
+    out = []
+    for t in (types or link_types(project_id)):
+        for name, eid in entities(t, project_id, q=q, limit=limit):
+            out.append((f"{t}{SEP}{name}", t, eid))
+    return out
+
+
+def split_link(label):
+    """`Shot · bunny_030_0090` -> ("Shot", "bunny_030_0090"). A bare name keeps its type unknown."""
+    if label and SEP in label:
+        t, _, name = label.partition(SEP)
+        return t, name
+    return "", label or ""
+
+
 def entities(entity_type, project_id, q="", field="code", limit=200):
     """(name, id) for a link picker, filtered server-side.
 

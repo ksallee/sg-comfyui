@@ -18,8 +18,6 @@ class FPTFetchVersion:
     @classmethod
     def INPUT_TYPES(cls):
         project_id = site.default_project()
-        p = site.for_project(project_id)
-        link_type = p.get("link_type", "Shot")
         return {
             "required": {
                 # Authoritative, and the only thing downstream provenance reads — a label would have
@@ -33,8 +31,9 @@ class FPTFetchVersion:
             "optional": {
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id)}),
-                "link": (_labels(site.entities(link_type, project_id)),
-                         {"tooltip": f"Narrow to one {link_type}."}),
+                "link": (_labels([(l, i) for l, _, i in site.links(project_id)]),
+                         {"tooltip": "Narrow to one entity. Each option carries its own type, "
+                                     "because Version.entity accepts many."}),
                 "version": ([NONE], {"tooltip": "Versions in that project, newest first."}),
                 # Populated per Version by the editor: only tiers this Version can actually deliver
                 # are offered (probe 021), because a filled path field is not the same as a file.
@@ -72,8 +71,9 @@ class FPTFetchVersion:
             site.forget("versions_on")
             project_id = _id_for(site.projects(), project) or site.default_project()
             p = site.for_project(project_id)
-            link_type = p.get("link_type", "Shot")
-            target = _id_for(site.entities(link_type, project_id, q=link), link) if link else 0
+            picked_type, picked_name = site.split_link(link)
+            link_type = picked_type or p.get("link_type", "Shot")
+            target = _id_for(site.entities(link_type, project_id, q=picked_name), picked_name) if link else 0
             code_for = next((c for l, c in site.statuses(project_id) if l == status), "")
             vid, _, _ = resolve.pick(link_type, target, project_id, match, code_for,
                                      order, p.get("code_regex", ""))
@@ -91,12 +91,13 @@ class FPTFetchVersion:
               source=AUTO, status=NONE, order=resolve.BY_ID, match="", frame=1, unique_id=None):
         project_id = _id_for(site.projects(), project) or site.default_project()
         p = site.for_project(project_id)
-        link_type = p.get("link_type", "Shot")
+        picked_type, picked_name = site.split_link(link)
+        link_type = picked_type or p.get("link_type", "Shot")
 
         if select == resolve.PINNED:
             vid, why = int(version_id), "pinned"
         else:
-            target = _id_for(site.entities(link_type, project_id, q=link), link) if link else 0
+            target = _id_for(site.entities(link_type, project_id, q=picked_name), picked_name) if link else 0
             if not target:
                 raise ValueError(f"select={select!r} resolves against a {link_type}; pick one in `link`")
             code_for = next((c for l, c in site.statuses(project_id) if l == status), "")

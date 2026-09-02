@@ -36,9 +36,9 @@ class FPTPublishVersion:
         # while the graph is open; these are only the seed values.
         project_id = site.default_project()
         p = site.for_project(project_id)
-        link_type = p.get("link_type", "Shot")
-        links = site.entities(link_type, project_id)
-        first_link = links[0][1] if len(links) == 1 else 0
+        rows = site.links(project_id)
+        links = [(l, i) for l, _, i in rows]
+        first_type, first_link = (rows[0][1], rows[0][2]) if len(rows) == 1 else ("", 0)
         statuses = site.statuses(project_id)
         status_label = next((l for l, c in statuses if c == p.get("status")), NONE)
 
@@ -53,8 +53,9 @@ class FPTPublishVersion:
                             {"default": site.project_name(project_id),
                              "tooltip": "Project to publish into."}),
                 "link": (_labels(links),
-                         {"tooltip": f"{link_type} this Version belongs to."}),
-                "task": (_labels(site.tasks_for(link_type, first_link)),
+                         {"tooltip": "What this Version belongs to. Version.entity accepts many "
+                                     "types, so each option carries its own."}),
+                "task": (_labels(site.tasks_for(first_type, first_link)),
                          {"tooltip": "Task on that entity. Often empty — probe 005 found sg_task "
                                      "filled on 1% of Versions, so it is optional by design."}),
                 "status": (_labels(statuses),
@@ -95,13 +96,17 @@ class FPTPublishVersion:
         if not project_id:
             raise ValueError("no project: pick one, or set default_project in profile.local.json")
         p = site.for_project(project_id)
-        link_type = p.get("link_type", "Shot")
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
+        # The type comes from what was picked, not from a profile default: Version.entity accepts 15
+        # types and a show may use several at once.
+        picked_type, picked_name = site.split_link(link)
+        link_type = picked_type or p.get("link_type", "Shot")
 
         # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
-        target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=link), link) if link else 0)
+        target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),
+                                          picked_name) if link else 0)
         if link and not target:
-            raise ValueError(f"no {link_type} named {link!r} in project {project_id}")
+            raise ValueError(f"no {link_type} named {picked_name!r} in project {project_id}")
         task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
         status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
 
@@ -141,7 +146,8 @@ class FPTPublishVersion:
             # whatever token the show already uses. {output} is what this stream is.
             task_token = (task or (naming.parse(existing[0], rx) or {}).get("task", "")
                           if existing else task or "")
-            code = naming.next_code(tpl, rx, existing, link or "", task_token, output_name)
+            code = naming.next_code(tpl, rx, existing, picked_name or link or "",
+                                    task_token, output_name)
         if vnum_field and target:
             next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
 
