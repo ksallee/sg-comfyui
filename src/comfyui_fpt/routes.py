@@ -51,6 +51,24 @@ def register():
         except Exception as e:
             return web.json_response({"error": str(e)[:200]})
 
+    @routes.get("/fpt/versions")
+    async def versions(request):
+        q = request.rel_url.query
+        return pairs(site.versions, int(q.get("project_id") or 0), q.get("type", ""),
+                     int(q.get("link_id") or 0), q.get("q", ""))
+
+    @routes.get("/fpt/version_sources")
+    async def version_sources(request):
+        """Which tiers THIS Version can actually deliver (probe 021). A filled path field is not the
+        same as a file on disk, so the editor asks per Version rather than offering a fixed list."""
+        try:
+            from . import media
+            v = media.version(site.client(), int(request.rel_url.query.get("version_id") or 0))
+            return web.json_response({"items": [{"label": label, "id": key}
+                                                for key, label in media.sources(v)]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": str(e)[:200]})
+
     @routes.get("/fpt/statuses")
     async def statuses(request):
         return pairs(site.statuses, int(request.rel_url.query.get("project_id") or 0))

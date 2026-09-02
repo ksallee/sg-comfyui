@@ -120,7 +120,23 @@ deterministic, offline, and costs no tokens.
 
 - `FPT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
   the site profile: link target and exposed fields are resolved, not hardcoded.
-- `FPT Fetch Media` — Version or Attachment out as an image, to feed a graph
+- `Flow PT Fetch Version` — a Version's media back into the graph, and the link recorded
+
+`av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
+video nodes. Imported lazily inside the movie branch, so an install without it still loads every node and
+fails only when someone actually asks for a movie frame.
+
+## Media comes back the same way it went out
+
+A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
+prompt graph — the branch walk that scopes provenance answers "what did this come from" for free, and the
+operator never types an id. A plate becomes a previs; several Versions become one output; the chain lives in
+Flow PT.
+
+Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
+asks per pick and offers only tiers that resolve to a real file. Published files are not a tier yet: on the
+only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
+absent — `docs/quirks.md` in the corpus repo names what would close it.
 
 ## Provenance
 
@@ -131,7 +147,7 @@ Captured per publish:
 | model, prompt, seed, sampler | ComfyUI prompt graph |
 | workflow JSON | attachment — best effort, see below |
 | submitting client | `COMFY_USAGE_SOURCE` |
-| input Version ids | node inputs |
+| input Version ids | upstream `Flow PT Fetch Version` nodes, or typed by hand |
 | user, timestamp | client |
 
 ### The workflow attachment is best effort
@@ -164,7 +180,19 @@ Three constraints came out of probe 019 and are not negotiable:
 Lineage is `sg_ai_source_versions`, a `multi_entity` of Version — probe 019 confirms multi_entity
 round-trips `{type, id}` hashes and takes exactly one `valid_types` element.
 
-### Provenance is per branch, not per graph
+### Media comes back the same way it went out
+
+A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
+prompt graph — the branch walk that scopes provenance answers "what did this come from" for free, and the
+operator never types an id. A plate becomes a previs; several Versions become one output; the chain lives in
+Flow PT.
+
+Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
+asks per pick and offers only tiers that resolve to a real file. Published files are not a tier yet: on the
+only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
+absent — `docs/quirks.md` in the corpus repo names what would close it.
+
+## Provenance is per branch, not per graph
 
 One graph holds several independent branches — three lookdev variants off a shared depth pass. The
 publish node takes `UNIQUE_ID` and walks back through its own inputs (`provenance.ancestors`), so each

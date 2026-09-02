@@ -159,6 +159,29 @@ def tasks_for(link_type, link_id, limit=200):
     return _cached(("tasks", link_type, int(link_id)), fetch)
 
 
+def versions(project_id, link_type="", link_id=0, q="", limit=200):
+    """(code, id) for the Versions worth offering, newest first.
+
+    probe 017 — `contains` filters server-side; probe 005 — narrowing by the link entity is the way an
+    operator actually thinks about it ("the plates on this shot"), so it is a filter, not a scroll.
+    """
+    if not project_id:
+        return []
+
+    def fetch():
+        filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
+        if link_type and link_id:
+            filters.append(["entity", "is", {"type": link_type, "id": int(link_id)}])
+        if q:
+            filters.append(["code", "contains", q])
+        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
+                          json={"filters": filters, "fields": ["code"], "sort": "-id",
+                                "page": {"size": limit}})
+        return [] if not r.ok else [(d["attributes"]["code"], d["id"]) for d in r.json()["data"]
+                                    if d["attributes"].get("code")]
+    return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
+
+
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 
