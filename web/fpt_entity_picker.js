@@ -152,6 +152,24 @@ function fetchPickers(nodeType) {
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
     let mirrored = "";
 
+    // SG Filters is advanced: folded away by default so the node stays short, and resizable when
+    // opened because a nested filter is taller than any height we could pick for it.
+    const filterBox = w("filters");
+    if (filterBox) {
+      filterBox.hidden = true;
+      if (filterBox.inputEl) {
+        filterBox.inputEl.style.resize = "vertical";
+        filterBox.inputEl.style.minHeight = "48px";
+      }
+      this.addWidget("button", "▸ SG Filters", null, () => {
+        filterBox.hidden = !filterBox.hidden;
+        const btn = this.widgets.find((x) => x.name.endsWith("SG Filters"));
+        if (btn) btn.name = (filterBox.hidden ? "▸" : "▾") + " SG Filters";
+        this.setSize(this.computeSize());
+        app.graph.setDirtyCanvas(true, true);
+      }).serialize = false;
+    }
+
     const panel = addPanel(this, "Flow PT Fetch");
 
     const refresh = async () => {
