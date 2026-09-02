@@ -152,20 +152,22 @@ function fetchPickers(nodeType) {
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
     let mirrored = "";
 
-    // `advanced: true` on the input is a V3-schema feature and is ignored for a legacy dict
-    // INPUT_TYPES, so the fold is ours — but the widget is declared LAST, directly above this panel,
-    // so the control sits next to the thing it controls. No CSS resize: a `resize: vertical`
-    // textarea tells the node nothing and grows over its neighbours; drag the node instead.
+    // The declared `filters` widget stays hidden for good and only carries the value: a widget can
+    // only render where INPUT_TYPES puts it, which is above this panel, and it cannot be moved below
+    // because widgets_values is positional. The editable box lives inside the panel instead, under
+    // the readout it belongs to, where its height is ours to choose.
     const filterBox = w("filters");
     if (filterBox) filterBox.hidden = true;
-    const toggleFilters = () => {
-      if (!filterBox) return;
-      filterBox.hidden = !filterBox.hidden;
+    const onToggleFilters = () => {
       this.setSize(this.computeSize());
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const panel = addPanel(this, "Flow PT Fetch", toggleFilters);
+    const panel = addPanel(this, "Flow PT Fetch", onToggleFilters);
+    panel.editor((text) => {
+      if (filterBox) filterBox.value = text;
+      refresh();
+    });
 
     const refresh = async () => {
       const q = new URLSearchParams({
@@ -192,6 +194,7 @@ function fetchPickers(nodeType) {
         mirrored = JSON.stringify(d.filters, null, 1);
         box.value = mirrored;
       }
+      panel.setFilterText(String(box?.value ?? ""));
       if (source) {
         source.options.values = ["auto"].concat(d.sources || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";

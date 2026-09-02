@@ -38,6 +38,15 @@ const CSS = `
 .fpt-dim { color: #7f868f; }
 .fpt-filter { color: #9aa7b8; background: #1d2024; border: 1px solid #313640; border-radius: 4px;
               padding: 4px 6px; white-space: pre-wrap; word-break: break-all; font-size: 10px; }
+/* The editor lives here, below the readout, rather than as a node widget: a declared widget renders
+   above this panel and cannot be moved below it, because widgets_values is positional. */
+.fpt-editor { display: none; border-top: 1px solid #35393f; padding: 6px 8px; flex: none; }
+.fpt-panel.editing .fpt-editor { display: block; }
+.fpt-panel.collapsed .fpt-editor { display: none; }
+.fpt-editor textarea { width: 100%; height: 144px; box-sizing: border-box; resize: none;
+    font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfd3d8;
+    background: #1a1d21; border: 1px solid #3a4048; border-radius: 4px; padding: 5px 6px; }
+.fpt-editor textarea:focus { outline: none; border-color: #4a5563; }
 `;
 
 let injected = false;
@@ -88,23 +97,42 @@ export function addPanel(node, title = "Flow PT", onToggleFilters = null) {
       <svg class="fpt-caret" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" stroke="currentColor"
         fill="none" stroke-width="1.6"/></svg>
       <span class="fpt-title">${esc(title)}</span></div>
-    <div class="fpt-body"></div>`;
+    <div class="fpt-body"></div>
+    <div class="fpt-editor"><textarea spellcheck="false"></textarea></div>`;
   const head = root.querySelector(".fpt-head");
   const body = root.querySelector(".fpt-body");
+  // Kept outside the body so redrawing the readout cannot destroy it mid-edit.
+  const editor = root.querySelector(".fpt-editor");
+  const area = editor.querySelector("textarea");
   head.addEventListener("click", () => root.classList.toggle("collapsed"));
   // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
   // control belongs here rather than in a button appended somewhere else on the node.
   body.addEventListener("click", (e) => {
-    if (onToggleFilters && e.target.closest(".fpt-toggle")) onToggleFilters();
+    if (!e.target.closest(".fpt-toggle")) return;
+    root.classList.toggle("editing");
+    if (root.classList.contains("editing")) area.focus();
+    if (onToggleFilters) onToggleFilters(root.classList.contains("editing"));
   });
 
   const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
     serialize: false,
-    getMinHeight: () => (root.classList.contains("collapsed") ? 26 : 132),
+    getMinHeight: () => (root.classList.contains("collapsed") ? 26
+                         : root.classList.contains("editing") ? 300 : 132),
   });
 
   return {
     widget,
+    /** The editable filter, below the readout. `onEdit` receives the raw text. */
+    editor(onEdit) {
+      let pending;
+      area.addEventListener("input", () => {
+        clearTimeout(pending);
+        pending = setTimeout(() => onEdit(area.value), 400);
+      });
+    },
+    setFilterText(text) {
+      if (document.activeElement !== area) area.value = text;
+    },
     /** What the node is pointing at. */
     show(d) {
       const t = root.querySelector(".fpt-title");
