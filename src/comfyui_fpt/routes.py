@@ -10,6 +10,10 @@ import json
 from . import site
 
 
+def _id_for(pairs, label):
+    return next((i for l, i in pairs if l == label), 0)
+
+
 def register():
     try:
         from server import PromptServer  # only exists inside a running ComfyUI
@@ -146,6 +150,29 @@ def register():
                                       "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
             return web.json_response({"id": 0, "summary": str(e)[:200], "sources": []})
+
+    @routes.get("/fpt/preview_code")
+    async def preview_code(request):
+        """The name this publish node would write next. The node's own renderer, so the panel cannot
+        promise something the run does not deliver."""
+        try:
+            from .nodes.publish_version import FPTPublishVersion as PV
+            q = request.rel_url.query
+            project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
+            p = site.for_project(project_id)
+            picked_type, picked_name = site.split_link(q.get("link", ""))
+            lt = picked_type or (site.chosen_types(q.get("link_type", ""), project_id) or [""])[0] \
+                or p.get("link_type", "Shot")
+            target = _id_for(site.entities(lt, project_id, q=picked_name), picked_name) \
+                if q.get("link") else 0
+            task_id = _id_for(site.tasks_for(lt, target), q.get("task", "")) \
+                if (q.get("task") and target) else 0
+            code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id,
+                                q.get("output_name", ""))
+            return web.json_response({"code": code, "link": f"{lt} {picked_name}".strip(),
+                                      "task": q.get("task", "")})
+        except Exception as e:
+            return web.json_response({"code": "", "error": str(e)[:200]})
 
     @routes.get("/fpt/statuses")
     async def statuses(request):

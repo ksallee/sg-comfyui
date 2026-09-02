@@ -119,3 +119,65 @@ def next_code(template, regex, existing, link="", task="", output=""):
 def describe(template, regex, matched, total):
     pct = (100 * matched // total) if total else 0
     return f"{template}  ({matched}/{total} of recent codes, {pct}%)"
+
+
+# --- templates in Flow PT's own vocabulary -------------------------------------------------------
+#
+# A code is written the way the site already talks about fields: `{entity.Shot.code}_{output}_v{version:03d}`.
+# Dotted paths are what filters and `?fields` use (probe 003/016), so a TD reading a template sees
+# names they already know instead of a private token language.
+
+FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::(0\d+d))?\}")
+LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
+
+DEFAULT_TEMPLATE = "{entity.code}_{output}_v{version:03d}"
+
+
+def normalise_template(template):
+    """Accept `v%04d` beside `{version:04d}` — printf padding is what a TD writes by habit."""
+    return LEGACY_VERSION_RE.sub(lambda m: "{version:%sd}" % m.group(1), template or "")
+
+
+def template_fields(template):
+    """The paths a template needs, minus `version`, so a caller knows what to fetch."""
+    return [m.group(1) for m in FIELD_RE.finditer(normalise_template(template))
+            if m.group(1) != "version"]
+
+
+def render(template, values, version=None):
+    """Fill a template. A path with no value collapses to empty rather than leaving a brace behind."""
+    def sub(m):
+        path, pad = m.group(1), m.group(2)
+        if path == "version":
+            return "" if version is None else str(int(version)).zfill(int(pad[1:-1]) if pad else 1)
+        return str(values.get(path, "") or "")
+    out = FIELD_RE.sub(sub, normalise_template(template))
+    # A missing middle token would otherwise leave a doubled or trailing separator.
+    return re.sub(r"[_\-.]{2,}", "_", out).strip("_-.")
+
+
+def template_regex(template, values):
+    """A matcher for codes this template has produced, with the known values pinned.
+
+    Pinning is what makes numbering per link and per output: the depth pass of one shot counts its
+    own history and nobody else's.
+    """
+    out, i = "", 0
+    t = normalise_template(template)
+    for m in FIELD_RE.finditer(t):
+        out += re.escape(t[i:m.start()])
+        path, pad = m.group(1), m.group(2)
+        if path == "version":
+            out += r"(?P<version>\d+)"
+        else:
+            v = values.get(path)
+            out += re.escape(str(v)) if v else r"[^_]*"
+        i = m.end()
+    return "^" + out + re.escape(t[i:]) + "$"
+
+
+def next_version(codes, template, values):
+    """The next version number for this template and these values."""
+    rx = re.compile(template_regex(template, values))
+    used = [int(m.group("version")) for m in (rx.match(c or "") for c in codes) if m]
+    return max(used, default=0) + 1
