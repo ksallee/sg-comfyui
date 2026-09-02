@@ -120,3 +120,58 @@ Charts, dashboards, reports, webhooks, automations — see `CLAUDE.md`. Video an
 ## Later
 
 React review surface showing iteration lineage, extracted into an MIT component registry. Not in this repo.
+
+## Node anatomy
+
+A custom node is a Python class registered from `__init__.py`. Verified against docs.comfy.org, 2026-09-02.
+
+    class FPTPublishVersion:
+        @classmethod
+        def INPUT_TYPES(cls):
+            return {
+                "required": {"images": ("IMAGE", {})},
+                "optional": {"description": ("STRING", {"multiline": True})},
+                "hidden": {"prompt": "PROMPT", "extra_pnginfo": "EXTRA_PNGINFO"},
+            }
+        RETURN_TYPES = ()          # trailing comma matters when there is one
+        FUNCTION = "publish"
+        CATEGORY = "Flow PT"
+        OUTPUT_NODE = True         # terminal node: always executes
+
+    NODE_CLASS_MAPPINGS = {"FPTPublishVersion": FPTPublishVersion}
+    NODE_DISPLAY_NAME_MAPPINGS = {"FPTPublishVersion": "Publish Version to Flow PT"}
+
+`INPUT_TYPES` is a classmethod evaluated at load, which is what lets the mapping drive the inputs.
+
+### Where provenance comes from
+
+The hidden inputs are the whole provenance mechanism. `PROMPT` is the executing prompt graph — model, seed,
+sampler, steps, cfg all live in its node widget values. `EXTRA_PNGINFO` carries the workflow as saved, which is
+what gets attached as a file. `UNIQUE_ID` identifies this node instance.
+
+Nothing else needs to be asked of the user; the graph already knows.
+
+## Distribution
+
+Two ways in, and they are not the same thing:
+
+- **Git clone into `ComfyUI/custom_nodes/`** — what a developer does. `requirements.txt` is installed by
+  ComfyUI-Manager.
+- **The Comfy Registry** — what everyone else does, reached through ComfyUI-Manager or `comfy node install`.
+  Publishing needs a `pyproject.toml` with a PEP 621 `[project]` block plus `[tool.comfy]` carrying
+  `PublisherId`, `DisplayName` and `Icon`. Publish with `comfy node publish`, or a GitHub Action on
+  `REGISTRY_ACCESS_TOKEN` triggered by a version bump.
+
+### The dependency problem
+
+`_deps.py` resolves `fpt_llm_api` from a sibling checkout. That works here and is **not distributable** — a
+registry install gets this repo and nothing else, and `fpt-llm-api` is private.
+
+Three ways out, in order of preference:
+
+1. Publish the *client* half of `fpt-llm-api` to PyPI as a slim package and depend on it normally. The corpus
+   stays private; only the client ships.
+2. Vendor the client into this repo. It is about sixty lines. Cheap, but it forks.
+3. Declare a git dependency. Fragile, and impossible while the repo is private.
+
+Decide before publishing, not after — `[project].name` on the Registry is immutable.

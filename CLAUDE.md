@@ -30,6 +30,14 @@ Python 3.11. `fpt_llm_api` for all site access, plus what ComfyUI already ships:
 
 `.env.local`, gitignored, never printed or logged. Auth is `client_credentials`: script name + key.
 
+## ComfyUI
+
+Node classes register through `NODE_CLASS_MAPPINGS` in `__init__.py`. `INPUT_TYPES` is a classmethod evaluated
+at load — that is the hook the site mapping drives. Provenance comes from the hidden `PROMPT` and
+`EXTRA_PNGINFO` inputs, never from asking the user.
+
+Where each piece of provenance lands in Flow PT is the operator's mapping, not a default. See DESIGN.md.
+
 ## Agent-operable
 
 Forkers drive this repo with an agent, not by reading it. Small files, explicit names, no magic, no indirection. Conventions live here or in DESIGN.md — once, in one place.
