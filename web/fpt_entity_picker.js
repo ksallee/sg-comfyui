@@ -55,10 +55,22 @@ app.registerExtension({
         });
         const d = await get(`/fpt/preview_code?${q}`);
         panel.clearLog();
-        panel.show(d.code
-          ? { id: -1, code: d.code, link: d.link, task: d.task,
-              why: "this is what the next Run will create" }
-          : { error: d.error || "the template does not resolve yet" });
+        if (!d.code) {
+          panel.show({ error: d.error || "the template does not resolve yet" });
+          return;
+        }
+        // Provenance lives in the executing graph, so hand over the very thing Run would send.
+        let extra = {};
+        try {
+          const { output } = await app.graphToPrompt();
+          const r = await fetch("/fpt/preview_publish", {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ prompt: output, node_id: String(node.id) }),
+          });
+          extra = await r.json();
+        } catch (e) { /* an unbuilt graph simply has nothing to describe yet */ }
+        panel.show({ id: -1, code: d.code, link: d.link, task: d.task,
+                     why: "this is what the next Run will create", ...extra });
       };
       const node = this;
       app.api.addEventListener("executed", ({ detail }) => {
@@ -214,7 +226,7 @@ function fetchPickers(nodeType) {
       }
       panel.setFilterText(String(box?.value ?? ""));
       if (source) {
-        source.options.values = ["auto"].concat(d.sources || []);
+        source.options.values = ["auto"].concat(d.media || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
       }
       app.graph.setDirtyCanvas(true, true);

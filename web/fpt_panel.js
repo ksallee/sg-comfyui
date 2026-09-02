@@ -36,6 +36,7 @@ const CSS = `
 .fpt-ok { color: #7fd18b; }
 .fpt-err { color: #f08a8a; white-space: pre-wrap; }
 .fpt-dim { color: #7f868f; }
+.fpt-gone { text-decoration: line-through; opacity: .5; }
 /* The editor lives here, below the readout, rather than as a node widget: a declared widget renders
    above this panel and cannot be moved below it, because widgets_values is positional. */
 .fpt-editor { display: none; border-top: 1px solid #35393f; padding: 6px 8px; flex: none; }
@@ -84,6 +85,29 @@ function filterBlock(d) {
   // two copies of the same thing.
   return `<div class="fpt-sec fpt-toggle" title="Show or hide the SG Filters box">` +
     `SG Filters <span class="fpt-dim">— click to edit</span></div>`;
+}
+
+// What the run would record, so a publish is not a leap of faith. Fields the site does not have are
+// shown struck through rather than hidden: knowing a value was computed and dropped is the point.
+function writesBlock(d) {
+  const f = d && d.fields;
+  if (!f || !f.length) return "";
+  return `<div class="fpt-sec">will write</div>` + f.map((x) =>
+    `<div class="fpt-row"><span class="fpt-k${x.present ? "" : " fpt-gone"}">${
+      esc(x.name.replace(/^sg_ai_/, ""))}</span><span class="fpt-v${
+      x.present ? "" : " fpt-gone"}">${esc(x.value)}</span></div>`).join("") +
+    ((d.missing_fields || []).length
+      ? `<div class="fpt-why">${d.missing_fields.length} provenance field(s) missing on this site` +
+        ` — run: python -m comfyui_fpt.fields</div>` : "");
+}
+
+function sourcesBlock(d) {
+  const s2 = d && d.sources;
+  if (!s2 || !s2.length) return "";
+  return `<div class="fpt-sec">from</div>` + s2.map((x) =>
+    `<div class="fpt-row"><span class="fpt-v" style="flex:1">${
+      esc(x.code || ("Version " + x.id))}</span><span class="fpt-dim">${esc(x.why || "")}</span></div>`
+  ).join("");
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -166,7 +190,8 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       body.innerHTML =
         rows.map(([k, v]) => `<div class="fpt-row"><span class="fpt-k">${esc(k)}</span>
           <span class="fpt-v">${esc(v)}</span></div>`).join("") +
-        (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") + filterBlock(d);
+        (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
+        sourcesBlock(d) + writesBlock(d) + filterBlock(d);
     },
     /** What the node last did. Appended under the description, not instead of it. */
     log(lines, ok = true) {

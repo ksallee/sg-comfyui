@@ -1,0 +1,157 @@
+{
+  "last_node_id": 3,
+  "last_link_id": 2,
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "FPTFetchVersion",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        420,
+        470
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            1
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTFetchVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "depth",
+        "Approved",
+        "version number in the name",
+        0,
+        "auto",
+        1,
+        ""
+      ],
+      "title": "Flow PT Fetch \u2014 newest Approved depth"
+    },
+    {
+      "id": 2,
+      "type": "ImageInvert",
+      "pos": [
+        520,
+        60
+      ],
+      "size": [
+        220,
+        30
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageInvert"
+      },
+      "widgets_values": [],
+      "title": "stand-in for real work"
+    },
+    {
+      "id": 3,
+      "type": "FPTPublishVersion",
+      "pos": [
+        800,
+        40
+      ],
+      "size": [
+        430,
+        540
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "{entity.Shot.code}_{output}_v%03d",
+        "comfyui-fpt sandbox",
+        "Shot",
+        "sbx_0020 (Shot)",
+        "",
+        "",
+        "regrade",
+        "derived from the approved depth, lineage recorded by itself",
+        "",
+        true,
+        0
+      ],
+      "title": "Flow PT Publish \u2014 regrade"
+    }
+  ],
+  "links": [
+    [
+      1,
+      1,
+      0,
+      2,
+      0,
+      "IMAGE"
+    ],
+    [
+      2,
+      2,
+      0,
+      3,
+      0,
+      "IMAGE"
+    ]
+  ]
+}
