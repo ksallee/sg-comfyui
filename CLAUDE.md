@@ -21,10 +21,10 @@ Plan for both repos: `../fpt-llm-api/PLAN.md`.
 
 ## Stack
 
-Python 3.11. `fpt_llm_api` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
+Python 3.11. `sg_groundtruth` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
 `shotgun_api3`, never `fpt-api` — it is AGPL. A new dependency needs a line in DESIGN.md justifying it.
 
-`fpt-llm-api` is expected as a sibling checkout; override with `FPT_LLM_API_PATH`.
+The sibling checkout (`fpt-llm-api/`, package `sg_groundtruth`) is expected; override with `FPT_LLM_API_PATH`.
 
 ## Secrets
 

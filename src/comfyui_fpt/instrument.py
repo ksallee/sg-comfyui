@@ -9,6 +9,7 @@ has never heard of still analyses correctly — which matters, because the graph
 exactly the ones nobody standardised.
 """
 import json
+import re
 from copy import deepcopy
 from pathlib import Path
 
@@ -18,6 +19,21 @@ LOADER_HINTS = ("loadimage", "load_image", "imageload")
 
 PUBLISH = "FPTPublishVersion"
 FETCH = "FPTFetchVersion"
+
+# ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
+# optional). Built by name here because an off-by-one silently writes a value into the wrong field.
+PUBLISH_WIDGETS = ["code", "project", "link", "task", "status", "output_name", "note",
+                   "source_versions", "attach_workflow", "link_id"]
+FETCH_WIDGETS = ["version_id", "select", "project", "link", "version", "source", "status",
+                 "order", "match", "frame"]
+PUBLISH_DEFAULTS = {"code": "auto", "attach_workflow": True, "link_id": 0}
+FETCH_DEFAULTS = {"version_id": 0, "select": "newest matching", "source": "auto",
+                  "order": "id (creation order)", "frame": 1}
+
+
+def widgets(names, defaults, **values):
+    v = {**{n: "" for n in names}, **defaults, **values}
+    return [v[n] for n in names]
 
 
 def load(path):
@@ -49,6 +65,27 @@ def _is_sink(node):
 
 def _is_loader(node):
     return any(h in (node.get("type") or "").lower().replace(" ", "") for h in LOADER_HINTS)
+
+
+def descriptor(node, slot, sink_title=""):
+    """What a stream IS, in one token: depth, normal_opengl, mask.
+
+    Taken from what the graph already says — a node title the author set, a render-pass widget, or the
+    sink's label — because the operator named these things and we should not rename them. This is what
+    a proposed code is built from, and it is the reason three passes do not collapse onto one name.
+    """
+    for cand in (node.get("title"), *(str(w) for w in (node.get("widgets_values") or [])[:1]),
+                 sink_title, node.get("type")):
+        if not cand or not isinstance(cand, str):
+            continue
+        tok = re.sub(r"[^A-Za-z0-9]+", "_", cand).strip("_").lower()
+        # A sink label like "Preview Image (normal_opengl)" carries the useful part in parentheses.
+        inner = re.search(r"\(([^)]+)\)", cand)
+        if inner:
+            tok = re.sub(r"[^A-Za-z0-9]+", "_", inner.group(1)).strip("_").lower()
+        if tok and tok not in ("preview_image", "save_image", "image", "previewimage", "saveimage"):
+            return tok[:32]
+    return f"out{slot}"
 
 
 def outputs(wf):
@@ -164,12 +201,17 @@ def replace_loader(wf, loader_id, widgets, title="Flow PT Fetch Version"):
     return nid
 
 
-def report(wf, name=""):
+def report(wf, name="", template=""):
+    nodes = _nodes(wf)
     outs, lds = outputs(wf), loaders(wf)
     lines = [f"{name or 'workflow'}: {len(wf.get('nodes', []))} nodes"]
     lines.append(f"  publishable streams ({len(outs)}):")
     for oid, slot, label, sink in outs:
+        d = descriptor(nodes.get(oid, {}), slot, sink or "")
+        proposed = (template.replace("{output}", d).replace("{version}", "001")
+                    if template else f"...{d}...")
         lines.append(f"    node {oid}[{slot}] {label}" + (f"  -> {sink}" if sink else "  (unconsumed)"))
+        lines.append(f"        output_name={d!r}   proposed code: {proposed}")
     lines.append(f"  image inputs a Fetch could replace ({len(lds)}):")
     for lid, label, targets in lds:
         lines.append(f"    node {lid} {label}  feeds {len(targets)} input(s)")
@@ -186,24 +228,28 @@ def _cli(argv=None):
     ap.add_argument("--fetch", action="append", default=[], type=int, metavar="NODE",
                     help="replace this loader with a fetch node; repeatable")
     ap.add_argument("--code", default="auto")
+    ap.add_argument("--template", default="", help="the show's convention, to show proposed codes")
     ap.add_argument("--project", default="")
     ap.add_argument("--link", default="")
     a = ap.parse_args(argv)
 
     wf = load(a.workflow)
-    print(report(wf, Path(a.workflow).name))
+    print(report(wf, Path(a.workflow).name, a.template))
     if not a.out:
         return 0
 
-    # widget order follows INPUT_TYPES: required first, then optional.
-    pub = [a.code, a.project, a.link, "", "", "", "", True, 0]
-    fet = [0, "newest matching", a.project, a.link, "", "auto", "", "id (creation order)", "", 1]
+    common = dict(project=a.project, link=a.link)
+    nodes = _nodes(wf)
+    sinks = {(o, s): k for o, s, _, k in outputs(wf)}
     for spec in a.publish:
         nid, _, slot = spec.partition(":")
-        new = add_publish(wf, int(nid), int(slot or 0), list(pub))
-        print(f"  + publish node {new} tapping {nid}[{slot or 0}]")
+        nid, slot = int(nid), int(slot or 0)
+        d = descriptor(nodes.get(nid, {}), slot, sinks.get((nid, slot)) or "")
+        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, code=a.code, output_name=d, **common)
+        new = add_publish(wf, nid, slot, w, title=f"Flow PT Publish — {d}")
+        print(f"  + publish node {new} tapping {nid}[{slot}]  output_name={d!r}")
     for lid in a.fetch:
-        new = replace_loader(wf, lid, list(fet))
+        new = replace_loader(wf, lid, widgets(FETCH_WIDGETS, FETCH_DEFAULTS, **common))
         print(f"  + fetch node {new} replacing loader {lid}")
     save(wf, a.out)
     print(f"wrote {a.out}")

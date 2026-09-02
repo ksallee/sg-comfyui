@@ -1,13 +1,13 @@
 """Writing to Flow PT. Every call here is verified by a probe; see corpus recipe 001.
 
-Publish path only: REST through fpt_llm_api, requests for the presigned PUT, nothing else.
+Publish path only: REST through sg_groundtruth, requests for the presigned PUT, nothing else.
 """
 import json
 
 import requests
 
-from . import _deps  # noqa: F401  puts fpt_llm_api on sys.path
-from fpt_llm_api.client import FPTError
+from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
+from sg_groundtruth.client import FPTError
 
 
 def create_version(fpt, project_id, code, fields=None):
