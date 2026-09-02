@@ -101,13 +101,16 @@ def register():
                 vid, code, why = FPTFetchVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""),
-                    [x for x in q.getall("statuses", []) if x], q.get("newest_by", ""))
+                    # Repeated params or one comma-separated value — both reach here from somewhere.
+                    [t.strip() for x in q.getall("statuses", []) for t in x.split(",") if t.strip()],
+                    q.get("newest_by", ""))
             if not vid:
                 return web.json_response({"id": 0, "why": why, "summary": why, "sources": []})
             fpt = site.client()
             project_id = int(q.get("project_id") or 0) or site.default_project()
-            return web.json_response({"id": vid, "code": code, "why": why,
-                                      "summary": media.summary(fpt, vid, site.statuses(project_id)),
+            desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
+                                  site.status_icons())
+            return web.json_response({**desc, "why": why,
                                       "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
             return web.json_response({"id": 0, "summary": str(e)[:200], "sources": []})

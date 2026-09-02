@@ -159,7 +159,7 @@ class FPTPublishVersion:
         if vnum_field and target:
             next_num = naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
 
-        published = []
+        published, done = [], []
         for i, frame in enumerate(images):
             name = code if len(images) == 1 else f"{code}_{i + 1:02d}"
             fields = dict(typed)
@@ -185,9 +185,13 @@ class FPTPublishVersion:
             if attach_workflow and wf is not None:
                 publish.attach_json(fpt, vid, wf, f"{name}.workflow.json")
             published.append(f"{name} -> Version {vid}")
+            done.append({"code": name, "id": vid, "link": f"{link_type} {picked_name}".strip(),
+                         "status": status_code, "outputs": sorted(typed)})
 
         if attach_workflow and wf is None:
             published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
         if not typed:
             published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
-        return {"ui": {"text": published}}
+        # `text` keeps the plain readout ComfyUI shows anywhere; `published` is what the node's own
+        # panel renders — the same run, described rather than printed.
+        return {"ui": {"text": published, "published": done}}

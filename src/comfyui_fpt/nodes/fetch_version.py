@@ -54,12 +54,17 @@ class FPTFetchVersion:
                                   "tooltip": "Words that must ALL appear in the Version name, as in "
                                              "the Flow PT UI: `depth v0` matches both."}),
                 # Several statuses, any of which will do. There is no "approved" concept in Flow PT —
-                # the codes differ per project (probe 009), so the operator picks from this project's.
-                "statuses": ([label for label, _ in statuses],
-                             {"multiselect": True,
-                              "multi_select": {"placeholder": "any status", "chip": True},
-                              "default": [],
-                              "tooltip": "Any of these will do. None selected means any status."}),
+                # the codes differ per project (probe 009), so the operator names this project's.
+                #
+                # A plain text field, not ComfyUI's MultiCombo. That widget renders at 16px in a slot
+                # the node reserves from the widget spec rather than from the DOM, so CSS shrinks the
+                # control to 33px and leaves it floating in 82px of gap. One ordinary row that works
+                # on every frontend beats a prettier control that looks broken; the tooltip carries
+                # the choices and `resolves to` says at once when nothing matches.
+                "statuses": ("STRING", {"default": "",
+                             "tooltip": "Any of these will do; empty means any status. Comma "
+                                        "separated. This project allows: "
+                                        + ", ".join(l for l, _ in statuses)}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent."}),
