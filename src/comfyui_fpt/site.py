@@ -300,16 +300,13 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
     return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
 
 
-def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=(),
-                  sort="-id", limit=200):
-    """(code, status, id) for Versions matching a rule, newest first.
+def version_filters(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=()):
+    """The Flow PT filter the pickers add up to — the API's own language, not a private format.
 
-    Every part is optional and narrows: an entity, a Task on it, words that must all appear in the
-    code, a set of statuses any of which will do. That is the shape an artist thinks in — "the newest
-    approved depth on this shot" — rather than an id.
+    Returned so it can be shown and copied: a power user or an agent that needs something the widgets
+    cannot express edits this array and hands it straight back (DESIGN: data-driven, with an eject
+    hatch). Array form, since that is what _search takes (probe 004).
     """
-    if not project_id:
-        return []
     filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
     if link_type and link_id:
         filters.append(["entity", "is", {"type": link_type, "id": int(link_id)}])
@@ -321,6 +318,20 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
     # with filter_operator (probe 017).
     if statuses:
         filters.append(["sg_status_list", "in", list(statuses)])
+    return filters
+
+
+def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=(),
+                  sort="-id", limit=200, filters=None):
+    """(code, status, id) for Versions matching a rule, newest first.
+
+    Every part is optional and narrows: an entity, a Task on it, words that must all appear in the
+    code, a set of statuses any of which will do. That is the shape an artist thinks in — "the newest
+    approved depth on this shot" — rather than an id. `filters` overrides the lot.
+    """
+    if not project_id and not filters:
+        return []
+    filters = filters or version_filters(project_id, link_type, link_id, task_id, terms, statuses)
 
     def fetch():
         r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
@@ -329,8 +340,7 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
         return [] if not r.ok else [(d["attributes"].get("code") or "",
                                      d["attributes"].get("sg_status_list") or "", d["id"])
                                     for d in r.json()["data"]]
-    key = ("find", int(project_id), link_type, int(link_id), int(task_id),
-           tuple(terms), tuple(statuses), sort)
+    key = ("find", json.dumps(filters, sort_keys=True, default=str), sort, limit)
     return _cached(key, fetch)
 
 
@@ -367,6 +377,33 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
                                 "fields": [field], "page": {"size": limit}})
         return [] if not r.ok else [d["attributes"].get(field) for d in r.json()["data"]]
     return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
+
+
+def status_lookup(project_id):
+    """{typed: code} accepting either what the UI shows or what the API stores.
+
+    'Approved', 'approved' and 'apr' all mean the same thing, and an operator reading the Flow PT web
+    UI has only ever seen the first. Codes are what the API wants (probe 009), so both are accepted
+    and neither is guessed at.
+    """
+    out = {}
+    for label, code in statuses(project_id):
+        out[label.strip().lower()] = code
+        out[code.strip().lower()] = code
+    return out
+
+
+def resolve_statuses(project_id, typed):
+    """(codes, unrecognised) for whatever the operator wrote."""
+    look = status_lookup(project_id)
+    codes, bad = [], []
+    for t in typed:
+        c = look.get(str(t).strip().lower())
+        if c and c not in codes:
+            codes.append(c)
+        elif not c:
+            bad.append(str(t).strip())
+    return codes, bad
 
 
 def status_colors():

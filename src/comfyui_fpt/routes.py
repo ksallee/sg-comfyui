@@ -98,19 +98,38 @@ def register():
             if pin:
                 vid, code, why = pin, "", "pinned by id"
             else:
+                typed = [t.strip() for x in q.getall("statuses", [])
+                         for t in x.split(",") if t.strip()]
                 vid, code, why = FPTFetchVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
-                    q.get("task", ""), q.get("name_contains", ""),
-                    # Repeated params or one comma-separated value — both reach here from somewhere.
-                    [t.strip() for x in q.getall("statuses", []) for t in x.split(",") if t.strip()],
-                    q.get("newest_by", ""))
+                    q.get("task", ""), q.get("name_contains", ""), typed,
+                    q.get("newest_by", ""), q.get("filters", ""))
+            # What the fields add up to, in the API's own language — shown so an override can start
+            # from something that already works.
+            pid, lt2, tgt2, tsk2 = FPTFetchVersion._context(
+                q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
+            codes2, _ = site.resolve_statuses(pid, typed)
+            built = FPTFetchVersion._filters(q.get("filters", "")) or site.version_filters(
+                pid, lt2, tgt2, tsk2,
+                [t for t in (q.get("name_contains", "") or "").split() if t], codes2)
+
             if not vid:
-                return web.json_response({"id": 0, "why": why, "summary": why, "sources": []})
+                # A rule that matches nothing is the moment you most need to see what IS there, so
+                # the same link and task are listed with their statuses and the filters dropped.
+                project_id, lt, target, task_id = FPTFetchVersion._context(
+                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
+                colors, labels = site.status_colors(), dict(
+                    (c, l) for l, c in site.statuses(project_id))
+                near = [{"code": c, "status": {"code": st, "label": labels.get(st, st),
+                                               "rgb": colors.get(st)}, "id": i}
+                        for c, st, i in site.find_versions(project_id, lt, target, task_id)[:12]]
+                return web.json_response({"id": 0, "why": why, "sources": [],
+                                          "candidates": near, "filters": built})
             fpt = site.client()
             project_id = int(q.get("project_id") or 0) or site.default_project()
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
-            return web.json_response({**desc, "why": why,
+            return web.json_response({**desc, "why": why, "filters": built,
                                       "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
             return web.json_response({"id": 0, "summary": str(e)[:200], "sources": []})

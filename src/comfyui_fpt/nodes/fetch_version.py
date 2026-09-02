@@ -8,6 +8,8 @@ The inputs are a rule an artist would say out loud — *the newest approved dept
 Version id. An id is the escape hatch, not the interface: `pin_version_id` overrides everything when
 you need one exact Version and nothing else will do.
 """
+import json
+
 import numpy as np
 import torch
 
@@ -65,6 +67,13 @@ class FPTFetchVersion:
                              "tooltip": "Any of these will do; empty means any status. Comma "
                                         "separated. This project allows: "
                                         + ", ".join(l for l, _ in statuses)}),
+                # The API's own language, for when the fields above cannot say it. Empty means the
+                # fields decide; the panel shows what they add up to, so this starts as a copy of
+                # something that already works rather than a blank page.
+                "filters": ("STRING", {"default": "", "multiline": True,
+                            "tooltip": "Optional raw Flow PT filter, e.g. "
+                                       "[[\"sg_status_list\",\"in\",[\"apr\"]]]. Replaces every "
+                                       "field above when set."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent."}),
@@ -87,22 +96,48 @@ class FPTFetchVersion:
     DESCRIPTION = "Read a Flow PT Version's media into the graph, recording it as a source."
 
     @classmethod
-    def _resolve(cls, project, link_type, link, task, name_contains, statuses, newest_by):
-        """The rule, applied. Shared by execution and IS_CHANGED so the two cannot disagree."""
+    def _context(cls, project, link_type, link, task):
+        """(project_id, link_type, link_id, task_id) — the 'where', without the 'which'."""
         project_id = _id_for(site.projects(), project) or site.default_project()
-        p = site.for_project(project_id)
         picked_type, picked_name = site.split_link(link)
         lt = picked_type or (site.chosen_types(link_type, project_id) or [""])[0]
         target = _id_for(site.entities(lt, project_id, q=picked_name), picked_name) if link else 0
         task_id = _id_for(site.tasks_for(lt, target), task) if (task and target) else 0
-        codes = [c for l, c in site.statuses(project_id) if l in _as_list(statuses)]
+        return project_id, lt, target, task_id
+
+    @staticmethod
+    def _filters(raw):
+        """Parsed override, or None. A broken filter must say so, not silently fall back."""
+        raw = (raw or "").strip()
+        if not raw:
+            return None
+        try:
+            v = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"filters is not valid JSON: {e}")
+        if not isinstance(v, list):
+            raise ValueError("filters must be an array of conditions, e.g. "
+                             '[["sg_status_list", "in", ["apr"]]]')
+        return v
+
+    @classmethod
+    def _resolve(cls, project, link_type, link, task, name_contains, statuses, newest_by,
+                 filters=""):
+        """The rule, applied. Shared by execution and IS_CHANGED so the two cannot disagree."""
+        project_id, lt, target, task_id = cls._context(project, link_type, link, task)
+        p = site.for_project(project_id)
+        codes, unknown = site.resolve_statuses(project_id, _as_list(statuses))
+        if unknown:
+            allowed = ", ".join(l for l, _ in site.statuses(project_id))
+            return 0, "", (f"no status called {', '.join(repr(u) for u in unknown)} on this project. "
+                           f"It allows: {allowed}")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
-                            newest_by, p.get("code_regex", ""))
+                            newest_by, p.get("code_regex", ""), cls._filters(filters))
 
     @classmethod
     def IS_CHANGED(cls, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
-                   statuses=(), newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-                   frame=1, **kw):
+                   statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
+                   source=AUTO, frame=1, **kw):
         """Re-resolve at queue time, so the graph sees what has been published since.
 
         Without this ComfyUI caches on unchanged widgets and a re-run costs 0.00s without asking the
@@ -114,21 +149,28 @@ class FPTFetchVersion:
         try:
             site.forget("find", "versions_on")   # a status flipped a moment ago must be visible
             vid, _, _ = cls._resolve(project, link_type, link, task, name_contains, statuses,
-                                     newest_by)
+                                     newest_by, filters)
             return f"{vid}:{source}:{frame}"
         except Exception:
             return float("nan")   # unreachable site: re-run rather than serve something stale
 
     def fetch(self, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
-              statuses=(), newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO, frame=1,
-              unique_id=None):
+              statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
+              frame=1, unique_id=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:
             vid, code, why = self._resolve(project, link_type, link, task, name_contains, statuses,
-                                           newest_by)
+                                           newest_by, filters)
             if not vid:
-                raise ValueError(why)
+                # Failing at run time is exactly when you need to see what IS on that link, so the
+                # error carries it rather than only the rule that missed.
+                project_id, lt, target, task_id = self._context(project, link_type, link, task)
+                near = site.find_versions(project_id, lt, target, task_id)[:8]
+                labels = {c: l for l, c in site.statuses(project_id)}   # 'pndvs' means nothing
+                listing = "\n  ".join(f"{c}  [{labels.get(st, st)}]" for c, st, _ in near)
+                raise ValueError(why + (f"\nwhat is there:\n  {listing}" if near
+                                        else "\nthere are no Versions there at all"))
             why = f"{code} ({why})"
         # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
         # Version is not in the prompt graph, only the rule is.

@@ -24,10 +24,10 @@ FETCH = "FPTFetchVersion"
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
 PUBLISH_WIDGETS = ["code", "project", "link_type", "link", "task", "status", "output_name", "note",
                    "source_versions", "attach_workflow", "link_id"]
-FETCH_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses",
+FETCH_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses", "filters",
                  "newest_by", "pin_version_id", "source", "frame"]
 PUBLISH_DEFAULTS = {"code": "auto", "attach_workflow": True, "link_id": 0}
-FETCH_DEFAULTS = {"statuses": "", "newest_by": "version number in the name", "source": "auto",
+FETCH_DEFAULTS = {"statuses": "", "filters": "", "newest_by": "version number in the name", "source": "auto",
                   "pin_version_id": 0, "frame": 1, "link_type": "(all types)"}
 
 
