@@ -140,16 +140,18 @@ def register():
                 near = [{"code": c, "status": {"code": st, "label": labels.get(st, st),
                                                "rgb": colors.get(st)}, "id": i}
                         for c, st, i in site.find_versions(project_id, lt, target, task_id)[:12]]
-                return web.json_response({"id": 0, "why": why, "sources": [],
+                return web.json_response({"id": 0, "why": why, "media": [],
                                           "candidates": near, "filters": built})
             fpt = site.client()
             project_id = int(q.get("project_id") or 0) or site.default_project()
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
+            # `media`, not `sources`: the publish panel uses `sources` for the Versions a publish
+            # came from, and one word meaning two things rendered "Version undefined" in the other.
             return web.json_response({**desc, "why": why, "filters": built,
-                                      "sources": [k for k, _ in media.sources(media.version(fpt, vid))]})
+                                      "media": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
-            return web.json_response({"id": 0, "summary": str(e)[:200], "sources": []})
+            return web.json_response({"id": 0, "summary": str(e)[:200], "media": []})
 
     @routes.get("/fpt/preview_code")
     async def preview_code(request):
@@ -173,6 +175,60 @@ def register():
                                       "task": q.get("task", "")})
         except Exception as e:
             return web.json_response({"code": "", "error": str(e)[:200]})
+
+    @routes.post("/fpt/preview_publish")
+    async def preview_publish(request):
+        """Everything this publish node would write, from the graph as it stands.
+
+        Provenance comes from the executing graph, so the editor has to hand it over — the frontend
+        already builds exactly this shape for Run (`graphToPrompt`), which is why the preview and the
+        run agree. Nothing is written.
+        """
+        try:
+            from . import fields as fpt_fields, provenance
+            from .nodes.fetch_version import FPTFetchVersion as FV
+            body = await request.json()
+            prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
+            prov = provenance.extract(prompt, None, node_id=node_id)
+
+            # Upstream Fetch nodes: a pinned one is in the graph, a rule-driven one has to be
+            # resolved the same way the node will resolve it at run time.
+            scope = provenance.ancestors(prompt, node_id)
+            sources = []
+            for nid in sorted(scope, key=lambda n: (0, int(n)) if str(n).isdigit() else (1, str(n))):
+                node = prompt.get(nid) or {}
+                if node.get("class_type") != "FPTFetchVersion":
+                    continue
+                i = node.get("inputs") or {}
+                pinned = i.get("pin_version_id") or i.get("version_id") or 0
+                if pinned:
+                    sources.append({"id": int(pinned), "code": "", "why": "pinned"})
+                    continue
+                vid, code, why = FV._resolve(i.get("project", ""), i.get("link_type", ""),
+                                             i.get("link", ""), i.get("task", ""),
+                                             i.get("name_contains", ""), i.get("statuses", ""),
+                                             i.get("newest_by", ""), i.get("filters", ""))
+                sources.append({"id": vid, "code": code, "why": why})
+
+            fpt = site.client()
+            have = fpt_fields.available(fpt)
+            typed = fpt_fields.values_for(prov, [s["id"] for s in sources if s["id"]])
+            by_id = {s["id"]: (s.get("code") or f'Version {s["id"]}') for s in sources}
+
+            def show(k, v):
+                if isinstance(v, list):   # multi_entity: names, not a dict repr
+                    return ", ".join(by_id.get(x.get("id"), str(x.get("id"))) for x in v)
+                return str(v)[:160]
+
+            return web.json_response({
+                "fields": [{"name": k, "value": show(k, v), "present": k in have}
+                           for k, v in sorted(typed.items())],
+                "sources": sources,
+                "missing_fields": sorted(n for n in fpt_fields.names().values() if n not in have),
+                "workflow": prov.get("workflow_attached", False),
+            })
+        except Exception as e:
+            return web.json_response({"error": str(e)[:300], "fields": [], "sources": []})
 
     @routes.get("/fpt/statuses")
     async def statuses(request):

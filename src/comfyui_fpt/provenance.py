@@ -84,10 +84,11 @@ def ancestors(prompt, node_id):
 def fetched_versions(prompt, node_id):
     """Version ids pulled from Flow PT upstream of node_id, in graph order.
 
-    Lineage the operator never types. A Fetch node's `version_id` is a plain widget, so it is already
-    in the prompt — the branch walk that scopes provenance (ancestors) also answers "what did this
-    come from". A plate feeding a previs records the plate; three Versions feeding one output record
-    all three.
+    Lineage the operator never types. Only a PINNED id is in the prompt; a Fetch node resolving by
+    rule knows its Version at run time, and records it in `lineage` instead. Both are read.
+
+    `version_id` is the old spelling, kept so a graph saved before the fetch node was reworked still
+    reports its lineage rather than silently losing it.
     """
     ids, scope = [], ancestors(prompt, node_id)
     for nid in _order(prompt):
@@ -96,7 +97,8 @@ def fetched_versions(prompt, node_id):
         node = prompt.get(nid) or {}
         if node.get("class_type") != "FPTFetchVersion":
             continue
-        vid = (node.get("inputs") or {}).get("version_id")
+        inputs = node.get("inputs") or {}
+        vid = inputs.get("pin_version_id", inputs.get("version_id"))
         if isinstance(vid, int) and vid > 0 and vid not in ids:
             ids.append(vid)
     return ids
