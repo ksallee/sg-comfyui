@@ -38,17 +38,18 @@ app.registerExtension({
       let linkType = "Shot";   // replaced per project by /fpt/profile; never assume (probe 005)
       let linkIds = {};
 
+      const typeOf = (label) => (label && label.includes(" · ")) ? label.split(" · ")[0] : linkType;
       const loadTasks = async () => {
         const id = linkIds[link.value] || 0;
-        const d = await get(`/fpt/tasks?type=${encodeURIComponent(linkType)}&id=${id}`);
+        const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(link.value))}&id=${id}`);
         if (task) setOptions(task, d.items.map((x) => x.label));
         app.graph.setDirtyCanvas(true, true);
       };
 
       const loadLinks = async (q) => {
+        // No type filter: Version.entity accepts many types and a show may use several at once.
         const d = await get(
-          `/fpt/entities?type=${encodeURIComponent(linkType)}&project_id=${projectId}` +
-          `&q=${encodeURIComponent(q || "")}`);
+          `/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q || "")}`);
         linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
         setOptions(link, d.items.map((x) => x.label));
         await loadTasks();
@@ -62,8 +63,8 @@ app.registerExtension({
         // the server is what lets two graphs in one ComfyUI target two shows that disagree.
         const prof = await get(`/fpt/profile?project_id=${projectId}`);
         linkType = prof.link_type || "Shot";
-        link.tooltip = `${linkType} this Version belongs to.`;
-        search.tooltip = `Type to search ${linkType}s by name.`;
+        link.tooltip = "What this Version belongs to — each option carries its own type.";
+        search.tooltip = "Type to search across every entity type this project uses.";
         if (status) {
           const s = await get(`/fpt/statuses?project_id=${projectId}`);
           setOptions(status, s.items.map((x) => x.label));
@@ -127,8 +128,10 @@ function fetchPickers(nodeType) {
       const id = versionIds[version.value] || 0;
       versionId.value = id;
       if (select && id && select.value !== "pinned id") select.value = "pinned id";
+      const picked = link?.value || "";
       const q = new URLSearchParams({
-        project_id: projectId, link_id: linkIds[link?.value] || 0,
+        project_id: projectId, link_id: linkIds[picked] || 0,
+        link_type: picked.includes(" · ") ? picked.split(" · ")[0] : "",
         select: select?.value || "", version_id: versionId.value || 0,
         status: statusCodes[status?.value] || "", order: order?.value || "",
         match: match?.value || "",
@@ -152,7 +155,7 @@ function fetchPickers(nodeType) {
     };
 
     const loadLinks = async () => {
-      const d = await get(`/fpt/entities?type=${encodeURIComponent(linkType)}&project_id=${projectId}`);
+      const d = await get(`/fpt/entities?project_id=${projectId}`);
       linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
       if (link) setOptions(link, d.items.map((x) => x.label));
       await loadVersions(search.value);
@@ -164,7 +167,7 @@ function fetchPickers(nodeType) {
       setOptions(project, d.items.map((x) => x.label));
       const prof = await get(`/fpt/profile?project_id=${projectId}`);
       linkType = prof.link_type || "Shot";
-      if (link) link.tooltip = `Narrow to one ${linkType}.`;
+      if (link) link.tooltip = "Narrow to one entity — each option carries its own type.";
       // Status codes are per project (probe 009), so the filter list follows the project too.
       if (status) {
         const d2 = await get(`/fpt/statuses?project_id=${projectId}`);

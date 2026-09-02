@@ -20,7 +20,9 @@ graph surgery; you ask the questions and explain the result.
    one name; a graph with one output does not.
 4. Ask, and do not guess:
    - Which streams are worth a Version? Publishing every pass is usually wrong.
-   - Which project, and which entity do these hang off? Read `profile.local.json`; if the project has
+   - Which project, and which entity do these hang off? Give `--link` the typed form the picker
+     uses, `Shot · sh010` or `Asset · charA` — a bare name still works but falls back to the
+     project's default type, which may not be the one meant. Read `profile.local.json`; if the project has
      no block yet, that is `/inspect-site`'s job first.
    - Should any loader read from Flow PT? Only if something upstream publishes there.
    - Which Task, if any. `{task}` is the pipeline step the Version hangs off and is the operator's

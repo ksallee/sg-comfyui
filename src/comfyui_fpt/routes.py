@@ -31,9 +31,15 @@ def register():
 
     @routes.get("/fpt/entities")
     async def entities(request):
+        """Every type this project links Versions to, not one. Version.entity accepts 15 types."""
         q = request.rel_url.query
-        # probe 017 — `contains` filters server-side, so the list never has to be fetched whole.
-        return pairs(site.entities, q.get("type", ""), int(q.get("project_id") or 0), q.get("q", ""))
+        try:
+            # probe 017 — `contains` filters server-side, so the list is never fetched whole.
+            rows = site.links(int(q.get("project_id") or 0), q.get("q", ""),
+                              [q["type"]] if q.get("type") else None)
+            return web.json_response({"items": [{"label": l, "type": t, "id": i} for l, t, i in rows]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": str(e)[:200]})
 
     @routes.get("/fpt/tasks")
     async def tasks(request):
@@ -81,7 +87,7 @@ def register():
             q = request.rel_url.query
             project_id = int(q.get("project_id") or 0) or site.default_project()
             p = site.for_project(project_id)
-            link_type = p.get("link_type", "Shot")
+            link_type = q.get("link_type") or p.get("link_type", "Shot")
             fpt = site.client()
             if q.get("select") == resolve.PINNED:
                 vid, code, why = int(q.get("version_id") or 0), "", "pinned"

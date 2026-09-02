@@ -95,6 +95,19 @@ operator edits layered on top.
   project's last N Versions, not by what the schema permits — sites carry hundreds of dead legacy fields.
 - Keyed per project, not per site. One studio runs shows with different conventions.
 
+`Version.entity` is not one type. The schema lists **15** valid ones — Asset, Level, MocapTake, Reel,
+ShootDay, Shot, Sequence, Delivery, Launch, Camera, Slate, SourceClip and three `CustomEntity` slots —
+identical on every project. So a single `link_type` was never Flow PT's model: one show hangs Versions
+off Shots, another off Assets, and plenty use several at once (the reference show links 99 Shots and 1
+Asset; another links Assets, Shots and Sequences).
+
+The picker therefore offers **every type the show actually uses**, each option carrying its own type
+(`Shot · bunny_030_0090`), and the type written to the Version comes from what was picked rather than
+from a default. Which types to search is observed from recent Versions, because searching all 15 would
+be slow and mostly empty — with Shot, Asset and Sequence added regardless, since observation alone is
+circular: a brand new Asset cannot be picked while no Version points at one. `link_types` in the
+profile overrides the lot.
+
 Top-level keys are the site default; a `projects` block overrides them per show. Nothing is global that a
 show can disagree about:
 
