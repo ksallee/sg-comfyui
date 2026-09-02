@@ -6,9 +6,13 @@
 // reference material, not something to keep reading.
 
 const CSS = `
+/* box-sizing and a full-width block: the DOM widget's container is sized by the node, and without
+   these the panel keeps its content width and sits narrow inside it. */
 .fpt-panel { font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfd3d8;
              background: #23262b; border: 1px solid #35393f; border-radius: 6px;
-             overflow: hidden; display: flex; flex-direction: column; }
+             overflow: hidden; display: flex; flex-direction: column;
+             box-sizing: border-box; width: 100%; height: 100%; }
+.fpt-panel * { box-sizing: border-box; }
 .fpt-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer;
             background: #2b2f35; border-bottom: 1px solid #35393f; user-select: none; }
 .fpt-head:hover { background: #313640; }
@@ -25,6 +29,8 @@ const CSS = `
 .fpt-k { color: #7f868f; min-width: 62px; flex: none; }
 .fpt-v { color: #cfd3d8; word-break: break-word; }
 .fpt-why { color: #7f868f; font-style: italic; }
+.fpt-toggle { cursor: pointer; }
+.fpt-toggle:hover { color: #cfd3d8; }
 .fpt-sec { color: #7f868f; text-transform: uppercase; letter-spacing: .06em; font-size: 9px;
            border-top: 1px solid #35393f; padding-top: 5px; margin-top: 1px; }
 .fpt-ok { color: #7fd18b; }
@@ -67,13 +73,14 @@ function pill(label, rgb) {
 // The query in Flow PT's own language, so it can be read, copied, and pasted into `filters`.
 function filterBlock(d) {
   if (!d || !d.filters) return "";
-  return `<div class="fpt-sec">filter</div><div class="fpt-filter">${
-    esc(JSON.stringify(d.filters))}</div>`;
+  return `<div class="fpt-sec fpt-toggle" title="Show or hide the SG Filters box">` +
+    `SG Filters <span class="fpt-dim">— click to edit</span></div>` +
+    `<div class="fpt-filter">${esc(JSON.stringify(d.filters))}</div>`;
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
 
-export function addPanel(node, title = "Flow PT") {
+export function addPanel(node, title = "Flow PT", onToggleFilters = null) {
   ensureCss();
   const root = document.createElement("div");
   root.className = "fpt-panel";
@@ -85,6 +92,11 @@ export function addPanel(node, title = "Flow PT") {
   const head = root.querySelector(".fpt-head");
   const body = root.querySelector(".fpt-body");
   head.addEventListener("click", () => root.classList.toggle("collapsed"));
+  // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
+  // control belongs here rather than in a button appended somewhere else on the node.
+  body.addEventListener("click", (e) => {
+    if (onToggleFilters && e.target.closest(".fpt-toggle")) onToggleFilters();
+  });
 
   const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
     serialize: false,
