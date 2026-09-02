@@ -57,6 +57,29 @@ def profile():
         raise FPTError(f"{PROFILE.name} is not valid JSON: {e}")
 
 
+def default_project():
+    """The project the node opens on. `project_id` is the older flat spelling of the same thing."""
+    p = profile()
+    return int(p.get("default_project") or p.get("project_id") or 0)
+
+
+def for_project(project_id=None):
+    """The profile values in force for one project.
+
+    Top-level keys are the site default; a `projects: {"<id>": {...}}` block overrides them per show.
+    DESIGN says the profile is keyed per project because one studio runs shows with different
+    conventions — where every show agrees, the block is simply absent.
+
+    This is why two graphs open in one ComfyUI can publish into two projects that link Versions
+    differently: `link_type` and `link_field` are resolved from the project the operator picked on
+    the node, not from one global setting.
+    """
+    p = profile()
+    out = {k: v for k, v in p.items() if k != "projects"}
+    out.update((p.get("projects") or {}).get(str(project_id or default_project()), {}))
+    return out
+
+
 def _cached(key, fetch):
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:
@@ -82,7 +105,7 @@ def projects():
     projects are excluded because publishing into the shipped demo show is never the intent; set
     `show_all_projects` in the profile to see everything.
     """
-    show_all = bool(profile().get("show_all_projects"))
+    show_all = bool(profile().get("show_all_projects"))   # site-wide: it is about the picker, not a show
 
     def fetch():
         filters = [] if show_all else [["is_template", "is", False],

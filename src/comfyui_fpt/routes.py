@@ -40,6 +40,17 @@ def register():
         q = request.rel_url.query
         return pairs(site.tasks_for, q.get("type", ""), int(q.get("id") or 0))
 
+    @routes.get("/fpt/profile")
+    async def profile(request):
+        """What the profile says for ONE project. The editor needs this because link_type decides
+        which entity type the link picker searches, and it is per project, not per site."""
+        try:
+            p = site.for_project(int(request.rel_url.query.get("project_id") or 0))
+            return web.json_response({k: p.get(k) for k in
+                                      ("link_type", "link_field", "code_prefix", "status")})
+        except Exception as e:
+            return web.json_response({"error": str(e)[:200]})
+
     @routes.get("/fpt/statuses")
     async def statuses(request):
         return pairs(site.statuses, int(request.rel_url.query.get("project_id") or 0))
