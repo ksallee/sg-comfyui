@@ -148,6 +148,12 @@ function fetchPickers(nodeType) {
       const prof = await get(`/fpt/profile?project_id=${projectId}`);
       linkType = prof.link_type || "Shot";
       if (link) link.tooltip = `Narrow to one ${linkType}.`;
+      // Status codes are per project (probe 009), so the filter list follows the project too.
+      const st = w("status");
+      if (st) {
+        const d2 = await get(`/fpt/statuses?project_id=${projectId}`);
+        setOptions(st, d2.items.map((x) => x.label));
+      }
       await loadLinks();
     };
 
