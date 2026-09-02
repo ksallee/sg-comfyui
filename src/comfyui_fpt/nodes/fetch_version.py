@@ -28,6 +28,27 @@ def _id_for(pairs, label):
     return next((i for l, i in pairs if l == label), 0)
 
 
+# shotgun_api3 spells the same tree differently (probe 030), and a TD reaching for a filter will
+# type the Python spelling. Accept it and translate rather than 400 on a reasonable guess.
+_PY_KEYS = {"filter_operator": "logical_operator", "filters": "conditions"}
+_PY_OPS = {"any": "or", "all": "and"}
+
+
+def _as_rest_filter(v):
+    """A filter group in REST's spelling, from either REST's or shotgun_api3's."""
+    if isinstance(v, list):
+        return [_as_rest_filter(x) for x in v] if v and isinstance(v[0], (list, dict)) else v
+    if not isinstance(v, dict):
+        return v
+    out = {_PY_KEYS.get(k, k): val for k, val in v.items()}
+    if "logical_operator" in out:
+        out["logical_operator"] = _PY_OPS.get(str(out["logical_operator"]).lower(),
+                                              str(out["logical_operator"]).lower())
+    if "conditions" in out:
+        out["conditions"] = [_as_rest_filter(c) for c in out["conditions"]]
+    return out
+
+
 def _as_list(v):
     """The multi-select arrives as a list; a hand-edited graph may hold a string."""
     if isinstance(v, (list, tuple)):
@@ -73,9 +94,9 @@ class FPTFetchVersion:
                 "filters": ("STRING", {"default": "", "multiline": True,
                             "display_name": "SG Filters",
                             "tooltip": "The Flow PT filter the fields above add up to, shown as you "
-                                       "change them. Edit it and it takes over. An array of "
-                                       "conditions; for OR use `in`, e.g. "
-                                       "[\"sg_status_list\",\"in\",[\"apr\",\"fin\"]]."}),
+                                       "change them. Edit it and it takes over. An array is an "
+                                       "implicit AND; for OR use a group: {\"logical_operator\": "
+                                       "\"or\", \"conditions\": [...]} (probe 030)."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent."}),
@@ -117,21 +138,15 @@ class FPTFetchVersion:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
             raise ValueError(f"filters is not valid JSON: {e}")
-        # An array of conditions only. The dict form is NOT accepted here, and it is worth saying
-        # why rather than letting the site 400: _search requires the array vendor Content-Type
-        # (probe 004), and under it Flow PT rejects a hash outright — {"filter_operator": ...} comes
-        # back "Query is not an Array", and a hash nested inside the array comes back "Expected array
-        # of basic condition arrays". Sending the hash Content-Type instead was tried and every shape
-        # attempted returned "Missing logical operator"; the working hash syntax is unproven, so this
-        # refuses rather than pretending.
+        # Both shapes, because Flow PT takes both — under different Content-Types (probe 030).
+        # An array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
+        # only way to express `or`, nested up to 265 groups deep.
         if isinstance(v, dict):
-            raise ValueError(
-                "SG Filters takes an array of conditions, not a dict. Flow PT's _search rejects the "
-                "hash form under the array Content-Type it requires (probe 004). For OR across "
-                'values use `in`: ["sg_status_list", "in", ["apr", "fin"]].')
+            return _as_rest_filter(v)
         if not isinstance(v, list):
             raise ValueError('SG Filters must be an array of conditions, e.g. '
-                             '[["sg_status_list", "in", ["apr"]]]')
+                             '[["sg_status_list", "in", ["apr"]]], or a group object '
+                             '{"logical_operator": "or", "conditions": [...]}')
         return v
 
     @classmethod

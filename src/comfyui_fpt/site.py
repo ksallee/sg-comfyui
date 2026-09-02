@@ -22,6 +22,14 @@ PROFILE = ROOT / "profile.local.json"
 
 # probe 004 — _search rejects application/json with 415 and demands a vendor type.
 ARRAY_JSON = {"Content-Type": "application/vnd+shotgun.api3_array+json"}
+# probe 030 — boolean logic needs the hash type. api3_array's flat list is an implicit `and` and has
+# no spelling for `or`; api3_hash takes {"logical_operator", "conditions"} and expresses both, nested.
+HASH_JSON = {"Content-Type": "application/vnd+shotgun.api3_hash+json"}
+
+
+def filter_headers(filters):
+    """The Content-Type this filter shape requires (probe 030). The two are not interchangeable."""
+    return HASH_JSON if isinstance(filters, dict) else ARRAY_JSON
 
 TTL = 60.0
 _cache = {}
@@ -335,9 +343,9 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
         filters = version_filters(project_id, link_type, link_id, task_id, terms, statuses)
 
     def fetch():
-        # A dict carries filter_operator for OR; an array is the plain AND form. Both go through
-        # untouched — this is Flow PT's own vocabulary, not a shape of ours to normalise.
-        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
+        # An array is the implicit `and`; a dict carries `logical_operator` and needs the other
+        # Content-Type (probe 030).
+        r = client().post("/entity/versions/_search", headers=filter_headers(filters),
                           json={"filters": filters, "fields": ["code", "sg_status_list"],
                                 "sort": sort, "page": {"size": limit}})
         return [] if not r.ok else [(d["attributes"].get("code") or "",
