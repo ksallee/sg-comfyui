@@ -331,9 +331,12 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
     """
     if not project_id and not filters:
         return []
-    filters = filters or version_filters(project_id, link_type, link_id, task_id, terms, statuses)
+    if filters is None:
+        filters = version_filters(project_id, link_type, link_id, task_id, terms, statuses)
 
     def fetch():
+        # A dict carries filter_operator for OR; an array is the plain AND form. Both go through
+        # untouched — this is Flow PT's own vocabulary, not a shape of ours to normalise.
         r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
                           json={"filters": filters, "fields": ["code", "sg_status_list"],
                                 "sort": sort, "page": {"size": limit}})

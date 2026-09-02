@@ -71,9 +71,11 @@ class FPTFetchVersion:
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
                 "filters": ("STRING", {"default": "", "multiline": True,
-                            "tooltip": "Optional raw Flow PT filter, e.g. "
-                                       "[[\"sg_status_list\",\"in\",[\"apr\"]]]. Replaces every "
-                                       "field above when set."}),
+                            "display_name": "SG Filters",
+                            "tooltip": "The Flow PT filter the fields above add up to, shown as you "
+                                       "change them. Edit it and it takes over. An array of "
+                                       "conditions; for OR use `in`, e.g. "
+                                       "[\"sg_status_list\",\"in\",[\"apr\",\"fin\"]]."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent."}),
@@ -115,8 +117,20 @@ class FPTFetchVersion:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
             raise ValueError(f"filters is not valid JSON: {e}")
+        # An array of conditions only. The dict form is NOT accepted here, and it is worth saying
+        # why rather than letting the site 400: _search requires the array vendor Content-Type
+        # (probe 004), and under it Flow PT rejects a hash outright — {"filter_operator": ...} comes
+        # back "Query is not an Array", and a hash nested inside the array comes back "Expected array
+        # of basic condition arrays". Sending the hash Content-Type instead was tried and every shape
+        # attempted returned "Missing logical operator"; the working hash syntax is unproven, so this
+        # refuses rather than pretending.
+        if isinstance(v, dict):
+            raise ValueError(
+                "SG Filters takes an array of conditions, not a dict. Flow PT's _search rejects the "
+                "hash form under the array Content-Type it requires (probe 004). For OR across "
+                'values use `in`: ["sg_status_list", "in", ["apr", "fin"]].')
         if not isinstance(v, list):
-            raise ValueError("filters must be an array of conditions, e.g. "
+            raise ValueError('SG Filters must be an array of conditions, e.g. '
                              '[["sg_status_list", "in", ["apr"]]]')
         return v
 

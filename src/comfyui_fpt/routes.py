@@ -5,6 +5,8 @@ appending to PromptServer.instance.routes here is registered normally.
 
 Setup path: these serve the editor and are never touched while publishing.
 """
+import json
+
 from . import site
 
 
@@ -100,16 +102,27 @@ def register():
             else:
                 typed = [t.strip() for x in q.getall("statuses", [])
                          for t in x.split(",") if t.strip()]
+                # The widget mirrors the fields until someone edits it, so a filter identical to the
+                # generated one is not an override — treating it as one would lose the friendlier
+                # explanations and the "what is there" listing.
+                raw = q.get("filters", "")
+                pid0, lt0, tgt0, tsk0 = FPTFetchVersion._context(
+                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
+                codes0, _ = site.resolve_statuses(pid0, typed)
+                same = json.dumps(FPTFetchVersion._filters(raw), sort_keys=True) == json.dumps(
+                    site.version_filters(pid0, lt0, tgt0, tsk0,
+                                         [t for t in (q.get("name_contains", "") or "").split() if t],
+                                         codes0), sort_keys=True)
                 vid, code, why = FPTFetchVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
-                    q.get("newest_by", ""), q.get("filters", ""))
+                    q.get("newest_by", ""), "" if same else raw)
             # What the fields add up to, in the API's own language — shown so an override can start
             # from something that already works.
             pid, lt2, tgt2, tsk2 = FPTFetchVersion._context(
                 q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
             codes2, _ = site.resolve_statuses(pid, typed)
-            built = FPTFetchVersion._filters(q.get("filters", "")) or site.version_filters(
+            built = (None if same else FPTFetchVersion._filters(raw)) or site.version_filters(
                 pid, lt2, tgt2, tsk2,
                 [t for t in (q.get("name_contains", "") or "").split() if t], codes2)
 
