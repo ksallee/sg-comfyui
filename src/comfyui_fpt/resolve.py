@@ -24,11 +24,14 @@ def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains=""
 
 
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
-         order=BY_VERSION, regex="", filters=None):
+         order=BY_VERSION, regex="", filters=None, where=""):
     """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently.
 
     `filters` replaces everything the widgets add up to, so a power user or an agent owns the query
     outright rather than fighting the fields.
+
+    `where` is what the operator called the link. Only ids reach here, and "nothing on Shot 7514"
+    names a row they never typed; the caller knows the label they picked.
     """
     terms = [t for t in (name_contains or "").split() if t]
     rows = site.find_versions(project_id, link_type, link_id, task_id, terms, statuses,
@@ -36,7 +39,7 @@ def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statu
     if not rows:
         if filters:
             return 0, "", "nothing matches the filter you supplied"
-        where = f"{link_type} {link_id}" if link_id else f"project {project_id}"
+        where = where or (f"{link_type} {link_id}" if link_id else f"project {project_id}")
         bits = [b for b in (f"name containing {name_contains!r}" if terms else "",
                             f"status in {list(statuses)}" if statuses else "",
                             "a task" if task_id else "") if b]

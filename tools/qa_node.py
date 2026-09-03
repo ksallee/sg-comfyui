@@ -117,13 +117,16 @@ def main():
     ap.add_argument("--shot", default="", help="write a screenshot here")
     ap.add_argument("--repo", default="", help="checkout to load as the node pack (default: this one)")
     ap.add_argument("--keep", action="store_true", help="leave the instance running")
+    # The notice a node draws when Nodes 2.0 is off is a thing to look at, so it has to be reachable
+    # from here; the setting is per user directory, which only --start owns.
+    ap.add_argument("--no-vue", action="store_true", help="start with Comfy.VueNodes.Enabled false")
     a = ap.parse_args()
 
     proc = userdir = None
     port = a.port
     if a.start:
         port = free_port(a.port)
-        proc, userdir = start_comfy(port, repo=a.repo)
+        proc, userdir = start_comfy(port, vue=not a.no_vue, repo=a.repo)
         if not wait_ready(port):
             print(json.dumps({"error": f"ComfyUI did not come up on {port}"}))
             proc.terminate()
