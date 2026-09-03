@@ -24,10 +24,11 @@ const CSS = `
 .fpt-icon { width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; }
 .fpt-pill { padding: 1px 7px; border-radius: 9px; font-size: 10px; font-weight: 600;
             white-space: nowrap; }
-.fpt-body { padding: 6px 8px; overflow: auto; display: flex; flex-direction: column; gap: 5px; }
+.fpt-body { padding: 6px 8px; display: flex; flex-direction: column; gap: 5px;
+            min-width: 0; }
 .fpt-row { display: flex; gap: 6px; }
-.fpt-k { color: #7f868f; min-width: 62px; flex: none; }
-.fpt-v { color: #cfd3d8; word-break: break-word; }
+.fpt-k { color: #7f868f; width: 62px; flex: none; }
+.fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
 .fpt-toggle { cursor: pointer; }
 .fpt-toggle:hover { color: #cfd3d8; }
@@ -114,10 +115,11 @@ function writesBlock(d) {
 function sourcesBlock(d) {
   const s2 = d && d.sources;
   if (!s2 || !s2.length) return "";
+  // The reason goes under the name, not beside it: side by side, a narrow node squeezed the code
+  // into one character per line.
   return `<div class="fpt-sec">from</div>` + s2.map((x) =>
-    `<div class="fpt-row"><span class="fpt-v" style="flex:1">${
-      esc(x.code || ("Version " + x.id))}</span><span class="fpt-dim">${esc(x.why || "")}</span></div>`
-  ).join("");
+    `<div class="fpt-v">${esc(x.code || ("Version " + x.id))}</div>` +
+    (x.why ? `<div class="fpt-why">${esc(x.why)}</div>` : "")).join("");
 }
 
 const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
@@ -141,7 +143,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   // holding its old height and the box looks unchanged.
   head.addEventListener("click", () => {
     root.classList.toggle("collapsed");
-    if (onLayout) onLayout();
+    relayout();
   });
   // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
   // control belongs here rather than in a button appended somewhere else on the node.
@@ -149,14 +151,41 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
     if (!e.target.closest(".fpt-toggle")) return;
     root.classList.toggle("editing");
     if (root.classList.contains("editing")) area.focus();
-    if (onLayout) onLayout();
+    relayout();
   });
 
+  // Height follows the content. A fixed number was fine when the readout was three lines and wrong
+  // as soon as it listed every field a publish writes — the box stayed small and the content scrolled
+  // inside it, which no amount of widening the node could fix.
+  const measure = () => {
+    if (root.classList.contains("collapsed")) return 26;
+    const head_h = head.getBoundingClientRect().height || 26;
+    const body_h = body.scrollHeight || 0;
+    const edit_h = root.classList.contains("editing") ? editor.scrollHeight || 0 : 0;
+    // +16 covers the border and the rounding between layout and canvas pixels; at +8 the last row
+    // was clipped by a few pixels.
+    return Math.min(Math.max(head_h + body_h + edit_h + 16, 60), 900);
+  };
   const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
     serialize: false,
-    getMinHeight: () => (root.classList.contains("collapsed") ? 26
-                         : root.classList.contains("editing") ? 300 : 132),
+    getMinHeight: measure,
   });
+
+  // Re-measure when the content changes, once the browser has laid it out.
+  //
+  // `computedHeight` is only refreshed during the frontend's own layout pass, so asking the node to
+  // resize before that pass makes it size itself from the previous content — collapsing left the node
+  // at its old height because computeSize still saw 409px of a panel that was now 26.
+  let settling;
+  const relayout = () => {
+    clearTimeout(settling);
+    settling = setTimeout(() => {
+      requestAnimationFrame(() => {
+        widget.computedHeight = measure();
+        if (onLayout) onLayout();
+      });
+    }, 30);
+  };
 
   return {
     widget,
@@ -177,6 +206,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       if (d && d.error) {
         t.innerHTML = esc(title);
         body.innerHTML = `<div class="fpt-err">${esc(d.error)}</div>`;
+        relayout();
         return;
       }
       if (!d || !d.id) {
@@ -189,6 +219,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
                 `<div class="fpt-row"><span class="fpt-v" style="flex:1">${esc(v.code)}</span>
                  ${v.status && v.status.label ? badge(v.status) : ""}</div>`).join("")
             : "") + filterBlock(d);
+        relayout();
         return;
       }
       t.innerHTML = `${esc(d.code)} ${d.status && d.status.label ? badge(d.status) : ""}`;
@@ -202,6 +233,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
           <span class="fpt-v">${esc(v)}</span></div>`).join("") +
         (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
         sourcesBlock(d) + writesBlock(d) + filterBlock(d);
+      relayout();
     },
     /** What the node last did. Appended under the description, not instead of it. */
     log(lines, ok = true) {
@@ -210,6 +242,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         `<div class="fpt-sec">last run</div>` +
         [].concat(lines).map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
       root.classList.remove("collapsed");
+      relayout();
     },
     clearLog() {
       body.querySelectorAll(".fpt-sec, .fpt-ok, .fpt-err").forEach((e) => e.remove());
