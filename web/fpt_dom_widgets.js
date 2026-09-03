@@ -121,6 +121,21 @@ export function hideWidget(widget) {
   widget.options.hidden = true;
 }
 
+/** Put a widget inside ComfyUI's OWN "Show advanced inputs" fold, beside `code_template` and the
+ *  rest of the fine print.
+ *
+ *  `isWidgetVisible` reads `options.advanced` exactly as it reads `options.hidden`
+ *  (useProcessedWidgets.ts), and the node's footer button appears as soon as any widget carries it
+ *  (`widgets.some(w => w.options?.advanced)`). `advanced`, the property, is what litegraph's own
+ *  `LGraphNode.isWidgetVisible` tests — the same pair `hideWidget` sets. */
+export function advancedWidget(widget) {
+  if (!widget) return widget;
+  widget.advanced = true;
+  widget.options = widget.options || {};
+  widget.options.advanced = true;
+  return widget;
+}
+
 /** Keep a widget of ours out of `widgets_values`.
  *
  * `addDOMWidget(…, {serialize: false})` does NOT do this: both the save and the restore test
@@ -195,28 +210,27 @@ function nodeElement(node) {
   return null;
 }
 
-/** Set node.size from what the node actually renders, and hand any surplus to the grow row.
+/** Set node.size from what the node actually renders.
  *
  * The Vue node is `min-h-(--node-height)`, so its DOM height is the larger of node.size and its
  * content — which means computeSize() can disagree with the picture and nothing notices. Zeroing
  * the variable for one reflow asks the content what it wants, which is the only number that is
  * never a guess.
+ *
+ * There is no "grow" row any more. The readout used to pool a taller node's surplus, which sounded
+ * generous and in practice put an empty band under two lines of text every time the CONTENT shrank
+ * — a node widened until the status chips needed one row fewer, a fold shut. It never even served
+ * the case it was for: dragging a node taller routes through litegraph, not through here.
  */
 export function fitNode(node) {
   const el = nodeElement(node);
   if (!el) return;
-  const grow = node.__fptGrow;
-  grow?.style.removeProperty("min-height");
   const prev = el.style.getPropertyValue("--node-height");
   el.style.setProperty("--node-height", "0px");
   const natural = el.offsetHeight;
-  const growH = grow ? grow.offsetHeight : 0;
   el.style.setProperty("--node-height", prev);
   const title = window.LiteGraph?.NODE_TITLE_HEIGHT ?? 30;
-  const surplus = node.size[1] + title - natural;
-  // Dragged taller than the content: the readout is the one thing that wants the room.
-  if (grow && surplus > 2) grow.style.minHeight = `${growH + surplus}px`;
-  else if (Math.abs(surplus) > 2) node.setSize([node.size[0], natural - title]);
+  if (Math.abs(node.size[1] + title - natural) > 2) node.setSize([node.size[0], natural - title]);
   app.graph.setDirtyCanvas(true, true);
 }
 
@@ -225,7 +239,7 @@ export function fitNode(node) {
  * `target` is the declared widget this replaces: addDOMWidget appends, which would float every
  * picker below every plain widget, so the row is spliced back to where its widget sat.
  */
-export function domRow(node, name, { label, control, target, grow }) {
+export function domRow(node, name, { label, control, target }) {
   ensureCss();
   const root = document.createElement("div");
   root.className = label ? "fpt-dom" : "fpt-dom fpt-wide";
@@ -241,7 +255,6 @@ export function domRow(node, name, { label, control, target, grow }) {
   root.appendChild(ctl);
 
   (node.__fptRoots = node.__fptRoots || []).push(root);
-  if (grow) node.__fptGrow = ctl;
 
   const widget = node.addDOMWidget(name, name, root, {
     // .fpt-dom is display:contents under Nodes 2.0 and has no box; the control block is what has a

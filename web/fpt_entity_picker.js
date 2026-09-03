@@ -93,6 +93,8 @@ function publishPickers(nodeType) {
     onCreated?.apply(this, arguments);
     const node = this;
 
+    if (!requireVueNodes(this)) return;
+
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), link = w("link"), task = w("task"), status = w("status");
 
@@ -100,12 +102,10 @@ function publishPickers(nodeType) {
     let linkType = "Shot";   // per project, from /fpt/profile; never assumed (probe 005)
     const typeOf = (label) => typeFromLabel(label) || linkType;
 
-    const relayout = () => {
-      // Height only. computeSize() returns the node's MINIMUM for both dimensions, so passing it
-      // whole snapped the width to that minimum every time the panel re-measured.
-      this.setSize([this.size[0], this.computeSize()[1]]);
-      app.graph.setDirtyCanvas(true, true);
-    };
+    // Same as the Load node. computeSize() answers the node's MINIMUM and disagrees with what the
+    // Vue node actually renders, which is where the empty band under the readout came from; fitNode
+    // measures the rendered DOM instead.
+    const relayout = () => fitNode(this);
 
     // A note is prose someone types, and the stock textarea's floor is the height of a name field,
     // which is what it read as. getMinHeight is the frontend's own hook (computeLayoutSize) and the
@@ -156,9 +156,10 @@ function publishPickers(nodeType) {
       // the wrong trade. It becomes the line under the name instead.
       const { error, ...rest } = extra || {};
       const missing = (rest.missing_fields || []).length;
-      // The two decisions that cost real money to get wrong and are not otherwise on screen: which
-      // show this lands in, and which stream it claims to be.
-      const facts = [["project", project?.value], ["output", w("output_name")?.value]]
+      // Which show this lands in and which stream it claims to be. Both are combos two rows up, so
+      // they are `echo`, not `facts`: the readout repeating the node is noise where the name is
+      // supposed to be the signal.
+      const echo = [["project", project?.value], ["output", w("output_name")?.value]]
         .filter(([, v]) => bare(v)).map(([label, value]) => ({ label, value }));
       panel.show({
         ...rest,
@@ -166,7 +167,10 @@ function publishPickers(nodeType) {
         // preview_code answers with the type it would use even when nothing is picked, so an unset
         // link came back as a bare "Shot" and read like a decision that had been made.
         link: bare(link?.value) ? d.link : "",
-        status: statusOf(status?.value), facts,
+        status: statusOf(status?.value), echo,
+        // The reason lives in the fold now, so the pill has to carry it: a publish that cannot read
+        // its provenance, or that would drop a mapped value, is not VALID however good the name is.
+        state: (error || missing) ? "warn" : "ok",
         why: error ? `provenance could not be read: ${error}`
           : missing ? `${missing} mapped field(s) missing on this site — struck through below`
           : "this is what the next Run will create",
@@ -184,8 +188,9 @@ function publishPickers(nodeType) {
       if (rows.length) {
         panel.show({
           id: rows[0].id, code: rows[0].code, link: rows[0].link,
-          status: statusOf(status?.value),
+          status: statusOf(status?.value), state: "ok",
           why: rows.length > 1 ? `${rows.length} Versions, one per frame in the batch` : "",
+          // `facts`, not `echo`: what a run actually wrote is nowhere else on the node.
           facts: rows[0].outputs && rows[0].outputs.length
             ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : [],
         });
@@ -291,15 +296,9 @@ function publishPickers(nodeType) {
     ["code_template", "output_name", "note", "source_versions"].forEach((n) =>
       wrap(w(n), previewSoon));
 
-    this.addWidget("button", "refresh from site", null, loadProject);
-    // The other half of the stopgap above: addDOMWidget is given `serialize: false` in its OPTIONS
-    // and never copies it onto the widget, so the serializer wrote every picker into
-    // widgets_values. Saying it where the frontend actually reads it keeps the junk out of a saved
-    // graph — and is what a `serialize !== false` filter in the shared layer would need.
-    for (const n of ["project_pick", "link_pick", "fpt_panel", "refresh from site"]) {
-      const x = w(n);
-      if (x) x.serialize = false;
-    }
+    // Every row we add is already marked by domRow; a button is the one litegraph never marks
+    // itself, and an injected widget that serializes shifts every declared value after it.
+    dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
     loadProject();
   };
 }

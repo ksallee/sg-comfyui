@@ -190,7 +190,8 @@ class FPTLoadVersion:
             return 0, "", (f"no status called {', '.join(repr(u) for u in unknown)} on this project. "
                            f"It allows: {allowed}")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
-                            newest_by, p.get("code_regex", ""), cls._filters(filters))
+                            newest_by, p.get("code_regex", ""), cls._filters(filters),
+                            where=site.unset(link) or "")
 
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",

@@ -107,49 +107,46 @@ def register():
             from .nodes.load_version import FPTLoadVersion
             q = request.rel_url.query
             pin = int(q.get("pin_version_id") or 0)
+            # Read once, before the branch. `typed`, `raw` and `same` were bound only where the rule
+            # ran, and the pinned path used them anyway: every pin raised UnboundLocalError, which
+            # the panel drew as "nothing resolved yet". Once, above, is also the whole context —
+            # _context was being asked the same question three times per request.
+            typed = [t.strip() for x in q.getall("statuses", [])
+                     for t in x.split(",") if t.strip()]
+            raw = q.get("filters", "")
+            pid, lt, target, task_id = FPTLoadVersion._context(
+                q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
+            codes, _ = site.resolve_statuses(pid, typed)
+            terms = [t for t in (q.get("name_contains", "") or "").split() if t]
+            # The widget mirrors the fields until someone edits it, so a filter identical to the
+            # generated one is not an override — treating it as one would lose the friendlier
+            # explanations and the "what is there" listing.
+            same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
+                site.version_filters(pid, lt, target, task_id, terms, codes), sort_keys=True)
             if pin:
                 vid, code, why = pin, "", "pinned by id"
             else:
-                typed = [t.strip() for x in q.getall("statuses", [])
-                         for t in x.split(",") if t.strip()]
-                # The widget mirrors the fields until someone edits it, so a filter identical to the
-                # generated one is not an override — treating it as one would lose the friendlier
-                # explanations and the "what is there" listing.
-                raw = q.get("filters", "")
-                pid0, lt0, tgt0, tsk0 = FPTLoadVersion._context(
-                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
-                codes0, _ = site.resolve_statuses(pid0, typed)
-                same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
-                    site.version_filters(pid0, lt0, tgt0, tsk0,
-                                         [t for t in (q.get("name_contains", "") or "").split() if t],
-                                         codes0), sort_keys=True)
                 vid, code, why = FPTLoadVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), "" if same else raw)
             # What the fields add up to, in the API's own language — shown so an override can start
             # from something that already works.
-            pid, lt2, tgt2, tsk2 = FPTLoadVersion._context(
-                q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
-            codes2, _ = site.resolve_statuses(pid, typed)
             built = (None if same else FPTLoadVersion._filters(raw)) or site.version_filters(
-                pid, lt2, tgt2, tsk2,
-                [t for t in (q.get("name_contains", "") or "").split() if t], codes2)
+                pid, lt, target, task_id, terms, codes)
 
             if not vid:
                 # A rule that matches nothing is the moment you most need to see what IS there, so
                 # the same link and task are listed with their statuses and the filters dropped.
-                project_id, lt, target, task_id = FPTLoadVersion._context(
-                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
                 colors, labels = site.status_colors(), dict(
-                    (c, l) for l, c in site.statuses(project_id))
+                    (c, l) for l, c in site.statuses(pid))
                 near = [{"code": c, "status": {"code": st, "label": labels.get(st, st),
                                                "rgb": colors.get(st)}, "id": i}
-                        for c, st, i in site.find_versions(project_id, lt, target, task_id)[:12]]
+                        for c, st, i in site.find_versions(pid, lt, target, task_id)[:12]]
                 return web.json_response({"id": 0, "why": why, "media": [],
                                           "candidates": near, "filters": built})
             fpt = site.client()
-            project_id = int(q.get("project_id") or 0) or site.default_project()
+            project_id = int(q.get("project_id") or 0) or pid
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
             # `media`, not `sources`: the publish panel uses `sources` for the Versions a publish
@@ -157,7 +154,9 @@ def register():
             return web.json_response({**desc, "why": why, "filters": built,
                                       "media": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
-            return web.json_response({"id": 0, "summary": str(e)[:200], "media": []})
+            # `error`, not `summary`: nothing read `summary`, so a pin pointing at a Version that is
+            # not there rendered as "nothing resolved yet" and the reason was thrown away.
+            return web.json_response({"id": 0, "error": str(e)[:200], "media": []})
 
     @routes.get("/fpt/preview_code")
     async def preview_code(request):

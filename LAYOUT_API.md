@@ -24,9 +24,10 @@ Consequences you have to respect:
 | `searchPicker(node, target, opts)` | trigger + popup, writes into the declared widget `target` |
 | `chipSelect(node, target, opts)` | status chips in the control column |
 | `hideWidget(widget)` | hide a declared widget (`hidden` **and** `options.hidden`) |
+| `advancedWidget(widget)` | put a widget inside the editor's own "Show advanced inputs" fold |
 | `dontSerialize(widget)` | keep an injected widget out of `widgets_values` |
 | `restoreDeclaredWidgets(nodeType)` | chain an `onConfigure` that re-applies saved values correctly |
-| `domRow(node, name, {label, control, target, grow})` | the raw row, for anything not a picker |
+| `domRow(node, name, {label, control, target})` | the raw row, for anything not a picker |
 | `fitNode(node)` | set `node.size` from what the node actually renders |
 | `iconHtml(icon, rgb)` | one status icon, three renderings (recipe 010) |
 | `vueNodesEnabled()` / `requireVueNodes(node)` | Nodes 2.0 detection, and the notice when it is off |
@@ -57,13 +58,25 @@ clipping ancestor. It closes on outside click, wheel, resize and Escape; ↑/↓
 
 Signature unchanged. Options: `load()` as before, plus `label` (new, left column) and `empty` (new).
 
-### `domRow(node, name, {label, control, target, grow})`
+### `domRow(node, name, {label, control, target})`
 
 - `label` — omit for a row that spans both columns (that is what the panel does).
 - `target` — the declared widget this replaces; the row is spliced to sit where it sits.
-- `grow` — this row absorbs the height of a node dragged taller than its content. One per node.
 
 Sets `serialize = false` on the widget it creates.
+
+There is no `grow` any more. A row that pooled a taller node's surplus put an empty band under two
+lines of text every time the content SHRANK — a node widened until the chips needed one row fewer, a
+fold shut — and never served the case it was for, because dragging a node taller does not route
+through `fitNode`. The node sizes to its content; surplus from a manual drag sits at the bottom, the
+way it does on every other node.
+
+### `advancedWidget(widget)`
+
+Sets `advanced` **and** `options.advanced`, the pair `hideWidget` sets for `hidden`.
+`isWidgetVisible` reads `options.advanced` exactly as it reads `options.hidden`, and the node's
+footer button appears as soon as any widget carries it. This is how the readout's fine print folds:
+one fold per node, the editor's own, rather than a `<details>` of ours beside it.
 
 ### Serialization — read this before adding any widget
 
@@ -84,7 +97,7 @@ prefers `widgets_values_named`, which is always written, and falls back to the i
 Replaces `node.setSize([w, node.computeSize()[1]])`. The Vue node is `min-h-(--node-height)`, so its
 DOM height is the larger of `node.size` and its content and `computeSize()` can disagree with the
 picture unnoticed. `fitNode` zeroes the variable for one reflow, asks the content what it wants, and
-either sets `node.size` to that or hands the surplus to the `grow` row.
+sets `node.size` to that.
 
 ### `requireVueNodes(node)`
 
@@ -94,9 +107,23 @@ the setting: that changes the operator's whole editor.
 
 ## `web/fpt_panel.js`
 
-`addPanel(node, title, onLayout)` is unchanged. `show(d)` now honours an explicit `d.state` of
-`"ok" | "warn" | "loading"`, which overrides the guess made from `d.error` / `d.id` — a provenance
-field mapped to a name this site does not have still resolves a Version, so `id` alone read as valid.
+`addPanel(node, title, onLayout)` adds **two** rows, and the second carries `advancedWidget`.
+
+| where | what is in it |
+|---|---|
+| head, always | the Version's name, its status pill, the state pill |
+| body, always | an error; why nothing resolved and what IS there; `d.provenance`, `d.facts`, `d.generated_from`; the last run's log |
+| the fold | `d.link`, `d.task`, `d.echo`, `d.why`, `d.sources`, `d.fields` and `d.uploads` |
+
+The line is what a widget already answers. `link`, `task` and everything in `d.echo` are the node's
+own combos read back — three rows higher, in the operator's own words — so the readout repeating
+them is noise where the name is supposed to be the signal. `d.facts` is what only the site knows
+about this Version and stays in front of them.
+
+`show(d)` honours an explicit `d.state` of `"ok" | "warn" | "loading"`, which overrides the guess
+made from `d.error` / `d.id`. It has to: `why` lives in the fold now, so a publish that cannot read
+its provenance, or that would drop a value mapped to a field this site does not have, is only ever
+said by the pill.
 
 ## `/fpt/projects`
 
