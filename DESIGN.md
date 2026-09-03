@@ -212,6 +212,38 @@ information needed to explain an absent workflow later.
 This is also the reason the demo drives ComfyUI over plain HTTP rather than through its MCP server:
 an MCP-submitted prompt exercises the degraded provenance path.
 
+### Where each piece lands is the operator's, not ours
+
+The nine fields are a default, not a schema. A studio that already records seeds in `sg_render_seed`,
+or that wants nothing but a readable paragraph, should not have to fork the node — so the mapping is
+data, per project, beside every other per-show decision:
+
+    "provenance": {
+      "mode": "fields",
+      "map": {
+        "seed":   "sg_render_seed",
+        "prompt": "description",
+        "cfg":    null
+      }
+    }
+
+`mode` is the fallback for concepts the map does not name: `fields` uses the defaults, `description`
+folds everything into the note. That is the difference between one word and nine null entries, and
+"put it all in the description" is a real request.
+
+The concepts — generator, model, prompt, negative_prompt, seed, sampler, steps, cfg,
+generated_from — are what the graph knows. `fields.concepts` produces them, `fields.targets`
+resolves the operator's decision once, and both the publish path and `/fpt/preview_publish` read
+that same resolution, so the panel shows where a value will actually land rather than where this
+repo would have put it.
+
+A target the site does not have is **reported, not dropped**: a typo in a profile would otherwise
+hide behind a Version that looks fine.
+
+Pointing at a field the studio already has is the preferred move, and cheaper than it looks —
+`fields.ensure` only creates what `FIELDS` names, and every name it spends is spent site-wide
+forever (probe 019).
+
 ### Typed fields, not a JSON blob
 
 `fields.py` defines nine fields on Version and creates them idempotently (`python -m comfyui_fpt.fields`).

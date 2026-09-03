@@ -212,9 +212,12 @@ def register():
 
             fpt = site.client()
             have = fpt_fields.available(fpt)
-            typed = fpt_fields.values_for(prov, [x["id"] for x in sources if x["id"]])
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
+            pid = next((n for l, n in site.projects() if l == w.get("project")), 0) \
+                or site.default_project()
+            where = fpt_fields.targets(*site.provenance_map(pid))
+            values = fpt_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
 
             def show(v):
                 if isinstance(v, list):     # multi_entity: names, not a dict repr
@@ -222,16 +225,28 @@ def register():
                 return str(v)[:160]
 
             rows = []
-            # Every provenance field, not only the ones with a value: an empty seed on a graph with
-            # no sampler is information, and hiding it makes the list look arbitrary.
-            for label, name in sorted(fpt_fields.names().items(), key=lambda kv: kv[1]):
-                v = typed.get(name)
+            # Every concept, not only the ones with a value: an empty seed on a graph with no
+            # sampler is information, and hiding it makes the list look arbitrary. The row is named
+            # for where the value LANDS, because that is the operator's decision and the thing they
+            # are checking — the concept is the label beside it.
+            for concept, target in where.items():
+                v = values.get(concept)
+                has = v not in (None, "", [])
+                if target is None:
+                    note = "not recorded"
+                elif target == fpt_fields.DESCRIPTION:
+                    note = "into the description"
+                elif target in have:
+                    note = "" if has else "nothing in this graph"
+                else:
+                    note = "field missing on this site"
                 rows.append({
-                    "name": name[3:] if name.startswith("sg_") else name,
-                    "value": show(v) if v not in (None, "", []) else "",
-                    "present": name in have,
-                    "note": "" if name in have else "field missing on this site"
-                            if v not in (None, "", []) else "nothing in this graph",
+                    "name": (target[3:] if target.startswith("sg_") else target) if target
+                            else fpt_fields.CONCEPT_LABELS[concept],
+                    "label": fpt_fields.CONCEPT_LABELS[concept],
+                    "value": show(v) if has else "",
+                    "present": target is None or target == fpt_fields.DESCRIPTION or target in have,
+                    "note": note,
                 })
             # The rest of the Version, which is not provenance but is still what gets written.
             plain = [("description", w.get("note") or "", "the note below"),
@@ -249,7 +264,8 @@ def register():
                 "fields": rows,
                 "uploads": uploads,
                 "sources": sources,
-                "missing_fields": sorted(n for n in fpt_fields.names().values() if n not in have),
+                "missing_fields": sorted({t for t in where.values()
+                                          if t and t != fpt_fields.DESCRIPTION and t not in have}),
             })
         except Exception as e:
             return web.json_response({"error": str(e)[:300], "fields": [], "sources": []})
