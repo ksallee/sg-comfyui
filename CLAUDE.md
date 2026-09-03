@@ -26,6 +26,17 @@ Python 3.11. `sg_groundtruth` for all site access, plus what ComfyUI already shi
 
 The sibling checkout (`sg-groundtruth/`, package `sg_groundtruth`) is expected; override with `SG_GROUNDTRUTH_PATH`.
 
+## Running it
+
+Everything runs from the repo root. Every `-m comfyui_fpt.*` needs `PYTHONPATH=src` — the package
+lives under `src/` and nothing installs it. `instrument.py` is run as a file on purpose: `-m` would
+import the package `__init__` and therefore torch, and a graph must stay analysable on a machine with
+neither torch nor a route to the site.
+
+Operation is `README.md`. The recurring jobs are slash commands: `/inspect-site` writes
+`profile.local.json`, which is gitignored and which every picker reads, so nothing works before it;
+`/track-workflow` puts the nodes into a graph the operator already uses.
+
 ## Secrets
 
 `.env.local`, gitignored, never printed or logged. Auth is `client_credentials`: script name + key.
