@@ -7,7 +7,9 @@ Workflow: $ARGUMENTS
 Their graph already works. You are adding tracking to it, not redesigning it. The script does the
 graph surgery; you ask the questions and explain the result.
 
-1. `python src/comfyui_fpt/instrument.py <workflow.json>` — analysis only, writes nothing.
+1. `python src/comfyui_fpt/instrument.py <workflow.json>` — analysis only, writes nothing. Run from
+   the repo root; this one needs no `PYTHONPATH`, no credentials and no profile (see the last
+   paragraph for why).
 2. Read the two lists back in plain language:
    - **publishable streams** — each becomes a Version. Say what feeds it and what consumes it, so they
      recognise it: "the normal_directx output that currently only goes to a Preview".
@@ -33,7 +35,9 @@ graph surgery; you ask the questions and explain the result.
      call; `{output}` is what the stream is. They are different, and three passes may share one Task.
 4b. **If they said yes to seeding an input**, ask the same questions once more for it — project,
    link, Task, and what the stream IS (`--output plate`, not the file's name) — then
-   `python -m comfyui_fpt.seed <file> --project P --link "sh010 (Shot)" --output plate --note "..."`.
+   `PYTHONPATH=src python -m comfyui_fpt.seed <file> --project P --link "sh010 (Shot)" --output plate --note "..."`.
+   `PYTHONPATH=src` and the repo root are required for every `-m comfyui_fpt.*`: the package lives
+   under `src/` and nothing installs it. This one also needs `.env.local` and `profile.local.json`.
    The file is whatever `LoadImage` names, relative to ComfyUI's `input/`. Print the Version code it
    produced and use that when you wire the Load node.
 
@@ -52,10 +56,14 @@ Publishing is additive: tapping a stream leaves whatever already consumed it con
 loader rewires its consumers and leaves the loader in place but unwired, so they can see what was
 swapped and put it back.
 
-Validated against the 544 workflow templates ComfyUI ships: 528 parse, 0 errors, 268 have a
-publishable stream and 177 have both. A workflow built from custom nodes this project has never heard
-of still analyses correctly, because the rule is structural — an IMAGE link into a sink — not a list
-of node names.
+Re-measured 2026-09-03 against the workflow templates ComfyUI ships (`comfyui_workflow_templates_json`):
+531 graphs, 0 errors, 366 have a publishable stream and 269 have both. The 13 remaining files in that
+directory are `index*.json`, the template catalogue, not workflows. DESIGN.md quotes a larger number
+over a wider corpus — the templates plus three public collections — which this run does not cover.
 
-Run it as a file, not `-m`: the analyser needs no client, no site and no torch, so a graph can be
-analysed on a machine that cannot reach Flow PT at all.
+A workflow built from custom nodes this project has never heard of still analyses correctly, because
+the rule is structural — an IMAGE link into a sink — not a list of node names.
+
+Run it as a file, not `-m`: `-m` imports the package `__init__`, which imports the nodes and therefore
+torch. As a file the analyser needs no client, no site and no torch, so a graph can be analysed on a
+machine that cannot reach Flow PT at all.
