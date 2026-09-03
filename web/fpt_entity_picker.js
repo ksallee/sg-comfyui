@@ -201,15 +201,18 @@ function publishPickers(nodeType) {
     // the combo made you scroll them. No onPick — the widget's own callback is wrapped below and
     // searchPicker fires it, so asking twice would only load the project twice.
     hideWidget(project);
+    // The same rows the Load node shows: a project is easier to recognise by its thumbnail and code
+    // than by a name, and both nodes drawing it differently is the inconsistency worth avoiding.
+    const asCard = (x) => ({ name: x.label, code: x.code || "", image: x.image || "", value: x.label });
     const projectPick = searchPicker(this, project, {
-      label: "Project",
+      label: "project",
       placeholder: "search projects",
+      empty: "no project here matches those words",
       search: async (q) => {
         const d = await get("/fpt/projects");
         const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-        return (d.items || [])
-          .filter((x) => terms.every((t) => x.label.toLowerCase().includes(t)))
-          .map((x) => ({ name: x.label, type: "", value: x.label }));
+        const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
+        return (d.items || []).filter((x) => terms.every((t) => hay(x).includes(t))).map(asCard);
       },
     });
 
@@ -218,8 +221,9 @@ function publishPickers(nodeType) {
     // carries the type it will be linked as.
     hideWidget(link);
     const linkPick = searchPicker(this, link, {
-      label: "Link",
+      label: "link",
       placeholder: "search links — `gir rul` finds giraffe_ruler",
+      empty: "nothing on this show matches those words",
       search: async (q) => {
         const d = await get(`/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q)}`);
         for (const x of d.items || []) linkIds[x.label] = x.id;

@@ -88,6 +88,11 @@ BOOT = """async ({node_type, drive}) => {
     await wait(250);
   }
   const app = window.comfyAPI.app.app;
+  // ComfyUI loads its default workflow asynchronously after the graph exists. Clearing before that
+  // lands means it drops its default on top of the node under test — the drive script sees the
+  // right thing and the screenshot shows someone else's graph.
+  for (let i = 0; i < 40; i++) { if (app.graph._nodes?.length) break; await wait(250); }
+  await wait(500);
   app.graph.clear();
   let node = null;
   if (node_type) {
