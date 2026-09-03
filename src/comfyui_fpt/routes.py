@@ -272,7 +272,15 @@ def register():
 
     @routes.get("/fpt/statuses")
     async def statuses(request):
-        return pairs(site.statuses, int(request.rel_url.query.get("project_id") or 0))
+        """Labels, codes and how to draw each one. The picker shows what the Flow PT UI shows."""
+        try:
+            pid = int(request.rel_url.query.get("project_id") or 0)
+            colors, icons = site.status_colors(), site.status_icons()
+            return web.json_response({"items": [
+                {"label": l, "id": c, "code": c, "rgb": colors.get(c), "icon": icons.get(c)}
+                for l, c in site.statuses(pid)]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": str(e)[:200]})
 
     site.warm()   # prime the setup caches now, not on the operator's first page load
     return True

@@ -1,5 +1,6 @@
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./fpt_panel.js";
+import { searchPicker, chipSelect, hideWidget } from "./fpt_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -108,6 +109,23 @@ app.registerExtension({
       let linkIds = {};
 
       const typeOf = (label) => typeFromLabel(label) || linkType;
+
+      // Same control as the Load node: the combo could only filter the page it already held, and a
+      // show with thousands of Shots never has that page.
+      hideWidget(link);
+      const linkPick = searchPicker(this, link, {
+        placeholder: "search links — `gir rul` finds giraffe_ruler",
+        search: async (q) => {
+          const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
+            ? `&type=${encodeURIComponent(linkTypeW.value)}` : "";
+          const d = await get(`/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q)}${t}`);
+          for (const x of d.items || []) linkIds[x.label] = x.id;
+          return (d.items || []).map((x) => ({
+            name: x.label.replace(/\s\([^()]+\)$/, ""), type: x.type, value: x.label,
+          }));
+        },
+        onPick: () => loadTasks(),
+      });
       const loadTasks = async () => {
         const id = linkIds[link.value] || 0;
         const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(link.value))}&id=${id}`);
@@ -123,6 +141,7 @@ app.registerExtension({
         const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
         linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
         setOptions(link, d.items.map((x) => x.label));
+        linkPick.refresh();
         await loadTasks();
       };
 
@@ -200,11 +219,34 @@ function loadPickers(nodeType) {
     // because widgets_values is positional. The editable box lives inside the panel instead, under
     // the readout it belongs to, where its height is ours to choose.
     const filterBox = w("filters");
-    if (filterBox) filterBox.hidden = true;
+    hideWidget(filterBox);
     const relayout = () => {
       this.setSize([this.size[0], this.computeSize()[1]]);   // height only; see the note above
       app.graph.setDirtyCanvas(true, true);
     };
+
+    // The declared combo keeps the value; the picker is what the operator actually uses. Server-side
+    // search means two words match two words — the combo could only filter the page it already had.
+    hideWidget(link);
+    const linkPick = searchPicker(this, link, {
+      placeholder: "search links — `gir rul` finds giraffe_ruler",
+      search: async (q) => {
+        const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
+          ? `&type=${encodeURIComponent(linkTypeW.value)}` : "";
+        const d = await get(`/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q)}${t}`);
+        for (const x of d.items || []) linkIds[x.label] = x.id;
+        return (d.items || []).map((x) => ({
+          name: x.label.replace(/\s\([^()]+\)$/, ""), type: x.type, value: x.label,
+        }));
+      },
+      onPick: () => loadTasks(),
+    });
+    // Chips, not a comma-separated text field: each status in its own colour (probe 010), and no
+    // one has to type a label exactly right.
+    hideWidget(statuses);
+    const statusChips = statuses && chipSelect(this, statuses, {
+      load: async () => (await get(`/fpt/statuses?project_id=${projectId}`)).items || [],
+    });
 
     const panel = addPanel(this, "Flow PT Load", relayout);
     panel.editor((text) => {
@@ -269,7 +311,10 @@ function loadPickers(nodeType) {
       const t = (chosen && chosen !== ALL_TYPES) ? `&type=${encodeURIComponent(chosen)}` : "";
       const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
       linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
+      // The combo is hidden but still holds the value, so its options must stay legal for a saved
+      // workflow whose link this project does not have.
       setOptions(link, d.items.map((x) => x.label));
+      linkPick.refresh();
       await loadTasks();
     };
 
@@ -284,6 +329,7 @@ function loadPickers(nodeType) {
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
       }
+      statusChips?.reload();
       await loadLinks();
     };
 
