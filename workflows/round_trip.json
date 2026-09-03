@@ -120,14 +120,13 @@
         "Node name for S&R": "FPTPublishVersion"
       },
       "widgets_values": [
-        "{entity.code}_{output}_v{version:03d}",
         "(none)",
-        "(all types)",
         "(none)",
         "(none)",
         "(none)",
         "regrade",
         "derived from the Version above; lineage recorded by itself",
+        "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0

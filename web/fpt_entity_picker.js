@@ -32,171 +32,272 @@ function setOptions(widget, labels, keep) {
   widget.value = widget.options.values.includes(wanted) ? wanted : widget.options.values[0];
 }
 
-// There is deliberately no search box of our own. ComfyUI's combo dropdown already searches, and a
-// second box beside it behaved differently — its filter is a plain substring over what is loaded, so
-// `f` found Giraffe Ruler and `f r` did not. Narrowing is `link_type` instead: the list stays whole,
-// and the editor searches it the way it searches everything else.
+// The pickers search the SITE, not the page the site already sent. That is why neither node has a
+// link_type combo any more: its only job was to shorten a list, and a list nobody scrolls does not
+// need shortening. Filtering in the browser is what made a bespoke box worse than none — a plain
+// substring over what is loaded, so `f` found Giraffe Ruler and `f r` did not.
 
 app.registerExtension({
   name: "fpt.pickers",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData.name === "FPTLoadVersion") return loadPickers(nodeType);
-    if (nodeData.name !== "FPTPublishVersion") return;
-
-    const onCreated = nodeType.prototype.onNodeCreated;
-    nodeType.prototype.onNodeCreated = function () {
-      onCreated?.apply(this, arguments);
-
-      const w = (n) => this.widgets?.find((x) => x.name === n);
-      const project = w("project"), link = w("link"), task = w("task"), status = w("status");
-      const linkTypeW = w("link_type");
-      // The publish panel needs the same re-measure hook as the load one: without it nothing ever
-      // resized the node, so the box kept whatever height it had when the graph loaded.
-      const relayout = () => {
-        // Height only. computeSize() returns the node's MINIMUM for both dimensions, so passing it
-        // whole snapped the width to that minimum every time the panel re-measured.
-        this.setSize([this.size[0], this.computeSize()[1]]);
-        app.graph.setDirtyCanvas(true, true);
-      };
-      const panel = addPanel(this, "Flow PT Publish", relayout);
-      const preview = async () => {
-        const q = new URLSearchParams({
-          project: project.value || "", link_type: bare(linkTypeW?.value),
-          link: bare(link.value), task: bare(task?.value),
-          code_template: w("code_template")?.value || "",
-          output_name: w("output_name")?.value || "",
-        });
-        const d = await get(`/fpt/preview_code?${q}`);
-        panel.clearLog();
-        if (!d.code) {
-          panel.show({ error: d.error || "the template does not resolve yet" });
-          return;
-        }
-        // Provenance lives in the executing graph, so hand over the very thing Run would send.
-        let extra = {};
-        try {
-          const { output } = await app.graphToPrompt();
-          const r = await fetch("/fpt/preview_publish", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ prompt: output, node_id: String(node.id) }),
-          });
-          extra = await r.json();
-        } catch (e) { /* an unbuilt graph simply has nothing to describe yet */ }
-        panel.show({ id: -1, code: d.code, link: d.link, task: d.task,
-                     why: "this is what the next Run will create", ...extra });
-      };
-      const node = this;
-      app.api.addEventListener("executed", ({ detail }) => {
-        if (String(detail.node) !== String(node.id)) return;
-        const rows = (detail.output && detail.output.published) || [];
-        panel.clearLog();
-        if (rows.length) {
-          panel.show({ id: rows[0].id, code: rows[0].code, link: rows[0].link,
-                       facts: rows[0].outputs && rows[0].outputs.length
-                         ? [{ label: "fields", value: rows[0].outputs.join(", ") }] : [] });
-        }
-        const text = (detail.output && detail.output.text) || [];
-        if (text.length) panel.log(text, rows.length > 0);
-        // What the NEXT run would create, now that this one has taken a number.
-        setTimeout(preview, 1200);
-      });
-      if (!project || !link) return;
-
-      // project ids are not on the widgets - the combos carry labels, so the server resolves them.
-      let projectId = 0;
-      let linkType = "Shot";   // replaced per project by /fpt/profile; never assume (probe 005)
-      let linkIds = {};
-
-      const typeOf = (label) => typeFromLabel(label) || linkType;
-
-      // Same control as the Load node: the combo could only filter the page it already held, and a
-      // show with thousands of Shots never has that page.
-      hideWidget(link);
-      const linkPick = searchPicker(this, link, {
-        label: "Link",
-        placeholder: "search links — `gir rul` finds giraffe_ruler",
-        search: async (q) => {
-          const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
-            ? `&type=${encodeURIComponent(linkTypeW.value)}` : "";
-          const d = await get(`/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q)}${t}`);
-          for (const x of d.items || []) linkIds[x.label] = x.id;
-          return (d.items || []).map((x) => ({
-            name: x.label.replace(/\s\([^()]+\)$/, ""), type: x.type, value: x.label,
-          }));
-        },
-        onPick: () => loadTasks(),
-      });
-      const loadTasks = async () => {
-        const id = linkIds[link.value] || 0;
-        const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(link.value))}&id=${id}`);
-        if (task) setOptions(task, d.items.map((x) => x.label));
-        await preview();
-        app.graph.setDirtyCanvas(true, true);
-      };
-
-      const loadLinks = async (picked) => {
-        // The picked value again, not the widget's: it lags the callback.
-        const chosen = picked ?? linkTypeW?.value;
-        const t = (chosen && chosen !== ALL_TYPES) ? `&type=${encodeURIComponent(chosen)}` : "";
-        const d = await get(`/fpt/entities?project_id=${projectId}${t}`);
-        linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
-        setOptions(link, d.items.map((x) => x.label));
-        linkPick.refresh();
-        await loadTasks();
-      };
-
-      const loadProject = async (picked) => {
-        const d = await get("/fpt/projects");
-        // Read AFTER the fetch: ComfyUI applies a saved workflow's widget values while this is in
-        // flight, so a value captured before the await is stale and writing it back reverts the node
-        // to the default project — which then needs a manual click or two to correct.
-        const chosen = picked ?? project.value;
-        projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
-        setOptions(project, d.items.map((x) => x.label), chosen);
-        // link_type is per project: one show hangs Versions off Shots, the next off Assets. Asking
-        // the server is what lets two graphs in one ComfyUI target two shows that disagree.
-        const prof = await get(`/fpt/profile?project_id=${projectId}`);
-        linkType = prof.link_type || "Shot";
-        link.tooltip = "What this Version belongs to — each option carries its own type.";
-        if (status) {
-          const s = await get(`/fpt/statuses?project_id=${projectId}`);
-          setOptions(status, s.items.map((x) => x.label));
-        }
-        if (linkTypeW) {
-          const t = await get(`/fpt/link_types?project_id=${projectId}`);
-          const vals = t.items.map((x) => x.label);
-          linkTypeW.options.values = vals;
-          if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
-        }
-        await loadLinks();
-        await preview();
-      };
-
-      // Type-ahead. Filtering is server-side (probe 017 `contains`), so this scales past the page size.
-
-      const wrap = (widget, after) => {
-        if (!widget) return;
-        const prev = widget.callback;
-        widget.callback = function (value) {
-          const r = prev?.apply(this, arguments);
-          // The widget's own `value` is not always assigned yet when the callback fires, so take the
-          // new one from the argument. Reading widget.value here saw the PREVIOUS project, which is
-          // why switching project needed a second click before the links matched it.
-          after(value);
-          return r;
-        };
-      };
-      wrap(project, loadProject);
-      wrap(linkTypeW, loadLinks);
-      wrap(link, loadTasks);
-      ["code_template", "output_name", "task"].forEach((n) => wrap(w(n), preview));
-
-      this.addWidget("button", "refresh from site", null, loadProject);
-      loadProject();
-    };
+    if (nodeData.name === "FPTPublishVersion") return publishPickers(nodeType);
   },
 });
+
+// Publish node. The panel is the point: a publish is remote and irreversible, so everything the run
+// would do is on screen before it does it — the name it would create, where that lands, and every
+// provenance concept beside the field it will be written to.
+function publishPickers(nodeType) {
+  // The declared widgets, in INPUT_TYPES order. This is the order a saved graph's widgets_values is
+  // in, and the only order anything outside the editor (instrument.py, workflows/) has to know.
+  const DECLARED = ["project", "link", "task", "status", "output_name", "note",
+                    "code_template", "source_versions", "attach_workflow", "link_id"];
+
+  // The node maps its own saved values, because the frontend cannot. This node has widgets the
+  // class never declared — the two pickers and the panel — and widgets_values is positional, so
+  // 10 declared values are walked across 14 slots and every value after the first picker lands one
+  // field early: `note` held the status, the template held the note. Silently, which is the worst
+  // part: a stranger instrumenting a graph gets Versions with the wrong values and no error.
+  //
+  // A STOPGAP. The mechanism belongs to the shared widget layer (fpt_dom_widgets.js `mount`) and
+  // this whole block should go when LAYOUT_API.md says that layer round trips. Note for whoever
+  // writes it: filtering on `widget.serialize !== false` is not enough on its own — addDOMWidget
+  // takes `serialize` in its OPTIONS and never copies it onto the widget, so `widget.serialize` is
+  // undefined and every picker still counts. Measured on frontend 0.3.x.
+  const onConfigure = nodeType.prototype.onConfigure;
+  nodeType.prototype.onConfigure = function (info) {
+    onConfigure?.apply(this, arguments);
+    const named = info?.widgets_values_named;
+    const vals = info?.widgets_values || [];
+    // Two shapes, and only two. The editor writes a name for every value. Everything else we
+    // produce — workflows/, instrument.py, a hand-edited graph — is the declared order and exactly
+    // as long. Anything else is left to the frontend rather than guessed at.
+    const byName = (named && typeof named === "object" && !Array.isArray(named)) ? named
+      : vals.length === DECLARED.length
+        ? Object.fromEntries(vals.map((v, i) => [DECLARED[i], v]))
+        : null;
+    if (!byName) return;
+    for (const name of DECLARED) {
+      const v = byName[name];
+      if (v === undefined || v === null) continue;   // a hole is not a value
+      const x = this.widgets?.find((y) => y.name === name);
+      if (x) x.value = v;
+    }
+  };
+
+  const onCreated = nodeType.prototype.onNodeCreated;
+  nodeType.prototype.onNodeCreated = function () {
+    onCreated?.apply(this, arguments);
+    const node = this;
+
+    const w = (n) => this.widgets?.find((x) => x.name === n);
+    const project = w("project"), link = w("link"), task = w("task"), status = w("status");
+
+    let projectId = 0, linkIds = {}, statusMeta = {};
+    let linkType = "Shot";   // per project, from /fpt/profile; never assumed (probe 005)
+    const typeOf = (label) => typeFromLabel(label) || linkType;
+
+    const relayout = () => {
+      // Height only. computeSize() returns the node's MINIMUM for both dimensions, so passing it
+      // whole snapped the width to that minimum every time the panel re-measured.
+      this.setSize([this.size[0], this.computeSize()[1]]);
+      app.graph.setDirtyCanvas(true, true);
+    };
+
+    // A note is prose someone types, and the stock textarea's floor is the height of a name field,
+    // which is what it read as. getMinHeight is the frontend's own hook (computeLayoutSize) and the
+    // one dimension INPUT_TYPES has no way to ask for.
+    const note = w("note");
+    if (note) {
+      note.options = note.options || {};
+      note.options.getMinHeight = () => 96;
+    }
+
+    const panel = addPanel(this, "Flow PT Publish", relayout);
+    // The status the operator picked, drawn the way Flow PT draws it (probe 010). The panel has
+    // always known how; on this node it was simply never handed one.
+    const statusOf = (label) => statusMeta[bare(label)] || null;
+
+    // Every preview is numbered and only the newest may write. There are two round trips per
+    // preview, so a widget changed twice quickly could answer out of order and leave the panel
+    // describing the older graph.
+    let previewing = 0;
+    const preview = async () => {
+      const mine = ++previewing;
+      panel.loading();
+      const q = new URLSearchParams({
+        project: project?.value || "", link: bare(link?.value), task: bare(task?.value),
+        code_template: w("code_template")?.value || "",
+        output_name: w("output_name")?.value || "",
+      });
+      const d = await get(`/fpt/preview_code?${q}`);
+      if (mine !== previewing) return;
+      panel.clearLog();
+      if (!d.code) {
+        panel.show({ error: d.error || "the template does not resolve yet" });
+        return;
+      }
+      // Provenance lives in the executing graph, so hand over the very thing Run would send.
+      let extra = {};
+      try {
+        const { output } = await app.graphToPrompt();
+        const r = await fetch("/fpt/preview_publish", {
+          method: "POST", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ prompt: output, node_id: String(node.id) }),
+        });
+        extra = await r.json();
+      } catch (e) { /* an unbuilt graph simply has nothing to describe yet */ }
+      if (mine !== previewing) return;
+      // Its `error` is kept out of the spread on purpose: an `error` anywhere in what show() is
+      // given replaces the whole readout, and losing the name because the provenance call failed is
+      // the wrong trade. It becomes the line under the name instead.
+      const { error, ...rest } = extra || {};
+      const missing = (rest.missing_fields || []).length;
+      // The two decisions that cost real money to get wrong and are not otherwise on screen: which
+      // show this lands in, and which stream it claims to be.
+      const facts = [["project", project?.value], ["output", w("output_name")?.value]]
+        .filter(([, v]) => bare(v)).map(([label, value]) => ({ label, value }));
+      panel.show({
+        ...rest,
+        id: -1, code: d.code, task: d.task,
+        // preview_code answers with the type it would use even when nothing is picked, so an unset
+        // link came back as a bare "Shot" and read like a decision that had been made.
+        link: bare(link?.value) ? d.link : "",
+        status: statusOf(status?.value), facts,
+        why: error ? `provenance could not be read: ${error}`
+          : missing ? `${missing} mapped field(s) missing on this site — struck through below`
+          : "this is what the next Run will create",
+      });
+    };
+    // `note` and the template are typed, and every keystroke would otherwise cost a graphToPrompt
+    // and two requests. A combo is a decision, and answers at once.
+    let pending;
+    const previewSoon = () => { clearTimeout(pending); pending = setTimeout(preview, 250); };
+
+    app.api.addEventListener("executed", ({ detail }) => {
+      if (String(detail.node) !== String(node.id)) return;
+      const rows = (detail.output && detail.output.published) || [];
+      panel.clearLog();
+      if (rows.length) {
+        panel.show({
+          id: rows[0].id, code: rows[0].code, link: rows[0].link,
+          status: statusOf(status?.value),
+          why: rows.length > 1 ? `${rows.length} Versions, one per frame in the batch` : "",
+          facts: rows[0].outputs && rows[0].outputs.length
+            ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : [],
+        });
+      }
+      const text = (detail.output && detail.output.text) || [];
+      if (text.length) panel.log(text, rows.length > 0);
+      // What the NEXT run would create, now that this one has taken a number.
+      setTimeout(preview, 1200);
+    });
+    if (!project || !link) return;
+
+    // Same control for the show as for the thing in it: a studio site has hundreds of projects and
+    // the combo made you scroll them. No onPick — the widget's own callback is wrapped below and
+    // searchPicker fires it, so asking twice would only load the project twice.
+    hideWidget(project);
+    const projectPick = searchPicker(this, project, {
+      label: "Project",
+      placeholder: "search projects",
+      search: async (q) => {
+        const d = await get("/fpt/projects");
+        const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+        return (d.items || [])
+          .filter((x) => terms.every((t) => x.label.toLowerCase().includes(t)))
+          .map((x) => ({ name: x.label, type: "", value: x.label }));
+      },
+    });
+
+    // The declared combo keeps the value; the picker is what the operator uses. Search is server
+    // side (probe 017 `contains`), so two words find one entity out of thousands and each option
+    // carries the type it will be linked as.
+    hideWidget(link);
+    const linkPick = searchPicker(this, link, {
+      label: "Link",
+      placeholder: "search links — `gir rul` finds giraffe_ruler",
+      search: async (q) => {
+        const d = await get(`/fpt/entities?project_id=${projectId}&q=${encodeURIComponent(q)}`);
+        for (const x of d.items || []) linkIds[x.label] = x.id;
+        return (d.items || []).map((x) => ({
+          name: x.label.replace(/\s\([^()]+\)$/, ""), type: x.type, value: x.label,
+        }));
+      },
+    });
+
+    const loadTasks = async (picked) => {
+      // The picked value, not the widget's: a widget's own .value is not always assigned yet when
+      // its callback fires, and reading it here asked about the PREVIOUS link.
+      const chosen = picked ?? link.value;
+      const d = await get(`/fpt/tasks?type=${encodeURIComponent(typeOf(chosen))}` +
+        `&id=${linkIds[chosen] || 0}`);
+      if (task) setOptions(task, d.items.map((x) => x.label));
+      await preview();
+    };
+
+    const loadLinks = async () => {
+      const d = await get(`/fpt/entities?project_id=${projectId}`);
+      linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
+      // Hidden, but it still holds the value, so its options must stay legal for a saved workflow
+      // whose link this project does not have.
+      setOptions(link, d.items.map((x) => x.label));
+      linkPick.refresh();
+      await loadTasks();
+    };
+
+    const loadProject = async (picked) => {
+      const d = await get("/fpt/projects");
+      // Read AFTER the fetch: ComfyUI applies a saved workflow's widget values while this is in
+      // flight, so a value captured before the await is stale and writing it back reverts the node
+      // to the default project — which then needs a manual click or two to correct.
+      const chosen = picked ?? project.value;
+      projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
+      setOptions(project, d.items.map((x) => x.label), chosen);
+      // Only the fallback for a link that carries no type of its own; a picked label decides its
+      // own. Still per project, because one show hangs Versions off Shots and the next off Assets.
+      const prof = await get(`/fpt/profile?project_id=${projectId}`);
+      linkType = prof.link_type || "Shot";
+      if (status) {
+        const s = await get(`/fpt/statuses?project_id=${projectId}`);
+        statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
+        setOptions(status, s.items.map((x) => x.label));
+      }
+      projectPick.refresh();
+      await loadLinks();
+    };
+
+    const wrap = (widget, after) => {
+      if (!widget) return;
+      const prev = widget.callback;
+      widget.callback = function (value) {
+        const r = prev?.apply(this, arguments);
+        after(value);
+        return r;
+      };
+    };
+    wrap(project, loadProject);
+    wrap(link, loadTasks);
+    // Everything the readout depends on. Nothing here is ever written back by preview(), which is
+    // what stops this becoming the resolve loop the Load node had.
+    ["task", "status", "attach_workflow"].forEach((n) => wrap(w(n), () => preview()));
+    ["code_template", "output_name", "note", "source_versions"].forEach((n) =>
+      wrap(w(n), previewSoon));
+
+    this.addWidget("button", "refresh from site", null, loadProject);
+    // The other half of the stopgap above: addDOMWidget is given `serialize: false` in its OPTIONS
+    // and never copies it onto the widget, so the serializer wrote every picker into
+    // widgets_values. Saying it where the frontend actually reads it keeps the junk out of a saved
+    // graph — and is what a `serialize !== false` filter in the shared layer would need.
+    for (const n of ["project_pick", "link_pick", "fpt_panel", "refresh from site"]) {
+      const x = w(n);
+      if (x) x.serialize = false;
+    }
+    loadProject();
+  };
+}
 
 // Load node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
 // and what made it — resolved by the node's own code, so the preview cannot disagree with the run.
