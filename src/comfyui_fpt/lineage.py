@@ -1,7 +1,7 @@
-"""What each Fetch node actually resolved this run.
+"""What each Load node actually resolved this run.
 
-A Fetch node set to "latest" only learns its Version id at execution time, so the prompt graph carries
-version_id 0 and the graph walk that records lineage (provenance.fetched_versions) cannot see it.
+A Load node set to "latest" only learns its Version id at execution time, so the prompt graph carries
+version_id 0 and the graph walk that records lineage (provenance.loaded_versions) cannot see it.
 The node records what it resolved here; the publish node reads back only the entries belonging to its
 own ancestors, so two branches of one graph never contaminate each other.
 

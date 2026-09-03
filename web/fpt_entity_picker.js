@@ -40,7 +40,7 @@ app.registerExtension({
   name: "fpt.pickers",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name === "FPTFetchVersion") return fetchPickers(nodeType);
+    if (nodeData.name === "FPTLoadVersion") return loadPickers(nodeType);
     if (nodeData.name !== "FPTPublishVersion") return;
 
     const onCreated = nodeType.prototype.onNodeCreated;
@@ -50,7 +50,7 @@ app.registerExtension({
       const w = (n) => this.widgets?.find((x) => x.name === n);
       const project = w("project"), link = w("link"), task = w("task"), status = w("status");
       const linkTypeW = w("link_type");
-      // The publish panel needs the same re-measure hook as the fetch one: without it nothing ever
+      // The publish panel needs the same re-measure hook as the load one: without it nothing ever
       // resized the node, so the box kept whatever height it had when the graph loaded.
       const relayout = () => {
         // Height only. computeSize() returns the node's MINIMUM for both dimensions, so passing it
@@ -178,9 +178,9 @@ app.registerExtension({
   },
 });
 
-// Fetch node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
+// Load node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
 // and what made it — resolved by the node's own code, so the preview cannot disagree with the run.
-function fetchPickers(nodeType) {
+function loadPickers(nodeType) {
   const onCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
     onCreated?.apply(this, arguments);
@@ -206,7 +206,7 @@ function fetchPickers(nodeType) {
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const panel = addPanel(this, "Flow PT Fetch", relayout);
+    const panel = addPanel(this, "Flow PT Load", relayout);
     panel.editor((text) => {
       if (filterBox) filterBox.value = text;
       refresh();

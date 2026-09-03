@@ -19,7 +19,7 @@ from sg_groundtruth.client import FPTError
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
           "sg_first_frame", "sg_last_frame"]
 
-# Provenance the publish node writes (fields.py). Shown on the Fetch node so an artist can see what
+# Provenance the publish node writes (fields.py). Shown on the Load node so an artist can see what
 # they are building on before they run anything.
 SUMMARY_FIELDS = ["code", "description", "sg_status_list", "created_at", "sg_ai_generator",
                   "sg_ai_model", "sg_ai_prompt", "sg_ai_seed", "sg_ai_sampler", "sg_ai_steps",

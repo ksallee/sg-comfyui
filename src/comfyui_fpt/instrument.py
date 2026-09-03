@@ -18,16 +18,16 @@ SINK_HINTS = ("save", "preview", "combine", "output", "write")
 LOADER_HINTS = ("loadimage", "load_image", "imageload")
 
 PUBLISH = "FPTPublishVersion"
-FETCH = "FPTFetchVersion"
+LOAD = "FPTLoadVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
 PUBLISH_WIDGETS = ["code_template", "project", "link_type", "link", "task", "status", "output_name", "note",
                    "source_versions", "attach_workflow", "link_id"]
-FETCH_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses",
+LOAD_WIDGETS = ["project", "link_type", "link", "task", "name_contains", "statuses",
                  "newest_by", "pin_version_id", "source", "frame", "filters"]
 PUBLISH_DEFAULTS = {"code_template": "{entity.code}_{output}_v{version:03d}", "attach_workflow": True, "link_id": 0}
-FETCH_DEFAULTS = {"statuses": "", "filters": "", "newest_by": "version number in the name", "source": "auto",
+LOAD_DEFAULTS = {"statuses": "", "filters": "", "newest_by": "version number in the name", "source": "auto",
                   "pin_version_id": 0, "frame": 1, "link_type": "(all types)"}
 
 
@@ -118,7 +118,7 @@ def outputs(wf):
 
 
 def loaders(wf):
-    """[(id, label, [(target_id, target_slot)])] — image inputs a Fetch node could replace."""
+    """[(id, label, [(target_id, target_slot)])] — image inputs a Load node could replace."""
     nodes, links = _nodes(wf), _links(wf)
     out = []
     for nid, n in nodes.items():
@@ -171,13 +171,13 @@ def add_publish(wf, origin_id, origin_slot, widgets, title="Flow PT Publish Vers
     return nid
 
 
-def replace_loader(wf, loader_id, widgets, title="Flow PT Fetch Version"):
+def replace_loader(wf, loader_id, widgets, title="Flow PT Load Version"):
     """Feed what a loader fed, from Flow PT instead. The loader is left in place but unwired, so the
     operator can see what was replaced and put it back."""
     nodes = _nodes(wf)
     targets = next((t for i, _, t in loaders(wf) if i == loader_id), [])
     lx, ly = nodes[loader_id].get("pos", [0, 0])[:2]
-    nid = _add_node(wf, FETCH, (lx, ly - 40), widgets, title,
+    nid = _add_node(wf, LOAD, (lx, ly - 40), widgets, title,
                     outs=[{"name": "image", "type": "IMAGE", "links": []},
                           {"name": "version_id", "type": "INT", "links": []},
                           {"name": "code", "type": "STRING", "links": []}])
@@ -212,7 +212,7 @@ def report(wf, name="", template=""):
                     if template else f"...{d}...")
         lines.append(f"    node {oid}[{slot}] {label}" + (f"  -> {sink}" if sink else "  (unconsumed)"))
         lines.append(f"        output_name={d!r}   proposed code: {proposed}")
-    lines.append(f"  image inputs a Fetch could replace ({len(lds)}):")
+    lines.append(f"  image inputs a Load could replace ({len(lds)}):")
     for lid, label, targets in lds:
         lines.append(f"    node {lid} {label}  feeds {len(targets)} input(s)")
     return "\n".join(lines)
@@ -225,8 +225,8 @@ def _cli(argv=None):
     ap.add_argument("--out", help="write an instrumented copy here; omit to only analyse")
     ap.add_argument("--publish", action="append", default=[], metavar="NODE[:SLOT]",
                     help="tap this IMAGE stream with a publish node; repeatable")
-    ap.add_argument("--fetch", action="append", default=[], type=int, metavar="NODE",
-                    help="replace this loader with a fetch node; repeatable")
+    ap.add_argument("--load", action="append", default=[], type=int, metavar="NODE",
+                    help="replace this loader with a Load node; repeatable")
     ap.add_argument("--code", default="auto")
     ap.add_argument("--template", default="", help="the show's convention, to show proposed codes")
     ap.add_argument("--project", default="")
@@ -248,9 +248,9 @@ def _cli(argv=None):
         w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, code=a.code, output_name=d, **common)
         new = add_publish(wf, nid, slot, w, title=f"Flow PT Publish — {d}")
         print(f"  + publish node {new} tapping {nid}[{slot}]  output_name={d!r}")
-    for lid in a.fetch:
-        new = replace_loader(wf, lid, widgets(FETCH_WIDGETS, FETCH_DEFAULTS, **common))
-        print(f"  + fetch node {new} replacing loader {lid}")
+    for lid in a.load:
+        new = replace_loader(wf, lid, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
+        print(f"  + load node {new} replacing loader {lid}")
     save(wf, a.out)
     print(f"wrote {a.out}")
     return 0

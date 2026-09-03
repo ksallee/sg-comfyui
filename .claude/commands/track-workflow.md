@@ -11,7 +11,7 @@ graph surgery; you ask the questions and explain the result.
 2. Read the two lists back in plain language:
    - **publishable streams** — each becomes a Version. Say what feeds it and what consumes it, so they
      recognise it: "the normal_directx output that currently only goes to a Preview".
-   - **image inputs a Fetch could replace** — each is a place the graph could take its input from Flow
+   - **image inputs a Load could replace** — each is a place the graph could take its input from Flow
      PT instead of disk. This is what makes two graphs a pipeline.
 3. **Propose the naming, do not leave it to them from nothing.** You have just read what each stream
    is — `depth`, `normal_opengl`, `mask` — so say what each Version would be called under this show's
@@ -31,7 +31,7 @@ graph surgery; you ask the questions and explain the result.
    profile. Without them `code = auto` fails loudly, which is correct: there is no version-number
    field on Version by default, so a convention cannot be assumed. `/inspect-site` infers it and
    reports its coverage.
-6. Re-run the same script with `--out`, `--publish NODE:SLOT` and `--fetch NODE`. **Never overwrite the original.**
+6. Re-run the same script with `--out`, `--publish NODE:SLOT` and `--load NODE`. **Never overwrite the original.**
 7. Say what changed in one line per node, and that the original is untouched.
 
 Publishing is additive: tapping a stream leaves whatever already consumed it connected. Replacing a

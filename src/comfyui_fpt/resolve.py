@@ -1,4 +1,4 @@
-"""Pick the one Version a Fetch node should read, from a rule rather than an id.
+"""Pick the one Version a Load node should read, from a rule rather than an id.
 
 The rule is what an artist would say out loud: *the newest approved depth on this shot*. So it is an
 entity, optionally a Task on it, words that must appear in the name, and any of a set of statuses —

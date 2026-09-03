@@ -92,13 +92,13 @@ def register():
 
     @routes.get("/fpt/resolve")
     async def resolve_one(request):
-        """What the Fetch node WOULD pull, and what that Version is.
+        """What the Load node WOULD pull, and what that Version is.
 
         Editor-time, and it calls the node's own resolver, so the preview cannot disagree with the run.
         """
         try:
             from . import media
-            from .nodes.fetch_version import FPTFetchVersion
+            from .nodes.load_version import FPTLoadVersion
             q = request.rel_url.query
             pin = int(q.get("pin_version_id") or 0)
             if pin:
@@ -110,30 +110,30 @@ def register():
                 # generated one is not an override — treating it as one would lose the friendlier
                 # explanations and the "what is there" listing.
                 raw = q.get("filters", "")
-                pid0, lt0, tgt0, tsk0 = FPTFetchVersion._context(
+                pid0, lt0, tgt0, tsk0 = FPTLoadVersion._context(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
                 codes0, _ = site.resolve_statuses(pid0, typed)
-                same = json.dumps(FPTFetchVersion._filters(raw), sort_keys=True) == json.dumps(
+                same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
                     site.version_filters(pid0, lt0, tgt0, tsk0,
                                          [t for t in (q.get("name_contains", "") or "").split() if t],
                                          codes0), sort_keys=True)
-                vid, code, why = FPTFetchVersion._resolve(
+                vid, code, why = FPTLoadVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), "" if same else raw)
             # What the fields add up to, in the API's own language — shown so an override can start
             # from something that already works.
-            pid, lt2, tgt2, tsk2 = FPTFetchVersion._context(
+            pid, lt2, tgt2, tsk2 = FPTLoadVersion._context(
                 q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
             codes2, _ = site.resolve_statuses(pid, typed)
-            built = (None if same else FPTFetchVersion._filters(raw)) or site.version_filters(
+            built = (None if same else FPTLoadVersion._filters(raw)) or site.version_filters(
                 pid, lt2, tgt2, tsk2,
                 [t for t in (q.get("name_contains", "") or "").split() if t], codes2)
 
             if not vid:
                 # A rule that matches nothing is the moment you most need to see what IS there, so
                 # the same link and task are listed with their statuses and the filters dropped.
-                project_id, lt, target, task_id = FPTFetchVersion._context(
+                project_id, lt, target, task_id = FPTLoadVersion._context(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
                 colors, labels = site.status_colors(), dict(
                     (c, l) for l, c in site.statuses(project_id))
@@ -186,18 +186,18 @@ def register():
         """
         try:
             from . import fields as fpt_fields, provenance
-            from .nodes.fetch_version import FPTFetchVersion as FV
+            from .nodes.load_version import FPTLoadVersion as FV
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
 
-            # Upstream Fetch nodes: a pinned one is in the graph, a rule-driven one has to be
+            # Upstream Load nodes: a pinned one is in the graph, a rule-driven one has to be
             # resolved the same way the node will resolve it at run time.
             scope = provenance.ancestors(prompt, node_id)
             sources = []
             for nid in sorted(scope, key=lambda n: (0, int(n)) if str(n).isdigit() else (1, str(n))):
                 node = prompt.get(nid) or {}
-                if node.get("class_type") != "FPTFetchVersion":
+                if node.get("class_type") != "FPTLoadVersion":
                     continue
                 i = node.get("inputs") or {}
                 pinned = i.get("pin_version_id") or i.get("version_id") or 0

@@ -1,6 +1,6 @@
-"""Flow PT Fetch Version — a Version's media comes back into the graph, and the link is recorded.
+"""Flow PT Load Version — a Version's media comes back into the graph, and the link is recorded.
 
-The point is not only the pixels. A Version fetched here is remembered as an ancestor, so anything
+The point is not only the pixels. A Version loaded here is remembered as an ancestor, so anything
 published downstream records what it came from without the operator typing an id. A plate becomes a
 previs; several Versions become one output; the chain is in Flow PT, not in someone's memory.
 
@@ -57,7 +57,7 @@ def _as_list(v):
     return [x.strip() for x in str(v or "").split(",") if x.strip()]
 
 
-class FPTFetchVersion:
+class FPTLoadVersion:
     @classmethod
     def INPUT_TYPES(cls):
         project_id = site.default_project()
@@ -121,8 +121,8 @@ class FPTFetchVersion:
 
     RETURN_TYPES = ("IMAGE", "INT", "STRING")
     RETURN_NAMES = ("image", "version_id", "code")
-    FUNCTION = "fetch"
-    CATEGORY = "Flow PT"
+    FUNCTION = "load"
+    CATEGORY = "Flow Production Tracking"
     DESCRIPTION = "Read a Flow PT Version's media into the graph, recording it as a source."
 
     @classmethod
@@ -179,7 +179,7 @@ class FPTFetchVersion:
 
         Without this ComfyUI caches on unchanged widgets and a re-run costs 0.00s without asking the
         site — the read node keeps serving v001 after v002 lands, which defeats resolving by rule.
-        Returns the id it WOULD fetch, so it re-executes when that changes and only then.
+        Returns the id it WOULD load, so it re-executes when that changes and only then.
         """
         if int(pin_version_id):
             return f"{int(pin_version_id)}:{source}:{frame}"
@@ -191,7 +191,7 @@ class FPTFetchVersion:
         except Exception:
             return float("nan")   # unreachable site: re-run rather than serve something stale
 
-    def fetch(self, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
+    def load(self, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
               frame=1, unique_id=None):
         if int(pin_version_id):
@@ -229,5 +229,5 @@ class FPTFetchVersion:
         data, filename = media.load(v, key, frame)
         img = media.to_image(data, filename, frame)
         a = np.array(img, dtype=np.float32) / 255.0
-        print(f"[Flow PT] fetched Version {vid}: {why}; source={key}")
+        print(f"[Flow PT] loaded Version {vid}: {why}; source={key}")
         return (torch.from_numpy(a)[None, ...], vid, v.get("code") or "")
