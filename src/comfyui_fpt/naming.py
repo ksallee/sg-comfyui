@@ -15,6 +15,7 @@ and the code contains its own link entity name in 99 of 100 rows, which is what 
 numbering possible without a structured field.
 """
 import re
+import string
 from collections import Counter
 
 # Ordered: the first pattern that covers the sample wins. Each must name `version`; `link` and `task`
@@ -127,7 +128,9 @@ def describe(template, regex, matched, total):
 # Dotted paths are what filters and `?fields` use (probe 003/016), so a TD reading a template sees
 # names they already know instead of a private token language.
 
-FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::(0\d+d))?\}")
+# Any format spec, not just zero-padding: the renderer hands it to Python, so what is accepted here
+# has to be everything the mini-language allows, or a path with a spec is never even looked up.
+FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
 # Toolkit spells an optional key with square brackets, so a TD writing a template here writes the
 # same thing: [_{sg_task.Task.content}] disappears entirely when the task is not set, separator and
 # all, rather than leaving a stray underscore.
@@ -163,14 +166,47 @@ def _drop_unfilled(template, values):
     return OPTIONAL_RE.sub(keep, template)
 
 
+class _Paths(string.Formatter):
+    """Python's own formatter, with the whole dotted path used as the key.
+
+    `str.format` reads `{a.b}` as attribute access and `{a[b]}` as item access, but a template path
+    like `entity.Shot.code` is one key, not a walk. Overriding get_field is what lets Flow PT's own
+    dotted syntax and Python's format spec coexist — so `{sg_version_number:03d}` pads, `{code:>12}`
+    aligns, and anything the mini-language grows works without being taught here.
+    """
+
+    def get_field(self, name, args, kwargs):
+        return kwargs.get(name), name
+
+    def format_field(self, value, spec):
+        # An absent path collapses to empty rather than leaving a brace behind, and takes its spec
+        # with it: zero-padding nothing would write "000".
+        if value in (None, ""):
+            return ""
+        try:
+            return format(value, spec)
+        except (TypeError, ValueError):
+            # A numeric spec on a value that arrived as text: Flow PT returns numbers as strings
+            # often enough that refusing here would be pedantry.
+            coerce = int if spec[-1:] in ("d", "b", "o", "x", "X") else (
+                float if spec[-1:] in ("e", "E", "f", "F", "g", "G", "%") else None)
+            if coerce:
+                try:
+                    return format(coerce(str(value).strip()), spec)
+                except ValueError:
+                    pass
+            return str(value)
+
+
+_FORMATTER = _Paths()
+
+
 def render(template, values, version=None):
     """Fill a template. A path with no value collapses to empty rather than leaving a brace behind."""
-    def sub(m):
-        path, pad = m.group(1), m.group(2)
-        if path == "version":
-            return "" if version is None else str(int(version)).zfill(int(pad[1:-1]) if pad else 1)
-        return str(values.get(path, "") or "")
-    out = FIELD_RE.sub(sub, _drop_unfilled(normalise_template(template), values))
+    vals = dict(values)
+    if version is not None:
+        vals["version"] = int(version)
+    out = _FORMATTER.vformat(_drop_unfilled(normalise_template(template), values), (), vals)
     # A missing middle token would otherwise leave a doubled or trailing separator.
     return re.sub(r"[_\-.]{2,}", "_", out).strip("_-.")
 
