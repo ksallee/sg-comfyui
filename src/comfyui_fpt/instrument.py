@@ -7,6 +7,10 @@ The rule is structural, not a list of node names: an **output stream** is any IM
 sink, plus any IMAGE output nothing consumes. That way a workflow built from custom nodes this project
 has never heard of still analyses correctly — which matters, because the graphs worth tracking are
 exactly the ones nobody standardised.
+
+A sink is where the images stop being images: either nothing is wired out of it, or what comes out is
+another medium. Both halves were measured against 680 real workflows (the ComfyUI template set plus
+the three most-starred public collections) — see `_is_sink`.
 """
 import json
 import re
@@ -15,6 +19,9 @@ from pathlib import Path
 
 # Consume an IMAGE and produce nothing: the end of a stream, so the thing feeding them is a Version.
 SINK_HINTS = ("save", "preview", "combine", "output", "write")
+# Frames assembled into another medium end the image stream just as finally as saving them does.
+# A type, not a node name, so an unknown video node still reads correctly.
+ASSEMBLED = ("VIDEO",)
 LOADER_HINTS = ("loadimage", "load_image", "imageload")
 
 PUBLISH = "FPTPublishVersion"
@@ -59,8 +66,21 @@ def _links(wf):
 
 
 def _is_sink(node):
-    t = (node.get("type") or "").lower()
-    return any(h in t for h in SINK_HINTS) and not node.get("outputs")
+    """Where an IMAGE stream stops being images.
+
+    Two ways that happens, and the old test only saw the first. `not node.get("outputs")` asked
+    whether the node *declares* an output slot, so a save node with a slot nobody wired was missed,
+    and `CreateVideo` — which does have a VIDEO output — hid the frame stream behind it. Measured on
+    680 real workflows: 196 of them found no publishable stream at all for that reason, every one a
+    video graph whose frames were sitting right there on `VAEDecode`.
+
+    Nodes that merely re-express the images — VAEEncode, CLIPVisionEncode, GetImageSize — pass the
+    stream on in another form and are deliberately not ends.
+    """
+    live = [o for o in node.get("outputs") or [] if o.get("links")]
+    if any(h in (node.get("type") or "").lower() for h in SINK_HINTS) and not live:
+        return True
+    return any(o.get("type") in ASSEMBLED for o in live)
 
 
 def _is_loader(node):
@@ -74,7 +94,12 @@ def descriptor(node, slot, sink_title=""):
     sink's label — because the operator named these things and we should not rename them. This is what
     a proposed code is built from, and it is the reason three passes do not collapse onto one name.
     """
-    for cand in (node.get("title"), *(str(w) for w in (node.get("widgets_values") or [])[:1]),
+    # widgets_values is a list on most nodes and a dict on some (VHS_VideoCombine writes
+    # {frame_rate, loop_count, filename_prefix}). Slicing a dict raises, which took the whole CLI
+    # down on 2 of 680 real workflows.
+    w = node.get("widgets_values") or []
+    w = list(w.values()) if isinstance(w, dict) else list(w)
+    for cand in (node.get("title"), *(str(x) for x in w[:1]),
                  sink_title, node.get("type")):
         if not cand or not isinstance(cand, str):
             continue
@@ -83,9 +108,39 @@ def descriptor(node, slot, sink_title=""):
         inner = re.search(r"\(([^)]+)\)", cand)
         if inner:
             tok = re.sub(r"[^A-Za-z0-9]+", "_", inner.group(1)).strip("_").lower()
+        # A bare number is a widget value, not a name — ImageFromBatch's batch index reads as "0",
+        # which says nothing about the pass and, worse, reads the same for every such stream in the
+        # graph. Collapsing two passes onto one code is the failure this function exists to prevent.
+        if tok.isdigit():
+            continue
         if tok and tok not in ("preview_image", "save_image", "image", "previewimage", "saveimage"):
             return tok[:32]
     return f"out{slot}"
+
+
+def descriptors(wf):
+    """{(node_id, slot): name} — what each stream is called, unique within this graph.
+
+    `descriptor` names a stream from what the graph says about it, which is right but not
+    necessarily distinct: the two symmetric tails of a two-shot video template describe themselves
+    identically, and two Versions sharing one code is the collapse `code = auto` cannot recover
+    from. The node id breaks the tie, and the slot breaks it again for the node that feeds three
+    previews off one body — (id, slot) is what the graph guarantees is unique, so that is the floor.
+    """
+    nodes = _nodes(wf)
+    raw, counts = [], {}
+    for oid, slot, _, sink in outputs(wf):
+        d = descriptor(nodes.get(oid, {}), slot, sink or "")
+        raw.append((oid, slot, d))
+        counts[d] = counts.get(d, 0) + 1
+    out, used = {}, set()
+    for oid, slot, d in raw:
+        name = d if counts[d] == 1 else f"{d}_{oid}"
+        if name in used:
+            name = f"{d}_{oid}_{slot}"
+        out[(oid, slot)] = name
+        used.add(name)
+    return out
 
 
 def outputs(wf):
@@ -110,6 +165,12 @@ def outputs(wf):
                           n.get("title") or n.get("type")))
     # An IMAGE output nothing consumes is a stream too — often exactly the pass someone forgot to save.
     for nid, n in nodes.items():
+        # ...but not a sink's own pass-through. A save node that hands the image straight back out
+        # would otherwise report the same picture twice, once named for the node that made it and
+        # once for the node that saved it. The first is the useful name, and it is already recorded.
+        if _is_sink(n) and any(i.get("type") == "IMAGE" and i.get("link") is not None
+                               for i in n.get("inputs") or []):
+            continue
         for slot, o in enumerate(n.get("outputs") or []):
             if o.get("type") == "IMAGE" and not (o.get("links") or []) and (nid, slot) not in seen:
                 seen.add((nid, slot))
@@ -202,12 +263,12 @@ def replace_loader(wf, loader_id, widgets, title="Flow PT Load Version"):
 
 
 def report(wf, name="", template=""):
-    nodes = _nodes(wf)
     outs, lds = outputs(wf), loaders(wf)
+    names = descriptors(wf)
     lines = [f"{name or 'workflow'}: {len(wf.get('nodes', []))} nodes"]
     lines.append(f"  publishable streams ({len(outs)}):")
     for oid, slot, label, sink in outs:
-        d = descriptor(nodes.get(oid, {}), slot, sink or "")
+        d = names[(oid, slot)]
         proposed = (template.replace("{output}", d).replace("{version}", "001")
                     if template else f"...{d}...")
         lines.append(f"    node {oid}[{slot}] {label}" + (f"  -> {sink}" if sink else "  (unconsumed)"))
@@ -240,11 +301,12 @@ def _cli(argv=None):
 
     common = dict(project=a.project, link=a.link)
     nodes = _nodes(wf)
+    names = descriptors(wf)
     sinks = {(o, s): k for o, s, _, k in outputs(wf)}
     for spec in a.publish:
         nid, _, slot = spec.partition(":")
         nid, slot = int(nid), int(slot or 0)
-        d = descriptor(nodes.get(nid, {}), slot, sinks.get((nid, slot)) or "")
+        d = names.get((nid, slot)) or descriptor(nodes.get(nid, {}), slot, sinks.get((nid, slot)) or "")
         w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, code=a.code, output_name=d, **common)
         new = add_publish(wf, nid, slot, w, title=f"Flow PT Publish — {d}")
         print(f"  + publish node {new} tapping {nid}[{slot}]  output_name={d!r}")

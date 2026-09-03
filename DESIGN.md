@@ -294,6 +294,24 @@ and `negative`, so following every link merges the two prompts into one.
 
 C2PA where the writer supports it; custom fields plus attachment otherwise. Field names are decided by probe, not by the docs.
 
+## Coverage, measured
+
+"Works on any workflow" is a claim, so it is measured rather than asserted. The corpus is 680 real
+graphs: the 629 ComfyUI template workflows every user sees in the template browser, plus the three
+most-starred public collections (ZHO, Yolain, `comfyanonymous/ComfyUI_examples`).
+
+    analysed without error   680 / 680
+    finds a publishable stream  509 / 680   75%
+
+The 171 that find nothing are not random. Roughly half are 3D, audio and text graphs with no image
+output at all — correctly out of scope. The rest are mostly graphs whose stream lives inside a
+ComfyUI subgraph, which `instrument.py` cannot yet walk into; 246 of the 680 contain one.
+
+The number was 57% before the sink rule learned that frames assembled into another medium end an
+image stream too (`instrument._is_sink`). That one fix moved 124 workflows, nearly all of them video.
+Publishing those frames still produces one Version per frame — the movie-as-a-Version gap is
+unchanged and still gated on storage, see above.
+
 ## Non-goals
 
 Charts, dashboards, reports, webhooks, automations — see `CLAUDE.md`. Video and OTIO. Inpainting UI. three.js. Browser extension.
