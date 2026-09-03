@@ -180,8 +180,6 @@ lets the agent read back only its own answer.
 
 - **`sg_groundtruth` is not installable.** A sibling checkout is required. Until that is resolved a
   Comfy Registry install would not run, so this is not on the Registry.
-- **No LICENSE.** One has not been chosen. (Note for whoever chooses: the ComfyUI frontend is GPL-3.0
-  and nothing may be vendored from it.)
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
 - **Movies publish as one Version per frame.** Assembling frames into a movie Version is gated on
