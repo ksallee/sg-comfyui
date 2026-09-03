@@ -102,7 +102,7 @@ off Shots, another off Assets, and plenty use several at once (the reference sho
 Asset; another links Assets, Shots and Sequences).
 
 The picker therefore offers **every type the show actually uses**, each option carrying its own type
-(`Shot · bunny_030_0090`), and the type written to the Version comes from what was picked rather than
+(`bunny_030_0090 (Shot)`), and the type written to the Version comes from what was picked rather than
 from a default. Which types to search is observed from recent Versions, because searching all 15 would
 be slow and mostly empty — with Shot, Asset and Sequence added regardless, since observation alone is
 circular: a brand new Asset cannot be picked while no Version points at one. `link_types` in the
@@ -162,8 +162,8 @@ show. Both paths are supported and neither is assumed.
 So the convention is inferred from the codes a show already uses, shown to the operator with its
 coverage, and stored in the profile as data:
 
-    "code_template":   "{link}_{task}_v{version}",
-    "code_regex":      "^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\\d+)$",
+    "code_template":   "{entity.code}_{output}_v{version:03d}",
+    "code_regex":      "^(?P<entity>.+)_(?P<output>[A-Za-z]+)_v(?P<version>\\d+)$",
     "approved_status": "apr"
 
 Measured on three real projects: the reference show scores 100/100, this sandbox 2/3, and a project of
@@ -257,8 +257,8 @@ show. Both paths are supported and neither is assumed.
 So the convention is inferred from the codes a show already uses, shown to the operator with its
 coverage, and stored in the profile as data:
 
-    "code_template":   "{link}_{task}_v{version}",
-    "code_regex":      "^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\\d+)$",
+    "code_template":   "{entity.code}_{output}_v{version:03d}",
+    "code_regex":      "^(?P<entity>.+)_(?P<output>[A-Za-z]+)_v(?P<version>\\d+)$",
     "approved_status": "apr"
 
 Measured on three real projects: the reference show scores 100/100, this sandbox 2/3, and a project of
