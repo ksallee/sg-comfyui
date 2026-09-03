@@ -60,6 +60,12 @@ const CSS = `
 `;
 
 let injected = false;
+const PROVENANCE = {
+  generated: "AI generated",
+  derived: "derived from a Version, generator not recorded",
+  unrecorded: "no generation record",
+};
+
 function ensureCss() {
   if (injected) return;
   injected = true;
@@ -242,6 +248,10 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       const rows = [];
       if (d.link) rows.push(["link", d.link]);
       if (d.task) rows.push(["task", d.task]);
+      // First, because it is the thing an artist wants to know before building on someone else's
+      // Version. "unrecorded" never reads as "not AI" — it says only that this Version does not
+      // carry a record of how it was made, which is all the data supports.
+      if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
       for (const f of d.facts || []) rows.push([f.label, f.value]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       body.innerHTML =

@@ -21,12 +21,26 @@ graph surgery; you ask the questions and explain the result.
 4. Ask, and do not guess:
    - Which streams are worth a Version? Publishing every pass is usually wrong.
    - Which project, and which entity do these hang off? Give `--link` the typed form the picker
-     uses, `Shot · sh010` or `Asset · charA` — a bare name still works but falls back to the
+     uses, `sh010 (Shot)` or `charA (Asset)` — a bare name still works but falls back to the
      project's default type, which may not be the one meant. Read `profile.local.json`; if the project has
      no block yet, that is `/inspect-site`'s job first.
-   - Should any loader read from Flow PT? Only if something upstream publishes there.
+   - Should any loader read from Flow PT? If something upstream already publishes there, point it
+     at that. If nothing does — the ordinary case for the first graph in a chain — offer to put the
+     file the loader *already reads* into Flow PT first, and then replace it. Do not skip the
+     loaders just because nothing has published yet; that is the chicken-and-egg, and step 4b is the
+     way out of it.
    - Which Task, if any. `{task}` is the pipeline step the Version hangs off and is the operator's
      call; `{output}` is what the stream is. They are different, and three passes may share one Task.
+4b. **If they said yes to seeding an input**, ask the same questions once more for it — project,
+   link, Task, and what the stream IS (`--output plate`, not the file's name) — then
+   `python -m comfyui_fpt.seed <file> --project P --link "sh010 (Shot)" --output plate --note "..."`.
+   The file is whatever `LoadImage` names, relative to ComfyUI's `input/`. Print the Version code it
+   produced and use that when you wire the Load node.
+
+   Say plainly that a seeded Version carries **no generation record** — the Load panel will show it
+   as such — because a file on disk does not say how it was made. If they know it was AI generated
+   elsewhere, that belongs in `--note`, not in the AI fields, which are for what this graph did.
+
 5. Check the naming convention exists for that project — `code_template` and `code_regex` in the
    profile. Without them `code = auto` fails loudly, which is correct: there is no version-number
    field on Version by default, so a convention cannot be assumed. `/inspect-site` infers it and

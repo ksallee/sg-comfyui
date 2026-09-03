@@ -27,6 +27,21 @@ SUMMARY_FIELDS = ["code", "description", "sg_status_list", "created_at", "sg_ai_
 SUMMARY_LABELS = {"sg_ai_generator": "made by", "sg_ai_model": "model", "sg_ai_prompt": "prompt",
                   "sg_ai_seed": "seed", "sg_ai_sampler": "sampler", "sg_ai_steps": "steps",
                   "sg_ai_cfg": "cfg", "description": "note"}
+AI_FIELDS = [f for f in SUMMARY_FIELDS if f.startswith("sg_ai_")]
+
+
+def provenance_state(attrs, sources):
+    """Whether this Version says how it was made: generated, derived, or unrecorded.
+
+    Deliberately not a yes/no. A Version carrying no AI fields was not necessarily made by a
+    human — it may have come from a tool that records nothing, or from ComfyUI without this node, or
+    from a camera. Absence is the absence of a *record*, and rendering it as "not AI generated" would
+    manufacture exactly the assurance this project exists to make checkable. The same reason there is
+    no "approved" concept: we do not invent vocabulary the data cannot support.
+    """
+    if any(attrs.get(f) not in (None, "", []) for f in AI_FIELDS):
+        return "generated"
+    return "derived" if sources else "unrecorded"
 
 # Best first. `auto` walks this order and takes the first that resolves.
 TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
@@ -87,6 +102,7 @@ def describe(fpt, version_id, statuses=(), colors=None, icons=None):
         "link": f'{ent.get("type", "")} {ent.get("name", "")}'.strip(),
         "task": task.get("name") or "",
         "facts": facts,
+        "provenance": provenance_state(a, src),
         "generated_from": [x.get("name", str(x.get("id"))) for x in src],
     }
 
@@ -125,6 +141,8 @@ def summary(fpt, version_id, statuses=()):
     src = (rel.get("sg_ai_generated_from") or {}).get("data") or []
     if src:
         lines.append("generated from: " + ", ".join(x.get("name", str(x.get("id"))) for x in src))
+    if provenance_state(a, src) == "unrecorded":
+        lines.append("no generation record: this Version does not say how it was made")
     return "\n".join(lines)
 
 
