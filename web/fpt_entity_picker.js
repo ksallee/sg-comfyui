@@ -45,7 +45,13 @@ app.registerExtension({
       const w = (n) => this.widgets?.find((x) => x.name === n);
       const project = w("project"), link = w("link"), task = w("task"), status = w("status");
       const linkTypeW = w("link_type");
-      const panel = addPanel(this, "Flow PT Publish");
+      // The publish panel needs the same re-measure hook as the fetch one: without it nothing ever
+      // resized the node, so the box kept whatever height it had when the graph loaded.
+      const relayout = () => {
+        this.setSize(this.computeSize());
+        app.graph.setDirtyCanvas(true, true);
+      };
+      const panel = addPanel(this, "Flow PT Publish", relayout);
       const preview = async () => {
         const q = new URLSearchParams({
           project: project.value || "", link_type: linkTypeW?.value || "",
