@@ -24,10 +24,17 @@ const CSS = `
 .fpt-icon { width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; }
 .fpt-pill { padding: 1px 7px; border-radius: 9px; font-size: 10px; font-weight: 600;
             white-space: nowrap; }
-.fpt-body { padding: 6px 8px; display: flex; flex-direction: column; gap: 5px;
-            min-width: 0; }
-.fpt-row { display: flex; gap: 6px; }
-.fpt-k { color: #7f868f; width: 62px; flex: none; }
+/* A two-column grid, so every label gets exactly the width the LONGEST one needs and the values all
+   line up. A fixed label width cannot work here: negative_prompt is ~100px at this size and a 62px
+   box let it run underneath its own value. */
+.fpt-body { padding: 6px 8px; display: grid; gap: 4px 8px; min-width: 0;
+            grid-template-columns: max-content minmax(0, 1fr); align-items: baseline; }
+/* The row wrapper stays in the markup but hands its children to the grid. */
+.fpt-row { display: contents; }
+.fpt-body > .fpt-sec, .fpt-body > .fpt-why, .fpt-body > .fpt-filter,
+.fpt-body > .fpt-dim, .fpt-body > .fpt-err, .fpt-body > .fpt-ok,
+.fpt-body > .fpt-v:only-child { grid-column: 1 / -1; }
+.fpt-k { color: #7f868f; white-space: nowrap; }
 .fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
 .fpt-toggle { cursor: pointer; }
