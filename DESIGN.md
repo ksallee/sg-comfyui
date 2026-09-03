@@ -377,11 +377,11 @@ anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
 ### The dependency problem
 
 `_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a
-registry install gets this repo and nothing else, and `fpt-llm-api` is private.
+registry install gets this repo and nothing else, and `sg-groundtruth` is private.
 
 Three ways out, in order of preference:
 
-1. Publish the *client* half of `fpt-llm-api` to PyPI as a slim package and depend on it normally. The corpus
+1. Publish the *client* half of `sg-groundtruth` to PyPI as a slim package and depend on it normally. The corpus
    stays private; only the client ships.
 2. Vendor the client into this repo. It is about sixty lines. Cheap, but it forks.
 3. Declare a git dependency. Fragile, and impossible while the repo is private.
