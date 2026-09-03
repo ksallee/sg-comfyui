@@ -16,7 +16,10 @@ import torch
 from .. import lineage, media, resolve, site
 
 MAX_ID = 2 ** 31 - 1
-NONE = ""
+# The default for an unset keyword, NOT the label a person picks — that is
+# site.NO_VALUE, "(none)". Naming both NONE is what produced a combo whose
+# declared value the editor could never offer back.
+UNSET = ""
 AUTO = "auto"
 
 
@@ -72,7 +75,10 @@ class FPTLoadVersion:
                          {"tooltip": "What to read from. Empty searches the whole project."}),
             },
             "optional": {
-                "task": ([NONE], {"tooltip": "Narrow to one Task on that entity. Optional — probe "
+                # site.NO_VALUE, not UNSET: this is the label a person picks, and the two are not
+                # the same string. Declaring "" here while the editor offered "(none)" is what made
+                # ComfyUI refuse to run the graph.
+                "task": ([site.NO_VALUE], {"tooltip": "Narrow to one Task on that entity. Optional — probe "
                                              "005 found sg_task filled on 1% of Versions."}),
                 "name_contains": ("STRING", {"default": "",
                                   "tooltip": "Words that must ALL appear in the Version name, as in "
@@ -118,6 +124,21 @@ class FPTLoadVersion:
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, project=None, link_type=None, link=None, task=None, source=None):
+        """Accept what the editor offered, because the editor knows more than INPUT_TYPES did.
+
+        These combos are seeded for the default project and then repopulated per project by the JS
+        (`setOptions`), so a value the operator legitimately picked need not be in the list this
+        class declared at load time. ComfyUI skips its own membership check for any input named
+        here (execution.py:1019), which is the mechanism core nodes use for the same problem
+        (comfy_extras/nodes_model_advanced.py:380).
+
+        Nothing is lost: a label that resolves to no entity still fails at run time, naming the
+        label and the project, which is the more useful error anyway.
+        """
+        return True
 
     RETURN_TYPES = ("IMAGE", "INT", "STRING")
     RETURN_NAMES = ("image", "version_id", "code")
@@ -172,7 +193,7 @@ class FPTLoadVersion:
                             newest_by, p.get("code_regex", ""), cls._filters(filters))
 
     @classmethod
-    def IS_CHANGED(cls, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
+    def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
                    source=AUTO, frame=1, **kw):
         """Re-resolve at queue time, so the graph sees what has been published since.
@@ -191,7 +212,7 @@ class FPTLoadVersion:
         except Exception:
             return float("nan")   # unreachable site: re-run rather than serve something stale
 
-    def load(self, project=NONE, link_type=NONE, link=NONE, task=NONE, name_contains="",
+    def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
               frame=1, unique_id=None):
         if int(pin_version_id):
@@ -221,7 +242,7 @@ class FPTLoadVersion:
                 f"Version {vid} ({v.get('code')}) has no media this node can read. probe 021: "
                 f"published files are not a source yet, and its path fields point at nothing here.")
 
-        key = available[0][0] if source in (AUTO, NONE) else source.split(" — ")[0].strip()
+        key = available[0][0] if source in (AUTO, UNSET) else source.split(" — ")[0].strip()
         if key not in [k for k, _ in available]:
             raise ValueError(f"Version {vid} cannot deliver {key!r}; it has: "
                              f"{', '.join(k for k, _ in available)}")

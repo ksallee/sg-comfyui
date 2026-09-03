@@ -9,7 +9,10 @@ from .. import fields as fpt_fields
 from .. import lineage, naming, provenance, publish, site
 
 MAX_ID = 2 ** 31 - 1
-NONE = ""
+# The default for an unset keyword, NOT the label a person picks — that is
+# site.NO_VALUE, "(none)". Naming both NONE is what produced a combo whose
+# declared value the editor could never offer back.
+UNSET = ""
 
 
 def _png(frame):
@@ -41,7 +44,7 @@ class FPTPublishVersion:
         links = [(l, i) for l, _, i in rows]
         first_type, first_link = (rows[0][1], rows[0][2]) if len(rows) == 1 else ("", 0)
         statuses = site.statuses(project_id)
-        status_label = next((l for l, c in statuses if c == p.get("status")), NONE)
+        status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
 
         return {
             "required": {
@@ -105,14 +108,29 @@ class FPTPublishVersion:
         codes = [c for c, _, _ in site.find_versions(project_id, link_type, link_id)]
         return naming.render(template, vals, naming.next_version(codes, template, vals))
 
+    @classmethod
+    def VALIDATE_INPUTS(cls, project=None, link_type=None, link=None, task=None, status=None):
+        """Accept what the editor offered, because the editor knows more than INPUT_TYPES did.
+
+        These combos are seeded for the default project and then repopulated per project by the JS
+        (`setOptions`), so a value the operator legitimately picked need not be in the list this
+        class declared at load time. ComfyUI skips its own membership check for any input named
+        here (execution.py:1019), which is the mechanism core nodes use for the same problem
+        (comfy_extras/nodes_model_advanced.py:380).
+
+        Nothing is lost: a label that resolves to no entity still fails at run time, naming the
+        label and the project, which is the more useful error anyway.
+        """
+        return True
+
     RETURN_TYPES = ()
     FUNCTION = "publish"
     CATEGORY = "Flow Production Tracking"
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
-    def publish(self, images, code_template=NONE, project=NONE, link_type=NONE, link=NONE, task=NONE,
-                status=NONE, output_name="", note="",
+    def publish(self, images, code_template=UNSET, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET,
+                status=UNSET, output_name="", note="",
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         # The picked project decides, then the profile answers for THAT project — two graphs open in
