@@ -186,19 +186,32 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
 
   // Re-measure when the content changes, once the browser has laid it out.
   //
-  // `computedHeight` is only refreshed during the frontend's own layout pass, so asking the node to
-  // resize before that pass makes it size itself from the previous content — collapsing left the node
-  // at its old height because computeSize still saw 409px of a panel that was now 26.
+  // Two traps. `computedHeight` is only refreshed during the frontend's own layout pass, so resizing
+  // before that pass sizes the node from the previous content. And a measurement taken while the
+  // panel is still at its old size is wrong the other way: expanding measured 674px of content that
+  // settles at 449, because every label wraps while the box is still 14px wide.
+  //
+  // So it re-measures until the number stops moving, and a ResizeObserver catches any late reflow
+  // without a fixed delay to guess at.
+  let applied = -1, passes = 0;
+  const apply = () => {
+    const h = measure();
+    if (Math.abs(h - applied) < 2) return;      // converged; stop before this becomes a loop
+    applied = h;
+    widget.computedHeight = h;
+    if (onLayout) onLayout();
+    if (passes++ < 4) requestAnimationFrame(apply);
+  };
   let settling;
   const relayout = () => {
     clearTimeout(settling);
-    settling = setTimeout(() => {
-      requestAnimationFrame(() => {
-        widget.computedHeight = measure();
-        if (onLayout) onLayout();
-      });
-    }, 30);
+    settling = setTimeout(() => { passes = 0; applied = -1; requestAnimationFrame(apply); }, 30);
   };
+  try {
+    new ResizeObserver(() => {
+      if (Math.abs(measure() - applied) >= 2) relayout();
+    }).observe(body);
+  } catch (e) { /* no ResizeObserver: the explicit relayout calls still cover every fold */ }
 
   return {
     widget,
