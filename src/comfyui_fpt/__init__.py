@@ -1,8 +1,8 @@
-from .nodes import FPTFetchVersion, FPTPublishVersion
+from .nodes import FPTLoadVersion, FPTPublishVersion
 
-NODE_CLASS_MAPPINGS = {"FPTFetchVersion": FPTFetchVersion,
+NODE_CLASS_MAPPINGS = {"FPTLoadVersion": FPTLoadVersion,
                        "FPTPublishVersion": FPTPublishVersion}
-NODE_DISPLAY_NAME_MAPPINGS = {"FPTFetchVersion": "Flow PT Fetch Version",
+NODE_DISPLAY_NAME_MAPPINGS = {"FPTLoadVersion": "Flow PT Load Version",
                              "FPTPublishVersion": "Flow PT Publish Version"}
 
 __all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]

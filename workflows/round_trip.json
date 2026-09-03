@@ -8,7 +8,7 @@
   "nodes": [
     {
       "id": 1,
-      "type": "FPTFetchVersion",
+      "type": "FPTLoadVersion",
       "pos": [
         40,
         40
@@ -41,7 +41,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTFetchVersion"
+        "Node name for S&R": "FPTLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -56,7 +56,7 @@
         1,
         ""
       ],
-      "title": "Flow PT Fetch \u2014 newest Approved depth"
+      "title": "Flow PT Load \u2014 newest Approved depth"
     },
     {
       "id": 2,

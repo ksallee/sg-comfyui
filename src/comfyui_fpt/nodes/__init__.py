@@ -1,4 +1,4 @@
-from .fetch_version import FPTFetchVersion
+from .load_version import FPTLoadVersion
 from .publish_version import FPTPublishVersion
 
-__all__ = ["FPTFetchVersion", "FPTPublishVersion"]
+__all__ = ["FPTLoadVersion", "FPTPublishVersion"]

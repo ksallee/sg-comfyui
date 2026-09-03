@@ -131,9 +131,9 @@ deterministic, offline, and costs no tokens.
 
 ## Nodes (v0)
 
-- `FPT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
+- `Flow PT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
   the site profile: link target and exposed fields are resolved, not hardcoded.
-- `Flow PT Fetch Version` — a Version's media back into the graph, and the link recorded
+- `Flow PT Load Version` — a Version's media back into the graph, and the link recorded
 
 `av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
 video nodes. Imported lazily inside the movie branch, so an install without it still loads every node and
@@ -172,7 +172,7 @@ operator sees it rather than getting a confident wrong guess.
 
 There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
 code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
-custom code, or none. So a Fetch node takes a status the operator picks from that project's real list,
+custom code, or none. So a Load node takes a status the operator picks from that project's real list,
 and empty means any. An earlier version of this hardcoded "latest approved", which was this project
 inventing vocabulary the API does not have.
 
@@ -184,7 +184,7 @@ substring in the code. Ordering by the convention's version number is offered as
 because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
 consumes it, with no id copied between graphs, and the lineage field records the join by itself.
 
-A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
+A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Load node
 actually resolved and the publish node reads back only its own ancestors' entries.
 
 ## Provenance
@@ -196,7 +196,7 @@ Captured per publish:
 | model, prompt, seed, sampler | ComfyUI prompt graph |
 | workflow JSON | attachment — best effort, see below |
 | submitting client | `COMFY_USAGE_SOURCE` |
-| input Version ids | upstream `Flow PT Fetch Version` nodes, or typed by hand |
+| input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
 | user, timestamp | client |
 
 ### The workflow attachment is best effort
@@ -267,7 +267,7 @@ operator sees it rather than getting a confident wrong guess.
 
 There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
 code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
-custom code, or none. So a Fetch node takes a status the operator picks from that project's real list,
+custom code, or none. So a Load node takes a status the operator picks from that project's real list,
 and empty means any. An earlier version of this hardcoded "latest approved", which was this project
 inventing vocabulary the API does not have.
 
@@ -279,7 +279,7 @@ substring in the code. Ordering by the convention's version number is offered as
 because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
 consumes it, with no id copied between graphs, and the lineage field records the join by itself.
 
-A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Fetch node
+A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Load node
 actually resolved and the publish node reads back only its own ancestors' entries.
 
 ## Provenance is per branch, not per graph
@@ -316,11 +316,11 @@ A custom node is a Python class registered from `__init__.py`. Verified against 
             }
         RETURN_TYPES = ()          # trailing comma matters when there is one
         FUNCTION = "publish"
-        CATEGORY = "Flow PT"
+        CATEGORY = "Flow Production Tracking"
         OUTPUT_NODE = True         # terminal node: always executes
 
     NODE_CLASS_MAPPINGS = {"FPTPublishVersion": FPTPublishVersion}
-    NODE_DISPLAY_NAME_MAPPINGS = {"FPTPublishVersion": "Publish Version to Flow PT"}
+    NODE_DISPLAY_NAME_MAPPINGS = {"FPTPublishVersion": "Flow PT Publish Version"}
 
 `INPUT_TYPES` is a classmethod evaluated at load, which is what lets the mapping drive the inputs.
 
@@ -349,6 +349,30 @@ Two ways in, and they are not the same thing:
   Publishing needs a `pyproject.toml` with a PEP 621 `[project]` block plus `[tool.comfy]` carrying
   `PublisherId`, `DisplayName` and `Icon`. Publish with `comfy node publish`, or a GitHub Action on
   `REGISTRY_ACCESS_TOKEN` triggered by a version bump.
+
+### Names
+
+`[project].name` on the Registry is immutable, so it is decided here rather than in passing:
+
+    [project].name                comfyui-flow-production-tracking   permanent
+    [tool.comfy].DisplayName      Flow Production Tracking
+    repo, custom_nodes directory  comfyui-flow-production-tracking
+    CATEGORY                      Flow Production Tracking
+    node titles                   Flow PT Publish Version, Flow PT Load Version
+    Python package                comfyui_fpt
+
+The long form goes in the slots that are searched — a TD looks for the product, not an abbreviation, and
+half of them still search "shotgrid", which belongs in the registry keywords and the README where it can
+be changed later. Node titles stay short because they render on the node body. The Python package stays
+`comfyui_fpt`: it is internal, every import is relative, and `python -m comfyui_fpt.fields` has to be
+typable.
+
+`Publish`/`Load` is both vocabularies at once — `tk-multi-publish2`/`tk-multi-loader2` on the Flow PT
+side, and on the ComfyUI side `Load` is what a node is called when it is where the pixels come from.
+`Fetch` was neither.
+
+`NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
+anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
 
 ### The dependency problem
 

@@ -107,7 +107,7 @@ class FPTPublishVersion:
 
     RETURN_TYPES = ()
     FUNCTION = "publish"
-    CATEGORY = "Flow PT"
+    CATEGORY = "Flow Production Tracking"
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
@@ -147,12 +147,12 @@ class FPTPublishVersion:
         # Which typed fields this site actually has. Absent until `python -m comfyui_fpt.fields` has
         # run, so the blob fallback is the honest default, not a bug.
         have = fpt_fields.available(fpt)
-        # Typed ids first, then whatever a Fetch node upstream already proves. The operator can add
+        # Typed ids first, then whatever a Load node upstream already proves. The operator can add
         # a source the graph cannot see; they should never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
         # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
         upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
-        for vid in (provenance.fetched_versions(prompt or {}, unique_id)
+        for vid in (provenance.loaded_versions(prompt or {}, unique_id)
                     + lineage.for_nodes(upstream)):
             if vid not in src_ids:
                 src_ids.append(vid)

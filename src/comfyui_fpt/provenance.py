@@ -81,13 +81,13 @@ def ancestors(prompt, node_id):
     return seen
 
 
-def fetched_versions(prompt, node_id):
+def loaded_versions(prompt, node_id):
     """Version ids pulled from Flow PT upstream of node_id, in graph order.
 
-    Lineage the operator never types. Only a PINNED id is in the prompt; a Fetch node resolving by
+    Lineage the operator never types. Only a PINNED id is in the prompt; a Load node resolving by
     rule knows its Version at run time, and records it in `lineage` instead. Both are read.
 
-    `version_id` is the old spelling, kept so a graph saved before the fetch node was reworked still
+    `version_id` is the old spelling, kept so a graph saved before the Load node was reworked still
     reports its lineage rather than silently losing it.
     """
     ids, scope = [], ancestors(prompt, node_id)
@@ -95,7 +95,7 @@ def fetched_versions(prompt, node_id):
         if nid not in scope:
             continue
         node = prompt.get(nid) or {}
-        if node.get("class_type") != "FPTFetchVersion":
+        if node.get("class_type") != "FPTLoadVersion":
             continue
         inputs = node.get("inputs") or {}
         vid = inputs.get("pin_version_id", inputs.get("version_id"))
