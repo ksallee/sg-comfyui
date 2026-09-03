@@ -1,10 +1,9 @@
-import { iconHtml } from "./fpt_dom_widgets.js";
+import { iconHtml, domRow } from "./fpt_dom_widgets.js";
 // A small readout both nodes share: what the node is pointing at, and what it last did.
 //
 // A DOM widget rather than a read-only textarea, because the useful parts here are a status — which
 // Flow PT already gives a colour (probe 010, bg_color is comma-separated RGB) — and a run log that
-// wants to be distinguishable at a glance. Collapsible, because once a graph is set up this is
-// reference material, not something to keep reading.
+// wants to be distinguishable at a glance.
 
 const CSS = `
 /* box-sizing and a full-width block: the DOM widget's container is sized by the node, and without
@@ -51,7 +50,6 @@ const CSS = `
 .fpt-state { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #8b939c; }
 .fpt-state i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
-.fpt-head { display: flex; align-items: center; }
 .fpt-panel.is-loading { opacity: .72; }
 `;
 
@@ -143,7 +141,6 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       <span class="fpt-state"></span></div>
     <div class="fpt-body"></div>
 `;
-  const head = root.querySelector(".fpt-head");
   const stateEl = root.querySelector(".fpt-state");
   const setState = (kind) => {
     const [color, word] = STATE[kind] || STATE.warn;
@@ -151,51 +148,19 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
     root.classList.toggle("is-loading", kind === "loading");
   };
   const body = root.querySelector(".fpt-body");
-  // Kept outside the body so redrawing the readout cannot destroy it mid-edit.
 
-  // Height follows the content. A fixed number was fine when the readout was three lines and wrong
-  // as soon as it listed every field a publish writes — the box stayed small and the content scrolled
-  // inside it, which no amount of widening the node could fix.
-  const measure = () => {
-    const head_h = head.getBoundingClientRect().height || 26;
-    const body_h = body.scrollHeight || 0;
-    // +16 covers the border and the rounding between layout and canvas pixels; at +8 the last row
-    // was clipped by a few pixels.
-    return Math.min(Math.max(head_h + body_h + 16, 60), 900);
-  };
-  const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
-    serialize: false,
-    getMinHeight: measure,
-  });
-
-  // Re-measure when the content changes, once the browser has laid it out.
+  // The panel spans both columns of the node's widget grid and is the row that grows: surplus node
+  // height pools here rather than being sprinkled between the picker rows.
   //
-  // Two traps. `computedHeight` is only refreshed during the frontend's own layout pass, so resizing
-  // before that pass sizes the node from the previous content. And a measurement taken while the
-  // panel is still at its old size is wrong the other way: expanding measured 674px of content that
-  // settles at 449, because every label wraps while the box is still 14px wide.
-  //
-  // So it re-measures until the number stops moving, and a ResizeObserver catches any late reflow
-  // without a fixed delay to guess at.
-  let applied = -1, passes = 0;
-  const apply = () => {
-    const h = measure();
-    if (Math.abs(h - applied) < 2) return;      // converged; stop before this becomes a loop
-    applied = h;
-    widget.computedHeight = h;
-    if (onLayout) onLayout();
-    if (passes++ < 4) requestAnimationFrame(apply);
-  };
-  let settling;
-  const relayout = () => {
-    clearTimeout(settling);
-    settling = setTimeout(() => { passes = 0; applied = -1; requestAnimationFrame(apply); }, 30);
-  };
+  // No convergence loop any more. It existed because the panel had to guess its own height before
+  // the frontend's layout pass — "expanding measured 674px of content that settles at 449, because
+  // every label wraps while the box is still 14px wide". fitNode measures the node's rendered DOM
+  // instead of predicting it, so one pass after the browser has laid out is the answer.
+  const { widget, relayout: fit } = domRow(node, "fpt_panel", { control: root, grow: true });
+  const relayout = () => { fit(); onLayout?.(); };
   try {
-    new ResizeObserver(() => {
-      if (Math.abs(measure() - applied) >= 2) relayout();
-    }).observe(body);
-  } catch (e) { /* no ResizeObserver: the explicit relayout calls still cover every fold */ }
+    new ResizeObserver(relayout).observe(body);
+  } catch (e) { /* no ResizeObserver: the explicit relayout calls still cover every redraw */ }
 
   return {
     widget,
@@ -206,9 +171,12 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
     loading() {
       setState("loading");
     },
+    /** `d.state` ("ok" | "warn" | "loading") overrides the guess, because a caller knows things the
+     *  readout cannot: a provenance field mapped to a name this site does not have still resolves a
+     *  Version, so `id` alone read as valid while the publish would silently drop a value. */
     show(d) {
       const t = root.querySelector(".fpt-title");
-      setState(d && d.error ? "warn" : (d && d.id) ? "ok" : "warn");
+      setState((d && d.state) || (d && d.error ? "warn" : (d && d.id) ? "ok" : "warn"));
       if (d && d.error) {
         t.innerHTML = esc(title);
         body.innerHTML = `<div class="fpt-err">${esc(d.error)}</div>`;

@@ -145,8 +145,17 @@ def route(entity_type):
     return f"/entity/{entity_type.lower()}s"
 
 
-def projects():
-    """(name, id) for projects worth publishing into.
+# A project row is drawn the way Flow PT draws one: thumbnail, name, code. `code` is a second unique
+# text field, set on a minority of shows (entity_types/Project), and `image` is a presigned S3 URL,
+# re-signed on every read and good for ~900s from that read (field_types/image) — TTL above is 600s,
+# so a cached row's URL is still live, and a stale one on a failed refresh degrades to a blank tile.
+# The transient prefix means the thumbnail is still transcoding and would render as a placeholder,
+# so it is dropped rather than shown.
+PENDING = "/images/status/transient/"
+
+
+def project_cards():
+    """{name, id, code, image} for projects worth publishing into.
 
     probe 018 — do NOT filter on sg_status: it is null on most real projects, this sandbox included, so
     `sg_status is Active` hides working shows. The checkboxes are the reliable discriminators. Demo
@@ -160,10 +169,25 @@ def projects():
                                        ["is_demo", "is", False],
                                        ["archived", "is", False]]
         r = client().post("/entity/projects/_search", headers=ARRAY_JSON,
-                          json={"filters": filters, "fields": ["name"], "page": {"size": 500}})
-        return [] if not r.ok else [(d["attributes"]["name"], d["id"]) for d in r.json()["data"]
-                                    if d["attributes"].get("name")]
+                          json={"filters": filters, "fields": ["name", "code", "image"],
+                                "page": {"size": 500}})
+        if not r.ok:
+            return []
+        out = []
+        for d in r.json()["data"]:
+            a = d["attributes"]
+            if not a.get("name"):
+                continue
+            image = a.get("image") or ""
+            out.append({"name": a["name"], "id": d["id"], "code": a.get("code") or "",
+                        "image": "" if PENDING in image else image})
+        return out
     return _cached(("projects", show_all), fetch)
+
+
+def projects():
+    """(name, id), which is what every caller that only identifies a project wants."""
+    return [(p["name"], p["id"]) for p in project_cards()]
 
 
 def project_name(project_id):
