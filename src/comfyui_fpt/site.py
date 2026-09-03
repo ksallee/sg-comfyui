@@ -1,7 +1,9 @@
 """Site access: credentials, profile, and the live lookups the node's pickers read.
 
-ComfyUI does not load .env.local, so the node does it. Values are never logged — an error names the
-missing key, never its value.
+ComfyUI does not load .env.local, so the node does it — into a mapping handed straight to the client,
+never into os.environ. ComfyUI is a long-lived process shared with every other installed custom node,
+and anything in its environment is readable by all of them. Values are never logged either; an error
+names the missing key, never its value.
 
 Everything here is setup path: it serves the editor, never the publish path. All of it is cached and
 all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info request (server.py:756)
@@ -9,16 +11,15 @@ all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info 
 load, or the operator cannot open a graph that contains it.
 """
 import json
-import os
 import threading
 import time
 from pathlib import Path
 
 from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
 from sg_groundtruth.client import FPT, FPTError
+from sg_groundtruth.env import load as load_env
 
 ROOT = Path(__file__).resolve().parents[2]
-ENV = ROOT / ".env.local"
 PROFILE = ROOT / "profile.local.json"
 
 # probe 004 — _search rejects application/json with 415 and demands a vendor type.
@@ -41,20 +42,9 @@ TTL = 600.0
 _cache = {}
 
 
-def _load_env():
-    if not ENV.is_file():
-        return
-    for line in ENV.read_text().splitlines():
-        line = line.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        os.environ.setdefault(k.strip(), v.strip().strip("'\""))
-
-
 def client():
-    _load_env()
-    return FPT.from_env()
+    """A connected client. Credentials travel as an argument and are never put in os.environ."""
+    return FPT.from_env(load_env(ROOT))
 
 
 def profile():
