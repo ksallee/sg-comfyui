@@ -44,19 +44,19 @@
         "Node name for S&R": "FPTLoadVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
-        "Shot",
-        "sbx_0020 (Shot)",
-        "",
+        "(none)",
+        "(all types)",
+        "(none)",
+        "(none)",
         "depth",
-        "Approved",
+        "",
         "version number in the name",
         0,
         "auto",
         1,
         ""
       ],
-      "title": "Flow PT Load \u2014 newest Approved depth"
+      "title": "Flow PT Load \u2014 newest depth on this link"
     },
     {
       "id": 2,
@@ -121,14 +121,14 @@
         "Node name for S&R": "FPTPublishVersion"
       },
       "widgets_values": [
-        "{entity.Shot.code}_{output}_v%03d",
-        "comfyui-fpt sandbox",
-        "Shot",
-        "sbx_0020 (Shot)",
-        "",
-        "",
+        "{entity.code}_{output}_v{version:03d}",
+        "(none)",
+        "(all types)",
+        "(none)",
+        "(none)",
+        "(none)",
         "regrade",
-        "derived from the approved depth, lineage recorded by itself",
+        "derived from the Version above; lineage recorded by itself",
         "",
         true,
         0
