@@ -11,9 +11,12 @@ all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info 
 load, or the operator cannot open a graph that contains it.
 """
 import json
+import re
 import threading
 import time
 from pathlib import Path
+
+import requests
 
 from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
 from sg_groundtruth.client import FPT, FPTError
@@ -466,38 +469,83 @@ def status_colors():
     return _cached(("status_colors",), fetch)
 
 
-def status_icons():
-    """{code: {"kind", "url", "html"}} — what can actually be drawn for a status.
+# recipe 010 — `url` reads as an empty string unless `image_data` is asked for in the SAME call, so
+# ask for both. Dotted through the entity link, one call returns the Icon's own columns flattened
+# into attributes (probe 003); undotted, `icon` is {id, name, type} and costs a second call.
+ICON_FIELDS = ("display_type", "image_map_key", "html", "url", "image_data")
 
-    probe 010 — Status.icon is an ENTITY link, so it arrives under relationships, and resolves three
-    ways by display_type. `image` is a custom upload whose url IS a self-contained data: URI, and
-    `html` is a text badge. `image_map` is the 94 standard icons, addressed by a key like `icon_apr`
-    into a sprite whose location that probe never found — 23 of 25 icons here are that kind, so the
-    colour badge is not a fallback, it is the main path.
+
+def _stylesheets():
+    """The web app's own CSS, concatenated. Large (~771KB on the probed site), so cached.
+
+    recipe 010 — the stock icon sheet is not in the REST API at all. `image_map_key` is a CSS class
+    in a stylesheet the site names in its own root page, behind a per-release hash, so both are
+    rediscovered rather than hardcoded. Neither fetch carries the Authorization header.
     """
     def fetch():
-        r = client().get("/entity/statuses", params={"fields": "code,icon", "page[size]": 200})
+        base = client().site
+        root = requests.get(base, timeout=30)
+        if not root.ok:
+            return ""
+        out = []
+        for href in re.findall(r"""href=["']([^"']+\.css[^"']*)["']""", root.text, re.I):
+            r = requests.get(href if href.startswith("http") else f"{base}{href}", timeout=60)
+            if r.ok:
+                out.append(r.text)
+        return "\n".join(out)
+    return _cached(("stylesheets",), fetch) or ""
+
+
+def _sprite(key):
+    """The crop for one stock icon: the sheet, the offset into it, and the size to take.
+
+    None when the rule is not found — the signal to fall back to the colour badge.
+    """
+    css = _stylesheets()
+    m = re.search(r"\.%s\b[^{}]*\{([^{}]*)\}" % re.escape(key), css) if key and css else None
+    if not m:
+        return None
+    decl = m.group(1)
+    href = re.search(r"url\(\s*['\"]?([^'\")]+)", decl)
+    offset = re.search(r"(-?\d+)px\s+(-?\d+)px", decl)
+    size = re.search(r"width:\s*(\d+)px.*?height:\s*(\d+)px", decl, re.S)
+    if not (href and offset and size):
+        return None
+    url = href.group(1)
+    return {"kind": "sprite",
+            "url": url if url.startswith("http") else f"{client().site}{url}",
+            "offset": [int(offset.group(1)), int(offset.group(2))],
+            "size": [int(size.group(1)), int(size.group(2))]}
+
+
+def status_icons():
+    """{code: icon} — what can actually be drawn for a status, all three renderings resolved.
+
+    recipe 010. `image_map` is the 94 stock icons and resolves through the site's stylesheet;
+    `image` is a custom upload whose url is a self-contained data: URI; `html` is a text badge.
+    """
+    def fetch():
+        fields = "code," + ",".join(f"icon.Icon.{f}" for f in ICON_FIELDS)
+        r = client().get("/entity/statuses", params={"fields": fields, "page[size]": 200})
         if not r.ok:
             return {}
-        by_icon = {}
-        for d in r.json()["data"]:
-            ic = ((d.get("relationships") or {}).get("icon") or {}).get("data")
-            if ic and d["attributes"].get("code"):
-                by_icon.setdefault(ic["id"], []).append(d["attributes"]["code"])
-        if not by_icon:
-            return {}
-        r2 = client().post("/entity/icons/_search", headers=ARRAY_JSON,
-                           json={"filters": [["id", "in", list(by_icon)]],
-                                 "fields": ["display_type", "url", "html"],
-                                 "page": {"size": 200}})
         out = {}
-        for d in (r2.json().get("data", []) if r2.ok else []):
+        for d in r.json()["data"]:
             a = d["attributes"]
-            for code in by_icon.get(d["id"], []):
-                out[code] = {"kind": a.get("display_type"),
-                             # newlines in the base64 break an <img src> (probe 010)
-                             "url": (a.get("url") or "").replace("\n", ""),
-                             "html": a.get("html") or ""}
+            code, display = a.get("code"), a.get("icon.Icon.display_type")
+            if not code:
+                continue
+            if display == "image_map":
+                icon = _sprite(a.get("icon.Icon.image_map_key"))
+            elif display == "image":
+                # newlines in the base64 break an <img src> (probe 010)
+                icon = {"kind": "data_uri", "url": (a.get("icon.Icon.url") or "").replace("\n", "")}
+            elif display == "html":
+                icon = {"kind": "text", "html": a.get("icon.Icon.html") or ""}
+            else:
+                icon = None
+            if icon:
+                out[code] = icon
         return out
     return _cached(("status_icons",), fetch)
 

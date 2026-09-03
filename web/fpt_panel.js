@@ -1,3 +1,4 @@
+import { iconHtml } from "./fpt_dom_widgets.js";
 // A small readout both nodes share: what the node is pointing at, and what it last did.
 //
 // A DOM widget rather than a read-only textarea, because the useful parts here are a status — which
@@ -41,23 +42,27 @@ const CSS = `
 .fpt-k { color: #7f868f; overflow-wrap: anywhere; }
 .fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
-.fpt-toggle { cursor: pointer; }
-.fpt-toggle:hover { color: #cfd3d8; }
 .fpt-sec { color: #7f868f; text-transform: uppercase; letter-spacing: .06em; font-size: 9px;
            border-top: 1px solid #35393f; padding-top: 5px; margin-top: 1px; }
 .fpt-ok { color: #7fd18b; }
 .fpt-err { color: #f08a8a; white-space: pre-wrap; }
 .fpt-dim { color: #7f868f; }
 .fpt-gone { text-decoration: line-through; opacity: .5; }
-/* The editor lives here, below the readout, rather than as a node widget: a declared widget renders
-   above this panel and cannot be moved below it, because widgets_values is positional. */
-.fpt-editor { display: none; border-top: 1px solid #35393f; padding: 6px 8px; flex: none; }
-.fpt-panel.editing .fpt-editor { display: block; }
-.fpt-editor textarea { width: 100%; height: 144px; box-sizing: border-box; resize: none;
-    font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfd3d8;
-    background: #1a1d21; border: 1px solid #3a4048; border-radius: 4px; padding: 5px 6px; }
-.fpt-editor textarea:focus { outline: none; border-color: #4a5563; }
+.fpt-state { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #8b939c; }
+.fpt-state i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
+.fpt-head { display: flex; align-items: center; }
+.fpt-panel.is-loading { opacity: .72; }
 `;
+
+/* Three states, because "nothing showing" reads the same as "still asking". The panel already
+   branched three ways internally — error, resolved nothing, resolved something — this only makes
+   that visible, and adds the one it could not know: a request still in flight. */
+const STATE = {
+  loading: ["#8b939c", "loading"],
+  ok:      ["#7fc98b", "valid"],
+  warn:    ["#e0b155", "check this"],
+};
 
 let injected = false;
 const PROVENANCE = {
@@ -78,11 +83,8 @@ function ensureCss() {
 // A real icon where Flow PT has one that can be drawn; the colour badge otherwise. probe 010 found
 // 23 of 25 icons here are sprite-addressed with no locatable sprite, so the badge is the main path.
 function badge(status) {
-  const ic = status.icon || {};
-  if (ic.kind === "image" && ic.url) {
-    return `<img class="fpt-icon" src="${ic.url}" alt="">` + pill(esc(status.label), status.rgb);
-  }
-  return pill(esc(status.label), status.rgb);
+  // Same renderer as the chips, so a status looks the same wherever it is drawn (recipe 010).
+  return iconHtml(status.icon, status.rgb) + pill(esc(status.label), status.rgb);
 }
 
 function pill(label, rgb) {
@@ -96,13 +98,6 @@ function pill(label, rgb) {
 }
 
 // The query in Flow PT's own language, so it can be read, copied, and pasted into `filters`.
-function filterBlock(d) {
-  if (!d || !d.filters) return "";
-  // Only the heading: the filter itself is in the editable box below, and showing it twice was just
-  // two copies of the same thing.
-  return `<div class="fpt-sec fpt-toggle" title="Show or hide the SG Filters box">` +
-    `SG Filters <span class="fpt-dim">— click to edit</span></div>`;
-}
 
 // What the run would record, so a publish is not a leap of faith. Fields the site does not have are
 // shown struck through rather than hidden: knowing a value was computed and dropped is the point.
@@ -144,22 +139,19 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   ensureCss();
   const root = document.createElement("div");
   root.className = "fpt-panel";
-  root.innerHTML = `<div class="fpt-head"><span class="fpt-title">${esc(title)}</span></div>
+  root.innerHTML = `<div class="fpt-head"><span class="fpt-title">${esc(title)}</span>
+      <span class="fpt-state"></span></div>
     <div class="fpt-body"></div>
-    <div class="fpt-editor"><textarea spellcheck="false"></textarea></div>`;
+`;
   const head = root.querySelector(".fpt-head");
+  const stateEl = root.querySelector(".fpt-state");
+  const setState = (kind) => {
+    const [color, word] = STATE[kind] || STATE.warn;
+    stateEl.innerHTML = `<i style="background:${color}"></i>${word}`;
+    root.classList.toggle("is-loading", kind === "loading");
+  };
   const body = root.querySelector(".fpt-body");
   // Kept outside the body so redrawing the readout cannot destroy it mid-edit.
-  const editor = root.querySelector(".fpt-editor");
-  const area = editor.querySelector("textarea");
-  // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
-  // control belongs here rather than in a button appended somewhere else on the node.
-  body.addEventListener("click", (e) => {
-    if (!e.target.closest(".fpt-toggle")) return;
-    root.classList.toggle("editing");
-    if (root.classList.contains("editing")) area.focus();
-    relayout();
-  });
 
   // Height follows the content. A fixed number was fine when the readout was three lines and wrong
   // as soon as it listed every field a publish writes — the box stayed small and the content scrolled
@@ -167,10 +159,9 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   const measure = () => {
     const head_h = head.getBoundingClientRect().height || 26;
     const body_h = body.scrollHeight || 0;
-    const edit_h = root.classList.contains("editing") ? editor.scrollHeight || 0 : 0;
     // +16 covers the border and the rounding between layout and canvas pixels; at +8 the last row
     // was clipped by a few pixels.
-    return Math.min(Math.max(head_h + body_h + edit_h + 16, 60), 900);
+    return Math.min(Math.max(head_h + body_h + 16, 60), 900);
   };
   const widget = node.addDOMWidget("fpt_panel", "fpt_panel", root, {
     serialize: false,
@@ -209,19 +200,15 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   return {
     widget,
     /** The editable filter, below the readout. `onEdit` receives the raw text. */
-    editor(onEdit) {
-      let pending;
-      area.addEventListener("input", () => {
-        clearTimeout(pending);
-        pending = setTimeout(() => onEdit(area.value), 400);
-      });
-    },
-    setFilterText(text) {
-      if (document.activeElement !== area) area.value = text;
-    },
     /** What the node is pointing at. */
+    /** A request is in flight. Called before the await, so the readout below is visibly stale
+     *  rather than silently stale. */
+    loading() {
+      setState("loading");
+    },
     show(d) {
       const t = root.querySelector(".fpt-title");
+      setState(d && d.error ? "warn" : (d && d.id) ? "ok" : "warn");
       if (d && d.error) {
         t.innerHTML = esc(title);
         body.innerHTML = `<div class="fpt-err">${esc(d.error)}</div>`;
@@ -237,7 +224,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
             ? `<div class="fpt-sec">what is there</div>` + near.map((v) =>
                 `<div class="fpt-row"><span class="fpt-v" style="flex:1">${esc(v.code)}</span>
                  ${v.status && v.status.label ? badge(v.status) : ""}</div>`).join("")
-            : "") + filterBlock(d);
+            : "");
         relayout();
         return;
       }
@@ -258,7 +245,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         rows.map(([k, v]) => `<div class="fpt-row"><span class="fpt-k">${esc(k)}</span>
           <span class="fpt-v">${esc(v)}</span></div>`).join("") +
         (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
-        sourcesBlock(d) + writesBlock(d) + filterBlock(d);
+        sourcesBlock(d) + writesBlock(d);
       relayout();
     },
     /** What the node last did. Appended under the description, not instead of it. */
