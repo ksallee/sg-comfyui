@@ -11,20 +11,20 @@ Out of scope, permanently: charts, dashboards, scheduled reports, webhooks, auto
 
 ## The corpus lives next door
 
-`../fpt-llm-api` holds every verified truth about the API, and the client. This repo probes nothing and
+`../sg-groundtruth` holds every verified truth about the API, and the client. This repo probes nothing and
 duplicates nothing.
 
-Read `../fpt-llm-api/corpus/INDEX.md` first, always. Never code against behaviour no entry covers — that is a
-gap, and the probe that closes it belongs in `fpt-llm-api`. Code cites entries: `# probe 004`.
+Read `../sg-groundtruth/corpus/INDEX.md` first, always. Never code against behaviour no entry covers — that is a
+gap, and the probe that closes it belongs in `sg-groundtruth`. Code cites entries: `# probe 004`.
 
-Plan for both repos: `../fpt-llm-api/PLAN.md`.
+Plan for both repos: `../sg-groundtruth/PLAN.md`.
 
 ## Stack
 
 Python 3.11. `sg_groundtruth` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
 `shotgun_api3`, never `fpt-api` — it is AGPL. A new dependency needs a line in DESIGN.md justifying it.
 
-The sibling checkout (`fpt-llm-api/`, package `sg_groundtruth`) is expected; override with `FPT_LLM_API_PATH`.
+The sibling checkout (`sg-groundtruth/`, package `sg_groundtruth`) is expected; override with `SG_GROUNDTRUTH_PATH`.
 
 ## Secrets
 
