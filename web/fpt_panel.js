@@ -47,6 +47,12 @@ const CSS = `
 .fpt-err { color: #f08a8a; white-space: pre-wrap; }
 .fpt-dim { color: #7f868f; }
 .fpt-gone { text-decoration: line-through; opacity: .5; }
+.fpt-code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #f2f5f8;
+  margin: 0 6px; letter-spacing: .01em; }
+.fpt-fold > summary { cursor: pointer; list-style: none; }
+.fpt-fold > summary::-webkit-details-marker { display: none; }
+.fpt-fold > summary::before { content: "▸ "; color: #6f777f; }
+.fpt-fold[open] > summary::before { content: "▾ "; }
 .fpt-state { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #8b939c; }
 .fpt-state i { width: 6px; height: 6px; border-radius: 50%; display: inline-block; }
@@ -112,7 +118,11 @@ function writesBlock(d) {
       dead ? " fpt-gone" : empty ? " fpt-dim" : ""}">${
       esc(x.value || x.note || "—")}</span></div>`;
   };
-  return `<div class="fpt-sec">will write</div>` + f.map(row).join("") +
+  // Folded by default: what gets captured is the same nine concepts every time, and the operator
+  // checks it when configuring, not on every publish. The name above is what they check every time.
+  // <details> rather than a hand-rolled toggle — it keeps its own state and needs no JS.
+  return `<details class="fpt-fold"><summary class="fpt-sec">metadata captured</summary>` +
+    f.map(row).join("") + `</details>` +
     ((d.uploads || []).length
       ? `<div class="fpt-sec">uploads</div>` + d.uploads.map((u) =>
           `<div class="fpt-row"><span class="fpt-v fpt-dim">${esc(u)}</span></div>`).join("") : "") +
@@ -142,10 +152,26 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
     <div class="fpt-body"></div>
 `;
   const stateEl = root.querySelector(".fpt-state");
+  // ComfyUI marks a troubled node with a badge, and a person scanning a graph reads badges, not the
+  // inside of a panel they have to zoom into. Ours says the same thing the state pill says, where
+  // the editor already trained them to look.
+  const BADGE = Symbol("fpt-warn");
+  const setBadge = (on) => {
+    if (!Array.isArray(node.badges)) return;
+    node.badges = node.badges.filter((b) => b?.[BADGE] !== true);
+    if (!on || !window.LGraphBadge) return;
+    const getter = () => new window.LGraphBadge({
+      text: "Flow PT", fgColor: "#1b1d21", bgColor: STATE.warn[0],
+    });
+    getter[BADGE] = true;
+    node.badges.push(getter);
+  };
+
   const setState = (kind) => {
     const [color, word] = STATE[kind] || STATE.warn;
     stateEl.innerHTML = `<i style="background:${color}"></i>${word}`;
     root.classList.toggle("is-loading", kind === "loading");
+    setBadge(kind === "warn");
   };
   const body = root.querySelector(".fpt-body");
 
@@ -198,8 +224,11 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       }
       // Say what the name IS. On the publish node it is the Version about to be created, and an
       // unlabelled string in a header does not tell you that.
-      t.innerHTML = `<span class="fpt-lead">Version Name:</span> ${esc(d.code)} ${
-        d.status && d.status.label ? badge(d.status) : ""}`;
+      // The name is the answer. It was the same size as its own label, which buried the one thing
+      // worth checking before a run.
+      t.innerHTML = `<span class="fpt-lead">Version Name</span>` +
+        `<span class="fpt-code">${esc(d.code)}</span>` +
+        (d.status && d.status.label ? badge(d.status) : "");
       const rows = [];
       if (d.link) rows.push(["link", d.link]);
       if (d.task) rows.push(["task", d.task]);

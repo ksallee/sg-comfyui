@@ -94,7 +94,7 @@ class FPTLoadVersion:
                                         + ", ".join(l for l, _ in statuses)}),
                 "name_contains": ("STRING", {"default": "",
                                   "tooltip": "Words that must ALL appear in the Version name, as in "
-                                             "the Flow PT UI: `depth v0` matches both.", "advanced": True}),
+                                             "the Flow PT UI: `depth v0` matches both."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent.", "advanced": True}),

@@ -285,9 +285,15 @@ def register():
         try:
             pid = int(request.rel_url.query.get("project_id") or 0)
             colors, icons = site.status_colors(), site.status_icons()
+            # Most-used first (probe 020). A picker sorted by the schema makes an artist hunt for
+            # the two codes their show actually uses among the twenty it merely allows.
+            used = site.status_usage(pid)
+            rows = list(enumerate(site.statuses(pid)))
+            rows.sort(key=lambda r: (-used.get(r[1][1], 0), r[0]))
             return web.json_response({"items": [
-                {"label": l, "id": c, "code": c, "rgb": colors.get(c), "icon": icons.get(c)}
-                for l, c in site.statuses(pid)]})
+                {"label": l, "id": c, "code": c, "rgb": colors.get(c), "icon": icons.get(c),
+                 "used": used.get(c, 0)}
+                for _, (l, c) in rows]})
         except Exception as e:
             return web.json_response({"items": [], "error": str(e)[:200]})
 

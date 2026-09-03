@@ -10,6 +10,7 @@ all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info 
 — that is every page load and every node search — and a node that cannot reach the site must still
 load, or the operator cannot open a graph that contains it.
 """
+import datetime
 import json
 import re
 import threading
@@ -607,6 +608,31 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
             v = attrs.get(field)
             out[path] = v.get("name") if isinstance(v, dict) else v
     return out
+
+
+def status_usage(project_id, days=30, entity_type="Version", field="sg_status_list"):
+    """{code: count} — how often this show actually used each status recently.
+
+    probe 020 — one `_summarize` with `grouping` returns a count per distinct value for the price of
+    one call, so this is cheap enough to sit in a picker. The schema's order is alphabetical-ish and
+    says nothing about the show; what a person reaches for is what they reached for last month.
+    """
+    if not project_id:
+        return {}
+
+    def fetch():
+        since = (datetime.datetime.now(datetime.timezone.utc)
+                 - datetime.timedelta(days=int(days))).strftime("%Y-%m-%dT%H:%M:%SZ")
+        r = client().post(f"{route(entity_type)}/_summarize", headers=ARRAY_JSON, json={
+            "filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
+                        ["created_at", "greater_than", since]],
+            "summary_fields": [{"field": "id", "type": "count"}],
+            "grouping": [{"field": field, "type": "exact", "direction": "asc"}]})
+        if not r.ok:
+            return {}
+        return {g.get("group_value"): (g.get("summaries") or {}).get("id", 0)
+                for g in (r.json().get("data") or {}).get("groups", []) if g.get("group_value")}
+    return _cached(("status_usage", int(project_id), int(days), entity_type, field), fetch)
 
 
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
