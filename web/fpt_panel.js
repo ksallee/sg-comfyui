@@ -19,8 +19,9 @@ const CSS = `
 .fpt-caret { width: 9px; opacity: .6; transition: transform .12s; }
 .fpt-panel.collapsed .fpt-caret { transform: rotate(-90deg); }
 .fpt-panel.collapsed .fpt-body { display: none; }
-.fpt-title { font-weight: 600; color: #e8ebee; white-space: nowrap; overflow: hidden;
-             text-overflow: ellipsis; flex: 1; }
+.fpt-title { font-weight: 600; color: #e8ebee; overflow: hidden; text-overflow: ellipsis;
+             flex: 1; min-width: 0; }
+.fpt-lead { color: #7f868f; font-weight: 400; }
 .fpt-icon { width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; }
 .fpt-pill { padding: 1px 7px; border-radius: 9px; font-size: 10px; font-weight: 600;
             white-space: nowrap; }
@@ -234,7 +235,10 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         relayout();
         return;
       }
-      t.innerHTML = `${esc(d.code)} ${d.status && d.status.label ? badge(d.status) : ""}`;
+      // Say what the name IS. On the publish node it is the Version about to be created, and an
+      // unlabelled string in a header does not tell you that.
+      t.innerHTML = `<span class="fpt-lead">Version Name:</span> ${esc(d.code)} ${
+        d.status && d.status.label ? badge(d.status) : ""}`;
       const rows = [];
       if (d.link) rows.push(["link", d.link]);
       if (d.task) rows.push(["task", d.task]);

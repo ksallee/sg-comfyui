@@ -226,6 +226,14 @@ def valid_link_types(project_id=None, field="entity", entity_type="Version"):
 # A readable, selectable "no restriction". An empty string cannot be chosen back once you leave it —
 # a combo shows nothing to click — so the absence of a filter has to be a real option.
 ALL_TYPES = "(all types)"
+# An empty option cannot be chosen back once you leave it — a combo renders nothing to click — so
+# "no value" has to be a real, visible entry. Same reason as ALL_TYPES.
+NO_VALUE = "(none)"
+
+
+def unset(value):
+    """"" for anything that means no value, so callers never test for the label themselves."""
+    return "" if not value or value in (NO_VALUE, ALL_TYPES) else value
 PER_TYPE = 500       # a full list, capped so a pathological show cannot wedge the editor
 
 

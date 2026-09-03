@@ -21,7 +21,8 @@ AUTO = "auto"
 
 
 def _labels(pairs):
-    return [NONE] + [label for label, _ in pairs]
+    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    return [site.NO_VALUE] + [label for label, _ in pairs]
 
 
 def _id_for(pairs, label):
@@ -127,6 +128,7 @@ class FPTFetchVersion:
     @classmethod
     def _context(cls, project, link_type, link, task):
         """(project_id, link_type, link_id, task_id) — the 'where', without the 'which'."""
+        link, task = site.unset(link), site.unset(task)
         project_id = _id_for(site.projects(), project) or site.default_project()
         picked_type, picked_name = site.split_link(link)
         lt = picked_type or (site.chosen_types(link_type, project_id) or [""])[0]

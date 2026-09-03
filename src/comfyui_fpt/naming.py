@@ -128,6 +128,10 @@ def describe(template, regex, matched, total):
 # names they already know instead of a private token language.
 
 FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::(0\d+d))?\}")
+# Toolkit spells an optional key with square brackets, so a TD writing a template here writes the
+# same thing: [_{sg_task.Task.content}] disappears entirely when the task is not set, separator and
+# all, rather than leaving a stray underscore.
+OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
 LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
 
 DEFAULT_TEMPLATE = "{entity.code}_{output}_v{version:03d}"
@@ -139,9 +143,24 @@ def normalise_template(template):
 
 
 def template_fields(template):
-    """The paths a template needs, minus `version`, so a caller knows what to fetch."""
+    """The paths a template needs, minus `version`, so a caller knows what to fetch.
+
+    Optional blocks are included: whether they survive depends on the value, which is why the value
+    has to be looked up first.
+    """
     return [m.group(1) for m in FIELD_RE.finditer(normalise_template(template))
             if m.group(1) != "version"]
+
+
+def _drop_unfilled(template, values):
+    """Remove every [optional block] whose fields have no value, and unwrap the rest."""
+    def keep(m):
+        inner = m.group(1)
+        for f in FIELD_RE.finditer(inner):
+            if f.group(1) != "version" and not values.get(f.group(1)):
+                return ""
+        return inner
+    return OPTIONAL_RE.sub(keep, template)
 
 
 def render(template, values, version=None):
@@ -151,7 +170,7 @@ def render(template, values, version=None):
         if path == "version":
             return "" if version is None else str(int(version)).zfill(int(pad[1:-1]) if pad else 1)
         return str(values.get(path, "") or "")
-    out = FIELD_RE.sub(sub, normalise_template(template))
+    out = FIELD_RE.sub(sub, _drop_unfilled(normalise_template(template), values))
     # A missing middle token would otherwise leave a doubled or trailing separator.
     return re.sub(r"[_\-.]{2,}", "_", out).strip("_-.")
 
@@ -163,7 +182,10 @@ def template_regex(template, values):
     own history and nobody else's.
     """
     out, i = "", 0
+    # The matcher has to accept both shapes, since existing codes were written both ways.
     t = normalise_template(template)
+    t = OPTIONAL_RE.sub(lambda m: m.group(1), t) if _all_filled(t, values) else \
+        _drop_unfilled(t, values)
     for m in FIELD_RE.finditer(t):
         out += re.escape(t[i:m.start()])
         path, pad = m.group(1), m.group(2)
@@ -174,6 +196,11 @@ def template_regex(template, values):
             out += re.escape(str(v)) if v else r"[^_]*"
         i = m.end()
     return "^" + out + re.escape(t[i:]) + "$"
+
+
+def _all_filled(template, values):
+    return all(values.get(m.group(1)) for m in FIELD_RE.finditer(template)
+               if m.group(1) != "version" and OPTIONAL_RE.search(template))
 
 
 def next_version(codes, template, values):

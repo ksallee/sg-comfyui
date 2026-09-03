@@ -1,10 +1,15 @@
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./fpt_panel.js";
 
-const NONE = "";
+const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
 
 // Labels read `name (Type)` — the type is context, never part of what is searched.
+// "(none)" and "(all types)" are labels for the operator, never values for the site.
+function bare(v) {
+  return (!v || v === NONE || v === ALL_TYPES) ? "" : v;
+}
+
 function typeFromLabel(label) {
   const m = /\s\(([^()]+)\)$/.exec(label || "");
   return m ? m[1] : "";
@@ -23,7 +28,7 @@ async function get(url) {
 function setOptions(widget, labels, keep) {
   widget.options.values = [NONE].concat(labels);
   const wanted = keep ?? widget.value;
-  widget.value = widget.options.values.includes(wanted) ? wanted : NONE;
+  widget.value = widget.options.values.includes(wanted) ? wanted : widget.options.values[0];
 }
 
 // There is deliberately no search box of our own. ComfyUI's combo dropdown already searches, and a
@@ -56,8 +61,8 @@ app.registerExtension({
       const panel = addPanel(this, "Flow PT Publish", relayout);
       const preview = async () => {
         const q = new URLSearchParams({
-          project: project.value || "", link_type: linkTypeW?.value || "",
-          link: link.value || "", task: task?.value || "",
+          project: project.value || "", link_type: bare(linkTypeW?.value),
+          link: bare(link.value), task: bare(task?.value),
           code_template: w("code_template")?.value || "",
           output_name: w("output_name")?.value || "",
         });
@@ -210,7 +215,7 @@ function fetchPickers(nodeType) {
     const refresh = async () => {
       const q = new URLSearchParams({
         project_id: projectId, project: project.value || "",
-        link_type: linkTypeW?.value || "", link: link.value || "", task: task?.value || "",
+        link_type: bare(linkTypeW?.value), link: bare(link.value), task: bare(task?.value),
         name_contains: w("name_contains")?.value || "",
         newest_by: w("newest_by")?.value || "",
         pin_version_id: w("pin_version_id")?.value || 0,

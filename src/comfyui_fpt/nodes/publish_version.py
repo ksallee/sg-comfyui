@@ -21,7 +21,8 @@ def _png(frame):
 
 
 def _labels(pairs):
-    return [NONE] + [label for label, _ in pairs]
+    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    return [site.NO_VALUE] + [label for label, _ in pairs]
 
 
 def _id_for(pairs, label):
@@ -123,6 +124,7 @@ class FPTPublishVersion:
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
         # The type comes from what was picked, not from a profile default: Version.entity accepts 15
         # types and a show may use several at once.
+        link, task, status = site.unset(link), site.unset(task), site.unset(status)
         picked_type, picked_name = site.split_link(link)
         # The label's own type wins; the filter is only a way to shorten the list.
         link_type = (picked_type or (site.chosen_types(link_type, project_id) or [""])[0]
