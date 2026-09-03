@@ -212,25 +212,36 @@ function loadPickers(nodeType) {
       refresh();
     });
 
-    const refresh = async () => {
+    // Every resolve is numbered, and only the newest may write. Two requests are in flight whenever
+    // a widget is changed twice quickly, they can come back in either order, and the panel used to
+    // render whichever answered last — so it flickered through stale states before settling.
+    let resolving = 0;
+
+    // `over` carries the value the callback was handed. A widget's own .value is not always
+    // assigned yet when its callback fires (see `wrap`), so reading it here asked the site about
+    // the PREVIOUS status and rendered that answer as if it were current.
+    const refresh = async (over = {}) => {
+      const mine = ++resolving;
+      const val = (n) => (n in over ? over[n] : w(n)?.value);
       const q = new URLSearchParams({
         project_id: projectId, project: project.value || "",
-        link_type: bare(linkTypeW?.value), link: bare(link.value), task: bare(task?.value),
-        name_contains: w("name_contains")?.value || "",
-        newest_by: w("newest_by")?.value || "",
-        pin_version_id: w("pin_version_id")?.value || 0,
+        link_type: bare(linkTypeW?.value), link: bare(link.value), task: bare(val("task")),
+        name_contains: val("name_contains") || "",
+        newest_by: val("newest_by") || "",
+        pin_version_id: val("pin_version_id") || 0,
         // Only when it is an override. While the box is still mirroring, sending it back would let
         // its own (now stale) content win over the very fields it is meant to reflect.
         // String(): a workflow saved before this widget moved can land a number here, and a raw
         // .trim() on it takes the whole picker down.
-        filters: String(w("filters")?.value ?? "").trim() === mirrored.trim()
-          ? "" : String(w("filters")?.value ?? ""),
+        filters: String(val("filters") ?? "").trim() === mirrored.trim()
+          ? "" : String(val("filters") ?? ""),
       });
-      for (const s of String(statuses?.value || "").split(",")) {
+      for (const s of String(val("statuses") || "").split(",")) {
         const t = s.trim();
         if (t) q.append("statuses", t);
       }
       const d = await get(`/fpt/resolve?${q}`);
+      if (mine !== resolving) return;      // superseded while we waited; that answer is the current one
       panel.show(d);
       const box = w("filters");
       if (box && d.filters && String(box.value ?? "").trim() === mirrored) {
@@ -289,7 +300,7 @@ function loadPickers(nodeType) {
     wrap(linkTypeW, loadLinks);
     wrap(link, loadTasks);
     ["task", "name_contains", "statuses", "filters", "newest_by", "pin_version_id"].forEach((n) =>
-      wrap(w(n), refresh));
+      wrap(w(n), (value) => refresh({ [n]: value })));
 
     this.addWidget("button", "refresh from site", null, loadProject);
     loadProject();
