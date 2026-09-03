@@ -48,7 +48,9 @@ app.registerExtension({
       // The publish panel needs the same re-measure hook as the fetch one: without it nothing ever
       // resized the node, so the box kept whatever height it had when the graph loaded.
       const relayout = () => {
-        this.setSize(this.computeSize());
+        // Height only. computeSize() returns the node's MINIMUM for both dimensions, so passing it
+        // whole snapped the width to that minimum every time the panel re-measured.
+        this.setSize([this.size[0], this.computeSize()[1]]);
         app.graph.setDirtyCanvas(true, true);
       };
       const panel = addPanel(this, "Flow PT Publish", relayout);
@@ -195,7 +197,7 @@ function fetchPickers(nodeType) {
     const filterBox = w("filters");
     if (filterBox) filterBox.hidden = true;
     const relayout = () => {
-      this.setSize(this.computeSize());
+      this.setSize([this.size[0], this.computeSize()[1]]);   // height only; see the note above
       app.graph.setDirtyCanvas(true, true);
     };
 
