@@ -44,19 +44,19 @@
         "Node name for S&R": "FPTLoadVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
-        "Shot",
-        "sbx_0020 (Shot)",
-        "",
+        "(none)",
+        "(all types)",
+        "(none)",
+        "(none)",
         "depth",
-        "Approved",
+        "",
         "version number in the name",
         0,
         "auto",
         1,
         ""
       ],
-      "title": "Flow PT Load \u2014 newest Approved depth on this Shot"
+      "title": "Flow PT Load \u2014 newest depth on this link"
     },
     {
       "id": 2,
