@@ -84,6 +84,16 @@ def for_project(project_id=None):
     return out
 
 
+def provenance_map(project_id=None):
+    """(mapping, mode) — where this show wants each piece of provenance to land.
+
+    Per project like everything else here: one studio runs shows with different field conventions,
+    and a field one show uses for the seed may mean something else on the next.
+    """
+    block = for_project(project_id).get("provenance") or {}
+    return dict(block.get("map") or {}), block.get("mode") or "fields"
+
+
 def _cached(key, fetch):
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:

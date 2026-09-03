@@ -156,7 +156,13 @@ class FPTPublishVersion:
                     + lineage.for_nodes(upstream)):
             if vid not in src_ids:
                 src_ids.append(vid)
-        typed = {k: v for k, v in fpt_fields.values_for(prov, src_ids).items() if k in have}
+        # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
+        mapping, prov_mode = site.provenance_map(project_id)
+        routed, prov_lines = fpt_fields.route(prov, src_ids, mapping, prov_mode)
+        typed = {k: v for k, v in routed.items() if k in have}
+        # A target the operator named that this site does not have. Dropping it silently would hide
+        # a typo in their profile behind a Version that looks fine (corpus 028, loud and silent).
+        missing = sorted(set(routed) - set(have))
 
         # The template decides the name, rendered from the entity and task it is actually linked
         # to. A real version-number field is authoritative where the site has one (Toolkit sites
@@ -170,10 +176,15 @@ class FPTPublishVersion:
         for i, frame in enumerate(images):
             name = code if len(images) == 1 else f"{code}_{i + 1:02d}"
             fields = dict(typed)
-            # description is the human note. The full graph goes up as an attachment, so it stays
-            # readable; only a site with no provenance fields falls back to a blob here.
-            fields["description"] = note if typed else json.dumps(
-                {"note": note, "provenance": prov}, indent=2)
+            # description is the human note, plus whatever the operator routed into it. The full
+            # graph goes up as an attachment either way, so the blob fallback is only for a site
+            # that has no provenance fields and asked for nothing in the description.
+            if prov_lines:
+                fields["description"] = "\n".join(([note] if note else []) + prov_lines)
+            elif typed:
+                fields["description"] = note
+            else:
+                fields["description"] = json.dumps({"note": note, "provenance": prov}, indent=2)
             if status_code:
                 fields["sg_status_list"] = status_code
             if target:
@@ -199,7 +210,9 @@ class FPTPublishVersion:
 
         if attach_workflow and wf is None:
             published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
-        if not typed:
+        if missing:
+            published.append("mapped to fields this site does not have: " + ", ".join(missing))
+        if not typed and not prov_lines:
             published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
         # `text` keeps the plain readout ComfyUI shows anywhere; `published` is what the node's own
         # panel renders — the same run, described rather than printed.

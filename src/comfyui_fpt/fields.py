@@ -125,8 +125,69 @@ def available(fpt, entity_type="Version"):
     return {n for n in names().values() if n in schema}
 
 
-def values_for(prov, source_version_ids=()):
-    """Provenance -> {programmatic_name: value}, for every field this module defines.
+# What the graph knows, named as concepts rather than as fields. The operator decides where each
+# one lands (site.provenance_map); DEFAULT_MAP is only what happens when they have not said.
+DEFAULT_MAP = {
+    "generator":       "sg_ai_generator",
+    "model":           "sg_ai_model",
+    "prompt":          "sg_ai_prompt",
+    "negative_prompt": "sg_ai_negative_prompt",
+    "seed":            "sg_ai_seed",
+    "sampler":         "sg_ai_sampler",
+    "steps":           "sg_ai_steps",
+    "cfg":             "sg_ai_cfg",
+    "generated_from":  "sg_ai_generated_from",
+}
+DESCRIPTION = "description"
+CONCEPT_LABELS = {"generator": "made by", "model": "model", "prompt": "prompt",
+                  "negative_prompt": "negative prompt", "seed": "seed", "sampler": "sampler",
+                  "steps": "steps", "cfg": "cfg", "generated_from": "generated from"}
+
+
+def targets(mapping=None, mode="fields"):
+    """{concept: target} — the operator's decision, resolved once and read by everyone.
+
+    Target is a Version field, DESCRIPTION, or None for "do not record this". Shared with
+    /fpt/preview_publish so the panel shows where a value will actually land, not where this file
+    would have put it.
+    """
+    mapping = mapping or {}
+    fallback = DESCRIPTION if mode == DESCRIPTION else None
+    return {c: mapping.get(c, DEFAULT_MAP[c] if fallback is None else fallback) for c in DEFAULT_MAP}
+
+
+def route(prov, source_version_ids=(), mapping=None, mode="fields"):
+    """({field: value}, [readable line]) — where each concept the graph knows actually lands.
+
+    `mapping` is the operator's, from the profile: concept -> a Version field, DESCRIPTION, or None
+    to record it nowhere. A concept they did not name follows `mode`, which is the whole point of
+    having a mode: "put everything in the description" is one word, not nine null entries.
+
+    Nothing here consults the site. A target that does not exist is the caller's to report, because
+    silently dropping a field the operator explicitly asked for is the failure worth being loud about.
+    """
+    where = targets(mapping, mode)
+    fields, lines = {}, []
+    for concept, value in concepts(prov, source_version_ids).items():
+        target = where.get(concept)
+        if not target:
+            continue
+        if target == DESCRIPTION:
+            lines.append(f"{CONCEPT_LABELS.get(concept, concept)}: {_readable(concept, value)}")
+        else:
+            fields[target] = value
+    return fields, lines
+
+
+def _readable(concept, value):
+    """A concept as one line of prose. Only `generated_from` is not already a scalar."""
+    if concept == "generated_from":
+        return ", ".join(f'Version {v["id"]}' for v in value)
+    return str(value)
+
+
+def concepts(prov, source_version_ids=()):
+    """Provenance -> {concept: value}, before anything decides where it goes.
 
     Numeric fields take the LAST sampler: in a multi-sampler graph that is the one that produced the
     image being published. Text fields join every sampler, so nothing is lost. The full structure is
@@ -146,15 +207,15 @@ def values_for(prov, source_version_ids=()):
 
     client = prov.get("comfy_usage_source") or "unknown client"
     out = {
-        "sg_ai_generator": f"{prov.get('generator', 'ComfyUI')} ({client})",
-        "sg_ai_model": " | ".join(dict.fromkeys(m["name"] for m in prov.get("models", []))),
-        "sg_ai_prompt": join("positive"),
-        "sg_ai_negative_prompt": join("negative"),
-        "sg_ai_seed": join("seed"),          # text: 2**64 seeds overflow a number field (probe 019)
-        "sg_ai_sampler": join("sampler_name") + ("/" + join("scheduler") if join("scheduler") else ""),
-        "sg_ai_steps": last.get("steps"),
-        "sg_ai_cfg": last.get("cfg"),
+        "generator": f"{prov.get('generator', 'ComfyUI')} ({client})",
+        "model": " | ".join(dict.fromkeys(m["name"] for m in prov.get("models", []))),
+        "prompt": join("positive"),
+        "negative_prompt": join("negative"),
+        "seed": join("seed"),                # text: 2**64 seeds overflow a number field (probe 019)
+        "sampler": join("sampler_name") + ("/" + join("scheduler") if join("scheduler") else ""),
+        "steps": last.get("steps"),
+        "cfg": last.get("cfg"),
         # probe 019 — multi_entity round-trips {type, id} hashes and reads back under relationships.
-        "sg_ai_generated_from": [{"type": "Version", "id": int(i)} for i in source_version_ids],
+        "generated_from": [{"type": "Version", "id": int(i)} for i in source_version_ids],
     }
     return {k: v for k, v in out.items() if v not in (None, "", [])}
