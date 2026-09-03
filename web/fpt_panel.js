@@ -13,12 +13,10 @@ const CSS = `
              overflow: hidden; display: flex; flex-direction: column;
              box-sizing: border-box; width: 100%; height: 100%; }
 .fpt-panel * { box-sizing: border-box; }
-.fpt-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; cursor: pointer;
+/* The panel does not collapse. Folding it meant measuring the content mid-transition, which was the
+   root of three separate sizing bugs; the box simply sizes to what it holds. */
+.fpt-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px;
             background: #2b2f35; border-bottom: 1px solid #35393f; user-select: none; }
-.fpt-head:hover { background: #313640; }
-.fpt-caret { width: 9px; opacity: .6; transition: transform .12s; }
-.fpt-panel.collapsed .fpt-caret { transform: rotate(-90deg); }
-.fpt-panel.collapsed .fpt-body { display: none; }
 .fpt-title { font-weight: 600; color: #e8ebee; overflow: hidden; text-overflow: ellipsis;
              flex: 1; min-width: 0; }
 .fpt-lead { color: #7f868f; font-weight: 400; }
@@ -55,7 +53,6 @@ const CSS = `
    above this panel and cannot be moved below it, because widgets_values is positional. */
 .fpt-editor { display: none; border-top: 1px solid #35393f; padding: 6px 8px; flex: none; }
 .fpt-panel.editing .fpt-editor { display: block; }
-.fpt-panel.collapsed .fpt-editor { display: none; }
 .fpt-editor textarea { width: 100%; height: 144px; box-sizing: border-box; resize: none;
     font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; color: #cfd3d8;
     background: #1a1d21; border: 1px solid #3a4048; border-radius: 4px; padding: 5px 6px; }
@@ -141,10 +138,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   ensureCss();
   const root = document.createElement("div");
   root.className = "fpt-panel";
-  root.innerHTML = `<div class="fpt-head">
-      <svg class="fpt-caret" viewBox="0 0 10 10"><path d="M1 3l4 4 4-4" stroke="currentColor"
-        fill="none" stroke-width="1.6"/></svg>
-      <span class="fpt-title">${esc(title)}</span></div>
+  root.innerHTML = `<div class="fpt-head"><span class="fpt-title">${esc(title)}</span></div>
     <div class="fpt-body"></div>
     <div class="fpt-editor"><textarea spellcheck="false"></textarea></div>`;
   const head = root.querySelector(".fpt-head");
@@ -152,12 +146,6 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   // Kept outside the body so redrawing the readout cannot destroy it mid-edit.
   const editor = root.querySelector(".fpt-editor");
   const area = editor.querySelector("textarea");
-  // Every fold has to re-measure the node: hiding the content without that leaves the widget
-  // holding its old height and the box looks unchanged.
-  head.addEventListener("click", () => {
-    root.classList.toggle("collapsed");
-    relayout();
-  });
   // The SG Filters textarea is a declared widget and sits immediately above this panel, so its fold
   // control belongs here rather than in a button appended somewhere else on the node.
   body.addEventListener("click", (e) => {
@@ -171,7 +159,6 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   // as soon as it listed every field a publish writes — the box stayed small and the content scrolled
   // inside it, which no amount of widening the node could fix.
   const measure = () => {
-    if (root.classList.contains("collapsed")) return 26;
     const head_h = head.getBoundingClientRect().height || 26;
     const body_h = body.scrollHeight || 0;
     const edit_h = root.classList.contains("editing") ? editor.scrollHeight || 0 : 0;
@@ -270,7 +257,6 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       body.insertAdjacentHTML("beforeend",
         `<div class="fpt-sec">last run</div>` +
         [].concat(lines).map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
-      root.classList.remove("collapsed");
       relayout();
     },
     clearLog() {
