@@ -89,7 +89,11 @@ const CSS = `
   background: var(--color-component-node-widget-background, #23272d);
   border: 1px solid transparent; }
 .fpt-chip:hover { border-color: currentColor; }
-.fpt-chip.on { color: #10131a; background: #cfd6de; font-weight: 600; }
+/* Never font-weight: a bolder label is a wider chip, so picking one reflowed the row under the
+   cursor and the next chip moved out from under the pointer. text-shadow thickens the same glyphs
+   at the same metrics; the inversion and the tick are what say "chosen" anyway. */
+.fpt-chip.on { color: #10131a; background: #cfd6de;
+  text-shadow: 0 0 .3px currentColor, 0 0 .3px currentColor; }
 .fpt-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
 /* The stock icons are one sheet cropped by background-position (recipe 010). Scaled to the chip's
@@ -136,6 +140,41 @@ export function advancedWidget(widget) {
   return widget;
 }
 
+/** How many lines a multiline widget shows.
+ *
+ * `rows` in INPUT_TYPES does not reach it: Nodes 2.0 builds a `customtext` with its own options
+ * object and copies nothing from the spec. Set here it does, because WidgetTextarea v-binds every
+ * option it is not told to drop straight onto the `<textarea>`, and the element's height is `auto`
+ * against an auto-height row — so `rows` decides it, floored by the stock `min-h-16`.
+ *
+ * `getMinHeight` is NOT the lever, whatever a DOM widget's options suggest: it is read by
+ * BaseDOMWidget.computeLayoutSize, which Nodes 2.0 never calls for a widget it renders itself. The
+ * note sat at 64px — the height of a name field — for as long as that was the mechanism.
+ */
+export function textRows(widget, rows) {
+  if (!widget) return widget;
+  widget.options = widget.options || {};
+  widget.options.rows = rows;
+  return widget;
+}
+
+/** Restore a saved value onto a declared widget, and leave the editor able to recognise it.
+ *
+ * A combo whose value is in no option draws a red invalid ring — `WidgetSelectDefault.isInvalid` is
+ * exactly "there is a value and nothing in the list matches it". Every combo on these nodes is
+ * seeded for the default project and repopulated per project one round trip later, so a saved
+ * graph's `task` arrives before its list does; the ring then stayed on for the rest of the session,
+ * because the Vue component reads the options when it builds and a later `options.values = […]`
+ * never reached it. Widening the list is the same thing VALIDATE_INPUTS does on the server: accept
+ * the value the operator legitimately picked, whatever the class declared at load time.
+ */
+export function restoreValue(widget, value) {
+  if (!widget) return;
+  widget.value = value;
+  const vals = widget.options?.values;
+  if (Array.isArray(vals) && !vals.includes(value)) widget.options.values = vals.concat([value]);
+}
+
 /** Keep a widget of ours out of `widgets_values`.
  *
  * `addDOMWidget(…, {serialize: false})` does NOT do this: both the save and the restore test
@@ -166,13 +205,15 @@ export function restoreDeclaredWidgets(nodeType) {
     const named = info && info.widgets_values_named;
     if (named) {
       for (const w of widgets) {
-        if (w.serialize !== false && w.name in named) w.value = named[w.name];
+        if (w.serialize !== false && w.name in named) restoreValue(w, named[w.name]);
       }
       return;
     }
     const vals = info && info.widgets_values;
     if (!Array.isArray(vals)) return;
-    widgets.forEach((w, i) => { if (w.serialize !== false && i < vals.length) w.value = vals[i]; });
+    widgets.forEach((w, i) => {
+      if (w.serialize !== false && i < vals.length) restoreValue(w, vals[i]);
+    });
   };
 }
 

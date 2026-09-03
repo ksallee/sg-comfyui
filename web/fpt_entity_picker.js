@@ -1,7 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./fpt_panel.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets } from "./fpt_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows } from "./fpt_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -83,8 +83,7 @@ function publishPickers(nodeType) {
     for (const name of DECLARED) {
       const v = byName[name];
       if (v === undefined || v === null) continue;   // a hole is not a value
-      const x = this.widgets?.find((y) => y.name === name);
-      if (x) x.value = v;
+      restoreValue(this.widgets?.find((y) => y.name === name), v);
     }
   };
 
@@ -98,7 +97,7 @@ function publishPickers(nodeType) {
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), link = w("link"), task = w("task"), status = w("status");
 
-    let projectId = 0, linkIds = {}, statusMeta = {};
+    let projectId = 0, linkIds = {}, statusMeta = {}, projectRows = [];
     let linkType = "Shot";   // per project, from /fpt/profile; never assumed (probe 005)
     const typeOf = (label) => typeFromLabel(label) || linkType;
 
@@ -107,14 +106,8 @@ function publishPickers(nodeType) {
     // measures the rendered DOM instead.
     const relayout = () => fitNode(this);
 
-    // A note is prose someone types, and the stock textarea's floor is the height of a name field,
-    // which is what it read as. getMinHeight is the frontend's own hook (computeLayoutSize) and the
-    // one dimension INPUT_TYPES has no way to ask for.
-    const note = w("note");
-    if (note) {
-      note.options = note.options || {};
-      note.options.getMinHeight = () => 96;
-    }
+    // Prose, not a name: five lines rather than the stock two-and-a-floor.
+    textRows(w("note"), 5);
 
     const panel = addPanel(this, "Flow PT Publish", relayout);
     // The status the operator picked, drawn the way Flow PT draws it (probe 010). The panel has
@@ -168,9 +161,11 @@ function publishPickers(nodeType) {
         // link came back as a bare "Shot" and read like a decision that had been made.
         link: bare(link?.value) ? d.link : "",
         status: statusOf(status?.value), echo,
+        // Why the name is not the name a Run would write. Never folded — the name is the readout.
+        alert: d.alert || "",
         // The reason lives in the fold now, so the pill has to carry it: a publish that cannot read
         // its provenance, or that would drop a mapped value, is not VALID however good the name is.
-        state: (error || missing) ? "warn" : "ok",
+        state: (error || missing || d.alert) ? "warn" : "ok",
         why: error ? `provenance could not be read: ${error}`
           : missing ? `${missing} mapped field(s) missing on this site — struck through below`
           : "this is what the next Run will create",
@@ -215,11 +210,19 @@ function publishPickers(nodeType) {
       empty: "no project here matches those words",
       search: async (q) => {
         const d = await get("/fpt/projects");
+        projectRows = d.items || [];
         const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
         const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
-        return (d.items || []).filter((x) => terms.every((t) => hay(x).includes(t))).map(asCard);
+        return projectRows.filter((x) => terms.every((t) => hay(x).includes(t))).map(asCard);
       },
     });
+    // The picked project's own row, so the trigger carries the thumbnail the popup showed. Without
+    // it `refresh()` redraws the name alone and the show you are publishing into is the one place
+    // on the node with no picture.
+    const projectCard = () => {
+      const row = projectRows.find((x) => x.label === project.value);
+      return row && asCard(row);
+    };
 
     // The declared combo keeps the value; the picker is what the operator uses. Search is server
     // side (probe 017 `contains`), so two words find one entity out of thousands and each option
@@ -260,6 +263,7 @@ function publishPickers(nodeType) {
 
     const loadProject = async (picked) => {
       const d = await get("/fpt/projects");
+      projectRows = d.items || [];
       // Read AFTER the fetch: ComfyUI applies a saved workflow's widget values while this is in
       // flight, so a value captured before the await is stale and writing it back reverts the node
       // to the default project — which then needs a manual click or two to correct.
@@ -275,7 +279,7 @@ function publishPickers(nodeType) {
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
         setOptions(status, s.items.map((x) => x.label));
       }
-      projectPick.refresh();
+      projectPick.refresh(projectCard());
       await loadLinks();
     };
 
@@ -321,6 +325,9 @@ function loadPickers(nodeType) {
     // Wide enough for `label | control` plus the readout's two columns. The stock 210px default put
     // every provenance label on its own wrapped line.
     if (this.size[0] < 380) this.size[0] = 380;
+    // The filter it mirrors is a dozen lines of JSON; the stock floor showed three and hid the rest
+    // behind `overflow-hidden`. Anything longer still scrolls, which is the frontend's own answer.
+    textRows(w("filters"), 10);
 
     let projectId = 0, linkIds = {}, projectRows = [];
     // The SG Filters box mirrors the pickers until someone edits it, then it is theirs. Comparing

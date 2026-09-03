@@ -109,6 +109,8 @@ class FPTLoadVersion:
                 # The API's own language, for when the fields here cannot say it. Empty means the
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
+                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
+                # built with an options object of its own and copies nothing from this spec.
                 "filters": ("STRING", {"default": "", "multiline": True,
                             "display_name": "SG Filters",
                             # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A

@@ -26,6 +26,7 @@ Consequences you have to respect:
 | `hideWidget(widget)` | hide a declared widget (`hidden` **and** `options.hidden`) |
 | `advancedWidget(widget)` | put a widget inside the editor's own "Show advanced inputs" fold |
 | `dontSerialize(widget)` | keep an injected widget out of `widgets_values` |
+| `restoreValue(widget, value)` | set a saved value **and** keep it selectable, so no red ring |
 | `restoreDeclaredWidgets(nodeType)` | chain an `onConfigure` that re-applies saved values correctly |
 | `domRow(node, name, {label, control, target})` | the raw row, for anything not a picker |
 | `fitNode(node)` | set `node.size` from what the node actually renders |
@@ -71,6 +72,18 @@ fold shut — and never served the case it was for, because dragging a node tall
 through `fitNode`. The node sizes to its content; surplus from a manual drag sits at the bottom, the
 way it does on every other node.
 
+### `restoreValue(widget, value)`
+
+Sets the value, then appends it to `options.values` if the list does not already hold it. Use it
+anywhere a saved graph's value lands on a combo — `restoreDeclaredWidgets` does.
+
+Every combo here is seeded for the default project at load and repopulated per project one round
+trip later, so a saved graph's `task` arrives before its list does. `WidgetSelectDefault.isInvalid`
+is "there is a value and nothing in the list matches", and it draws `ring-1
+ring-destructive-background` — a red ring that then stayed on for the rest of the session, because
+the Vue component reads the options when it builds and a later `options.values = […]` never reached
+it. Widening the list is what `VALIDATE_INPUTS` already does on the server.
+
 ### `advancedWidget(widget)`
 
 Sets `advanced` **and** `options.advanced`, the pair `hideWidget` sets for `hidden`.
@@ -112,7 +125,7 @@ the setting: that changes the operator's whole editor.
 | where | what is in it |
 |---|---|
 | head, always | the Version's name, its status pill, the state pill |
-| body, always | an error; why nothing resolved and what IS there; `d.provenance`, `d.facts`, `d.generated_from`; the last run's log |
+| body, always | an error; `d.alert`; why nothing resolved and what IS there; `d.provenance`, `d.facts`, `d.generated_from`; the last run's log |
 | the fold | `d.link`, `d.task`, `d.echo`, `d.why`, `d.sources`, `d.fields` and `d.uploads` |
 
 The line is what a widget already answers. `link`, `task` and everything in `d.echo` are the node's
@@ -120,10 +133,18 @@ own combos read back — three rows higher, in the operator's own words — so t
 them is noise where the name is supposed to be the signal. `d.facts` is what only the site knows
 about this Version and stays in front of them.
 
+`d.alert` is the exception that never folds: one amber line saying the name above it is **not** the
+name a Run would write. `/fpt/preview_code` answers it — a template renders what it can and drops
+the rest, so a collapsed `v004` and a finished `sbx_0020_depth_v008` look equally settled.
+
 `show(d)` honours an explicit `d.state` of `"ok" | "warn" | "loading"`, which overrides the guess
 made from `d.error` / `d.id`. It has to: `why` lives in the fold now, so a publish that cannot read
 its provenance, or that would drop a value mapped to a field this site does not have, is only ever
 said by the pill.
+
+Both readout boxes are separate widgets and therefore separate grids: their label columns are
+floored to the same 9ch so they roughly agree, but only one grid across both would line them up
+exactly, and a DOM widget cannot span two rows of the node's own grid.
 
 ## `/fpt/projects`
 

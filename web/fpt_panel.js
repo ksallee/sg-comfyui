@@ -52,13 +52,19 @@ const CSS = `
 /* The row wrapper stays in the markup but hands its children to the grid. */
 .fpt-row { display: contents; }
 .fpt-body > .fpt-sec, .fpt-body > .fpt-why, .fpt-body > .fpt-filter,
-.fpt-body > .fpt-dim, .fpt-body > .fpt-err, .fpt-body > .fpt-ok,
+.fpt-body > .fpt-dim, .fpt-body > .fpt-err, .fpt-body > .fpt-ok, .fpt-body > .fpt-alert,
 .fpt-body > .fpt-full, .fpt-body > .fpt-v:only-child { grid-column: 1 / -1; }
 /* Wrap rather than nowrap: once the column is capped a long name has to fold, and folding loses
    nothing where truncating would. */
-.fpt-k { color: #7f868f; overflow-wrap: anywhere; }
+/* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
+   a width so a site's own field names still widen the column. The two boxes are two widgets and so
+   two grids — only one grid across both would line them up exactly — but with the same floor they
+   agree wherever the fold holds nothing longer, instead of sitting six characters apart. */
+.fpt-k { color: #7f868f; overflow-wrap: anywhere; min-width: 10ch; }
 .fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
+/* Not grey: this one says the name above it is not the name a Run would write. */
+.fpt-alert { color: #e0b155; }
 .fpt-sec { color: #7f868f; text-transform: uppercase; letter-spacing: .06em; font-size: 9px;
            border-top: 1px solid #35393f; padding-top: 5px; margin-top: 1px; }
 .fpt-ok { color: #7fd18b; }
@@ -279,7 +285,10 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
       for (const f of d.facts || []) rows.push([f.label, f.value]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
-      body.innerHTML = plain(rows);
+      // The one line that never folds: what is wrong with the name directly above it. A template
+      // renders what it can and drops the rest, so a collapsed `v004` and a finished
+      // `sbx_0020_depth_v008` look equally settled — and the name is the whole readout now.
+      body.innerHTML = (d.alert ? `<div class="fpt-alert">${esc(d.alert)}</div>` : "") + plain(rows);
       // `link` and `task` are the node's own combos read back. So is everything in `d.echo`. `why`
       // is the reasoning behind a name the operator can already see, and the writes block is the
       // nine concepts that are the same every publish — all of it configuration-time reading.

@@ -77,6 +77,8 @@ class FPTPublishVersion:
                                 "tooltip": "What this stream is — depth, normals, mask. Fills "
                                            "{output} in the name template, so it is part of the "
                                            "Version's name."}),
+                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
+                # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
                                     "placeholder": "what a person should know about this version",
                                     "tooltip": "Human note, written to description. Provenance is "
