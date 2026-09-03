@@ -1,6 +1,7 @@
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./fpt_panel.js";
-import { searchPicker, chipSelect, hideWidget } from "./fpt_dom_widgets.js";
+import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
+         restoreDeclaredWidgets } from "./fpt_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -201,47 +202,60 @@ app.registerExtension({
 // Load node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
 // and what made it — resolved by the node's own code, so the preview cannot disagree with the run.
 function loadPickers(nodeType) {
+  restoreDeclaredWidgets(nodeType);
   const onCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
     onCreated?.apply(this, arguments);
+
+    if (!requireVueNodes(this)) return;
 
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), linkTypeW = w("link_type"), link = w("link"), task = w("task");
     const source = w("source"), statuses = w("statuses");
     if (!project || !link) return;
 
-    let projectId = 0, linkIds = {};
+    // Wide enough for `label | control` plus the readout's two columns. The stock 210px default put
+    // every provenance label on its own wrapped line.
+    if (this.size[0] < 380) this.size[0] = 380;
+
+    let projectId = 0, linkIds = {}, projectRows = [];
     // The SG Filters box mirrors the pickers until someone edits it, then it is theirs. Comparing
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
     let mirrored = "";
 
-    const relayout = () => {
-      this.setSize([this.size[0], this.computeSize()[1]]);   // height only; see the note above
-      app.graph.setDirtyCanvas(true, true);
-    };
+    const relayout = () => fitNode(this);
 
     // Same control for the show as for the thing in it. A studio site has hundreds of projects and
     // the combo made you scroll them; two words narrow it the way they narrow everything else here.
+    // Rows carry the project's thumbnail and code, which is how a show is recognised in Flow PT's
+    // own UI — `image` is a presigned URL re-signed on every read (field_types/image).
     hideWidget(project);
+    const asCard = (x) => ({ name: x.label, code: x.code || "", image: x.image || "", value: x.label });
     const projectPick = searchPicker(this, project, {
-      label: "Project",
+      label: "project",
       placeholder: "search projects",
+      empty: "no project here matches those words",
       search: async (q) => {
         const d = await get("/fpt/projects");
+        projectRows = d.items || [];
         const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
-        return (d.items || [])
-          .filter((x) => terms.every((t) => x.label.toLowerCase().includes(t)))
-          .map((x) => ({ name: x.label, type: "", value: x.label }));
+        const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
+        return projectRows.filter((x) => terms.every((t) => hay(x).includes(t))).map(asCard);
       },
       onPick: (it) => loadProject(it.value),
     });
+    const projectCard = () => {
+      const row = projectRows.find((x) => x.label === project.value);
+      return row && asCard(row);
+    };
 
     // The declared combo keeps the value; the picker is what the operator actually uses. Server-side
     // search means two words match two words — the combo could only filter the page it already had.
     hideWidget(link);
     const linkPick = searchPicker(this, link, {
-      label: "Link",
+      label: "link",
       placeholder: "search links — `gir rul` finds giraffe_ruler",
+      empty: "nothing on this project matches those words",
       search: async (q) => {
         const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
           ? `&type=${encodeURIComponent(linkTypeW.value)}` : "";
@@ -257,6 +271,8 @@ function loadPickers(nodeType) {
     // one has to type a label exactly right.
     hideWidget(statuses);
     const statusChips = statuses && chipSelect(this, statuses, {
+      label: "statuses",
+      empty: "this project offers no statuses",
       load: async () => (await get(`/fpt/statuses?project_id=${projectId}`)).items || [],
     });
 
@@ -331,6 +347,7 @@ function loadPickers(nodeType) {
 
     const loadProject = async (picked) => {
       const d = await get("/fpt/projects");
+      projectRows = d.items || [];
       const chosen = picked ?? project.value;   // after the await; the widget value lags
       projectId = (d.items.find((x) => x.label === chosen) || {}).id || 0;
       setOptions(project, d.items.map((x) => x.label), chosen);
@@ -340,7 +357,7 @@ function loadPickers(nodeType) {
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
       }
-      projectPick.refresh();
+      projectPick.refresh(projectCard());
       statusChips?.reload();
       await loadLinks();
     };
@@ -363,7 +380,7 @@ function loadPickers(nodeType) {
     ["task", "name_contains", "statuses", "newest_by", "pin_version_id"].forEach((n) =>
       wrap(w(n), (value) => refresh({ [n]: value })));
 
-    this.addWidget("button", "refresh from site", null, loadProject);
+    dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
     loadProject();
   };
 }

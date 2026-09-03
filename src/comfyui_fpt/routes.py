@@ -33,7 +33,13 @@ def register():
 
     @routes.get("/fpt/projects")
     async def projects(request):
-        return pairs(site.projects)
+        """label and id as everywhere else, plus what a picker row draws: code and thumbnail."""
+        try:
+            return web.json_response({"items": [
+                {"label": p["name"], "id": p["id"], "code": p["code"], "image": p["image"]}
+                for p in site.project_cards()]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": str(e)[:200]})
 
     @routes.get("/fpt/link_types")
     async def link_types(request):
@@ -249,10 +255,13 @@ def register():
                     "note": note,
                 })
             # The rest of the Version, which is not provenance but is still what gets written.
+            # site.unset(): "(none)" and "(all types)" are labels for the operator, and printing one
+            # as a value made the readout say `sg_status_list (none)` where it means "left unset".
+            status, link, task = (site.unset(w.get(k)) for k in ("status", "link", "task"))
             plain = [("description", w.get("note") or "", "the note below"),
-                     ("sg_status_list", w.get("status") or "", "" if w.get("status") else "left unset"),
-                     ("entity", w.get("link") or "", "" if w.get("link") else "not linked"),
-                     ("sg_task", w.get("task") or "", "" if w.get("task") else "no task")]
+                     ("sg_status_list", status, "" if status else "left unset"),
+                     ("entity", link, "" if link else "not linked"),
+                     ("sg_task", task, "" if task else "no task")]
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
