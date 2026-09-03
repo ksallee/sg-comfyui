@@ -114,6 +114,7 @@ app.registerExtension({
       // show with thousands of Shots never has that page.
       hideWidget(link);
       const linkPick = searchPicker(this, link, {
+        label: "Link",
         placeholder: "search links — `gir rul` finds giraffe_ruler",
         search: async (q) => {
           const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
@@ -214,21 +215,32 @@ function loadPickers(nodeType) {
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
     let mirrored = "";
 
-    // The declared `filters` widget stays hidden for good and only carries the value: a widget can
-    // only render where INPUT_TYPES puts it, which is above this panel, and it cannot be moved below
-    // because widgets_values is positional. The editable box lives inside the panel instead, under
-    // the readout it belongs to, where its height is ours to choose.
-    const filterBox = w("filters");
-    hideWidget(filterBox);
     const relayout = () => {
       this.setSize([this.size[0], this.computeSize()[1]]);   // height only; see the note above
       app.graph.setDirtyCanvas(true, true);
     };
 
+    // Same control for the show as for the thing in it. A studio site has hundreds of projects and
+    // the combo made you scroll them; two words narrow it the way they narrow everything else here.
+    hideWidget(project);
+    const projectPick = searchPicker(this, project, {
+      label: "Project",
+      placeholder: "search projects",
+      search: async (q) => {
+        const d = await get("/fpt/projects");
+        const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+        return (d.items || [])
+          .filter((x) => terms.every((t) => x.label.toLowerCase().includes(t)))
+          .map((x) => ({ name: x.label, type: "", value: x.label }));
+      },
+      onPick: (it) => loadProject(it.value),
+    });
+
     // The declared combo keeps the value; the picker is what the operator actually uses. Server-side
     // search means two words match two words — the combo could only filter the page it already had.
     hideWidget(link);
     const linkPick = searchPicker(this, link, {
+      label: "Link",
       placeholder: "search links — `gir rul` finds giraffe_ruler",
       search: async (q) => {
         const t = (linkTypeW && linkTypeW.value !== ALL_TYPES)
@@ -249,10 +261,6 @@ function loadPickers(nodeType) {
     });
 
     const panel = addPanel(this, "Flow PT Load", relayout);
-    panel.editor((text) => {
-      if (filterBox) filterBox.value = text;
-      refresh();
-    });
 
     // Every resolve is numbered, and only the newest may write. Two requests are in flight whenever
     // a widget is changed twice quickly, they can come back in either order, and the panel used to
@@ -282,15 +290,18 @@ function loadPickers(nodeType) {
         const t = s.trim();
         if (t) q.append("statuses", t);
       }
+      panel.loading();
       const d = await get(`/fpt/resolve?${q}`);
       if (mine !== resolving) return;      // superseded while we waited; that answer is the current one
       panel.show(d);
       const box = w("filters");
       if (box && d.filters && String(box.value ?? "").trim() === mirrored) {
-        mirrored = JSON.stringify(d.filters, null, 1);
-        box.value = mirrored;
+        const next = JSON.stringify(d.filters, null, 1);
+        if (next !== mirrored) {          // only when it actually changed; a no-op write still
+          mirrored = next;                // notifies under the Vue value store
+          box.value = next;
+        }
       }
-      panel.setFilterText(String(box?.value ?? ""));
       if (source) {
         source.options.values = ["auto"].concat(d.media || []);
         if (!source.options.values.includes(source.value)) source.value = "auto";
@@ -329,6 +340,7 @@ function loadPickers(nodeType) {
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
       }
+      projectPick.refresh();
       statusChips?.reload();
       await loadLinks();
     };
@@ -345,7 +357,10 @@ function loadPickers(nodeType) {
     wrap(project, loadProject);
     wrap(linkTypeW, loadLinks);
     wrap(link, loadTasks);
-    ["task", "name_contains", "statuses", "filters", "newest_by", "pin_version_id"].forEach((n) =>
+    // `filters` is deliberately absent. refresh writes it (`box.value = mirrored`), and wrapping it
+    // made that write call refresh again — 7 resolves every 6 seconds at idle, one always in flight,
+    // so the panel could never leave "loading".
+    ["task", "name_contains", "statuses", "newest_by", "pin_version_id"].forEach((n) =>
       wrap(w(n), (value) => refresh({ [n]: value })));
 
     this.addWidget("button", "refresh from site", null, loadProject);

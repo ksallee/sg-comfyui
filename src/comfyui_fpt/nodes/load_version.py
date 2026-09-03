@@ -66,11 +66,11 @@ class FPTLoadVersion:
         project_id = site.default_project()
         statuses = site.statuses(project_id)
         return {
+            # Order is the order they are read: which show, which thing, which task, which state.
+            # Everything else is behind the advanced fold — it is the rule's fine print, not the rule.
             "required": {
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id)}),
-                "link_type": (site.link_type_choices(project_id),
-                              {"tooltip": "Restrict the list below to one type."}),
                 "link": (_labels([(l, i) for l, _, i in site.links(project_id)]),
                          {"tooltip": "What to read from. Empty searches the whole project."}),
             },
@@ -80,9 +80,6 @@ class FPTLoadVersion:
                 # ComfyUI refuse to run the graph.
                 "task": ([site.NO_VALUE], {"tooltip": "Narrow to one Task on that entity. Optional — probe "
                                              "005 found sg_task filled on 1% of Versions."}),
-                "name_contains": ("STRING", {"default": "",
-                                  "tooltip": "Words that must ALL appear in the Version name, as in "
-                                             "the Flow PT UI: `depth v0` matches both."}),
                 # Several statuses, any of which will do. There is no "approved" concept in Flow PT —
                 # the codes differ per project (probe 009), so the operator names this project's.
                 #
@@ -95,17 +92,20 @@ class FPTLoadVersion:
                              "tooltip": "Any of these will do; empty means any status. Comma "
                                         "separated. This project allows: "
                                         + ", ".join(l for l, _ in statuses)}),
+                "name_contains": ("STRING", {"default": "",
+                                  "tooltip": "Words that must ALL appear in the Version name, as in "
+                                             "the Flow PT UI: `depth v0` matches both.", "advanced": True}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
-                                         "but older by intent."}),
+                                         "but older by intent.", "advanced": True}),
                 "pin_version_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
                                    "tooltip": "Escape hatch: this exact Version, ignoring the rule. "
-                                              "0 means resolve by the rule above."}),
+                                              "0 means resolve by the rule above.", "advanced": True}),
                 "source": ([AUTO], {"default": AUTO,
                                     "tooltip": "Which media to pull. `auto` takes the best this "
-                                               "Version can actually deliver."}),
+                                               "Version can actually deliver.", "advanced": True}),
                 "frame": ("INT", {"default": 1, "min": 1, "max": 1048576,
-                                  "tooltip": "Frame to read from a sequence or a movie."}),
+                                  "tooltip": "Frame to read from a sequence or a movie.", "advanced": True}),
                 # The API's own language, for when the fields here cannot say it. Empty means the
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
