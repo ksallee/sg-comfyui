@@ -135,6 +135,7 @@ FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
 # same thing: [_{sg_task.Task.content}] disappears entirely when the task is not set, separator and
 # all, rather than leaving a stray underscore.
 OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
+FRAME_SUFFIX = r"(?:_\d{2,})?"   # publish_version appends `_01` per frame of a batch
 LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
 
 DEFAULT_TEMPLATE = "{entity.code}_{output}_v{version:03d}"
@@ -231,7 +232,11 @@ def template_regex(template, values):
             v = values.get(path)
             out += re.escape(str(v)) if v else r"[^_]*"
         i = m.end()
-    return "^" + out + re.escape(t[i:]) + "$"
+    # A batch publishes one Version per frame and appends `_01`, `_02` ... to the rendered code
+    # (publish_version), which no longer matches the convention that produced it. Anchored strictly,
+    # a re-run then counts zero previous versions and mints v001 on top of the run already there.
+    # The suffix is ours, so the matcher has to know about it.
+    return "^" + out + re.escape(t[i:]) + FRAME_SUFFIX + "$"
 
 
 def _all_filled(template, values):
