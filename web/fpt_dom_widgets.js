@@ -211,9 +211,16 @@ export function restoreDeclaredWidgets(nodeType) {
     }
     const vals = info && info.widgets_values;
     if (!Array.isArray(vals)) return;
-    widgets.forEach((w, i) => {
-      if (w.serialize !== false && i < vals.length) restoreValue(w, vals[i]);
-    });
+    // The array holds ONLY the serializable widgets, so it must be walked with its own counter.
+    // Indexing it by the position in `widgets` shifts every value by the number of pickers above
+    // it — on the shipped load_demo that put "auto" in name_contains and "" in pin_version_id,
+    // which ComfyUI then refused to queue.
+    let k = 0;
+    for (const w of widgets) {
+      if (w.serialize === false) continue;
+      if (k < vals.length) restoreValue(w, vals[k]);
+      k += 1;
+    }
   };
 }
 

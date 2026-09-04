@@ -48,8 +48,8 @@ def attach_json(fpt, version_id, obj, filename):
 
 def resolve_entity(fpt, entity_type, project_id, name, field="code"):
     """A dropdown carries names; Flow PT links want {type, id} (probe 012). One explicit lookup."""
-    from .site import entity_route
-    r = fpt.get(entity_route(entity_type), params={
+    from .site import route
+    r = fpt.get(route(entity_type), params={
         "filter[project.Project.id]": int(project_id),
         f"filter[{field}]": name, "fields": field, "page[size]": 2,
     })
