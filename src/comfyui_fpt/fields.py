@@ -198,9 +198,14 @@ def concepts(prov, source_version_ids=()):
     Numeric fields take the LAST sampler: in a multi-sampler graph that is the one that produced the
     image being published. Text fields join every sampler, so nothing is lost. The full structure is
     attached as JSON regardless — these fields are the queryable summary, not the record of truth.
+
+    Prompt comes from `prov["prompts"]`, not from the samplers, because half of these graphs never
+    sample: "the actor" told a segmentation graph what to cut and is the same concept as "what to
+    generate" — the words the artist gave the model. One field, one query. See DESIGN.md.
     """
     samplers = prov.get("samplers") or []
     last = samplers[-1] if samplers else {}
+    prompts = prov.get("prompts") or {}
 
     def join(key):
         seen = []
@@ -215,8 +220,8 @@ def concepts(prov, source_version_ids=()):
     out = {
         "generator": f"{prov.get('generator', 'ComfyUI')} ({client})",
         "model": " | ".join(dict.fromkeys(m["name"] for m in prov.get("models", []))),
-        "prompt": join("positive"),
-        "negative_prompt": join("negative"),
+        "prompt": " | ".join(prompts.get("positive") or []),
+        "negative_prompt": " | ".join(prompts.get("negative") or []),
         "seed": join("seed"),                # text: 2**64 seeds overflow a number field (probe 019)
         "sampler": join("sampler_name") + ("/" + join("scheduler") if join("scheduler") else ""),
         "steps": last.get("steps"),
