@@ -64,6 +64,30 @@ denylist, which would have counted the new `VIDEO` input as a widget.
 its own notes argue for publishing the clip. Wiring its `CreateVideo` into `video` changes what that
 demo publishes and its .md records a past run, so it wants a decision, not a rewrite.
 
+### One clean run does not exist yet — audited 2026-09-04
+
+Every demo has a Version. Almost none has a PublishedFile:
+
+| entity | Versions | PublishedFiles |
+|---|---|---|
+| `demo_01_roto` | v004, v005, v006 | 6869, 6870 — frames |
+| `pf_seq` (a fixture, not a demo) | v001-v003 | frames **and** movie — 6838, 6841, 6844 |
+| `demo_02_passes`, `03`, `04`, `05`, `06`, `07` | one each | **none** |
+
+So the demos have published *review media* end to end and never a *deliverable*, because
+`register_files` was off. Half of what the node is for is unexercised on six of seven demos.
+
+Still untested end to end, and each of these is a real gap rather than a nicety:
+
+- **PublishedFiles for 02-07.**
+- **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
+- **`FPTLoadVersion`, the round trip** — `round_trip.json` exists as a fixture and was not run.
+- **`/track-workflow`** — the actual product feature. Never run against a real graph.
+- **A browser-submitted publish** — `EXTRA_PNGINFO` is never sent by API submission, so the workflow
+  attachment has never been verified the way an operator would produce it.
+- **The trim guard** — reasoned from ComfyUI source, never measured against a trimmed clip.
+- **`register_movie` on the new node** — it worked on `pf_seq` under the old one.
+
 ### Machine state, not in git
 
 - ComfyUI runs from `~/dev/ComfyUI`, port 8188:
@@ -333,10 +357,15 @@ decision has not been written down.
 
 Dependencies are real: nothing that touches the node should start before the running agent reports.
 
-1. **Publish node, two inputs** — **done, and published for real.** Version 31874 and 31875 in the
-   sandbox: `save_to()` encoded the review clip, `poster()` made the thumbnail, `upload_file`
-   streamed it, and `write_frames` -> `place` -> PublishedFile 6869 registered the sequence under
-   `/Volumes/FPT`. Every part of the upload path that had never run has now run.
+1. **Publish node, two inputs** — **done, and published through the new contract.** Versions 31874
+   and 31875 in the sandbox: `save_to()` encoded the review clip, `poster()` took the thumbnail off
+   it, `upload_file` streamed it, and `write_frames` -> `place` -> PublishedFiles 6869/6870
+   registered the sequence under `/Volumes/FPT`.
+
+   **Said precisely, because it is easy to overclaim:** the repo had published ~34 Versions earlier
+   the same day through the *old* node. What had never run, and now has, is the two-input path —
+   a wired VIDEO, `save_to` in place of the deleted `movie.encode`, and `poster()` reading the file
+   about to be uploaded.
 2. **Confirm the entity structure and plate specs** — Kevin. Everything below waits on this.
 3. **`/demo-setup`** — `ensure()` a Shot, an Asset and their Tasks; `seed.py` the plates onto them as
    Versions; fill the template graphs' project and link values. Needs an entity-create path, which
