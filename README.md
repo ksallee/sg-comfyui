@@ -103,6 +103,11 @@ numbers per link, so two graphs chain without anyone copying an id.
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
 
+`published_files` decides whether the frames themselves are kept. A batch always publishes as one
+Version carrying one movie for review; ask for `frames` as well and the node copies the sequence to
+`<storage root>/<path template>` and registers a `PublishedFile` for it, linked to that Version. The
+default is `(none)` — a movie publish and a single image are untouched.
+
 **Flow PT Load Version** — a Version's media back into the graph, and the link recorded. The inputs
 are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
@@ -116,7 +121,7 @@ Nine typed fields on Version, created by step 2 above:
 |---|---|---|
 | AI Generator | `sg_ai_generator` | ComfyUI, plus the client that submitted the prompt |
 | AI Model | `sg_ai_model` | the checkpoints the graph loaded |
-| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch |
+| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch — no sampler needed, so a roto graph's "the actor" lands here too |
 | AI Negative Prompt | `sg_ai_negative_prompt` | negative conditioning on this branch |
 | AI Seed | `sg_ai_seed` | text, not a number — ComfyUI seeds reach 2\*\*64-1 (probe 019) |
 | AI Sampler | `sg_ai_sampler` | sampler and scheduler |
@@ -136,6 +141,44 @@ API-format prompt do not. A publish never depends on it, and reports when it is 
 Where each piece lands is yours, not ours. A studio that already records seeds in `sg_render_seed`, or
 that wants nothing but a readable paragraph, sets `provenance` in the profile rather than forking the
 node. See DESIGN.md, "Where each piece lands is the operator's, not ours".
+
+## Keeping the frames
+
+`Version` media is single-valued, so a sequence cannot BE a Version's media (probe 022). The frames
+are a `PublishedFile` instead, and a PublishedFile's path has to sit under one of your site's
+LocalStorage roots — the server refuses anything else.
+
+**Nothing has to change about where ComfyUI writes.** The frames land in ComfyUI's own output
+directory as usual, and the node *copies* them into place under the root. The copy is what a failed
+publish is recovered from, so the originals are never moved.
+
+Two profile keys per project, beside every other per-show decision:
+
+    "published_files": {
+      "storage":       "primary",
+      "path_template": "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":  "sRGB"
+    }
+
+`storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
+template — Flow PT's dotted field paths and Python's format spec — with two rules of its own:
+
+- `{version}` is the publish revision; `%04d` (or `####`, or `@@@@`) is the frame. They are different
+  numbers, so in a *path* template the printf form always means the frame.
+- The extension follows the files, not the template. The node writes PNG, so a template ending
+  `.exr` registers `.png` and says so. Nothing is transcoded.
+
+`colour_space` is recorded and never applied: it goes in the PublishedFile's description and in the
+provenance record, and the node's own `colour_space` widget overrides the profile per output. This
+site has no colour space field on `PublishedFile` and none was created for it — a field name is spent
+site-wide forever (probe 019).
+
+Where an upstream Version published files of its own, they are linked through
+`upstream_published_files` — the file-level twin of `sg_ai_generated_from`, written from the same
+ancestors the node already walked.
+
+A sequence publish also fills `sg_path_to_frames` on the Version with the `%04d` pattern, so the Load
+node's `frames` tier resolves to the real frames.
 
 ## Files this repo writes on your machine
 
@@ -182,9 +225,6 @@ lets the agent read back only its own answer.
   Comfy Registry install would not run, so this is not on the Registry.
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
-- **A sequence cannot be published as a sequence.** A batch publishes as one Version carrying one
-  movie, which is what a review player wants. Keeping the frames themselves wants `PublishedFile`
-  and shared storage, and `PublishedFile` is still unproven; see DESIGN.md.
 - **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to
   the top level, because a definition's interior is shared by every instance of it and rewiring it
   would break the others. Output streams inside a subgraph are found and tapped normally.

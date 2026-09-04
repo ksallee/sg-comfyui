@@ -360,7 +360,9 @@
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
-        0
+        0,
+        "(none)",
+        ""
       ],
       "title": "Flow PT Publish \u2014 depth"
     },
@@ -400,7 +402,9 @@
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
-        0
+        0,
+        "(none)",
+        ""
       ],
       "title": "Flow PT Publish \u2014 normals"
     },
@@ -440,7 +444,9 @@
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
-        0
+        0,
+        "(none)",
+        ""
       ],
       "title": "Flow PT Publish \u2014 mask"
     }
