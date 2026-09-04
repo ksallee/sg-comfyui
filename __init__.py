@@ -7,7 +7,7 @@ the mappings must exist at the repo root even though the package lives under src
 from .src.comfyui_fpt import NODE_CLASS_MAPPINGS, NODE_DISPLAY_NAME_MAPPINGS
 from .src.comfyui_fpt import routes
 
-# Served at /extensions/flow-pt/ (server.py:1244).
+# Served at /extensions/comfyui-flow-production-tracking/ (server.py:1244).
 WEB_DIRECTORY = "web"
 
 routes.register()

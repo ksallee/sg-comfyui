@@ -676,9 +676,9 @@ Two ways in, and they are not the same thing:
 
 `[project].name` on the Registry is immutable, so it is decided here rather than in passing:
 
-    [project].name                flow-pt                            permanent
+    [project].name                comfyui-flow-production-tracking   permanent
     [tool.comfy].DisplayName      Flow Production Tracking
-    repo, custom_nodes directory  flow-pt
+    repo, custom_nodes directory  comfyui-flow-production-tracking
     CATEGORY                      Flow Production Tracking
     node titles                   Flow PT Publish Version, Flow PT Load Version
     Python package                comfyui_fpt
@@ -695,6 +695,14 @@ side, and on the ComfyUI side `Load` is what a node is called when it is where t
 
 `NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
 anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
+
+The cost of the long form is paid twice in the editor, and it is accepted rather than unnoticed: the
+Templates browser labels a pack's collection with the `custom_nodes` directory name verbatim
+(`title: e` in the frontend bundle) and the node's footer badge is `python_module` split on `.` —
+the same string. Neither reads `DisplayName`, and the only override is a frontend i18n key
+(`templateWorkflows.category.<name>`) that ships with the frontend and not with a pack. Registry
+names allow no spaces, so a short label was reachable only by renaming the repo, which trades a
+searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chips is the price.
 
 ### The dependency problem
 

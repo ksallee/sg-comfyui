@@ -2,7 +2,7 @@
 # Names come from DESIGN.md, "Names" — `[project].name` is immutable on the Registry once claimed.
 
 [project]
-name = "flow-pt"
+name = "comfyui-flow-production-tracking"
 description = "Publish ComfyUI generations to Flow Production Tracking as Versions, with their provenance."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -17,7 +17,7 @@ license-files = ["LICENSE"]
 dependencies = ["requests", "Pillow"]
 
 [project.urls]
-Repository = "https://github.com/ksallee/flow-pt"
+Repository = "https://github.com/ksallee/comfyui-flow-production-tracking"
 
 [tool.comfy]
 DisplayName = "Flow Production Tracking"
