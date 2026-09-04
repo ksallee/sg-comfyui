@@ -47,27 +47,19 @@ class FPTPublishVersion:
         status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
 
         return {
-            "required": {
-                "images": ("IMAGE",),
-                # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
-                # and ?fields use (probe 003). `{version:03d}` and `v%04d` both work. The panel shows
-                # what it renders to before anything is published.
-                "code_template": ("STRING", {
-                    "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
-                    "display_name": "name template",
-                    "tooltip": "e.g. {entity.Shot.code}_{task.Task.content}_v%04d — "
-                               "`entity` is what the Version hangs off, `task` its Task, `output` "
-                               "the pass below. Leave a literal name to use it as-is."}),
-            },
+            "required": {"images": ("IMAGE",)},
+            # Order is the order they are decided: the pixels, then which show, what they belong to,
+            # which task, what state it is in, which stream, and last the note a person writes.
+            # Everything below the note is fine print and lives behind ComfyUI's advanced fold.
+            #
+            # There is no link_type. Version.entity accepts 15 types and a show may use several at
+            # once (DESIGN), the link picker searches every type the show uses server-side, and each
+            # option carries its own — so a combo whose only job was to shorten a list nobody scrolls
+            # any more was one decision to make before the one that mattered.
             "optional": {
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id),
                              "tooltip": "Project to publish into."}),
-                # Narrowing lives here, not in a search box beside the combo: the editor's own
-                # dropdown already searches, and a second one behaves differently.
-                "link_type": (site.link_type_choices(project_id),
-                              {"tooltip": "Restrict the list to one type. Empty means every type "
-                                          "this project uses."}),
                 "link": (_labels(links),
                          {"tooltip": "What this Version belongs to. Version.entity accepts many "
                                      "types, so each option carries its own."}),
@@ -77,15 +69,39 @@ class FPTPublishVersion:
                 "status": (_labels(statuses),
                            {"default": status_label,
                             "tooltip": "Usable statuses for this project (probe 009)."}),
-                "output_name": ("STRING", {"default": "",
+                # Shown as `output`, the token it fills in the template and the word the panel
+                # echoes back; `output_name` stays as the wire name because it is in every saved
+                # graph already. No placeholder: the frontend forwards one only to the multiline
+                # widget (`addMultilineWidget`), and a single-line STRING gets `{}` for options.
+                "output_name": ("STRING", {"default": "", "display_name": "output",
                                 "tooltip": "What this stream is — depth, normals, mask. Fills "
-                                           "{output} in the template."}),
+                                           "{output} in the name template, so it is part of the "
+                                           "Version's name."}),
+                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
+                # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
-                                    "tooltip": "Human note. Provenance is recorded separately."}),
-                "source_versions": ("STRING", {"default": "",
+                                    "placeholder": "what a person should know about this version",
+                                    "tooltip": "Human note, written to description. Provenance is "
+                                               "recorded separately and does not belong here."}),
+                # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
+                # and ?fields use (probe 003). `{version:03d}` and `v%04d` both work.
+                #
+                # Advanced, though it decides the name: it comes from the profile, it is a show's
+                # convention rather than this publish's decision, and the panel already shows the
+                # code it renders to. The fold hides the formula, never the answer.
+                "code_template": ("STRING", {
+                    "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
+                    "display_name": "name template",
+                    "advanced": True,
+                    "tooltip": "e.g. {entity.Shot.code}_{task.Task.content}_v%04d — "
+                               "`entity` is what the Version hangs off, `task` its Task, `output` "
+                               "the pass above. Leave a literal name to use it as-is."}),
+                # Lineage the graph already proves is added by itself; this is for a source no
+                # upstream Load node can show.
+                "source_versions": ("STRING", {"default": "", "advanced": True,
                                     "tooltip": "Comma-separated Version ids this was derived from."}),
-                "attach_workflow": ("BOOLEAN", {"default": True}),
-                "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
+                "attach_workflow": ("BOOLEAN", {"default": True, "advanced": True}),
+                "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID, "advanced": True,
                                     "tooltip": "Overrides `link` when non-zero, for a stale list."}),
             },
             "hidden": {
@@ -109,7 +125,7 @@ class FPTPublishVersion:
         return naming.render(template, vals, naming.next_version(codes, template, vals))
 
     @classmethod
-    def VALIDATE_INPUTS(cls, project=None, link_type=None, link=None, task=None, status=None):
+    def VALIDATE_INPUTS(cls, project=None, link=None, task=None, status=None):
         """Accept what the editor offered, because the editor knows more than INPUT_TYPES did.
 
         These combos are seeded for the default project and then repopulated per project by the JS
@@ -129,8 +145,8 @@ class FPTPublishVersion:
     OUTPUT_NODE = True
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
-    def publish(self, images, code_template=UNSET, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET,
-                status=UNSET, output_name="", note="",
+    def publish(self, images, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
+                output_name="", note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         # The picked project decides, then the profile answers for THAT project — two graphs open in
@@ -144,9 +160,8 @@ class FPTPublishVersion:
         # types and a show may use several at once.
         link, task, status = site.unset(link), site.unset(task), site.unset(status)
         picked_type, picked_name = site.split_link(link)
-        # The label's own type wins; the filter is only a way to shorten the list.
-        link_type = (picked_type or (site.chosen_types(link_type, project_id) or [""])[0]
-                     or p.get("link_type", "Shot"))
+        # The label carries its own type; the profile answers only for a link picked before it did.
+        link_type = picked_type or p.get("link_type", "Shot")
 
         # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
         target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),

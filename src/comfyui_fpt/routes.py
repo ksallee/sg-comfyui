@@ -6,8 +6,26 @@ appending to PromptServer.instance.routes here is registered normally.
 Setup path: these serve the editor and are never touched while publishing.
 """
 import json
+import re
 
 from . import site
+
+# Flow PT answers an error as a JSON:API envelope, and the useful part is one `detail` sentence
+# inside it. Four wrapped lines of `{"errors":[{"id":"0dc12...","status":404,...}]}` in a readout an
+# artist glances at is the same as saying nothing.
+_DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
+
+
+def _sentence(e):
+    """What went wrong, in the site's own words rather than its transport's."""
+    text = str(e)
+    m = _DETAIL.search(text)
+    if not m:
+        return text[:200]
+    try:
+        return json.loads(f'"{m.group(1)}"')[:200]   # the capture is still JSON-escaped
+    except ValueError:
+        return m.group(1)[:200]
 
 
 def _id_for(pairs, label):
@@ -29,11 +47,17 @@ def register():
             return web.json_response({"items": [{"label": l, "id": i} for l, i in fn(*a, **kw)]})
         except Exception as e:
             # Never 500 into the editor: an unreachable site must degrade to an empty picker.
-            return web.json_response({"items": [], "error": str(e)[:200]})
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     @routes.get("/fpt/projects")
     async def projects(request):
-        return pairs(site.projects)
+        """label and id as everywhere else, plus what a picker row draws: code and thumbnail."""
+        try:
+            return web.json_response({"items": [
+                {"label": p["name"], "id": p["id"], "code": p["code"], "image": p["image"]}
+                for p in site.project_cards()]})
+        except Exception as e:
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     @routes.get("/fpt/link_types")
     async def link_types(request):
@@ -42,7 +66,7 @@ def register():
             ts = site.link_type_choices(int(request.rel_url.query.get("project_id") or 0))
             return web.json_response({"items": [{"label": t, "id": t} for t in ts]})
         except Exception as e:
-            return web.json_response({"items": [], "error": str(e)[:200]})
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     @routes.get("/fpt/entities")
     async def entities(request):
@@ -54,7 +78,7 @@ def register():
             rows = site.links(pid, q.get("q", ""), site.chosen_types(q.get("type", ""), pid))
             return web.json_response({"items": [{"label": l, "type": t, "id": i} for l, t, i in rows]})
         except Exception as e:
-            return web.json_response({"items": [], "error": str(e)[:200]})
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     @routes.get("/fpt/tasks")
     async def tasks(request):
@@ -70,7 +94,7 @@ def register():
             return web.json_response({k: p.get(k) for k in
                                       ("link_type", "link_field", "code_prefix", "status")})
         except Exception as e:
-            return web.json_response({"error": str(e)[:200]})
+            return web.json_response({"error": _sentence(e)})
 
     @routes.get("/fpt/versions")
     async def versions(request):
@@ -88,7 +112,7 @@ def register():
             return web.json_response({"items": [{"label": label, "id": key}
                                                 for key, label in media.sources(v)]})
         except Exception as e:
-            return web.json_response({"items": [], "error": str(e)[:200]})
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     @routes.get("/fpt/resolve")
     async def resolve_one(request):
@@ -101,49 +125,46 @@ def register():
             from .nodes.load_version import FPTLoadVersion
             q = request.rel_url.query
             pin = int(q.get("pin_version_id") or 0)
+            # Read once, before the branch. `typed`, `raw` and `same` were bound only where the rule
+            # ran, and the pinned path used them anyway: every pin raised UnboundLocalError, which
+            # the panel drew as "nothing resolved yet". Once, above, is also the whole context —
+            # _context was being asked the same question three times per request.
+            typed = [t.strip() for x in q.getall("statuses", [])
+                     for t in x.split(",") if t.strip()]
+            raw = q.get("filters", "")
+            pid, lt, target, task_id = FPTLoadVersion._context(
+                q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
+            codes, _ = site.resolve_statuses(pid, typed)
+            terms = [t for t in (q.get("name_contains", "") or "").split() if t]
+            # The widget mirrors the fields until someone edits it, so a filter identical to the
+            # generated one is not an override — treating it as one would lose the friendlier
+            # explanations and the "what is there" listing.
+            same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
+                site.version_filters(pid, lt, target, task_id, terms, codes), sort_keys=True)
             if pin:
                 vid, code, why = pin, "", "pinned by id"
             else:
-                typed = [t.strip() for x in q.getall("statuses", [])
-                         for t in x.split(",") if t.strip()]
-                # The widget mirrors the fields until someone edits it, so a filter identical to the
-                # generated one is not an override — treating it as one would lose the friendlier
-                # explanations and the "what is there" listing.
-                raw = q.get("filters", "")
-                pid0, lt0, tgt0, tsk0 = FPTLoadVersion._context(
-                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
-                codes0, _ = site.resolve_statuses(pid0, typed)
-                same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
-                    site.version_filters(pid0, lt0, tgt0, tsk0,
-                                         [t for t in (q.get("name_contains", "") or "").split() if t],
-                                         codes0), sort_keys=True)
                 vid, code, why = FPTLoadVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), "" if same else raw)
             # What the fields add up to, in the API's own language — shown so an override can start
             # from something that already works.
-            pid, lt2, tgt2, tsk2 = FPTLoadVersion._context(
-                q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
-            codes2, _ = site.resolve_statuses(pid, typed)
             built = (None if same else FPTLoadVersion._filters(raw)) or site.version_filters(
-                pid, lt2, tgt2, tsk2,
-                [t for t in (q.get("name_contains", "") or "").split() if t], codes2)
+                pid, lt, target, task_id, terms, codes)
 
             if not vid:
                 # A rule that matches nothing is the moment you most need to see what IS there, so
                 # the same link and task are listed with their statuses and the filters dropped.
-                project_id, lt, target, task_id = FPTLoadVersion._context(
-                    q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
                 colors, labels = site.status_colors(), dict(
-                    (c, l) for l, c in site.statuses(project_id))
+                    (c, l) for l, c in site.statuses(pid))
                 near = [{"code": c, "status": {"code": st, "label": labels.get(st, st),
                                                "rgb": colors.get(st)}, "id": i}
-                        for c, st, i in site.find_versions(project_id, lt, target, task_id)[:12]]
+                        for c, st, i in site.find_versions(pid, lt, target, task_id)[:12]]
                 return web.json_response({"id": 0, "why": why, "media": [],
                                           "candidates": near, "filters": built})
             fpt = site.client()
-            project_id = int(q.get("project_id") or 0) or site.default_project()
+            project_id = int(q.get("project_id") or 0) or pid
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
             # `media`, not `sources`: the publish panel uses `sources` for the Versions a publish
@@ -151,7 +172,9 @@ def register():
             return web.json_response({**desc, "why": why, "filters": built,
                                       "media": [k for k, _ in media.sources(media.version(fpt, vid))]})
         except Exception as e:
-            return web.json_response({"id": 0, "summary": str(e)[:200], "media": []})
+            # `error`, not `summary`: nothing read `summary`, so a pin pointing at a Version that is
+            # not there rendered as "nothing resolved yet" and the reason was thrown away.
+            return web.json_response({"id": 0, "error": _sentence(e), "media": []})
 
     @routes.get("/fpt/preview_code")
     async def preview_code(request):
@@ -171,10 +194,24 @@ def register():
                 if (q.get("task") and target) else 0
             code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id,
                                 q.get("output_name", ""))
+            # A template renders what it can and drops the rest, so `corridor_depth_v004` and a bare
+            # `v004` come back looking equally finished. Say which fields the name is missing and
+            # why, because the name is the one thing the operator checks before a Run.
+            from . import naming
+            needs = {f.split(".")[0] for f in naming.template_fields(q.get("code_template", "")
+                                                                    or naming.DEFAULT_TEMPLATE)}
+            if q.get("link") and not target:
+                alert = f"no {lt} named {picked_name!r} on this project — the run will stop here"
+            elif "entity" in needs and not target:
+                alert = "nothing is linked, so the name has no shot or asset in it"
+            elif "task" in needs and not task_id:
+                alert = "no task picked, so the name has no task in it"
+            else:
+                alert = ""
             return web.json_response({"code": code, "link": f"{lt} {picked_name}".strip(),
-                                      "task": q.get("task", "")})
+                                      "task": q.get("task", ""), "alert": alert})
         except Exception as e:
-            return web.json_response({"code": "", "error": str(e)[:200]})
+            return web.json_response({"code": "", "error": _sentence(e)})
 
     @routes.post("/fpt/preview_publish")
     async def preview_publish(request):
@@ -249,10 +286,29 @@ def register():
                     "note": note,
                 })
             # The rest of the Version, which is not provenance but is still what gets written.
+            # site.unset(): "(none)" and "(all types)" are labels for the operator, and printing one
+            # as a value made the readout say `sg_status_list (none)` where it means "left unset".
+            #
+            # Resolved the way the RUN resolves it, not the way the picker displays it. This block
+            # is headed "what gets written", and it was printing `sbx_0020 (Shot)` — a label built
+            # for a dropdown — into a field that takes {"type", "id"}. Same for the status, which
+            # takes a code, and the field name itself, which the profile decides (probe 005).
+            status, link, task = (site.unset(w.get(k)) for k in ("status", "link", "task"))
+            prof = site.for_project(pid)
+            link_field = prof.get("link_field", "entity")
+            picked_type, picked_name = site.split_link(link)
+            link_type = picked_type or prof.get("link_type", "Shot")
+            target = int(w.get("link_id") or 0) or (
+                _id_for(site.entities(link_type, pid, q=picked_name), picked_name) if link else 0)
+            task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
+            status_code = next((c for l, c in site.statuses(pid) if l == status), "") if status else ""
             plain = [("description", w.get("note") or "", "the note below"),
-                     ("sg_status_list", w.get("status") or "", "" if w.get("status") else "left unset"),
-                     ("entity", w.get("link") or "", "" if w.get("link") else "not linked"),
-                     ("sg_task", w.get("task") or "", "" if w.get("task") else "no task")]
+                     ("sg_status_list", status_code, "" if status_code else "left unset"),
+                     (link_field, f"{link_type} {target}" if target else "",
+                      "" if target else
+                      (f"no {link_type} named {picked_name!r} here" if link else "not linked")),
+                     ("sg_task", f"Task {task_id}" if task_id else "",
+                      "" if task_id else "no task")]
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
@@ -268,7 +324,7 @@ def register():
                                           if t and t != fpt_fields.DESCRIPTION and t not in have}),
             })
         except Exception as e:
-            return web.json_response({"error": str(e)[:300], "fields": [], "sources": []})
+            return web.json_response({"error": _sentence(e), "fields": [], "sources": []})
 
     @routes.get("/fpt/statuses")
     async def statuses(request):
@@ -276,11 +332,17 @@ def register():
         try:
             pid = int(request.rel_url.query.get("project_id") or 0)
             colors, icons = site.status_colors(), site.status_icons()
+            # Most-used first (probe 020). A picker sorted by the schema makes an artist hunt for
+            # the two codes their show actually uses among the twenty it merely allows.
+            used = site.status_usage(pid)
+            rows = list(enumerate(site.statuses(pid)))
+            rows.sort(key=lambda r: (-used.get(r[1][1], 0), r[0]))
             return web.json_response({"items": [
-                {"label": l, "id": c, "code": c, "rgb": colors.get(c), "icon": icons.get(c)}
-                for l, c in site.statuses(pid)]})
+                {"label": l, "id": c, "code": c, "rgb": colors.get(c), "icon": icons.get(c),
+                 "used": used.get(c, 0)}
+                for _, (l, c) in rows]})
         except Exception as e:
-            return web.json_response({"items": [], "error": str(e)[:200]})
+            return web.json_response({"items": [], "error": _sentence(e)})
 
     site.warm()   # prime the setup caches now, not on the operator's first page load
     return True

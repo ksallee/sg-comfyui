@@ -29,16 +29,28 @@ LOAD = "FPTLoadVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
-PUBLISH_WIDGETS = ["code_template", "project", "link_type", "link", "task", "status", "output_name", "note",
-                   "source_versions", "attach_workflow", "link_id"]
+PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "note",
+                   "code_template", "source_versions", "attach_workflow", "link_id"]
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
                 "pin_version_id", "source", "frame", "filters"]
-PUBLISH_DEFAULTS = {"code_template": "{entity.code}_{output}_v{version:03d}", "attach_workflow": True, "link_id": 0}
-LOAD_DEFAULTS = {"statuses": "", "filters": "", "newest_by": "version number in the name",
+# site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of
+# the client. A combo cannot hold "" — the editor would show a value it can never offer back — so an
+# unset pick is the visible "no value" the node declares.
+NO_VALUE = "(none)"
+PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
+                    "code_template": "{entity.code}_{output}_v{version:03d}",
+                    "attach_workflow": True, "link_id": 0}
+LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
+                 "statuses": "", "filters": "", "newest_by": "version number in the name",
                  "source": "auto", "pin_version_id": 0, "frame": 1}
 
 
 def widgets(names, defaults, **values):
+    """The positional array, built by name. A name nothing declares is an error, not a no-op:
+    silently dropping one is how a value ends up in the field next to the one it was meant for."""
+    unknown = sorted((set(defaults) | set(values)) - set(names))
+    if unknown:
+        raise ValueError(f"not widgets of this node: {', '.join(unknown)}")
     v = {**{n: "" for n in names}, **defaults, **values}
     return [v[n] for n in names]
 
@@ -288,7 +300,6 @@ def _cli(argv=None):
                     help="tap this IMAGE stream with a publish node; repeatable")
     ap.add_argument("--load", action="append", default=[], type=int, metavar="NODE",
                     help="replace this loader with a Load node; repeatable")
-    ap.add_argument("--code", default="auto")
     ap.add_argument("--template", default="", help="the show's convention, to show proposed codes")
     ap.add_argument("--project", default="")
     ap.add_argument("--link", default="")
@@ -299,7 +310,9 @@ def _cli(argv=None):
     if not a.out:
         return 0
 
-    common = dict(project=a.project, link=a.link)
+    # Only what was actually asked for: an empty --project must leave the default alone, not write
+    # "" into a combo that cannot hold it.
+    common = {k: v for k, v in (("project", a.project), ("link", a.link)) if v}
     nodes = _nodes(wf)
     names = descriptors(wf)
     sinks = {(o, s): k for o, s, _, k in outputs(wf)}
@@ -307,7 +320,7 @@ def _cli(argv=None):
         nid, _, slot = spec.partition(":")
         nid, slot = int(nid), int(slot or 0)
         d = names.get((nid, slot)) or descriptor(nodes.get(nid, {}), slot, sinks.get((nid, slot)) or "")
-        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, code=a.code, output_name=d, **common)
+        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, output_name=d, **common)
         new = add_publish(wf, nid, slot, w, title=f"Flow PT Publish — {d}")
         print(f"  + publish node {new} tapping {nid}[{slot}]  output_name={d!r}")
     for lid in a.load:

@@ -16,7 +16,8 @@ The operator is not expected to read the code. They fork, point an agent at the 
 
 Requirements this imposes:
 - Every convention discoverable from `CLAUDE.md` alone
-- Slash commands in `.claude/commands/` for the recurring jobs (add a node, write a probe)
+- Slash commands in `.claude/commands/` for the recurring jobs: `/inspect-site` measures a project and
+  writes the profile, `/track-workflow` puts the nodes into a graph, `/task` does a job against the API
 - Probes runnable by an agent to learn the API before editing
 - No framework, no plugin system, no dynamic dispatch
 
@@ -265,54 +266,6 @@ Not "source versions": the sources need not be AI, and a scanned plate feeding a
 case. The `AI` describes this Version's generation, not its inputs. Display and programmatic names are
 kept in step — a TD reading `sg_ai_generated_from` should find "AI Generated From" in the UI — so a
 rename means a new field, never a relabel.
-
-### Media comes back the same way it went out
-
-A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
-prompt graph — the branch walk that scopes provenance answers "what did this come from" for free, and the
-operator never types an id. A plate becomes a previs; several Versions become one output; the chain lives in
-Flow PT.
-
-Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
-asks per pick and offers only tiers that resolve to a real file. Published files are not a tier yet: on the
-only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
-absent — `docs/quirks.md` in the corpus repo names what would close it.
-
-## Where the version number lives is site-specific
-
-A Toolkit-driven site usually carries a real numeric field on Version — `sg_version_number` or
-similar — and that is authoritative when present, so `version_number_field` names it in the profile
-and the node writes it. Many sites have none (this one has none; `PublishedFile.version_number` is a
-different entity), and then the version lives inside `code` as a freeform convention that differs per
-show. Both paths are supported and neither is assumed.
-
-So the convention is inferred from the codes a show already uses, shown to the operator with its
-coverage, and stored in the profile as data:
-
-    "code_template":   "{entity.code}_{output}_v{version:03d}",
-    "code_regex":      "^(?P<entity>.+)_(?P<output>[A-Za-z]+)_v(?P<version>\\d+)$",
-    "approved_status": "apr"
-
-Measured on three real projects: the reference show scores 100/100, this sandbox 2/3, and a project of
-ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
-operator sees it rather than getting a confident wrong guess.
-
-There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
-code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
-custom code, or none. So a Load node takes a status the operator picks from that project's real list,
-and empty means any. An earlier version of this hardcoded "latest approved", which was this project
-inventing vocabulary the API does not have.
-
-### Which makes two nodes a pipeline
-
-`code = auto` numbers per link. `select = newest matching` resolves at run time using Flow PT's own
-rule — order newest-first (`id` or `created_at`), optionally require a status, optionally require a
-substring in the code. Ordering by the convention's version number is offered as a third option,
-because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
-consumes it, with no id copied between graphs, and the lineage field records the join by itself.
-
-A Version resolved at run time is not in the prompt graph, so `lineage.py` records what each Load node
-actually resolved and the publish node reads back only its own ancestors' entries.
 
 ## Provenance is per branch, not per graph
 

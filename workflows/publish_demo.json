@@ -319,14 +319,13 @@
         "Node name for S&R": "FPTPublishVersion"
       },
       "widgets_values": [
-        "{entity.code}_{output}_v{version:03d}",
         "(none)",
-        "(all types)",
         "(none)",
         "(none)",
         "(none)",
         "beauty",
         "generated here, published straight to Flow PT",
+        "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0

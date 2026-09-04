@@ -94,7 +94,7 @@ class FPTLoadVersion:
                                         + ", ".join(l for l, _ in statuses)}),
                 "name_contains": ("STRING", {"default": "",
                                   "tooltip": "Words that must ALL appear in the Version name, as in "
-                                             "the Flow PT UI: `depth v0` matches both.", "advanced": True}),
+                                             "the Flow PT UI: `depth v0` matches both."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent.", "advanced": True}),
@@ -109,6 +109,8 @@ class FPTLoadVersion:
                 # The API's own language, for when the fields here cannot say it. Empty means the
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
+                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
+                # built with an options object of its own and copies nothing from this spec.
                 "filters": ("STRING", {"default": "", "multiline": True,
                             "display_name": "SG Filters",
                             # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A
@@ -190,7 +192,8 @@ class FPTLoadVersion:
             return 0, "", (f"no status called {', '.join(repr(u) for u in unknown)} on this project. "
                            f"It allows: {allowed}")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
-                            newest_by, p.get("code_regex", ""), cls._filters(filters))
+                            newest_by, p.get("code_regex", ""), cls._filters(filters),
+                            where=site.unset(link) or "")
 
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",

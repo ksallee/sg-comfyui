@@ -1,0 +1,36 @@
+# Comfy Registry metadata, read by `comfy node publish`. ComfyUI itself reads only __init__.py.
+# Names come from DESIGN.md, "Names" — `[project].name` is immutable on the Registry once claimed.
+
+[project]
+name = "comfyui-flow-production-tracking"
+description = "Publish ComfyUI generations to Flow Production Tracking as Versions, with their provenance."
+readme = "README.md"
+requires-python = ">=3.11"
+# 0.1.0 because nothing has been published yet: this is a starting point, not a release. The Registry
+# rejects a re-publish of a version it already has, so bump it in the same commit that publishes.
+version = "0.1.0"
+# Half the audience still searches "shotgrid", and the Registry searches keywords (DESIGN: Names).
+keywords = ["flow production tracking", "shotgrid", "shotgun", "vfx", "provenance", "version", "pipeline"]
+license = "MIT"
+license-files = ["LICENSE"]
+# sg_groundtruth is missing on purpose — see the note at the end of this file.
+dependencies = ["requests", "Pillow"]
+
+[project.urls]
+Repository = "https://github.com/ksallee/comfyui-flow-production-tracking"
+
+[tool.comfy]
+DisplayName = "Flow Production Tracking"
+# The publisher's own Registry handle, and an icon URL. Both are per-publisher, not per-repo, so they
+# are left empty rather than guessed; `comfy node publish` will not accept an empty PublisherId.
+PublisherId = ""
+Icon = ""
+
+# MIT, because a studio's legal review of a node pack should take no time and the repo is meant to be
+# forked. Nothing is vendored from ComfyUI's GPL-3.0 frontend, which is the constraint that would
+# have forced otherwise.
+#
+# One thing must still be decided before this can publish:
+#
+#   the client  `sg_groundtruth` is not installable, so a Registry install of this package alone will
+#             not run. DESIGN.md, "The dependency problem", lists the three ways out.
