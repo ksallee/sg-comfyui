@@ -406,3 +406,10 @@ are rebuilt.
 - `tools/smoke.py` runs as `uv run --with playwright --python 3.11 python tools/smoke.py`, per its own
   docstring. Neither the system Python nor ComfyUI's venv has playwright, and `qa_node.start_comfy`
   brings up an isolated instance, so ComfyUI does not need to be running.
+- The `sg_groundtruth` surface this repo actually uses is **99 lines across two files**: `FPT` and
+  `FPTError` (`client.py`, 72) and `env.load` (`env.py`, 27). `mcp.py`, `naming.py` and `schema.py`
+  are never imported, and nothing imported touches the corpus. DESIGN.md's "about sixty lines" for
+  option 2 is the right order of magnitude.
+- Packaging that client does **not** break `.env.local` discovery. `env.ROOT` defaults to the
+  package's own `parents[2]`, which would be wrong from site-packages — but `site.py:51` already
+  calls `load_env(ROOT)` with this repo's root, so the default is never used here.
