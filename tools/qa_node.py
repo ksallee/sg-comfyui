@@ -40,10 +40,14 @@ def free_port(start):
 def start_comfy(port, vue=True, repo=None):
     """An instance of our own: own port, own custom_nodes, own user directory.
 
-    --base-directory relocates custom_nodes, input, output, temp and user (models stay in the real
-    ComfyUI tree). That matters more than it sounds: ComfyUI/custom_nodes/<pack> is a symlink to the
-    MAIN checkout, so without this every isolated instance loads main's code and an agent verifies
-    someone else's work instead of its own.
+    --base-directory relocates custom_nodes, input, output, temp, user AND models — it resets every
+    default path (folder_paths.py:15), which the help text does not say. So models and inputs are
+    pointed back at the real tree explicitly; without that an isolated instance sees an empty model
+    list and every loader fails validation.
+
+    The isolation is what matters: ComfyUI/custom_nodes/<pack> is a symlink to the MAIN checkout, so
+    without a base directory every instance loads main's code and an agent verifies someone else's
+    work instead of its own.
     """
     base = Path(tempfile.mkdtemp(prefix=f"comfyqa-{port}-"))
     repo = Path(repo or Path(__file__).resolve().parents[1])
@@ -61,7 +65,10 @@ def start_comfy(port, vue=True, repo=None):
     }))
     proc = subprocess.Popen(
         [str(COMFY / "venv" / "bin" / "python"), "main.py", "--port", str(port),
-         "--disable-auto-launch", "--base-directory", str(base)],
+         "--disable-auto-launch", "--base-directory", str(base),
+         # base-directory took these with it; the weights and plates live in the real tree.
+         "--models-directory", str(COMFY / "models"),
+         "--input-directory", str(COMFY / "input")],
         cwd=COMFY, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
     return proc, base
 
