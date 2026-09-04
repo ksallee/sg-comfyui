@@ -218,7 +218,8 @@ Captured per publish:
 
 | field | source |
 |---|---|
-| model, prompt, seed, sampler | ComfyUI prompt graph |
+| model, seed, sampler | ComfyUI prompt graph |
+| prompt | text that reached a conditioning input in this branch — see below; not "text near a seed" |
 | workflow JSON | attachment — best effort, see below |
 | submitting client | `COMFY_USAGE_SOURCE` |
 | input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
@@ -302,6 +303,59 @@ Tracing conditioning respects the input it started from: `ControlNetApplyAdvance
 and `negative`, so following every link merges the two prompts into one.
 
 C2PA where the writer supports it; custom fields plus attachment otherwise. Field names are decided by probe, not by the docs.
+
+## A prompt is text that reached a conditioning input, not text near a seed
+
+Half the graphs a VFX shop runs never sample. A segmentation graph is the sharp case: `SAM3_Detect`
+takes a text prompt that decides *what gets cut out* — "the actor" — and there is no seed anywhere in
+it. Looking for text by walking back from a node that carries a seed is a diffusion-shaped assumption,
+and under it the single most important creative input in a roto graph was recorded nowhere queryable.
+
+So the rule is the one the graph itself uses. **Text becomes a prompt when an encoder turns it into
+CONDITIONING and a node consumes it** (`provenance.directing_text`). A sampler consuming conditioning
+and `SAM3_Detect` consuming conditioning are the same event; the seed was never what made it a prompt.
+The same walk also picks up modern custom-sampler graphs, where the seed sits on `RandomNoise` and the
+conditioning on a `CFGGuider`, and which therefore recorded no prompt either.
+
+That consumption test is also the whole of the conservatism. The alternative — scrape every string
+widget — puts `filename_prefix`, `ckpt_name` and a format enum into `sg_ai_prompt` and makes the field
+useless. None of those reaches a conditioning input. Neither does `TextOverlay`'s caption or
+`SaveText`'s payload, which is why the loose `text` key is safe here and would not be on its own.
+
+Roles: `positive` and `negative` name one, a bare `conditioning` input does not. Text found with no
+role reads as positive **unless a roled walk already claimed it**, so a `ConditioningZeroOut` on a
+sampler's negative cannot smuggle the negative prompt into the positive one.
+
+One exception to "must be conditioning": a widget named `prompt` or `negative_prompt`. Every cloud
+generator node (Kling, Veo, Runway, Bria, the Qwen edit encoders — 147 core classes) takes its words
+that way and encodes nothing. All 147 declare it multiline and none of them ever names a file, so the
+name alone is enough. That is the only widget name trusted without the conditioning test.
+
+Deliberately **not** captured, and each for a reason:
+
+- **A click instead of a prompt.** `SAM3_Detect.positive_coords` is a JSON point list. The role prefix
+  would otherwise catch it, so `_coords` is excluded by name.
+- **`CLIPTextEncodeSDXL`'s `text_g`/`text_l` and `CLIPTextEncodeFlux`'s `clip_l`/`t5xxl`.** These are
+  prompts and are missed today, sampler or not — but that is the seeded path failing, a separate bug
+  with its own question (two encoders, one concept, joined how?). Not folded in here.
+- **A `prompt` input wired from a string node** rather than typed. The words are then in a
+  `PrimitiveString`'s `value`, which is a generic string widget again.
+- **Text assembled by third-party concat nodes**, as in the ZHO gallery graphs. Nothing readable
+  reaches the encoder, so nothing is recorded — the right answer, not a guess.
+
+### It stays in `sg_ai_prompt`; no new field
+
+"What did you tell it to cut?" and "what did you tell it to generate?" are one question — the words the
+artist gave the model — and a supervisor filtering Versions should type them in one box. A second field
+would split that query in half and spend a name site-wide forever (probe 019), and would force every
+operator to map two concepts for one idea in `site.provenance_map`.
+
+Which node the text actually reached is not lost: `provenance.extract` records `prompts` alongside
+`samplers`, and the whole structure rides up as the `.provenance.json` attachment. Fields are the
+queryable summary, the attachment is the record — the same split as everywhere else here.
+
+A graph that genuinely has nothing to say still records nothing. `07_retime` fills `generator`, `model`
+and `generated_from` and leaves `prompt`, `seed` and `sampler` empty, and that is correct.
 
 ## Coverage, measured
 
