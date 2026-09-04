@@ -845,11 +845,18 @@ searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chip
 `_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a
 registry install gets this repo and nothing else, and `sg-groundtruth` is private.
 
-Three ways out, in order of preference:
+Three ways out were weighed, and the first is **chosen** (2026-09-04):
 
-1. Publish the *client* half of `sg-groundtruth` to PyPI as a slim package and depend on it normally. The corpus
-   stays private; only the client ships.
-2. Vendor the client into this repo. It is about sixty lines. Cheap, but it forks.
-3. Declare a git dependency. Fragile, and impossible while the repo is private.
+1. **Publish the *client* half of `sg-groundtruth` to PyPI as a slim package** and depend on it normally. The
+   corpus stays private; only the client ships. Done in `sg-groundtruth`, not here — this repo keeps
+   `_deps.py` and the sibling checkout until the package is on PyPI and the green light is given, then swaps
+   to a plain dependency in one commit.
+2. Vendor the client into this repo. Rejected: it forks, and a client fix would have to land twice.
+3. Declare a git dependency. Rejected: fragile, and impossible while the repo is private.
 
-Decide before publishing, not after — `[project].name` on the Registry is immutable.
+The surface is small enough that the choice was never about effort — 99 lines across two files, `FPT` and
+`FPTError` from `client.py` and `load` from `env.py`, with `mcp.py`, `naming.py` and `schema.py` unused and
+nothing reaching the corpus. `env.ROOT` resolving to site-packages once installed is a non-issue: `site.py`
+already passes this repo's own root to `load`.
+
+Decided before publishing, not after — `[project].name` on the Registry is immutable.
