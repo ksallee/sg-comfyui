@@ -367,7 +367,11 @@ Dependencies are real: nothing that touches the node should start before the run
    a wired VIDEO, `save_to` in place of the deleted `movie.encode`, and `poster()` reading the file
    about to be uploaded.
 2. **Confirm the entity structure and plate specs** — Kevin. Everything below waits on this.
-3. **`/demo-setup`** — `ensure()` a Shot, an Asset and their Tasks; `seed.py` the plates onto them as
+3. **`/demo-setup`** — **the entity half exists**: `tools/demo_setup.py` ensures `sh010` (Shot 7712,
+   six Tasks) and `mp_skyline` (Asset 10058, Concept) on the sandbox, reading before it writes and
+   keying on id because a Shot's `code` is not unique. Run twice, it creates nothing the second time.
+   Roto, Comp, Delivery and Concept matched real site Steps; Plate, Prep and Paint are bare Tasks,
+   because minting a Step would add it to every show on the site. Still to do: `seed.py` the plates onto them as
    Versions; fill the template graphs' project and link values. Needs an entity-create path, which
    this repo does not have today (it creates Versions and PublishedFiles and nothing else).
 4. **Templates committed with `(none)`** for project and link, filled in by `/demo-setup` on install.
