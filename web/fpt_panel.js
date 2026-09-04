@@ -283,6 +283,13 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       // only that this Version does not carry a record of how it was made, which is all the data
       // supports.
       if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
+      // What will actually be read, and what it claims to be. Both are in front of the operator
+      // rather than in the fold: `source` is a combo holding a key, so the type, the filename and
+      // the frame count only exist here, and a colour space is the thing an artist about to comp
+      // must see before the pixels reach a node that assumes sRGB. Said, never applied — this
+      // project does not convert.
+      if (d.source_label) rows.push(["source", d.source_label]);
+      if (d.colour_space) rows.push(["colour space", `${d.colour_space} — declared, not converted`]);
       for (const f of d.facts || []) rows.push([f.label, f.value]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       // The one line that never folds: what is wrong with the name directly above it. A template

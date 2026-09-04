@@ -113,6 +113,21 @@ are a rule an artist would say out loud — *the newest approved depth on this s
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
 
+`source` lists what that Version can actually deliver, best first, and published files lead. Where a
+Version published several, each is its own choice named by type and filename —
+`Rendered Image · sh010_comp_v003.%04d.png #6843` beside `Movie · sh010_comp_v003.mp4 #6844` — so the
+rendered sequence and the mp4 are told apart at a glance. A file whose path is on a root this machine
+has not mounted is not offered at all.
+
+`frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
+loaded clip a real input to a video graph. It defaults to `1`, the single image the node always
+returned, so nothing already saved changes. The ceiling is a size rather than a count: past 4 GiB of
+float32 the node refuses and says how many frames fit at that resolution, instead of running out of
+VRAM. Frames of differing resolution cannot stack and are refused by name.
+
+`colour_space` comes back as a fourth output and on the panel when the publisher declared one. Read
+back, never applied — nothing here converts, and a Version that declared nothing says nothing.
+
 ## Where provenance lands
 
 Nine typed fields on Version, created by step 2 above:
@@ -187,10 +202,12 @@ site-wide forever (probe 019).
 
 Where an upstream Version published files of its own, they are linked through
 `upstream_published_files` — the file-level twin of `sg_ai_generated_from`, written from the same
-ancestors the node already walked.
+ancestors the node already walked. Where a Load node upstream read one of those files, the link is
+that one file rather than every file the ancestor published; where it read a path field or an upload
+there is no file to name, and the whole ancestor is linked as before.
 
 A sequence publish also fills `sg_path_to_frames` on the Version with the `%04d` pattern, so the Load
-node's `frames` tier resolves to the real frames.
+node resolves the real frames even on a site that never looks at published files.
 
 ## Files this repo writes on your machine
 
