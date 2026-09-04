@@ -258,14 +258,69 @@ operator never types an id. A plate becomes a previs; several Versions become on
 Flow PT.
 
 Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
-asks per pick and offers only tiers that resolve to a real file. Published files are not a *tier* yet: on the
-only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
-absent — `docs/quirks.md` in the corpus repo names what would close it.
+asks per pick and offers only sources that resolve to a real file.
 
-What did change is that tier 2 now resolves on anything this node published: a sequence publish writes the
-real `%04d` pattern into `sg_path_to_frames`, and a registered movie into `sg_path_to_movie`. probe 021 found
-`sg_path_to_frames` filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until
-there was a shared root to point at, there was nothing to write.
+Published files **were** not a tier, and the reason is worth keeping rather than deleting: on the only site
+available, the types a graph wants carried no path at all. That was recorded as unproven, not as absent.
+What closed it is this repo writing them. A publish registers a PublishedFile per file and the server
+resolves the path in the 201 itself (recipe 004), so there are now real files to read, and they come
+**first**: a PublishedFile is the only source that names a *type*, which is what makes "the rendered
+sequence" and "the mp4" on one Version distinguishable, and the only one carrying the colour space the
+publisher declared.
+
+Which is why the `source` combo holds a *type and a filename* — `Rendered Image · sh010_comp_v003.%04d.png
+#6843` — with the id last, as the tiebreak two publishes of one stream differ by. Nobody picks by id. It is
+also the stored widget value, so a file later renamed or re-typed stops matching and the node lists what the
+Version does have, by label, rather than loading a plausible neighbour.
+
+The rule that made this design good did not change: a source is offered only when it can actually deliver.
+A PublishedFile with no path, or a path on a root this machine has not mounted, is absent from the picker
+rather than a run that fails at the end. Still unproven, and the same shape of gap: a path resolved for a
+platform other than the one publishing — the only LocalStorage row here defines `mac_path` and leaves the
+other two null, so `local_path_windows` and `local_path_linux` read null on every row written — and a site
+whose PublishedFiles a real publisher wrote rather than this node.
+
+Tier 2 also resolves on anything this node published: a sequence publish writes the real `%04d` pattern into
+`sg_path_to_frames`, and a registered movie into `sg_path_to_movie`. probe 021 found `sg_path_to_frames`
+filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until there was a shared
+root to point at, there was nothing to write.
+
+### A clip, not a frame
+
+A sequence that comes back one frame at a time is not an input to a video graph, so a source can deliver a
+**batch of N frames** — a sequence off disk, or a movie decoded. `frame` is the first frame of the range and
+kept that meaning; `frame_count` beside it says how many.
+
+`frame_count` defaults to **1**, which is exactly what the node always returned. A batch is opted into, never
+handed over: a graph saved before the widget existed asks for one image and must keep getting one. The widget
+is also *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
+is positional, so a widget inserted above an existing one displaces every value in every graph already saved,
+including graphs this repo will never see. A row in the wrong place is cosmetic; a silently shifted value is
+not.
+
+The batch has to be bounded, because 300 frames of 4K is 27.8 GiB of float32 and an allocator's answer to
+that is a stack trace. So the ceiling is a **size**, not a count: `media.BATCH_BUDGET` is 4 GiB, checked
+against the real resolution after the first frame is read, and the refusal names the resolution, the total,
+and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. A short
+read comes back short and says so — padding a batch to the number asked for would be this node inventing
+frames — and frames whose size changes mid-sequence are refused by filename rather than by two shapes in a
+torch traceback, because they cannot stack and no resize belongs here.
+
+### Colour space travels with the pixels
+
+Publish records a declared colour space on the PublishedFile description and in the `.provenance.json`. The
+Load node reads it back onto the panel and out of a fourth output, so a claim made once upstream reaches the
+artist about to comp instead of being retyped. **Recorded, never applied**: nothing converts, nothing infers,
+and a Version that declared nothing says nothing rather than defaulting to sRGB.
+
+### The upstream link is exact where it can be
+
+`upstream_published_files` was every PublishedFile of every ancestor Version — right, and approximate: on a
+Version carrying both a sequence and its mp4 it claims a dependency on both when the graph read one. The Load
+node now records the file it actually opened (`lineage.py`, beside the Version id it resolved), and the
+publish node links that one file. Ancestors that were read through a path field or an upload opened no
+PublishedFile, so they still get the search — approximate is the honest answer where nothing narrower is
+known, and the two cases are decided per ancestor rather than per run.
 
 ## Where the version number lives is site-specific
 

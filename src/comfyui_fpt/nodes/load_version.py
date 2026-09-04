@@ -105,7 +105,8 @@ class FPTLoadVersion:
                                     "tooltip": "Which media to pull. `auto` takes the best this "
                                                "Version can actually deliver.", "advanced": True}),
                 "frame": ("INT", {"default": 1, "min": 1, "max": 1048576,
-                                  "tooltip": "Frame to read from a sequence or a movie.", "advanced": True}),
+                                  "tooltip": "First frame to read from a sequence or a movie.",
+                                  "advanced": True}),
                 # The API's own language, for when the fields here cannot say it. Empty means the
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
@@ -122,7 +123,21 @@ class FPTLoadVersion:
                                        "change them. Edit it and it takes over. An array is an "
                                        "implicit AND; for OR use a group: {\"logical_operator\": "
                                        "\"or\", \"conditions\": [...]} (probe 030)."}),
-
+                # LAST, and it belongs beside `frame`. Widgets are appended and never inserted:
+                # widgets_values is positional, so a widget added above this one displaces every
+                # value in every graph already saved, including graphs this repo will never see.
+                # A row in the wrong place is a cosmetic cost; a silently shifted value is not.
+                #
+                # Default 1 for the same reason. A batch is what makes a loaded clip a real input to
+                # a video graph, but a graph saved before this widget existed asks for one image and
+                # must keep getting one — the operator opts in to a clip, they are never given one.
+                "frame_count": ("INT", {"default": 1, "min": 1, "max": media.MAX_FRAMES,
+                                "advanced": True,
+                                "tooltip": "How many frames to read as one batch, starting at "
+                                           "`frame`. 1 is a single image. A sequence or a movie can "
+                                           "give more; a still cannot. Large batches are refused by "
+                                           "size, not by count — the error says what fits at this "
+                                           "resolution."}),
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
@@ -142,8 +157,12 @@ class FPTLoadVersion:
         """
         return True
 
-    RETURN_TYPES = ("IMAGE", "INT", "STRING")
-    RETURN_NAMES = ("image", "version_id", "code")
+    # `colour_space` is an output rather than a line in the log because an artist about to comp acts
+    # on it: it feeds the publish node's own colour_space widget, so a claim made once upstream
+    # travels with the pixels instead of being retyped. Empty when nothing was declared — recorded,
+    # never applied, never inferred (DESIGN: this project does not make images).
+    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING")
+    RETURN_NAMES = ("image", "version_id", "code", "colour_space")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
     DESCRIPTION = "Read a Flow PT Version's media into the graph, recording it as a source."
@@ -198,7 +217,7 @@ class FPTLoadVersion:
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
-                   source=AUTO, frame=1, **kw):
+                   source=AUTO, frame=1, frame_count=1, **kw):
         """Re-resolve at queue time, so the graph sees what has been published since.
 
         Without this ComfyUI caches on unchanged widgets and a re-run costs 0.00s without asking the
@@ -206,18 +225,18 @@ class FPTLoadVersion:
         Returns the id it WOULD load, so it re-executes when that changes and only then.
         """
         if int(pin_version_id):
-            return f"{int(pin_version_id)}:{source}:{frame}"
+            return f"{int(pin_version_id)}:{source}:{frame}:{frame_count}"
         try:
             site.forget("find", "versions_on")   # a status flipped a moment ago must be visible
             vid, _, _ = cls._resolve(project, link_type, link, task, name_contains, statuses,
                                      newest_by, filters)
-            return f"{vid}:{source}:{frame}"
+            return f"{vid}:{source}:{frame}:{frame_count}"
         except Exception:
             return float("nan")   # unreachable site: re-run rather than serve something stale
 
     def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-              frame=1, unique_id=None):
+              frame=1, frame_count=1, unique_id=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:
@@ -233,25 +252,37 @@ class FPTLoadVersion:
                 raise ValueError(why + (f"\nwhat is there:\n  {listing}" if near
                                         else "\nthere are no Versions there at all"))
             why = f"{code} ({why})"
-        # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
-        # Version is not in the prompt graph, only the rule is.
-        lineage.record(unique_id, vid)
 
         fpt = site.client()
         v = media.version(fpt, vid)
         available = media.sources(v)
         if not available:
             raise ValueError(
-                f"Version {vid} ({v.get('code')}) has no media this node can read. probe 021: "
-                f"published files are not a source yet, and its path fields point at nothing here.")
+                f"Version {vid} ({v.get('code')}) has no media this node can read: its published "
+                f"files carry no path this machine has a root for, and its path fields point at "
+                f"nothing here.")
 
         key = available[0][0] if source in (AUTO, UNSET) else source.split(" — ")[0].strip()
         if key not in [k for k, _ in available]:
-            raise ValueError(f"Version {vid} cannot deliver {key!r}; it has: "
-                             f"{', '.join(k for k, _ in available)}")
+            # The labels, not the keys: a PublishedFile that has been renamed or re-typed no longer
+            # matches the saved value, and "it has: Rendered Image · …" is what tells you which.
+            raise ValueError(f"Version {vid} cannot deliver {key!r}; it has:\n  "
+                             + "\n  ".join(label for _, label in available))
 
-        data, filename = media.load(v, key, frame)
-        img = media.to_image(data, filename, frame)
-        a = np.array(img, dtype=np.float32) / 255.0
-        print(f"[Flow PT] loaded Version {vid}: {why}; source={key}")
-        return (torch.from_numpy(a)[None, ...], vid, v.get("code") or "")
+        # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
+        # Version is not in the prompt graph, only the rule is. The file goes with it: when this read
+        # came off a PublishedFile, the dependency the publish writes is that one file rather than
+        # every file the ancestor ever published.
+        pf = media.pf_of(v, key)
+        lineage.record(unique_id, vid, (pf or {}).get("id", 0))
+
+        frames = media.load_frames(v, key, frame, frame_count)
+        a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
+        colour = media.colour_of(v, key)
+        got = f"{len(frames)} frames from {frame}" if len(frames) > 1 else f"frame {frame}"
+        # Said out loud, because a batch that came back short is a fact about the media the graph
+        # downstream will otherwise discover as a wrong frame count.
+        short = f" (asked for {frame_count})" if len(frames) < int(frame_count) else ""
+        print(f"[Flow PT] loaded Version {vid}: {why}; source={key}; {got}{short}"
+              + (f"; colour space declared {colour} — recorded, not applied" if colour else ""))
+        return (torch.from_numpy(a), vid, v.get("code") or "", colour)

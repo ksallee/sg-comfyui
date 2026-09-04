@@ -241,7 +241,7 @@ class FPTPublishVersion:
 
     @staticmethod
     def _register(fpt, staged, project_id, vid, version_no, link_type, target, task_id, count,
-                  note, colour_space, src_ids):
+                  note, colour_space, src_ids, src_files=None):
         """One PublishedFile per registered file, linked to the Version carrying the review media.
 
         Returns the lines the panel logs: what was registered, where it landed, and what could not be
@@ -250,10 +250,14 @@ class FPTPublishVersion:
         `upstream_published_files` is the file-level twin of `sg_ai_generated_from`: the same
         ancestors, resolved to the files those Versions published. A tool downstream opens files, not
         Versions, so the dependency is only useful at this level.
+
+        `src_files` is what an upstream Load node actually read (lineage.py). Where it has an answer
+        the link is that file; where it does not, the site is asked and the link is every file of
+        that ancestor.
         """
         if not staged:
             return []
-        upstream = publish.published_files_of(fpt, src_ids)
+        upstream = publish.published_files_of(fpt, src_ids, src_files)
         common = {"version": {"type": "Version", "id": int(vid)}, "version_number": int(version_no)}
         if target:
             common["entity"] = {"type": link_type, "id": int(target)}
@@ -437,7 +441,8 @@ class FPTPublishVersion:
             publish.attach_json(fpt, vid, wf, f"{code}.workflow.json")
 
         file_notes = self._register(fpt, staged, project_id, vid, version_no, link_type, target,
-                                    task_id, count, note, colour_space, src_ids)
+                                    task_id, count, note, colour_space, src_ids,
+                                    lineage.files_for_nodes(upstream))
 
         published = [f"{code} -> Version {vid}"]
         if as_movie:
