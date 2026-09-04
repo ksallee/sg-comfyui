@@ -700,3 +700,73 @@ Gradient energy goes 4.41 -> 5.21 against a true 5.51, so edges genuinely come b
 strands become smooth ribbons and plaster grain becomes a waxy surface. It also scores *worse* than
 plain bicubic on PSNR and SSIM (31.52 vs 33.26), which is the normal GAN-upscaler trade and worth
 saying out loud rather than quietly claiming a win.
+
+### 03 cleanplate paintout — the matte is excellent, the fill is not
+
+Based on `video_wan_vace_inpainting`, though the repo's own `example_workflows/03_cleanplate_paintout.json`
+already ships a flattened debugged version of it, and its `.md` records both traps: CausVid is
+CFG-distilled so CFG 1 makes the negative prompt inert, and VACE redraws the whole frame so the result
+has to be composited back through a feathered matte. Both still true.
+
+**The matte half is the best evidence yet for the bare-noun rule.** `banner` gives a tight, correct
+matte with **IoU 0.998 across 5 frames and no drift**, and removal is clean — 99.4-100% of masked
+pixels change, 0.1% spill outside.
+
+**The fill half does not hold up.** Two runs:
+
+- a dark maroon slab carrying the banner's exact silhouette — a textbook ghost;
+- with that failure named in the negative, a flat neutral-brown panel with a fine crosshatch: no
+  stone, no wood grain, and it does not continue the horizontal grey band running across the wall
+  behind it.
+
+At full-frame size it reads as shadowed masonry and would pass as a first pass. At 100% it is
+obviously painted. And it **boils**: inside-matte frame-to-frame difference is **3.6-14.6 against
+0.12-0.22 on the plate**, a visible luminance strobe, and worse on the better-coloured run.
+
+**The cause is the same one that broke matting: subject size against a fixed model input.** The
+banner is ~90x225 px at the 848x480 the 1.3B model wants, so there is almost nothing to work with.
+The fix is the same too — crop, inpaint at native resolution, recomposite — or a 14B model. Neither
+tried.
+
+So the work-area pattern is not a matting trick, it is **the general rule for every model in this
+demo set**: a fixed-resolution model gets what the frame gives it, and a small subject starves it.
+
+Also: the repo's existing 03 uses a locked-off still, while this plate has a moving camera, which is
+why temporal stability here is far worse than the 0.5-0.9 its `.md` claims. Five frames only, and
+that `.md`'s own warning stands — a short probe does not predict a long one.
+
+### 04 set extension — upward works, sideways is a lottery
+
+Based on `video_wan_vace_outpainting` (the 1.3B path; the 14B loaders ship mode-4 bypassed).
+`flux_fill_outpaint_example` was reviewed and rejected: **no `flux1-fill-dev` is installed**, and
+`flux1-schnell-fp8` is not a fill model, so VACE 1.3B is the only working route.
+
+**Upward extension is genuinely good.** Padding 192px up, the left building continues with a correct
+window — stone surround, glazing bars, a curtain — verticals converge correctly, the cornice line
+carries through, the centre facade runs up to a terracotta eave and the sky slot opens plausibly.
+Backlit haze matches, and a row-gradient across the seam shows no spike.
+
+**Sideways depends on having video context.** A single frame padded at the sides produced a **dead
+flat grey plane** on the right (band std 6.7, gradient 0.78, against 20.5/3.71 on the left): the
+plate's right edge is a near-black shadowed wall, so the model had no cue and invented a void. The
+same pad over 5 frames built a real facade with a stone lintel. **A still-only demo should pad top
+only.**
+
+Two gotchas worth keeping:
+
+- `RepeatImageBatch.amount` must equal `length`, because `ImagePadForOutpaint` returns a single 2D
+  mask rather than a batch (`nodes.py` `expand_image`).
+- `WanVaceToVideo` truncates `control_video` itself, but its `width`/`height` must equal the padded
+  size or it centre-crops and the plate stops lining up.
+
+### What 03 and 04 share, and it matters
+
+- **The same cross-hatch / mesh-weave artifact** over dark flat surfaces, in both demos, bleeding into
+  the plate region. Unchanged at 6 steps/lora 0.7 and 10 steps/lora 0.5, so it is not a step count —
+  it is what WAN VACE 1.3B does here.
+- **Neither preserves the plate.** VACE redraws the whole frame; 04 measures the VAE round-trip drift
+  inside the original border at **mean 6.0/255, p99 36**, concentrated on high-frequency edges. Both
+  demos therefore *must* composite the original back under the result through a feathered matte, and
+  04's graph does not yet do it.
+
+Both were capped at 5 frames on a shared queue. Neither is proven at 48.
