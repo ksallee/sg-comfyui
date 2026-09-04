@@ -1041,6 +1041,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 271
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -1053,13 +1058,12 @@
         "(none)",
         "Pending Review",
         "extension",
-        0.0,
         "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 extension",

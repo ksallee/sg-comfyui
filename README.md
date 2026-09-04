@@ -94,19 +94,35 @@ this one. Same three keys either way.
 
 ## The two nodes
 
-**Flow PT Publish Version** — an IMAGE in, a Version out: created, media uploaded, provenance
-attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a project, what the
-Version hangs off, optionally a Task and a status, and what the stream *is* (`depth`, `normals`,
-`mask`). The project, link, Task and status lists are your site's real ones, read live. `code = auto`
-numbers per link, so two graphs chain without anyone copying an id.
+**Flow PT Publish Version** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
+provenance attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a
+project, what the Version hangs off, optionally a Task and a status, and what the stream *is*
+(`depth`, `normals`, `mask`). The project, link, Task and status lists are your site's real ones,
+read live. `code = auto` numbers per link, so two graphs chain without anyone copying an id.
+
+Two inputs, `images` and `video`, and at least one of them wired. What you wire is what the Version
+carries — there is no combo asking you to say it again:
+
+| `images` | `video` | the Version's media | registered as files, when the box is ticked |
+|---|---|---|---|
+| — | wired | that clip | the clip |
+| wired | — | frame 1, as a still | the frames |
+| wired | wired | the clip | the frames, and the clip where your profile keeps it |
+| — | — | the run refuses, and says so | — |
+
+**The clip is never re-encoded when it does not have to be.** A `VIDEO` off `LoadVideo` — or any
+node that hands you a file — goes up as that file, byte for byte, at its own extension. Anything
+else (a `CreateVideo` assembling a batch, a hosted model answering with frames) is written by
+ComfyUI's own `VideoInput.save_to()`, which carries the colour space, the bit depth and the audio.
+The panel says which of the two happened. There is no `fps` widget: a `VIDEO` states its own rate,
+and `CreateVideo` is where you set one.
+
+An IMAGE batch of more than one frame is not media — a Version's media is single-valued (probe 022) —
+so with **Create Published Files** off the run refuses rather than uploading frame 1 and dropping the
+rest. Tick the box to register the sequence, or send the batch through `CreateVideo`.
 
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
-
-`published_files` decides whether the frames themselves are kept. A batch always publishes as one
-Version carrying one movie for review; ask for `frames` as well and the node copies the sequence to
-`<storage root>/<path template>` and registers a `PublishedFile` for it, linked to that Version. The
-default is `(none)` — a movie publish and a single image are untouched.
 
 **Flow PT Load Version** — a Version's media back into the graph, and the link recorded. The inputs
 are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
@@ -175,6 +191,12 @@ node. See DESIGN.md, "Where each piece lands is the operator's, not ours".
 are a `PublishedFile` instead, and a PublishedFile's path has to sit under one of your site's
 LocalStorage roots — the server refuses anything else.
 
+**Create Published Files** on the node is one question and it is not about media: is this publish a
+deliverable, or only review? What gets registered follows from what is wired — the frames where
+`images` is, the clip where `video` is. Whether your house *also* keeps the review clip as a file
+beside a sequence is a convention rather than a per-publish call, so it is `register_movie` in the
+profile below; a clip published on its own is the deliverable and is registered either way.
+
 **Nothing has to change about where ComfyUI writes.** The frames land in ComfyUI's own output
 directory as usual, and the node *copies* them into place under the root. The copy is what a failed
 publish is recovered from, so the originals are never moved.
@@ -182,9 +204,10 @@ publish is recovered from, so the originals are never moved.
 Two profile keys per project, beside every other per-show decision:
 
     "published_files": {
-      "storage":       "primary",
-      "path_template": "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
-      "colour_space":  "sRGB"
+      "storage":        "primary",
+      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":   "sRGB",
+      "register_movie": false
     }
 
 `storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
@@ -194,6 +217,9 @@ template — Flow PT's dotted field paths and Python's format spec — with two 
   numbers, so in a *path* template the printf form always means the frame.
 - The extension follows the files, not the template. The node writes PNG, so a template ending
   `.exr` registers `.png` and says so. Nothing is transcoded.
+
+`register_movie` says whether the review clip is registered as a file too, beside the frames. It is
+false by default: most shows deliver the sequence and review the clip.
 
 `colour_space` is recorded and never applied: it goes in the PublishedFile's description and in the
 provenance record, and the node's own `colour_space` widget overrides the profile per output. This

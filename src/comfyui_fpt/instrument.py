@@ -34,8 +34,9 @@ LOAD = "FPTLoadVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
-PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "fps", "note",
-                   "code_template", "source_versions", "attach_workflow", "link_id"]
+PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "note",
+                   "code_template", "source_versions", "attach_workflow", "link_id",
+                   "register_files", "colour_space"]
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
                 "pin_version_id", "source", "frame", "filters"]
 # site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of
@@ -44,9 +45,10 @@ LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_
 NO_VALUE = "(none)"
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
                     "code_template": "{entity.code}_{output}_v{version:03d}",
-                    # 0 is "do not decide here": the node reads the graph's own fps instead, which
-                    # an instrumented video workflow almost always states.
-                    "fps": 0.0, "attach_workflow": True, "link_id": 0}
+                    # Review, not a deliverable: a tap added to somebody else's graph must not start
+                    # copying their frames onto a shared volume because we instrumented it.
+                    "register_files": False,
+                    "attach_workflow": True, "link_id": 0}
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
                  "source": "auto", "pin_version_id": 0, "frame": 1}
@@ -492,8 +494,11 @@ def add_publish(wf, origin_path, origin_slot, widgets, title="Flow PT Publish Ve
     path, slot = _promote(wf, str(origin_path), origin_slot, name)
     origin = next(n for n in wf["nodes"] if str(n["id"]) == path)
     ox, oy = origin.get("pos", [0, 0])[:2]
+    # Both slots, in declared order. `video` is left unwired — this taps an IMAGE stream — but a
+    # slot the file never mentions is a slot the operator has nothing to drop a clip onto.
     nid = _add_node(wf, wf, PUBLISH, (ox + 480, oy + 120), widgets, title,
-                    inputs=[{"name": "images", "type": "IMAGE", "link": None}])
+                    inputs=[{"name": "images", "type": "IMAGE", "link": None},
+                            {"name": "video", "type": "VIDEO", "link": None}])
     lid = _add_link(wf, wf, origin["id"], slot, nid, 0, "IMAGE")
     wf["nodes"][-1]["inputs"][0]["link"] = lid
     o = origin["outputs"][slot]

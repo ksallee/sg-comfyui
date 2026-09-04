@@ -56,6 +56,11 @@ def output_dir():
         return Path(tempfile.gettempdir())
 
 
+def folder(stem):
+    """One folder per publish, under ComfyUI's output. The movie lands beside its own frames."""
+    return output_dir() / stem
+
+
 def write_frames(images, stem):
     """The batch as a PNG sequence in ComfyUI's output directory. One folder per publish.
 
@@ -63,23 +68,14 @@ def write_frames(images, stem):
     extension the site records follows these files; it is never taken from the path template, which
     would let a template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
     """
-    folder = output_dir() / stem
-    folder.mkdir(parents=True, exist_ok=True)
+    into = folder(stem)
+    into.mkdir(parents=True, exist_ok=True)
     out = []
     for i, frame in enumerate(images, start=1):
-        p = folder / f"{stem}.{i:04d}.png"
+        p = into / f"{stem}.{i:04d}.png"
         Image.fromarray(movie.to_u8(frame)).save(p, format="PNG")
         out.append(p)
     return out
-
-
-def write_bytes(payload, stem, suffix):
-    """The encoded movie beside its frames, so the file registered is the file uploaded."""
-    folder = output_dir() / stem
-    folder.mkdir(parents=True, exist_ok=True)
-    p = folder / f"{stem}{suffix}"
-    p.write_bytes(payload)
-    return p
 
 
 def root_for(storages, code=""):
@@ -111,7 +107,7 @@ def root_for(storages, code=""):
 def check_root(root):
     """A root that is not mounted must stop the publish BEFORE the Version exists.
 
-    Same rule as encoding the movie first (publish_version): a Version left behind pointing at frames
+    Same rule as staging the movie first (publish_version): a Version left behind pointing at frames
     nobody wrote is worse than a run that refused.
     """
     if not os.path.isdir(root):

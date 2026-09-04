@@ -53,8 +53,12 @@ app.registerExtension({
 function publishPickers(nodeType) {
   // The declared widgets, in INPUT_TYPES order. This is the order a saved graph's widgets_values is
   // in, and the only order anything outside the editor (instrument.py, tools/workflows/) has to know.
-  const DECLARED = ["project", "link", "task", "status", "output_name", "fps", "note",
-                    "code_template", "source_versions", "attach_workflow", "link_id"];
+  // Every declared widget, and every one of them: the list stopped at `link_id` while the class
+  // declared two more, so `vals.length === DECLARED.length` never matched a shipped graph and this
+  // whole block fell through to the frontend it exists to correct.
+  const DECLARED = ["project", "link", "task", "status", "output_name", "note",
+                    "code_template", "source_versions", "attach_workflow", "link_id",
+                    "register_files", "colour_space"];
 
   // The node maps its own saved values, because the frontend cannot. This node has widgets the
   // class never declared — the two pickers and the panel — and widgets_values is positional, so
@@ -154,10 +158,10 @@ function publishPickers(nodeType) {
       // supposed to be the signal.
       const echo = [["project", project?.value], ["output", w("output_name")?.value]]
         .filter(([, v]) => bare(v)).map(([label, value]) => ({ label, value }));
-      // What a Run does with a BATCH, in front of the operator rather than in the fold: the node
-      // publishes one Version per run and the movie's frame rate is a decision, so both are read
-      // before Run, not discovered after it.
-      const facts = rest.movie ? [{ label: "a batch", value: rest.movie }] : [];
+      // Which row of the truth table this node is on, in front of the operator rather than in the
+      // fold: one run is one Version, and what that Version will carry is decided by what is wired,
+      // so it is read before Run rather than discovered after it.
+      const facts = rest.media ? [{ label: "media", value: rest.media }] : [];
       panel.show({
         ...rest, facts,
         id: -1, code: d.code, task: d.task,
@@ -189,11 +193,11 @@ function publishPickers(nodeType) {
           id: rows[0].id, code: rows[0].code, link: rows[0].link,
           status: statusOf(status?.value), state: "ok",
           why: "",
-          // `facts`, not `echo`: what a run actually wrote is nowhere else on the node. `movie` is
-          // the frame count and the rate that was actually used — one run is one Version now, so
-          // the count belongs beside the media, not in a tally of Versions.
+          // `facts`, not `echo`: what a run actually wrote is nowhere else on the node. `media`
+          // names the path the run took — the source file uploaded untouched, a ComfyUI encode, or
+          // our own still — with the frame count and the rate measured off the clip itself.
           facts: [
-            ...(rows[0].movie ? [{ label: "movie", value: rows[0].movie }] : []),
+            ...(rows[0].media ? [{ label: "media", value: rows[0].media }] : []),
             ...(rows[0].outputs && rows[0].outputs.length
               ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : []),
           ],
@@ -305,8 +309,9 @@ function publishPickers(nodeType) {
     wrap(link, loadTasks);
     // Everything the readout depends on. Nothing here is ever written back by preview(), which is
     // what stops this becoming the resolve loop the Load node had.
-    ["task", "status", "attach_workflow"].forEach((n) => wrap(w(n), () => preview()));
-    ["code_template", "output_name", "note", "source_versions", "fps"].forEach((n) =>
+    ["task", "status", "attach_workflow", "register_files"].forEach((n) =>
+      wrap(w(n), () => preview()));
+    ["code_template", "output_name", "note", "source_versions", "colour_space"].forEach((n) =>
       wrap(w(n), previewSoon));
 
     // Every row we add is already marked by domRow; a button is the one litegraph never marks

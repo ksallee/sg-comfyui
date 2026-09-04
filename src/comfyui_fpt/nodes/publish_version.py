@@ -1,13 +1,16 @@
-"""Flow PT Publish Version — an image out of the graph becomes a Version with its provenance.
+"""Flow PT Publish Version — what the graph made becomes a Version with its provenance.
 
-One run is one Version. A batch of more than one frame is a movie, not a stack of Versions: probe 022
-found a Version's media single-valued, so the old frame-per-Version loop turned a two-second camera
-move into 33 Versions and 33 one-frame transcodes.
+One run is one Version, because probe 022 found a Version's media single-valued. What that Version
+carries is decided by what is wired in, never by a combo asking the operator to say it again: a VIDEO
+is the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the video.
 
-The frames themselves are a PublishedFile, not media — the other half of probe 022's verdict. Ask for
-them and the run still produces exactly one Version carrying the movie for review, plus a
-PublishedFile per registered file, copied under a LocalStorage root the site can resolve (recipe 004).
-See `sequence.py` for what happens on disk.
+This node records; it does not make images. A VIDEO that is already a file on disk goes up as that
+file, byte for byte, and anything else is written by ComfyUI's own encoder (`movie.stage`).
+
+The frames themselves are a PublishedFile, not media — the other half of probe 022's verdict. Tick
+`register_files` and the run still produces exactly one Version, plus a PublishedFile per registered
+file, copied under a LocalStorage root the site can resolve (recipe 004). See `sequence.py` for what
+happens on disk.
 """
 import io
 import json
@@ -41,11 +44,15 @@ def _id_for(pairs, label):
     return next((i for l, i in pairs if l == label), 0)
 
 
-# What to register as PublishedFiles, in the operator's words. `(none)` is the default because a
-# movie publish is complete without one and a single image certainly is; the frames are the case that
-# needs a file, since a Version cannot hold a sequence at all (probe 022).
-NO_FILES, FRAMES, MEDIA, BOTH = site.NO_VALUE, "frames", "movie", "frames and movie"
-FILE_CHOICES = [NO_FILES, FRAMES, MEDIA, BOTH]
+def _wants_files(pf):
+    """The profile's default for the tick.
+
+    `published_files.default` held a combo label before this was a checkbox, and `(none)` was that
+    combo's way of saying no — so a profile written for the old node reads correctly here rather
+    than turning every publish into a deliverable.
+    """
+    d = pf.get("default")
+    return bool(d) and d != site.NO_VALUE
 
 
 class FPTPublishVersion:
@@ -63,7 +70,10 @@ class FPTPublishVersion:
         status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
 
         return {
-            "required": {"images": ("IMAGE",)},
+            # Neither is required and at least one is: what a Version carries is the shape of what
+            # was wired, so the node cannot declare one of them the real input. `images` stays the
+            # first input and keeps its name — an input slot is addressed by name in a saved graph.
+            "required": {},
             # Order is the order they are decided: the pixels, then which show, what they belong to,
             # which task, what state it is in, which stream, and last the note a person writes.
             # Everything below the note is fine print and lives behind ComfyUI's advanced fold.
@@ -73,6 +83,17 @@ class FPTPublishVersion:
             # option carries its own — so a combo whose only job was to shorten a list nobody scrolls
             # any more was one decision to make before the one that mattered.
             "optional": {
+                "images": ("IMAGE", {"tooltip": "Frames out of the graph. Alone they publish frame "
+                                                "1 as the Version's still; tick Create Published "
+                                                "Files to register the sequence itself."}),
+                # An input slot is additive and safe where a widget is not, so this is the one part
+                # of this change that a saved graph would have survived. `save_to` on it carries the
+                # colour space, the bit depth and the audio our own encode never could, and a
+                # `VideoFromFile` is a file on disk that is uploaded rather than touched.
+                "video": ("VIDEO", {"tooltip": "A clip out of the graph — LoadVideo, CreateVideo, or "
+                                               "any of the hosted video models. It becomes the "
+                                               "Version's review media, uploaded as the source file "
+                                               "itself where the graph did not change it."}),
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id),
                              "tooltip": "Project to publish into."}),
@@ -93,14 +114,6 @@ class FPTPublishVersion:
                                 "tooltip": "What this stream is — depth, normals, mask. Fills "
                                            "{output} in the name template, so it is part of the "
                                            "Version's name."}),
-                # A batch is published as one movie, and a movie without a frame rate is a movie
-                # with an invented one. 0 is not "no fps" — it is "do not decide here", and the
-                # panel names whichever source answered instead.
-                "fps": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 240.0, "step": 0.01,
-                        "tooltip": "Frame rate for the movie a multi-frame batch publishes. 0 takes "
-                                   "it from the graph — any node with an fps or frame_rate — and "
-                                   f"falls back to {movie.DEFAULT_FPS:g}, which the panel says out "
-                                   "loud so nobody reads it as measured timing."}),
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
@@ -127,18 +140,22 @@ class FPTPublishVersion:
                 "attach_workflow": ("BOOLEAN", {"default": True, "advanced": True}),
                 "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID, "advanced": True,
                                     "tooltip": "Overrides `link` when non-zero, for a stale list."}),
-                # Appended, and everything new goes below it: ComfyUI stores widget values by
-                # position, so a widget inserted higher up would displace every value in every graph
-                # already saved.
-                "published_files": (FILE_CHOICES,
-                                    {"default": (p.get("published_files") or {}).get(
-                                        "default") or NO_FILES,
-                                     "tooltip": "Register the files themselves, beside the Version. "
-                                                "`frames` copies the sequence under the storage root "
-                                                "the profile names and registers it — the Version "
-                                                "still carries the movie for review. `movie` "
-                                                "registers the reviewable media, which is the still "
-                                                "when there is only one frame."}),
+                # The one per-publish question left, and it was never about media: is this a
+                # deliverable, or only review? WHICH files follow from what is wired, and whether
+                # the house also keeps the review movie is `register_movie` in the profile.
+                #
+                # ComfyUI stores widget values by position, so nothing may be inserted above this
+                # once anything outside this repo has saved a graph — DESIGN, "the widget window
+                # closes at release".
+                "register_files": ("BOOLEAN",
+                                   {"default": _wants_files(p.get("published_files") or {}),
+                                    "display_name": "Create Published Files",
+                                    "tooltip": "Register the files themselves, beside the Version. "
+                                               "Frames are copied under the storage root the profile "
+                                               "names and registered as a sequence; a movie is "
+                                               "registered where it is the deliverable, or where "
+                                               "published_files.register_movie says this house "
+                                               "keeps its review media too."}),
                 # Declared, never inferred and never applied. A colour transform is the most
                 # consequential pixel change in a comp, and this node does not make images (DESIGN),
                 # so what the operator says is recorded and nothing is converted.
@@ -195,8 +212,8 @@ class FPTPublishVersion:
         return True
 
     @staticmethod
-    def _stage(images, reel, code, version_no, count, colour_space, want, p, fpt, project_id,
-               link_type, target, task_id, output_name):
+    def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
+               p, fpt, project_id, link_type, target, task_id, output_name):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
         The storage root and the path template are profile data, per project like every other
@@ -204,7 +221,7 @@ class FPTPublishVersion:
         already speaks — dotted Flow PT paths and Python's format spec (`naming.render`) — plus the
         frame token `sg_path_to_frames` uses, so nothing here is a second vocabulary.
         """
-        if not want:
+        if not (want_frames or want_movie):
             return None
         pf = p.get("published_files") or {}
         storage_id, root = sequence.root_for(publish.storages(fpt), pf.get("storage", ""))
@@ -216,27 +233,25 @@ class FPTPublishVersion:
         # The extension follows the files, never the template: PNG is what Pillow writes from an
         # IMAGE tensor, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
         pattern = sequence.pattern(root, template, vals, version_no, ".png")
-        # ComfyUI's own output directory first. The copy is what puts a file where the site can
-        # resolve it; the original stays put so a failed publish is recoverable. A movie-only
-        # request still needs frame 1 on disk, because that is what a one-frame publish registers.
-        local = sequence.write_frames(images if FRAMES in want else images[:1], code)
         out = {"root": root, "storage_id": storage_id, "template": template,
                "declared_ext": os.path.splitext(sequence.single(template))[1].lower(),
                "colour": colour_space.strip(), "count": count}
-        if FRAMES in want:
-            out["frames"] = sequence.place(local, pattern)
+        if want_frames:
+            # ComfyUI's own output directory first. The copy is what puts a file where the site can
+            # resolve it; the original stays put so a failed publish is recoverable.
+            out["frames"] = sequence.place(sequence.write_frames(images, code), pattern)
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
             out["frames_name"] = sequence.stream_name(template, vals, ".png")
-        if MEDIA in want:
-            ext = ".mp4" if reel is not None else ".png"
-            source = sequence.write_bytes(reel, code, ext) if reel is not None else local[0]
+        if want_movie:
+            # The clip's real extension, because a deliverable is never transformed: a `.mov` off
+            # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
+            ext = os.path.splitext(media_path)[1].lower() or ".mp4"
             dest = sequence.swap_ext(sequence.single(pattern), ext)
-            out["media"] = sequence.copy_one(source, dest)
+            out["media"] = sequence.copy_one(media_path, dest)
             out["media_code"] = os.path.basename(dest)
             out["media_name"] = sequence.swap_ext(
                 sequence.single(sequence.stream_name(template, vals, ".png")), ext)
-            out["media_is_movie"] = reel is not None
         return out
 
     @staticmethod
@@ -274,12 +289,12 @@ class FPTPublishVersion:
 
         jobs = []
         if staged.get("frames"):
-            jobs.append(("frames" if count > 1 else "still", staged["frames_code"],
-                         staged["frames_name"], staged["frames_pattern"],
-                         f'{len(staged["frames"])} frames'))
+            n = len(staged["frames"])
+            jobs.append(("frames" if n > 1 else "still", staged["frames_code"],
+                         staged["frames_name"], staged["frames_pattern"], f"{n} frames"))
         if staged.get("media"):
-            jobs.append(("movie" if staged.get("media_is_movie") else "still", staged["media_code"],
-                         staged["media_name"], staged["media"], "review media"))
+            jobs.append(("movie", staged["media_code"], staged["media_name"], staged["media"],
+                         "the clip"))
 
         notes = []
         for kind, code, name, path, what in jobs:
@@ -312,13 +327,29 @@ class FPTPublishVersion:
     FUNCTION = "publish"
     CATEGORY = "Flow Production Tracking"
     OUTPUT_NODE = True
-    DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
+    DESCRIPTION = ("Create a Flow PT Version from this image or video, carrying the graph that "
+                   "made it.")
 
-    def publish(self, images, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
-                output_name="", fps=0.0, note="", code_template=UNSET,
+    def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
+                output_name="", note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
-                published_files=NO_FILES, colour_space="",
+                register_files=False, colour_space="",
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
+        if images is None and video is None:
+            raise ValueError(
+                "nothing to publish: wire an IMAGE into `images`, a VIDEO into `video`, or both. "
+                "This node records what the graph made and never makes it.")
+        frames = len(images) if images is not None else 0
+        # A sequence cannot BE a Version's media (probe 022) and nothing here is being asked to
+        # register it, so frame 1 would go up and the rest would vanish. Loud, never silent
+        # (corpus 028) — and refused here, before the site is touched at all.
+        if video is None and frames > 1 and not register_files:
+            raise ValueError(
+                f"{frames} frames on `images` with Create Published Files off: there is nowhere for "
+                f"them to go. A Version's media is single-valued (probe 022), so only frame 1 could "
+                f"be uploaded and the other {frames - 1} would be dropped. Tick Create Published "
+                f"Files to register the sequence, or send the batch through CreateVideo and wire the "
+                f"VIDEO into `video`.")
         # The picked project decides, then the profile answers for THAT project — two graphs open in
         # one ComfyUI can target two shows that link Versions differently.
         project_id = _id_for(site.projects(), project) or site.default_project()
@@ -382,17 +413,32 @@ class FPTPublishVersion:
         next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
                     if vnum_field and target else None)
 
-        count = len(images)
-        as_movie = count > 1
-        rate, rate_note = movie.rate(prompt, unique_id, fps) if as_movie else (None, "")
-        # Encoded BEFORE the Version exists. An install with no PyAV, or a batch libx264 refuses,
-        # should stop here rather than leave a Version behind holding a still and calling it a movie.
-        reel = movie.encode(images, rate) if as_movie else None
+        # Staged BEFORE the Version exists — an install with no PyAV, or a clip `save_to` refuses,
+        # should stop here rather than leave a Version behind holding a still and calling it a clip.
+        # The thumbnail is read here too, off the media rather than off `images`, so the still and
+        # the clip cannot disagree about what this Version shows — and so a clip that decodes no
+        # frames refuses before the Version exists rather than after it.
+        media_path = ""
+        if video is not None:
+            media_path, how = movie.stage(video, sequence.folder(code), code)
+            count, media_note = movie.describe(video, how)
+            png = movie.poster(media_path)
+        else:
+            count = frames
+            media_note = "frame 1 as a still" if frames > 1 else "the image itself"
+            png = _png(images[0])
+        # Whether the house ALSO keeps the review movie as a file is a convention, so it lives in
+        # the profile; whether this publish is a deliverable at all is the node's tick. A clip
+        # published on its own IS the deliverable, so it is registered without the house saying so —
+        # a tick that registered nothing would be a silent no-op.
+        keeps_movie = bool((p.get("published_files") or {}).get("register_movie"))
+        want_frames = bool(register_files and images is not None)
+        want_movie = bool(register_files and video is not None and (images is None or keeps_movie))
         # Same rule for the files: the root is resolved, the frames are written and copied into
         # place BEFORE the Version exists, so an unmounted share refuses the run rather than leaving
         # a Version pointing at frames nobody wrote.
-        staged = self._stage(images, reel, code, version_no, count, colour_space,
-                             site.unset(published_files), p, fpt, project_id, link_type, target,
+        staged = self._stage(images, media_path, code, version_no, count, colour_space,
+                             want_frames, want_movie, p, fpt, project_id, link_type, target,
                              task_id, output_name)
 
         fields = dict(typed)
@@ -414,7 +460,7 @@ class FPTPublishVersion:
         if next_num is not None:
             fields[vnum_field] = next_num
         # The range is ours; everything derived from the media is the transcoder's (probe 022).
-        if as_movie:
+        if count > 1:
             fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
         # probe 022's own verdict: the `%04d` pattern belongs in sg_path_to_frames, with a
         # transcoded movie uploaded for the player. Until now there was no real path to put there.
@@ -430,10 +476,13 @@ class FPTPublishVersion:
         site.forget("find", "versions_on", "vnums", "paths")
         # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie too,
         # but not until the transcode lands, and a Version with no picture until then is worse.
-        png = _png(images[0])
         publish.upload(fpt, vid, png, f"{code}.png", field="image")
-        if as_movie:
-            publish.upload(fpt, vid, reel, f"{code}.mp4", field="sg_uploaded_movie")
+        if media_path:
+            # Streamed off disk. A clip is the one payload here with no ceiling, and the file that
+            # goes up is the file that was registered.
+            publish.upload_file(fpt, vid, media_path,
+                                f"{code}{os.path.splitext(media_path)[1].lower() or '.mp4'}",
+                                field="sg_uploaded_movie")
         else:
             publish.upload(fpt, vid, png, f"{code}.png", field="sg_uploaded_movie")
         publish.attach_json(fpt, vid, prov, f"{code}.provenance.json")
@@ -445,15 +494,18 @@ class FPTPublishVersion:
                                     lineage.files_for_nodes(upstream))
 
         published = [f"{code} -> Version {vid}"]
-        if as_movie:
-            published.append(f"{count} frames as one movie — {rate_note}")
+        published.append(f"review media: {media_note}")
+        if count > 1:
             skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
             if skipped:
                 published.append("no frame range recorded, this site has no " + ", ".join(skipped))
+        # Frames wired in that nobody asked to keep are not an error — the clip is the review and
+        # carries the same picture — but they are not silent either.
+        if images is not None and video is not None and not want_frames:
+            published.append(f"{frames} frames wired but not registered; the clip is the media")
         published += file_notes
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
-                 "status": status_code, "outputs": sorted(typed),
-                 "movie": f"{count} frames as one movie — {rate_note}" if as_movie else ""}]
+                 "status": status_code, "outputs": sorted(typed), "media": media_note}]
 
         if attach_workflow and wf is None:
             published.append("no workflow attached: this client sent no EXTRA_PNGINFO")

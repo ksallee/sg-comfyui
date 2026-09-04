@@ -33,20 +33,32 @@ def _id_for(pairs, label):
     return next((i for l, i in pairs if l == label), 0)
 
 
+def _wired(widgets, name):
+    """Whether that input is connected. An API-format prompt writes a link as ["node", slot] and a
+    widget value as a scalar, so the shape of the entry is the answer."""
+    return isinstance(widgets.get(name), list)
+
+
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
-    """Where the frames would land, resolved against the real storage row.
+    """Where the files would land, resolved against the real storage row.
 
     The panel must not understate what the run will write: a publish that copies a sequence onto a
     shared volume is the one thing an operator wants to read back before pressing Run, and a storage
     root that is not mounted should be visible here rather than at the end of a render.
     """
-    want = site.unset(widgets.get("published_files") or "")
-    if not want:
+    if not widgets.get("register_files"):
         return ""
     from . import naming, publish, sequence
     from .nodes.publish_version import FPTPublishVersion as PV
+    # Which files follow from what is wired, and whether the house also keeps its review movie is
+    # the profile's call — the same resolution the run makes (publish_version.publish).
+    images, video = _wired(widgets, "images"), _wired(widgets, "video")
+    pf = prof.get("published_files") or {}
+    want_frames = images
+    want_movie = video and (not images or bool(pf.get("register_movie")))
+    if not (want_frames or want_movie):
+        return ""
     try:
-        pf = prof.get("published_files") or {}
         _, root = sequence.root_for(publish.storages(site.client()), pf.get("storage", ""))
         template = pf.get("path_template") or sequence.DEFAULT_PATH_TEMPLATE
         _, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
@@ -54,12 +66,11 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, target,
                                   task_id, {"output": widgets.get("output_name", "")})
         path = sequence.pattern(root, template, vals, version_no, ".png")
-        where = [path] if "frames" in want else []
-        # How many frames the batch holds is a run-time fact, so this states the rule rather than a
-        # count it cannot know — the same honesty the frame-rate sentence beside it uses.
-        if "movie" in want:
-            where.append(sequence.swap_ext(sequence.single(path), ".mp4")
-                         + " (.png when there is only one frame)")
+        where = [path] if want_frames else []
+        # The clip's real extension is a run-time fact — a deliverable is never transformed, so a
+        # `.mov` off LoadVideo stays a `.mov` — and this states that rather than guessing one.
+        if want_movie:
+            where.append(sequence.swap_ext(sequence.single(path), ".<the clip's own extension>"))
         mounted = "" if os.path.isdir(root) else f"  — {root} is NOT mounted, the run will stop"
         return "copied to " + ", ".join(where) + mounted
     except Exception as e:
@@ -375,8 +386,8 @@ def register():
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
             # Media and attachments are uploads, not fields, but they are part of "what gets saved".
-            uploads = ["image (thumbnail) — frame 1",
-                       "sg_uploaded_movie — the movie, or the frame itself if there is only one",
+            uploads = ["image (thumbnail) — frame 1 of whatever becomes the media",
+                       "sg_uploaded_movie — the clip, or the frame itself when no VIDEO is wired",
                        "<name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<name>.workflow.json — only if this client sends EXTRA_PNGINFO")
@@ -385,16 +396,23 @@ def register():
             files = _files_preview(w, prof, pid, link_type, target, task_id)
             if files:
                 uploads.append(files)
-            # How many frames the batch holds is a run-time fact, so the panel states the RULE and
-            # the frame rate rather than a count it cannot know. The node's own `movie.rate` answers,
-            # so the sentence in front of the operator is the sentence the run will print.
-            from . import movie
-            _, rate_note = movie.rate(prompt, node_id, w.get("fps") or 0.0)
+            # Which row of the truth table this node is on. The frame count and the frame rate are
+            # run-time facts, so the panel states the rule and names the path the run will take —
+            # which is the half an operator cannot see from the wires alone.
+            if _wired(w, "video"):
+                media = ("the VIDEO is the review media — its own source file where the graph did "
+                         "not change it, otherwise a ComfyUI encode")
+                if _wired(w, "images"):
+                    media += "; the frames are files, never media"
+            elif _wired(w, "images"):
+                media = ("frame 1 as the still. More than one frame needs Create Published Files, "
+                         "or a VIDEO out of CreateVideo — a Version's media is single-valued")
+            else:
+                media = "nothing wired into images or video: this run would refuse"
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
-                "movie": f"more than one frame becomes ONE Version carrying a movie, with its "
-                         f"frame range — {rate_note}",
+                "media": media,
                 "sources": sources,
                 "missing_fields": sorted({t for t in where.values()
                                           if t and t != fpt_fields.DESCRIPTION and t not in have}),

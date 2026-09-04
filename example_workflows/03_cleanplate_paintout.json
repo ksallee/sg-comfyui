@@ -2,7 +2,7 @@
   "id": "0311a0e8-c1ea-4c2f-9a2f-0c1ea4c2f031",
   "revision": 0,
   "last_node_id": 102,
-  "last_link_id": 43,
+  "last_link_id": 44,
   "nodes": [
     {
       "id": 1,
@@ -892,7 +892,8 @@
           "name": "VIDEO",
           "type": "VIDEO",
           "links": [
-            30
+            30,
+            44
           ]
         }
       ],
@@ -1042,7 +1043,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 43
+          "link": null
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 44
         }
       ],
       "outputs": [],
@@ -1055,13 +1061,12 @@
         "(none)",
         "Pending Review",
         "cleanplate",
-        0,
         "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 cleanplate"
@@ -1270,8 +1275,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            42,
-            43
+            42
           ]
         }
       ],
@@ -1585,12 +1589,12 @@
       "IMAGE"
     ],
     [
-      43,
-      28,
+      44,
+      21,
       0,
       101,
-      0,
-      "IMAGE"
+      1,
+      "VIDEO"
     ]
   ],
   "groups": [],

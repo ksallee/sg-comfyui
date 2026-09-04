@@ -42,6 +42,16 @@ def upload(fpt, version_id, payload, filename, field=None):
         raise FPTError(f"upload complete {field or 'attachment'} {done.status_code}: {done.text[:300]}")
 
 
+def upload_file(fpt, version_id, path, filename, field=None):
+    """The same three-step upload, streamed off disk rather than held in memory.
+
+    A clip is the one payload here with no ceiling — a long plate is gigabytes — and reading it into
+    a bytes object only to hand it to `requests` doubles that for nothing.
+    """
+    with open(path, "rb") as fh:
+        upload(fpt, version_id, fh, filename, field=field)
+
+
 def attach_json(fpt, version_id, obj, filename):
     upload(fpt, version_id, json.dumps(obj, indent=2).encode(), filename, field=None)
 

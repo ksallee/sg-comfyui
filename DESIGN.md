@@ -133,52 +133,128 @@ deterministic, offline, and costs no tokens.
 
 ## Nodes (v0)
 
-- `Flow PT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
-  the site profile: link target and exposed fields are resolved, not hardcoded.
+- `Flow PT Publish Version` — an image or a video in, Version created, media uploaded, provenance attached.
+  Inputs are built from the site profile: link target and exposed fields are resolved, not hardcoded.
 - `Flow PT Load Version` — a Version's media back into the graph, and the link recorded
 
 `av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
-video nodes. Imported lazily on both sides of the movie branch, decoding a frame in `media.py` and encoding a
-batch in `movie.py`, so an install without it still loads every node and fails only when someone actually
-asks for a movie frame or publishes a batch. Nothing shells out to ffmpeg.
+video nodes. Imported lazily wherever a frame has to be decoded — `media.py` reading a Version's movie back,
+`movie.py` taking a poster frame off the clip it is about to upload — so an install without it still loads
+every node and fails only when someone asks for a movie frame. Nothing here encodes any more and nothing
+shells out to ffmpeg: `VideoInput.save_to()` is ComfyUI's own encoder and owns that side.
 
-## Output is always a movie
+## The node records; ComfyUI makes the media
 
-A run is one Version. One frame publishes as it always did; more than one becomes ONE Version carrying an
-h264 movie, uploaded to `sg_uploaded_movie`, with frame 1 also going to `image` so there is a thumbnail
-before the transcode lands.
+A run is one Version. What that Version carries is decided by what is wired into the node, not by a combo
+asking the operator to state again what the graph already states:
 
-The rule comes from probe 022: a Version's media is single-valued, so a sequence cannot BE media. The node
-used to loop, and a two-second camera move produced 33 Versions and 33 one-frame transcodes while the real
-`.mp4` the graph wrote never reached the site.
+    images    video    the Version's media       what a tick registers as files
+    —         wired    that video                the movie
+    wired     —        frame 1, as a still       the frames
+    wired     wired    the video                 the frames, plus the movie where the house keeps it
+    —         —        nothing to publish — the run refuses, loudly
 
-`sg_first_frame`, `sg_last_frame`, `frame_count` and `frame_range` are ours, and are written where the site
-has them. `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are the transcoder's and are never
-written: probe 022 measured `_mp4` still serving a transcode of a replaced file while status read 1, and
-writing them ourselves manufactures that same desync in any player that trusts them.
+ComfyUI has had a first-class `VIDEO` since its video nodes landed, and this node ignored it. A video graph
+had to go `VIDEO → GetVideoComponents → IMAGE →` our own hardcoded `libx264`/`yuv420p` encode: a file that
+already existed on disk was decoded to float32 and re-encoded at a rate we had to guess, with no crf, no
+audio and no colour properties. Over 120 classes on a stock install emit `VIDEO` — `LoadVideo`,
+`CreateVideo`, `SaveVideo`, and every hosted model from Kling to Veo to Sora to Runway to Wan — so most of
+the video work a studio does was running through the one part of this repo that made pixels.
 
-**The frame rate is stated, never assumed.** The node's own `fps` widget wins; at 0 the graph is asked — any
-node with an `fps` or `frame_rate` widget, the branch first and the whole graph second, because a movie node
-is usually a sibling of the publish node rather than an ancestor — and two conflicting rates leave the graph
-treated as silent. Only then does 24 apply, and the panel names which of the three answered, before the run
-and after it. A supervisor reading timing off the player can tell a measured rate from a default one.
+**Review media is derived and may be transcoded; a deliverable file is never transformed.** That was already
+the rule for frames — PNG in, PNG registered, a template claiming `.exr` overruled — and it is structural
+now rather than a habit. `movie.encode` is gone. Where a `VIDEO` is a file on disk, that file is what goes
+up, byte for byte. Where it is not — `CreateVideo` assembling a batch, a hosted model answering with frames —
+`VideoInput.save_to()` writes it, which is ComfyUI's own encoder and knows what ours never did: sRGB is
+BT.709, HDR is BT.2020/HLG, HDR PQ is BT.2020/PQ, the bit depth is the clip's, and the audio comes with it.
+
+`sg_first_frame`, `sg_last_frame`, `frame_count` and `frame_range` are still ours, written where the site
+has them. `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are still the transcoder's and
+still never written: probe 022 measured `_mp4` serving a transcode of a replaced file while status read 1,
+and writing them ourselves manufactures that desync in any player that trusts them.
 
 Image sequences stay supported as *input*: the Load node's `frames` tier is untouched.
+
+### The file on disk is the file only when nothing has happened to it
+
+`VideoFromFile.get_stream_source()` hands back the source path — and hands back the *whole* source path
+even where the graph trimmed or cropped the clip, because `as_trimmed` and `as_cropped` return a new
+`VideoFromFile` over that same file with a window recorded beside it. Uploading the source on the strength
+of the class alone would file a ten-second plate as the two-second selection a supervisor asked for, and
+would do it silently, which is corpus 028's failure mode exactly.
+
+So the test is not the class, it is whether the object and the file are the same video: same duration and
+same dimensions as a plain `VideoFromFile` over that path. Both are container metadata reads, neither
+decodes, and a clip that fails is encoded rather than copied. Which of the two happened is on the panel,
+because it is the thing an operator wants to read back.
+
+A `VIDEO` whose source is a `BytesIO` has no file to preserve and takes the encode path. Nothing is lost:
+there was never a file to leave untouched.
+
+### `fps` and `published_files` are answers the graph already gave
+
+The node's own `fps` widget existed because a batch of frames carries no rate and an invented 24 must not
+read as a measured one. A `VIDEO` carries its rate, `CreateVideo` is where a person sets one, and a rate
+read off the media beats a rate inferred from a sibling node. The widget goes, and with it the walk that
+guessed for it and the three-source sentence that explained the guess.
+
+`published_files` was a four-way combo — `(none)`, `frames`, `movie`, `frames and movie` — because the node
+could not tell a sequence from the frames of a movie: one IMAGE batch, two intentions. Two inputs tell them
+apart by themselves. Frames arrive as `images`, a movie arrives as `video`, the combo's four rows are the
+truth table's four rows, and the operator decides by wiring rather than by agreeing with a menu afterwards.
+
+What is left is one genuinely per-publish question, and it is not about media at all: **is this a
+deliverable, or only review?** `register_files` — "Create Published Files" — is that question and nothing
+else.
+
+### `register_movie` is the house's, `register_files` is the publish's
+
+Whether a studio *also* keeps the review movie as a `PublishedFile` beside the sequence is a convention, not
+something anyone decides twice a day, so it sits in the profile with `storage`, `path_template` and
+`colour_space`:
+
+    "published_files": {
+      "storage":        "primary",
+      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":   "sRGB",
+      "register_movie": false
+    }
+
+The two compose in one place. `register_files` off registers nothing. On, it registers the frames wherever
+`images` is wired, and the movie where `video` is wired and either the house keeps it or there are no frames
+— a movie published on its own IS the deliverable, and a tick that registered nothing would be a silent
+no-op.
+
+### The impossible ask is a run-time error, not a greyed-out box
+
+`images` alone, more than one frame, `register_files` off. The frames cannot be the media, because a
+Version's media is single-valued (probe 022), and they are not being registered as files, so the only
+container left is frame 1 and the other twenty-three are dropped. The node refuses, naming the count and the
+two ways out: tick the box, or send the batch through `CreateVideo` and wire the `VIDEO`.
+
+The frontend must not pre-empt this by disabling the checkbox. A batch size does not exist until execution —
+it is a tensor the graph has not produced yet — so the browser could only guess, and a box greyed out on a
+guess is worse than an error that knows.
+
+### The widget window closes at release
+
+`widgets_values` is positional, so removing `fps` and `published_files` and adding `register_files` shifts
+every value below them in every saved graph. That is normally forbidden here, and it is done once, now, on
+purpose: at 0.1.0 with an empty `PublisherId` and nothing published, the only graphs in the world carrying
+these widgets are the ones in this repo, and they move in the same commit. After the first Registry release
+the rule is the old one — append, never insert, never remove.
 
 ## The frames are files, not media
 
 The other half of probe 022's verdict. A movie is what a supervisor reviews; the frames are what the next
 department opens, and a Version cannot hold them — media is single-valued and Attachments are storage rather
 than review. So the frames are a `PublishedFile`, and asking for them changes nothing about the Version: one
-run is still one Version carrying one movie.
+run is still one Version carrying one piece of review media.
 
-    movie output      one Version, media uploaded. No PublishedFile — the operator may ask for one
-    image sequence    one Version carrying the movie for review, PLUS a PublishedFile per file
-    single image      unchanged
-
-`published_files` on the node says which, because the node cannot tell the two apart: an IMAGE batch is a
-sequence of frames whether the deliverable is the sequence or the movie made from it, and guessing would
-either litter a share with frames nobody asked for or silently drop the ones somebody did.
+    video wired            one Version, the movie uploaded. A PublishedFile where the house keeps one
+    images wired           one Version carrying frame 1 for review, PLUS a PublishedFile per frame
+    images and video       the movie for review, the frames as files
+    a single image, no tick  unchanged: PNG to `image` and `sg_uploaded_movie`, no file, no storage root
 
 ### We copy; ComfyUI writes wherever it writes
 
@@ -586,7 +662,8 @@ correctly out of scope.
 
 Before the sink rule learned that frames assembled into another medium end an image stream too
 (`instrument._is_sink`) the number was 57%. That one fix moved 124 workflows, nearly all of them
-video. Those frames now publish as one Version carrying one movie — see "Output is always a movie".
+video. Those graphs end in a `VIDEO`, which is now what the publish node takes — see "The node records;
+ComfyUI makes the media".
 
 ### Subgraphs
 
