@@ -331,13 +331,37 @@ generator node (Kling, Veo, Runway, Bria, the Qwen edit encoders — 147 core cl
 that way and encodes nothing. All 147 declare it multiline and none of them ever names a file, so the
 name alone is enough. That is the only widget name trusted without the conditioning test.
 
+### One node, several tokenisers
+
+`CLIPTextEncodeSDXL` takes `text_g` and `text_l`, `CLIPTextEncodeFlux` takes `clip_l` and `t5xxl`,
+and SD3, HiDream, HunyuanDiT, Kandinsky5 and Lumina2 each spell it differently again. Only `text`
+was read, so every SDXL and Flux graph published an empty `sg_ai_prompt` — with a sampler present,
+which is what made this a second hole rather than the seedless one. `ENCODER_TEXT_KEYS` names all
+eleven spellings. Across the 908 core classes each name but `text` occurs on exactly one class,
+always a multiline STRING on a node returning CONDITIONING, so the name alone identifies it.
+
+**Two encoders that disagree are two texts, not one sentence.** They usually hold the same line and
+dedupe to one. When they differ — a scene in `text_g` and a style in `text_l`, keywords for `clip_l`
+and a paragraph for `t5xxl` — both are kept, separately. Concatenating would put a sentence nobody
+typed into the field a supervisor searches; picking one would silently drop the other. The list
+already carries several texts wherever a graph has several encoders, and `fields.concepts` joins
+them with " | " like any other.
+
+**`ConditioningZeroOut` is a wall.** It erases what it is handed, so text behind it reached nothing.
+A Flux or SD3 negative is conventionally the positive encoder zeroed out, so without the wall these
+keys would report every such graph's positive prompt as its negative one too. Six corpus graphs did
+exactly that already, through plain `CLIPTextEncode`; the wall is what fixes them.
+
 Deliberately **not** captured, and each for a reason:
 
 - **A click instead of a prompt.** `SAM3_Detect.positive_coords` is a JSON point list. The role prefix
   would otherwise catch it, so `_coords` is excluded by name.
-- **`CLIPTextEncodeSDXL`'s `text_g`/`text_l` and `CLIPTextEncodeFlux`'s `clip_l`/`t5xxl`.** These are
-  prompts and are missed today, sampler or not — but that is the seeded path failing, a separate bug
-  with its own question (two encoders, one concept, joined how?). Not folded in here.
+- **`WanTrackToVideo.tracks`**, a multiline STRING of motion paths on a node that does return
+  CONDITIONING — the `positive_coords` case with a different name; and `MakeTrainingDataset.texts`,
+  a file list.
+- **`tags`, `lyrics` and `caption`** on the AceStep and MiniMax music encoders. They are conditioning
+  and they are words, but an audio graph publishes no image, and a lyric sheet is a document rather
+  than a direction.
 - **A `prompt` input wired from a string node** rather than typed. The words are then in a
   `PrimitiveString`'s `value`, which is a generic string widget again.
 - **Text assembled by third-party concat nodes**, as in the ZHO gallery graphs. Nothing readable

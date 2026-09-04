@@ -116,7 +116,7 @@ Nine typed fields on Version, created by step 2 above:
 |---|---|---|
 | AI Generator | `sg_ai_generator` | ComfyUI, plus the client that submitted the prompt |
 | AI Model | `sg_ai_model` | the checkpoints the graph loaded |
-| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch — no sampler needed, so a roto graph's "the actor" lands here too |
+| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch — no sampler needed, so a roto graph's "the actor" lands here too, and a dual encoder's two texts both do |
 | AI Negative Prompt | `sg_ai_negative_prompt` | negative conditioning on this branch |
 | AI Seed | `sg_ai_seed` | text, not a number — ComfyUI seeds reach 2\*\*64-1 (probe 019) |
 | AI Sampler | `sg_ai_sampler` | sampler and scheduler |
