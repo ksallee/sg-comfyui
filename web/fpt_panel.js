@@ -63,6 +63,10 @@ const CSS = `
 .fpt-k { color: #7f868f; overflow-wrap: anywhere; min-width: 10ch; }
 .fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
+/* A published Version and the files it wrote are the two things an operator wants to open
+   next, and copying an id out of a log to paste into a browser is the friction this removes. */
+.fpt-a { color: #7fb2e5; text-decoration: none; cursor: pointer; overflow-wrap: anywhere; }
+.fpt-a:hover { text-decoration: underline; }
 /* Not grey: this one says the name above it is not the name a Run would write. */
 .fpt-alert { color: #e0b155; }
 .fpt-sec { color: #7f868f; text-transform: uppercase; letter-spacing: .06em; font-size: 9px;
@@ -239,9 +243,11 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       const t = root.querySelector(".fpt-title");
       setState((d && d.state) || (d && d.error ? "warn" : (d && d.id) ? "ok" : "warn"));
       // The head carries the whole answer, so it is rebuilt on every path, empty ones included.
-      const plain = (rows) => rows.map(([k, v]) =>
+      const plain = (rows) => rows.map(([k, v, href]) =>
         `<div class="fpt-row"><span class="fpt-k">${esc(k)}</span>
-          <span class="fpt-v">${esc(v)}</span></div>`).join("");
+          <span class="fpt-v">${href
+            ? `<a class="fpt-a" href="${esc(href)}" target="_blank" rel="noreferrer">${esc(v)}</a>`
+            : esc(v)}</span></div>`).join("");
       const fold = (html) => {
         detail.innerHTML = html;
         more.hidden = !html;   // an empty box inside the fold is worse than no row at all
@@ -290,7 +296,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       // project does not convert.
       if (d.source_label) rows.push(["source", d.source_label]);
       if (d.colour_space) rows.push(["colour space", `${d.colour_space} — declared, not converted`]);
-      for (const f of d.facts || []) rows.push([f.label, f.value]);
+      for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       // The one line that never folds: what is wrong with the name directly above it. A template
       // renders what it can and drops the rest, so a collapsed `v004` and a finished

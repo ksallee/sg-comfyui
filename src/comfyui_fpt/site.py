@@ -439,6 +439,18 @@ def versions_on(link_type, link_id, project_id, limit=200, sort="-id"):
     return _cached(("versions_on", link_type, int(link_id), int(project_id), sort), fetch)
 
 
+def cached_published_files(version_id):
+    """The files on one Version, cached like every other site read.
+
+    The panel asks for this on every preview, and scrubbing a picker must not turn into a request per
+    keystroke. `forget("files")` is not needed: a publish takes a new version number, so the next
+    preview asks about a different Version.
+    """
+    from . import media
+    return _cached(("files", int(version_id)),
+                   lambda: media.published_files(client(), int(version_id)))
+
+
 def version_numbers(link_type, link_id, project_id, field, limit=200):
     """Existing values of a site's real version-number field, for the next one."""
     if not (link_type and link_id and field):

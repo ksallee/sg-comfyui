@@ -122,6 +122,18 @@ function publishPickers(nodeType) {
     // preview, so a widget changed twice quickly could answer out of order and leave the panel
     // describing the older graph.
     let previewing = 0;
+    // The latest Version on this link, and the files it wrote, as links. Built from whatever carries
+    // {id, site_url, files} — the preview's `latest` before a run, the executed payload after one.
+    const runFacts = (r) => !r || !r.id ? [] : [
+      ...(r.site_url ? [{ label: "latest", value: `${r.code || "Version " + r.id}`,
+                          href: `${r.site_url}/detail/Version/${r.id}` }] : []),
+      ...(r.files || []).map((f) => ({
+        label: f.kind === "frames" ? `${f.count} frames` : f.kind,
+        value: f.path,
+        href: "file://" + f.path.replace(/[^/]*$/, ""),
+      })),
+    ];
+
     const preview = async () => {
       const mine = ++previewing;
       panel.loading();
@@ -161,7 +173,8 @@ function publishPickers(nodeType) {
       // Which row of the truth table this node is on, in front of the operator rather than in the
       // fold: one run is one Version, and what that Version will carry is decided by what is wired,
       // so it is read before Run rather than discovered after it.
-      const facts = rest.media ? [{ label: "media", value: rest.media }] : [];
+      const facts = (rest.media ? [{ label: "media", value: rest.media }] : [])
+        .concat(runFacts(d.latest));
       panel.show({
         ...rest, facts,
         id: -1, code: d.code, task: d.task,
@@ -200,6 +213,10 @@ function publishPickers(nodeType) {
             ...(rows[0].media ? [{ label: "media", value: rows[0].media }] : []),
             ...(rows[0].outputs && rows[0].outputs.length
               ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : []),
+            // The Version and what landed on disk, both clickable: an id in a log has to be copied
+            // into a browser by hand, and a `%04d` pattern is not a file so its link opens the
+            // containing folder instead.
+            ...runFacts(rows[0]),
           ],
         });
       }

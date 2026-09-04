@@ -145,6 +145,7 @@ def main():
     ap.add_argument("--node", default="", help="node type to place before driving")
     ap.add_argument("--drive", default="", help="file with the async body to run; - for stdin")
     ap.add_argument("--shot", default="", help="write a screenshot here")
+    ap.add_argument("--video", default="", help="record the session to this .webm")
     ap.add_argument("--repo", default="", help="checkout to load as the node pack (default: this one)")
     ap.add_argument("--keep", action="store_true", help="leave the instance running")
     # The notice a node draws when Nodes 2.0 is off is a thing to look at, so it has to be reachable
@@ -166,12 +167,20 @@ def main():
     if a.drive:
         drive = sys.stdin.read() if a.drive == "-" else Path(a.drive).read_text()
 
+    if a.video:
+        Path(a.video).parent.mkdir(parents=True, exist_ok=True)
     from playwright.sync_api import sync_playwright
     out = {}
     try:
         with sync_playwright() as p:
             b = p.chromium.launch(headless=True)
-            pg = b.new_page(viewport={"width": 1100, "height": 950})
+            # Video is a context setting, not a page one, and the file is only finalised when the
+            # context closes — so the path is read back after, never before.
+            ctx = b.new_context(viewport={"width": 1100, "height": 950},
+                                **({"record_video_dir": str(Path(a.video).parent),
+                                    "record_video_size": {"width": 1100, "height": 950}}
+                                   if a.video else {}))
+            pg = ctx.new_page()
             # ComfyUI asks "leave site?" whenever the graph is dirty; nothing here needs saving.
             pg.on("dialog", lambda d: d.accept())
             pg.route("**/prompt", _identify)
@@ -180,7 +189,12 @@ def main():
             if a.shot:
                 Path(a.shot).parent.mkdir(parents=True, exist_ok=True)
                 pg.screenshot(path=a.shot)
+            src = pg.video.path() if a.video else None
+            ctx.close()          # flushes the video
             b.close()
+            if src:
+                Path(src).replace(a.video)
+                out["video"] = a.video
     finally:
         if proc and not a.keep:
             proc.terminate()

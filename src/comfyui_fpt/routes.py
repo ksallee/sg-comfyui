@@ -273,8 +273,23 @@ def register():
                 alert = "no task picked, so the name has no task in it"
             else:
                 alert = ""
+            # What is already there, not just what comes next. `versions_on` is the same cached read
+            # `next_name` used to pick the number, so the id costs nothing; only the files are a
+            # second call, and it is cached against the Version so scrubbing the pickers does not
+            # re-ask. Shown before anything is published, which is when it is most useful.
+            latest = {}
+            rows = site.versions_on(lt, target, project_id) if target else []
+            if rows:
+                lcode, _lstatus, lid = rows[0]
+                latest = {"id": lid, "code": lcode, "site_url": site.client().site, "files": []}
+                try:
+                    from . import media
+                    latest["files"] = [{"kind": f.get("type") or "file", "path": f["path"]}
+                                       for f in site.cached_published_files(lid) if f.get("path")]
+                except Exception:
+                    pass                      # a Version whose files cannot be read still has a link
             return web.json_response({"code": code, "link": f"{lt} {picked_name}".strip(),
-                                      "task": q.get("task", ""), "alert": alert})
+                                      "task": q.get("task", ""), "alert": alert, "latest": latest})
         except Exception as e:
             return web.json_response({"code": "", "error": _sentence(e)})
 

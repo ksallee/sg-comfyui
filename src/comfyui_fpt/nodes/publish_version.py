@@ -504,8 +504,19 @@ class FPTPublishVersion:
         if images is not None and video is not None and not want_frames:
             published.append(f"{frames} frames wired but not registered; the clip is the media")
         published += file_notes
+        # The panel turns these into links. `site_url` comes off the client rather than the profile
+        # because the run already authenticated against it — a second source could disagree. Paths
+        # are what landed on disk this run, which is the one thing not recoverable from the site.
+        staged_files = []
+        if staged:
+            if staged.get("frames_pattern"):
+                staged_files.append({"kind": "frames", "path": staged["frames_pattern"],
+                                     "count": len(staged.get("frames") or [])})
+            if staged.get("media"):
+                staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
-                 "status": status_code, "outputs": sorted(typed), "media": media_note}]
+                 "status": status_code, "outputs": sorted(typed), "media": media_note,
+                 "site_url": fpt.site, "files": staged_files}]
 
         if attach_workflow and wf is None:
             published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
