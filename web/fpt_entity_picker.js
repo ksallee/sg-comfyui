@@ -309,7 +309,8 @@ function publishPickers(nodeType) {
     wrap(link, loadTasks);
     // Everything the readout depends on. Nothing here is ever written back by preview(), which is
     // what stops this becoming the resolve loop the Load node had.
-    ["task", "status", "attach_workflow", "register_files"].forEach((n) => wrap(w(n), () => preview()));
+    ["task", "status", "attach_workflow", "register_files"].forEach((n) =>
+      wrap(w(n), () => preview()));
     ["code_template", "output_name", "note", "source_versions", "colour_space"].forEach((n) =>
       wrap(w(n), previewSoon));
 

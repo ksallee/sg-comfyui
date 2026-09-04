@@ -2,7 +2,7 @@
   "id": "175503e4-8e20-492f-9a34-526ba0955381",
   "revision": 0,
   "last_node_id": 64,
-  "last_link_id": 133,
+  "last_link_id": 134,
   "nodes": [
     {
       "id": 49,
@@ -391,7 +391,8 @@
           "name": "VIDEO",
           "type": "VIDEO",
           "links": [
-            129
+            129,
+            134
           ]
         }
       ],
@@ -436,8 +437,7 @@
           "type": "IMAGE",
           "slot_index": 0,
           "links": [
-            128,
-            131
+            128
           ]
         }
       ],
@@ -781,12 +781,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 131
+          "link": null
         },
         {
           "name": "video",
           "type": "VIDEO",
-          "link": null
+          "link": 134
         }
       ],
       "outputs": [],
@@ -1025,14 +1025,6 @@
       "VIDEO"
     ],
     [
-      131,
-      8,
-      0,
-      63,
-      0,
-      "IMAGE"
-    ],
-    [
       132,
       64,
       0,
@@ -1047,6 +1039,14 @@
       56,
       4,
       "IMAGE"
+    ],
+    [
+      134,
+      58,
+      0,
+      63,
+      1,
+      "VIDEO"
     ]
   ],
   "groups": [

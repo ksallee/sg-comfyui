@@ -52,6 +52,17 @@ at load — that is the hook the site mapping drives. Provenance comes from the 
 
 Where each piece of provenance lands in Flow PT is the operator's mapping, not a default. See DESIGN.md.
 
+**`widgets_values` is positional.** A widget inserted, removed or reordered displaces every value below it
+in every graph already saved, silently — so append, never insert, and never remove. One declared order is
+shared by `INPUT_TYPES`, `instrument.PUBLISH_WIDGETS`/`LOAD_WIDGETS`, `web/fpt_entity_picker.js` `DECLARED`
+and every `*.json` under `example_workflows/` and `tools/workflows/`; all five move together or none do.
+`tools/smoke.py` is what proves it, because only loading a saved graph in a real ComfyUI shows the shift.
+An input *slot* is different: adding one is additive and safe.
+
+**This node records; it does not make media.** Review media is derived and may be transcoded; a deliverable
+file is never transformed. Nothing here encodes — `VideoInput.save_to()` is ComfyUI's own encoder and owns
+that side.
+
 ## Agent-operable
 
 Forkers drive this repo with an agent, not by reading it. Small files, explicit names, no magic, no indirection. Conventions live here or in DESIGN.md — once, in one place.
