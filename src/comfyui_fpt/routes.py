@@ -138,13 +138,19 @@ def register():
 
     @routes.get("/fpt/version_sources")
     async def version_sources(request):
-        """Which tiers THIS Version can actually deliver (probe 021). A filled path field is not the
-        same as a file on disk, so the editor asks per Version rather than offering a fixed list."""
+        """What THIS Version can actually deliver (probe 021). A filled path field is not the same as
+        a file on disk, and neither is a PublishedFile on a root this machine has not mounted, so the
+        editor asks per Version rather than offering a fixed list.
+
+        `colour` rides along because it belongs to the file, not to the Version: two PublishedFiles
+        on one Version can declare different colour spaces, and the picker is where that is chosen.
+        """
         try:
             from . import media
             v = media.version(site.client(), int(request.rel_url.query.get("version_id") or 0))
-            return web.json_response({"items": [{"label": label, "id": key}
-                                                for key, label in media.sources(v)]})
+            return web.json_response({"items": [
+                {"label": label, "id": key, "colour": media.colour_of(v, key)}
+                for key, label in media.sources(v)]})
         except Exception as e:
             return web.json_response({"items": [], "error": _sentence(e)})
 
@@ -201,10 +207,24 @@ def register():
             project_id = int(q.get("project_id") or 0) or pid
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
+            # One read, not two. `version` now carries a second call for the published files
+            # (probe 021), so asking for the same Version twice in one request doubled it.
+            v = media.version(fpt, vid)
+            available = media.sources(v)
+            # What the node itself would pick, so the readout answers for the run rather than for
+            # the widget: `auto` is a rule, and only the site knows what it lands on.
+            picked = q.get("source", "") or "auto"
+            key = available[0][0] if (picked in ("auto", "") and available) \
+                else picked.split(" — ")[0].strip()
             # `media`, not `sources`: the publish panel uses `sources` for the Versions a publish
             # came from, and one word meaning two things rendered "Version undefined" in the other.
-            return web.json_response({**desc, "why": why, "filters": built,
-                                      "media": [k for k, _ in media.sources(media.version(fpt, vid))]})
+            return web.json_response({
+                **desc, "why": why, "filters": built,
+                "media": [k for k, _ in available],
+                # The label of what will actually be read — "Rendered Image — foo.%04d.png, 6
+                # frames" says the type, the file and the count that the bare key cannot.
+                "source_label": next((l for k, l in available if k == key), ""),
+                "colour_space": media.colour_of(v, key)})
         except Exception as e:
             # `error`, not `summary`: nothing read `summary`, so a pin pointing at a Version that is
             # not there rendered as "nothing resolved yet" and the reason was thrown away.

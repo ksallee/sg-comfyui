@@ -79,23 +79,32 @@ def published_file_type(fpt, candidates):
     return None
 
 
-def published_files_of(fpt, version_ids):
+def published_files_of(fpt, version_ids, exact=None):
     """Every PublishedFile hanging off these Versions — the upstream half of a dependency link.
 
     `upstream_published_files` is the PublishedFile-level twin of `sg_ai_generated_from`: the node
     already knows which Versions this one came from, and where those Versions carry files, the files
     are what a downstream tool actually opens.
+
+    `exact` is {version_id: [published_file_id]} for ancestors a Load node actually read a file
+    from (lineage.py). Those Versions are not searched: the dependency is the one file that was
+    opened, not every file that Version ever published, which on a Version carrying a sequence AND
+    its mp4 is the difference between a true link and a plausible one. Every other ancestor still
+    gets the search, because approximate is the honest answer where nothing narrower is known.
     """
+    exact = exact or {}
     ids = [int(v) for v in version_ids if v]
-    if not ids:
-        return []
+    out = [{"type": "PublishedFile", "id": int(i)} for v in ids for i in exact.get(v, [])]
+    rest = [v for v in ids if v not in exact]
+    if not rest:
+        return out
     from .site import ARRAY_JSON
     r = fpt.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
-        "filters": [["version", "in", [{"type": "Version", "id": i} for i in ids]]],
+        "filters": [["version", "in", [{"type": "Version", "id": i} for i in rest]]],
         "fields": ["code"], "page": {"size": 200}})
     if not r.ok:
-        return []
-    return [{"type": "PublishedFile", "id": d["id"]} for d in r.json().get("data", [])]
+        return out
+    return out + [{"type": "PublishedFile", "id": d["id"]} for d in r.json().get("data", [])]
 
 
 def create_published_file(fpt, project_id, code, name, local_path, fields=None):

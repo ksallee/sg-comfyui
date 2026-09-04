@@ -415,6 +415,9 @@ function loadPickers(nodeType) {
         name_contains: val("name_contains") || "",
         newest_by: val("newest_by") || "",
         pin_version_id: val("pin_version_id") || 0,
+        // Which source, so the readout answers for the file that will be read rather than for the
+        // Version as a whole: two PublishedFiles on one Version can declare different colour spaces.
+        source: val("source") || "auto",
         // Only when it is an override. While the box is still mirroring, sending it back would let
         // its own (now stale) content win over the very fields it is meant to reflect.
         // String(): a workflow saved before this widget moved can land a number here, and a raw
@@ -440,6 +443,10 @@ function loadPickers(nodeType) {
       }
       if (source) {
         source.options.values = ["auto"].concat(d.media || []);
+        // A saved value the site no longer offers falls back to `auto` rather than staying as a
+        // combo entry the editor cannot draw. A PublishedFile key carries its type and filename, so
+        // a file that was renamed or re-typed stops matching — which is the honest outcome: the
+        // node would otherwise have to guess which of several files the old label meant.
         if (!source.options.values.includes(source.value)) source.value = "auto";
       }
       app.graph.setDirtyCanvas(true, true);
@@ -497,7 +504,9 @@ function loadPickers(nodeType) {
     // `filters` is deliberately absent. refresh writes it (`box.value = mirrored`), and wrapping it
     // made that write call refresh again — 7 resolves every 6 seconds at idle, one always in flight,
     // so the panel could never leave "loading".
-    ["task", "name_contains", "statuses", "newest_by", "pin_version_id"].forEach((n) =>
+    // `source` is here and `frame`/`frame_count` are not: which file is read changes the type, the
+    // count and the declared colour space the readout shows, while where in it to start does not.
+    ["task", "name_contains", "statuses", "newest_by", "pin_version_id", "source"].forEach((n) =>
       wrap(w(n), (value) => refresh({ [n]: value })));
 
     dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
