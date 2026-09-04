@@ -277,7 +277,7 @@ restart — a stranger would conclude the seed had failed.
 - **Place `.env.local` in my worktree.** `.claude/settings.json` denies `Read(./.env.local)`, and
   the harness extends that to `cp` and `ln -s` of the same path. I ran the CLIs against the main
   checkout's root instead — which is also what the live node does, since
-  `ComfyUI/custom_nodes/comfyui-flow-production-tracking` is a symlink to the main checkout.
+  `ComfyUI/custom_nodes/flow-pt` is a symlink to the main checkout.
   **Consequence worth flagging:** any agent starting ComfyUI here loads the *main* checkout's
   `src/`, not its own worktree's. Two agents editing `src/` concurrently are editing the code my
   instance is running.

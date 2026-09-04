@@ -6,7 +6,7 @@ to be *loaded* before it showed: widget values displaced by the DOM pickers, a v
 collided because a frame suffix hid it from its own convention, and a preview that under-reported
 lineage. Node inspection caught none of them. This does the one thing that did.
 
-    tools/smoke.py                 # every workflow in workflows/
+    tools/smoke.py                 # every workflow in tools/workflows/
     tools/smoke.py --port 8999     # somewhere nothing else is running
 
 Needs playwright, which ComfyUI's own venv does not have:
@@ -79,7 +79,7 @@ def declared(node_type, port):
 def main():
     ap = argparse.ArgumentParser(prog="smoke.py", description=__doc__.split("\n")[0])
     ap.add_argument("--port", type=int, default=8999)
-    ap.add_argument("--dir", default=str(REPO / "workflows"))
+    ap.add_argument("--dir", default=str(HERE / "workflows"))
     a = ap.parse_args()
 
     files = sorted(Path(a.dir).glob("*.json"))

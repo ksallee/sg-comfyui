@@ -26,9 +26,9 @@ studio's conventions are hardcoded.
 
 ```sh
 cd ComfyUI/custom_nodes
-git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
+git clone git@github.com:ksallee/flow-pt.git
 git clone <sg-groundtruth>            # beside it, not inside it
-cd comfyui-flow-production-tracking
+cd flow-pt
 cp .env.local.example .env.local      # then fill in the three keys
 ```
 

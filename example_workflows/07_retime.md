@@ -255,7 +255,7 @@ Then the ordinary path — seed the plate, check what the analyser sees, open th
 
     PYTHONPATH=src python -m comfyui_fpt.seed <frame>.png --project 1180 \
       --link "demo_07_retime (Shot)" --output plate --note "..."
-    python src/comfyui_fpt/instrument.py demo/07_retime.json \
+    python src/comfyui_fpt/instrument.py example_workflows/07_retime.json \
       --template "{entity.code}_{output}_v{version:03d}"
 
 `source_versions` on the publish node holds the seeded Version id and will need repointing at yours.

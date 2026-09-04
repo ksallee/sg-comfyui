@@ -1,4 +1,4 @@
-# comfyui-flow-production-tracking
+# flow-pt
 
 ComfyUI nodes that publish generations to Flow Production Tracking with provenance.
 

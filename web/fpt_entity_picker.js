@@ -52,7 +52,7 @@ app.registerExtension({
 // provenance concept beside the field it will be written to.
 function publishPickers(nodeType) {
   // The declared widgets, in INPUT_TYPES order. This is the order a saved graph's widgets_values is
-  // in, and the only order anything outside the editor (instrument.py, workflows/) has to know.
+  // in, and the only order anything outside the editor (instrument.py, tools/workflows/) has to know.
   const DECLARED = ["project", "link", "task", "status", "output_name", "fps", "note",
                     "code_template", "source_versions", "attach_workflow", "link_id"];
 
@@ -73,7 +73,7 @@ function publishPickers(nodeType) {
     const named = info?.widgets_values_named;
     const vals = info?.widgets_values || [];
     // Two shapes, and only two. The editor writes a name for every value. Everything else we
-    // produce — workflows/, instrument.py, a hand-edited graph — is the declared order and exactly
+    // produce — tools/workflows/, instrument.py, a hand-edited graph — is the declared order and exactly
     // as long. Anything else is left to the frontend rather than guessed at.
     const byName = (named && typeof named === "object" && !Array.isArray(named)) ? named
       : vals.length === DECLARED.length

@@ -211,6 +211,6 @@ CausVid before assuming 14B is a free upgrade.
     PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
       --project 1180 --link "demo_03_cleanplate (Shot)" --output plate
 
-Then open `demo/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
+Then open `example_workflows/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
 the machine with other work: SAM3 over 17 frames, 20 VACE steps at 832×480 (about 45 s/step), the
 composite, and one publish.

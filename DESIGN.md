@@ -676,9 +676,9 @@ Two ways in, and they are not the same thing:
 
 `[project].name` on the Registry is immutable, so it is decided here rather than in passing:
 
-    [project].name                comfyui-flow-production-tracking   permanent
+    [project].name                flow-pt                            permanent
     [tool.comfy].DisplayName      Flow Production Tracking
-    repo, custom_nodes directory  comfyui-flow-production-tracking
+    repo, custom_nodes directory  flow-pt
     CATEGORY                      Flow Production Tracking
     node titles                   Flow PT Publish Version, Flow PT Load Version
     Python package                comfyui_fpt
