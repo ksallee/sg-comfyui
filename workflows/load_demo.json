@@ -38,6 +38,11 @@
           "name": "code",
           "type": "STRING",
           "links": []
+        },
+        {
+          "name": "colour_space",
+          "type": "STRING",
+          "links": []
         }
       ],
       "properties": {
@@ -53,7 +58,8 @@
         0,
         "auto",
         1,
-        ""
+        "",
+        1
       ],
       "title": "Flow PT Load \u2014 newest depth on this link"
     },

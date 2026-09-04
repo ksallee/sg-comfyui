@@ -17,6 +17,20 @@ LORA_KEYS = ("lora_name", "strength_model", "strength_clip")
 # What ComfyUI's own video nodes call it: `fps` on CreateVideo, SaveWEBM and the animated savers,
 # `frame_rate` on VideoHelperSuite.
 FPS_KEYS = ("fps", "frame_rate", "frames_per_second")
+# Words the node takes directly instead of through an encoder: every cloud generator (Kling, Veo,
+# Runway, Qwen edit) and the edit encoders. Across core ComfyUI a STRING input named `prompt` is
+# multiline on all 147 classes that declare one and never names a file, which is what makes reading
+# it safe where reading every string widget would not be.
+PROMPT_WIDGET_KEYS = {"prompt": "positive", "negative_prompt": "negative"}
+# Text a CLIP encoder takes. `text` is the one-encoder spelling; the rest are the per-tokeniser
+# inputs of the dual and triple encoders — SDXL, Flux, SD3, HiDream, HunyuanDiT, Kandinsky5,
+# Lumina2. Across all 908 core classes each of those names appears on exactly one class, always a
+# multiline STRING on a node returning CONDITIONING, so the name alone identifies it. Deliberately
+# absent: `tracks` (WanTrackToVideo — a JSON motion path, the positive_coords case again), `texts`
+# (MakeTrainingDataset — a file list) and `tags`/`lyrics`/`caption` (the AceStep and MiniMax music
+# encoders — an audio graph publishes no image, and a lyric sheet is a document, not a direction).
+ENCODER_TEXT_KEYS = ("text", "text_g", "text_l", "clip_l", "clip_g", "t5xxl", "llama",
+                     "qwen25_7b", "bert", "mt5xl", "user_prompt")
 
 
 def _is_link(v):
@@ -52,7 +66,17 @@ def _trace_text(prompt, ref, role=None, seen=None):
         return []
     seen.add(nid)
     node = prompt[nid]
-    found = [v for k, v in _widgets(node).items() if k == "text" and isinstance(v, str)]
+    # ConditioningZeroOut erases what it is handed, so text behind it reached nothing. A Flux or SD3
+    # negative is conventionally the positive encoder zeroed out; without this wall every such graph
+    # reports its positive prompt as its negative one too.
+    if node.get("class_type") == "ConditioningZeroOut":
+        return []
+    # One node, several tokenisers: SDXL takes text_g and text_l, Flux clip_l and t5xxl. They
+    # usually hold the same line, and then dedupe to one. When they differ they were told to
+    # differ, so both are kept, separately: concatenating would report a sentence nobody typed and
+    # picking one would lose the other. The list already carries several texts wherever a graph has
+    # several encoders, and `fields.concepts` joins them with " | " like any other.
+    found = [v for k, v in _widgets(node).items() if k in ENCODER_TEXT_KEYS and isinstance(v, str)]
     links = [(k, v) for k, v in (node.get("inputs") or {}).items() if _is_link(v)]
     if role and any(k == role for k, _ in links):
         links = [(k, v) for k, v in links if k == role]
@@ -61,6 +85,68 @@ def _trace_text(prompt, ref, role=None, seen=None):
     out = []
     for t in found:
         if t not in out:
+            out.append(t)
+    return out
+
+
+def _cond_role(key):
+    """The role a conditioning input names — positive, negative, or unroled. "" if it is not one.
+
+    Prefix and not equality: `PairConditioningSetProperties` takes `positive_NEW`,
+    `ConditioningCombine` takes `conditioning_1`, `DualCFGGuider` takes `cond1`. SAM3_Detect's
+    `positive_coords` is a JSON list of click points, not conditioning, and is the one core input
+    the prefix would otherwise catch.
+    """
+    if key.endswith("_coords"):
+        return ""
+    if key.startswith("positive"):
+        return "positive"
+    if key.startswith("negative"):
+        return "negative"
+    return "unroled" if key.startswith("cond") else ""
+
+
+def directing_text(prompt, scope):
+    """(positive, negative) — the words that told this branch what to do.
+
+    A seed is not what makes text a prompt. Conditioning is: text becomes a prompt when an encoder
+    turns it into CONDITIONING and a node consumes it, and that holds for a sampler and equally for
+    `SAM3_Detect`, whose `conditioning` input is where "the actor" decides what gets cut out. A
+    segmentation graph has no seed anywhere, so starting from one records nothing at all.
+
+    That consumption test is also what keeps this conservative. `filename_prefix`, `ckpt_name` and
+    a format enum are strings in the same graph and none of them reaches a conditioning input, so
+    scraping every string widget — the obvious alternative — would bury the one line that matters.
+
+    `positive`/`negative` name the role; a bare `conditioning` input names none. Text found with no
+    role reads as positive UNLESS a roled walk already claimed it, so `FluxGuidance` sitting on a
+    sampler's negative cannot smuggle the negative prompt into the positive one.
+    """
+    pos, neg, unroled = [], [], []
+    bucket = {"positive": pos, "negative": neg, "unroled": unroled}
+    for nid in _order(prompt):
+        if nid not in scope:
+            continue
+        node = prompt[nid] or {}
+        for k, v in (node.get("inputs") or {}).items():
+            role = _cond_role(k) if _is_link(v) else ""
+            if role:
+                bucket[role] += _trace_text(prompt, v, None if role == "unroled" else role)
+        for k, w in _widgets(node).items():
+            if k in PROMPT_WIDGET_KEYS and isinstance(w, str) and w.strip():
+                bucket[PROMPT_WIDGET_KEYS[k]].append(w)
+
+    for t in unroled:
+        if t not in pos and t not in neg:
+            pos.append(t)
+    return _said(pos), _said(neg)
+
+
+def _said(texts):
+    """Distinct, in the order found. An empty encoder said nothing — the usual empty negative."""
+    out = []
+    for t in texts:
+        if t.strip() and t not in out:
             out.append(t)
     return out
 
@@ -172,11 +258,16 @@ def extract(prompt, extra_pnginfo=None, node_id=None):
             s["negative"] = _trace_text(prompt, links.get("negative"), "negative")
             samplers.append(s)
 
+    positive, negative = directing_text(prompt, scope)
+
     return {
         "generator": "ComfyUI",
         "models": models,
         "loras": loras,
         "samplers": samplers,
+        # The branch's prompt. `samplers` keeps its own copy because which text went into WHICH
+        # sampler is a different fact, and a graph with no sampler still has this one.
+        "prompts": {"positive": positive, "negative": negative},
         "node_count": len(scope),
         "workflow_attached": workflow(extra_pnginfo) is not None,
     }

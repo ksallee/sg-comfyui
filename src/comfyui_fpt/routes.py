@@ -6,6 +6,7 @@ appending to PromptServer.instance.routes here is registered normally.
 Setup path: these serve the editor and are never touched while publishing.
 """
 import json
+import os
 import re
 
 from . import site
@@ -30,6 +31,39 @@ def _sentence(e):
 
 def _id_for(pairs, label):
     return next((i for l, i in pairs if l == label), 0)
+
+
+def _files_preview(widgets, prof, project_id, link_type, target, task_id):
+    """Where the frames would land, resolved against the real storage row.
+
+    The panel must not understate what the run will write: a publish that copies a sequence onto a
+    shared volume is the one thing an operator wants to read back before pressing Run, and a storage
+    root that is not mounted should be visible here rather than at the end of a render.
+    """
+    want = site.unset(widgets.get("published_files") or "")
+    if not want:
+        return ""
+    from . import naming, publish, sequence
+    from .nodes.publish_version import FPTPublishVersion as PV
+    try:
+        pf = prof.get("published_files") or {}
+        _, root = sequence.root_for(publish.storages(site.client()), pf.get("storage", ""))
+        template = pf.get("path_template") or sequence.DEFAULT_PATH_TEMPLATE
+        _, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
+                                     target, task_id, widgets.get("output_name", ""))
+        vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, target,
+                                  task_id, {"output": widgets.get("output_name", "")})
+        path = sequence.pattern(root, template, vals, version_no, ".png")
+        where = [path] if "frames" in want else []
+        # How many frames the batch holds is a run-time fact, so this states the rule rather than a
+        # count it cannot know — the same honesty the frame-rate sentence beside it uses.
+        if "movie" in want:
+            where.append(sequence.swap_ext(sequence.single(path), ".mp4")
+                         + " (.png when there is only one frame)")
+        mounted = "" if os.path.isdir(root) else f"  — {root} is NOT mounted, the run will stop"
+        return "copied to " + ", ".join(where) + mounted
+    except Exception as e:
+        return f"published files asked for, but: {_sentence(e)}"
 
 
 def register():
@@ -104,13 +138,19 @@ def register():
 
     @routes.get("/fpt/version_sources")
     async def version_sources(request):
-        """Which tiers THIS Version can actually deliver (probe 021). A filled path field is not the
-        same as a file on disk, so the editor asks per Version rather than offering a fixed list."""
+        """What THIS Version can actually deliver (probe 021). A filled path field is not the same as
+        a file on disk, and neither is a PublishedFile on a root this machine has not mounted, so the
+        editor asks per Version rather than offering a fixed list.
+
+        `colour` rides along because it belongs to the file, not to the Version: two PublishedFiles
+        on one Version can declare different colour spaces, and the picker is where that is chosen.
+        """
         try:
             from . import media
             v = media.version(site.client(), int(request.rel_url.query.get("version_id") or 0))
-            return web.json_response({"items": [{"label": label, "id": key}
-                                                for key, label in media.sources(v)]})
+            return web.json_response({"items": [
+                {"label": label, "id": key, "colour": media.colour_of(v, key)}
+                for key, label in media.sources(v)]})
         except Exception as e:
             return web.json_response({"items": [], "error": _sentence(e)})
 
@@ -167,10 +207,24 @@ def register():
             project_id = int(q.get("project_id") or 0) or pid
             desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
+            # One read, not two. `version` now carries a second call for the published files
+            # (probe 021), so asking for the same Version twice in one request doubled it.
+            v = media.version(fpt, vid)
+            available = media.sources(v)
+            # What the node itself would pick, so the readout answers for the run rather than for
+            # the widget: `auto` is a rule, and only the site knows what it lands on.
+            picked = q.get("source", "") or "auto"
+            key = available[0][0] if (picked in ("auto", "") and available) \
+                else picked.split(" — ")[0].strip()
             # `media`, not `sources`: the publish panel uses `sources` for the Versions a publish
             # came from, and one word meaning two things rendered "Version undefined" in the other.
-            return web.json_response({**desc, "why": why, "filters": built,
-                                      "media": [k for k, _ in media.sources(media.version(fpt, vid))]})
+            return web.json_response({
+                **desc, "why": why, "filters": built,
+                "media": [k for k, _ in available],
+                # The label of what will actually be read — "Rendered Image — foo.%04d.png, 6
+                # frames" says the type, the file and the count that the bare key cannot.
+                "source_label": next((l for k, l in available if k == key), ""),
+                "colour_space": media.colour_of(v, key)})
         except Exception as e:
             # `error`, not `summary`: nothing read `summary`, so a pin pointing at a Version that is
             # not there rendered as "nothing resolved yet" and the reason was thrown away.
@@ -326,6 +380,11 @@ def register():
                        "<name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<name>.workflow.json — only if this client sends EXTRA_PNGINFO")
+            # A copied file is not an upload, but this block is "what gets saved" and a publish that
+            # writes onto a shared volume is the line an operator most wants to read before a Run.
+            files = _files_preview(w, prof, pid, link_type, target, task_id)
+            if files:
+                uploads.append(files)
             # How many frames the batch holds is a run-time fact, so the panel states the RULE and
             # the frame rate rather than a count it cannot know. The node's own `movie.rate` answers,
             # so the sentence in front of the operator is the sentence the run will print.

@@ -26,7 +26,8 @@ Requirements this imposes:
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
     src/comfyui_fpt/
       site.py        .env.local, profile.local.json, a connected client
-      publish.py     create Version, three-step upload, attach — one probe citation per call
+      publish.py     create Version, three-step upload, attach, register PublishedFile
+      sequence.py    frames on disk: written to ComfyUI's output, copied under a LocalStorage root
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
@@ -164,6 +165,91 @@ and after it. A supervisor reading timing off the player can tell a measured rat
 
 Image sequences stay supported as *input*: the Load node's `frames` tier is untouched.
 
+## The frames are files, not media
+
+The other half of probe 022's verdict. A movie is what a supervisor reviews; the frames are what the next
+department opens, and a Version cannot hold them — media is single-valued and Attachments are storage rather
+than review. So the frames are a `PublishedFile`, and asking for them changes nothing about the Version: one
+run is still one Version carrying one movie.
+
+    movie output      one Version, media uploaded. No PublishedFile — the operator may ask for one
+    image sequence    one Version carrying the movie for review, PLUS a PublishedFile per file
+    single image      unchanged
+
+`published_files` on the node says which, because the node cannot tell the two apart: an IMAGE batch is a
+sequence of frames whether the deliverable is the sequence or the movie made from it, and guessing would
+either litter a share with frames nobody asked for or silently drop the ones somebody did.
+
+### We copy; ComfyUI writes wherever it writes
+
+A PublishedFile's path has to sit under one of the site's LocalStorage roots — anything else is 400 code 104
+(recipe 004). That could have been a constraint on ComfyUI's output directory. It is not: the frames land in
+ComfyUI's own output directory, and the node **copies** them to `<root>/<path rendered from the template>`.
+
+Copy, never move. The run stays where the artist expects it, a publish that fails half way leaves something to
+re-publish from, and a second attempt costs a copy rather than a re-render.
+
+Everything that touches disk happens *before* the Version is created — root resolved, frames written, copies
+made — for the same reason the movie is encoded first: a Version pointing at frames nobody wrote is worse than
+a run that refused. An unmounted share stops the publish, and `/fpt/preview_publish` says so before the Run.
+
+### The path template is the template language that already exists
+
+The storage root and the path template are profile data, per project like every other site-specific decision:
+
+    "published_files": {
+      "storage":       "primary",
+      "path_template": "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":  "sRGB"
+    }
+
+`naming.render` already speaks Flow PT's dotted field paths and Python's whole format spec, so a path template
+is the same language as a code template and no second vocabulary was invented. Two things are particular to a
+path:
+
+- **`{version}` is the publish, `%04d` is the frame.** They are different numbers and a code template cannot
+  tell them apart — `naming.normalise_template` reads *any* printf pad as the version, which is right where a
+  TD writes `v%04d` by habit and catastrophic here, since it would freeze a sequence to one frame. So the
+  frame token is lifted out before rendering and put back after (`sequence._protect`), and in a path template
+  the printf form means the frame. `####` and `@@@@` work too, because `sg_path_to_frames` accepts all three
+  (`media.SEQ`) and a template that disagreed with the field it fills would be its own bug.
+- **The extension follows the files, not the template.** PNG is what Pillow writes from an IMAGE tensor. A
+  template reading `.exr` does not make 8-bit frames scene-linear, so the real extension wins and the panel
+  says the template was overruled.
+
+The version number is the Version's own, so `pf_seq_depth_v001` and `.../v001/` cannot disagree.
+
+### Colour space is recorded, never converted
+
+A colour transform is the most consequential pixel change in a comp, and this project does not make images. So
+`colour_space` is a widget the operator fills in — declared, never inferred from the tensor, and never applied.
+
+Where it lands took an argument. This site's `PublishedFile` has 33 fields and none of them is a colour space,
+and probe 019's rule is that a name spent is spent site-wide forever — so no field is created for it. It goes
+in `PublishedFile.description`, which is a real field this type already has and the place a person reads, and
+into the `.provenance.json` attachment, which is the record. A studio whose site *does* carry a colour space
+field points at it the same way every other concept is pointed at, in the profile.
+
+It is a per-node widget rather than a profile value alone because two outputs of one graph can differ — a
+depth pass is not the beauty — with the show's usual answer seeded from the profile.
+
+### Dependencies are linked at the file level
+
+`upstream_published_files` is the PublishedFile-level twin of `sg_ai_generated_from`. The publish node already
+knows which Versions this one came from; where those Versions published files, those files are what a
+downstream tool actually opens, so the link is only useful at this level. It is written from the same ancestor
+set, resolved with one `_search`, and left empty — reported, not invented — when the ancestors published
+nothing.
+
+`sg_status_list` is deliberately *not* copied from the Version. PublishedFile carries its own status list —
+`wtg`, `ip`, `cmpt` here — and the Version's codes are a different set entirely (probe 009). The field's own
+default applies.
+
+`path_cache` is written by hand. The server fills `path_cache_storage` from the path it resolved but leaves
+`path_cache` null after a REST create, so a filter on it misses every row published this way
+(`entity_types/PublishedFile`). It is a plain text field, it takes a write, and the client already knows the
+answer.
+
 ## Media comes back the same way it went out
 
 A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
@@ -172,9 +258,69 @@ operator never types an id. A plate becomes a previs; several Versions become on
 Flow PT.
 
 Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
-asks per pick and offers only tiers that resolve to a real file. Published files are not a tier yet: on the
-only site available, the types a graph wants carry no path at all. That is recorded as unproven, not as
-absent — `docs/quirks.md` in the corpus repo names what would close it.
+asks per pick and offers only sources that resolve to a real file.
+
+Published files **were** not a tier, and the reason is worth keeping rather than deleting: on the only site
+available, the types a graph wants carried no path at all. That was recorded as unproven, not as absent.
+What closed it is this repo writing them. A publish registers a PublishedFile per file and the server
+resolves the path in the 201 itself (recipe 004), so there are now real files to read, and they come
+**first**: a PublishedFile is the only source that names a *type*, which is what makes "the rendered
+sequence" and "the mp4" on one Version distinguishable, and the only one carrying the colour space the
+publisher declared.
+
+Which is why the `source` combo holds a *type and a filename* — `Rendered Image · sh010_comp_v003.%04d.png
+#6843` — with the id last, as the tiebreak two publishes of one stream differ by. Nobody picks by id. It is
+also the stored widget value, so a file later renamed or re-typed stops matching and the node lists what the
+Version does have, by label, rather than loading a plausible neighbour.
+
+The rule that made this design good did not change: a source is offered only when it can actually deliver.
+A PublishedFile with no path, or a path on a root this machine has not mounted, is absent from the picker
+rather than a run that fails at the end. Still unproven, and the same shape of gap: a path resolved for a
+platform other than the one publishing — the only LocalStorage row here defines `mac_path` and leaves the
+other two null, so `local_path_windows` and `local_path_linux` read null on every row written — and a site
+whose PublishedFiles a real publisher wrote rather than this node.
+
+Tier 2 also resolves on anything this node published: a sequence publish writes the real `%04d` pattern into
+`sg_path_to_frames`, and a registered movie into `sg_path_to_movie`. probe 021 found `sg_path_to_frames`
+filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until there was a shared
+root to point at, there was nothing to write.
+
+### A clip, not a frame
+
+A sequence that comes back one frame at a time is not an input to a video graph, so a source can deliver a
+**batch of N frames** — a sequence off disk, or a movie decoded. `frame` is the first frame of the range and
+kept that meaning; `frame_count` beside it says how many.
+
+`frame_count` defaults to **1**, which is exactly what the node always returned. A batch is opted into, never
+handed over: a graph saved before the widget existed asks for one image and must keep getting one. The widget
+is also *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
+is positional, so a widget inserted above an existing one displaces every value in every graph already saved,
+including graphs this repo will never see. A row in the wrong place is cosmetic; a silently shifted value is
+not.
+
+The batch has to be bounded, because 300 frames of 4K is 27.8 GiB of float32 and an allocator's answer to
+that is a stack trace. So the ceiling is a **size**, not a count: `media.BATCH_BUDGET` is 4 GiB, checked
+against the real resolution after the first frame is read, and the refusal names the resolution, the total,
+and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. A short
+read comes back short and says so — padding a batch to the number asked for would be this node inventing
+frames — and frames whose size changes mid-sequence are refused by filename rather than by two shapes in a
+torch traceback, because they cannot stack and no resize belongs here.
+
+### Colour space travels with the pixels
+
+Publish records a declared colour space on the PublishedFile description and in the `.provenance.json`. The
+Load node reads it back onto the panel and out of a fourth output, so a claim made once upstream reaches the
+artist about to comp instead of being retyped. **Recorded, never applied**: nothing converts, nothing infers,
+and a Version that declared nothing says nothing rather than defaulting to sRGB.
+
+### The upstream link is exact where it can be
+
+`upstream_published_files` was every PublishedFile of every ancestor Version — right, and approximate: on a
+Version carrying both a sequence and its mp4 it claims a dependency on both when the graph read one. The Load
+node now records the file it actually opened (`lineage.py`, beside the Version id it resolved), and the
+publish node links that one file. Ancestors that were read through a path field or an upload opened no
+PublishedFile, so they still get the search — approximate is the honest answer where nothing narrower is
+known, and the two cases are decided per ancestor rather than per run.
 
 ## Where the version number lives is site-specific
 
@@ -218,9 +364,10 @@ Captured per publish:
 
 | field | source |
 |---|---|
-| model, prompt, seed, sampler | ComfyUI prompt graph |
+| model, seed, sampler | ComfyUI prompt graph |
+| prompt | text that reached a conditioning input in this branch — see below; not "text near a seed" |
 | workflow JSON | attachment — best effort, see below |
-| submitting client | `COMFY_USAGE_SOURCE` |
+| submitting client | whoever POSTed `/prompt` said so — see below |
 | input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
 | user, timestamp | client |
 
@@ -231,11 +378,26 @@ client put in `extra_data`, and `None` otherwise (`execution.py:199`). The stand
 `comfy` CLI, the ComfyUI MCP server, and every wrapper UI that builds its own API-format prompt do not.
 
 So a publish must never depend on the workflow, and must say when it is missing rather than quietly
-omitting it. `COMFY_USAGE_SOURCE` records which client submitted the prompt, which is exactly the
-information needed to explain an absent workflow later.
+omitting it. Which client submitted the prompt is exactly the information needed to explain an
+absent workflow later, and that is what the generator field carries.
 
 This is also the reason the demo drives ComfyUI over plain HTTP rather than through its MCP server:
 an MCP-submitted prompt exercises the degraded provenance path.
+
+### The submitting client names itself; nothing else names it
+
+`COMFY_USAGE_SOURCE` is the hidden-input spelling and it reads like an environment variable. It is
+not one. ComfyUI hands the node `extra_data.get("comfy_usage_source")` from the submitted prompt
+(`execution.py:224`) — a string chosen by whoever POSTed `/prompt`, never read from the environment
+of the running server. A `Comfy-Usage-Source` header is copied into `extra_data` only when the body
+omitted the key (`server.py:1120`), so the body always wins.
+
+The standard frontend does set it: `comfyui-frontend`, hardcoded in the body of every Run, confirmed
+by driving a browser and reading the request off the wire. So a Version reading
+`ComfyUI (unknown client)` was not published by a person clicking Run — it was published by a script
+that POSTed a prompt and said nothing about itself. That is the whole value of the field, and it
+survives only if our own harnesses fill it in: `tools/qa_node.py` rewrites the body of every
+`/prompt` it drives so a QA run is not filed as an artist at a keyboard.
 
 ### Where each piece lands is the operator's, not ours
 
@@ -303,34 +465,162 @@ and `negative`, so following every link merges the two prompts into one.
 
 C2PA where the writer supports it; custom fields plus attachment otherwise. Field names are decided by probe, not by the docs.
 
+## A prompt is text that reached a conditioning input, not text near a seed
+
+Half the graphs a VFX shop runs never sample. A segmentation graph is the sharp case: `SAM3_Detect`
+takes a text prompt that decides *what gets cut out* — "the actor" — and there is no seed anywhere in
+it. Looking for text by walking back from a node that carries a seed is a diffusion-shaped assumption,
+and under it the single most important creative input in a roto graph was recorded nowhere queryable.
+
+So the rule is the one the graph itself uses. **Text becomes a prompt when an encoder turns it into
+CONDITIONING and a node consumes it** (`provenance.directing_text`). A sampler consuming conditioning
+and `SAM3_Detect` consuming conditioning are the same event; the seed was never what made it a prompt.
+The same walk also picks up modern custom-sampler graphs, where the seed sits on `RandomNoise` and the
+conditioning on a `CFGGuider`, and which therefore recorded no prompt either.
+
+That consumption test is also the whole of the conservatism. The alternative — scrape every string
+widget — puts `filename_prefix`, `ckpt_name` and a format enum into `sg_ai_prompt` and makes the field
+useless. None of those reaches a conditioning input. Neither does `TextOverlay`'s caption or
+`SaveText`'s payload, which is why the loose `text` key is safe here and would not be on its own.
+
+Roles: `positive` and `negative` name one, a bare `conditioning` input does not. Text found with no
+role reads as positive **unless a roled walk already claimed it**, so a `FluxGuidance` sitting on a
+sampler's negative cannot smuggle the negative prompt into the positive one.
+
+One exception to "must be conditioning": a widget named `prompt` or `negative_prompt`. Every cloud
+generator node (Kling, Veo, Runway, Bria, the Qwen edit encoders — 147 core classes) takes its words
+that way and encodes nothing. All 147 declare it multiline and none of them ever names a file, so the
+name alone is enough. That is the only widget name trusted without the conditioning test.
+
+### One node, several tokenisers
+
+`CLIPTextEncodeSDXL` takes `text_g` and `text_l`, `CLIPTextEncodeFlux` takes `clip_l` and `t5xxl`,
+and SD3, HiDream, HunyuanDiT, Kandinsky5 and Lumina2 each spell it differently again. Only `text`
+was read, so every SDXL and Flux graph published an empty `sg_ai_prompt` — with a sampler present,
+which is what made this a second hole rather than the seedless one. `ENCODER_TEXT_KEYS` names all
+eleven spellings. Across the 908 core classes each name but `text` occurs on exactly one class,
+always a multiline STRING on a node returning CONDITIONING, so the name alone identifies it.
+
+**Two encoders that disagree are two texts, not one sentence.** They usually hold the same line and
+dedupe to one. When they differ — a scene in `text_g` and a style in `text_l`, keywords for `clip_l`
+and a paragraph for `t5xxl` — both are kept, separately. Concatenating would put a sentence nobody
+typed into the field a supervisor searches; picking one would silently drop the other. The list
+already carries several texts wherever a graph has several encoders, and `fields.concepts` joins
+them with " | " like any other.
+
+**`ConditioningZeroOut` is a wall.** It erases what it is handed, so text behind it reached nothing.
+A Flux or SD3 negative is conventionally the positive encoder zeroed out, so without the wall these
+keys would report every such graph's positive prompt as its negative one too. 31 publish points in
+the corpus were already doing exactly that through plain `CLIPTextEncode`; the wall is what fixes
+them, and it is the larger half of this change.
+
+Deliberately **not** captured, and each for a reason:
+
+- **A click instead of a prompt.** `SAM3_Detect.positive_coords` is a JSON point list. The role prefix
+  would otherwise catch it, so `_coords` is excluded by name.
+- **`WanTrackToVideo.tracks`**, a multiline STRING of motion paths on a node that does return
+  CONDITIONING — the `positive_coords` case with a different name; and `MakeTrainingDataset.texts`,
+  a file list.
+- **`tags`, `lyrics` and `caption`** on the AceStep and MiniMax music encoders. They are conditioning
+  and they are words, but an audio graph publishes no image, and a lyric sheet is a document rather
+  than a direction.
+- **A `prompt` input wired from a string node** rather than typed. The words are then in a
+  `PrimitiveString`'s `value`, which is a generic string widget again.
+- **Text assembled by third-party concat nodes**, as in the ZHO gallery graphs. Nothing readable
+  reaches the encoder, so nothing is recorded — the right answer, not a guess.
+
+### It stays in `sg_ai_prompt`; no new field
+
+"What did you tell it to cut?" and "what did you tell it to generate?" are one question — the words the
+artist gave the model — and a supervisor filtering Versions should type them in one box. A second field
+would split that query in half and spend a name site-wide forever (probe 019), and would force every
+operator to map two concepts for one idea in `site.provenance_map`.
+
+Which node the text actually reached is not lost: `provenance.extract` records `prompts` alongside
+`samplers`, and the whole structure rides up as the `.provenance.json` attachment. Fields are the
+queryable summary, the attachment is the record — the same split as everywhere else here.
+
+A graph that genuinely has nothing to say still records nothing. `07_retime` fills `generator`, `model`
+and `generated_from` and leaves `prompt`, `seed` and `sampler` empty, and that is correct.
+
 ## Coverage, measured
 
 "Works on any workflow" is a claim, so it is measured rather than asserted. The corpus is 680 real
 graphs: the 629 ComfyUI template workflows every user sees in the template browser, plus the three
 most-starred public collections (ZHO, Yolain, `comfyanonymous/ComfyUI_examples`).
 
-    analysed without error   680 / 680
-    finds a publishable stream  509 / 680   75%
+Re-measured 2026-09-03, after `instrument.py` learned to see through subgraphs:
 
-The 171 that find nothing are not random. Roughly half are 3D, audio and text graphs with no image
-output at all — correctly out of scope. The rest are mostly graphs whose stream lives inside a
-ComfyUI subgraph, which `instrument.py` cannot yet walk into; 246 of the 680 contain one.
+                                    before   after
+    analysed without error         680/680  680/680
+    finds a publishable stream     509/680  546/680   75% → 80%
+    finds a loader to replace      428/680  430/680
+    publishable streams, in total      977     1419
 
-The number was 57% before the sink rule learned that frames assembled into another medium end an
-image stream too (`instrument._is_sink`). That one fix moved 124 workflows, nearly all of them video.
-Those frames now publish as one Version carrying one movie — see "Output is always a movie" above.
+**The count is the small half of it.** 246 of the 680 graphs put their work inside a subgraph, and of
+those, 200 already reported *something* — the instance's own output slot, or a plate feeding it. What
+they reported was the wrong thing. 297 streams moved from a subgraph instance's output onto the node
+that actually makes the picture, which is where the name lives: `video_ltx2_i2v` used to offer
+`scale_dimensions`, a node feeding the block, and now offers the `VAEDecode` inside it;
+`3d_moge_perspective_to_mesh` now offers `normal_opengl` and `normal_directx` by those names, which
+existed only inside. 215 graphs have a stream that exists nowhere else. So a TD opening a current
+template and running `/track-workflow` is no longer told there is nothing to do on a graph full of
+work.
+
+29 old addresses are gone rather than moved, and all 29 were wrong: 27 were an IMAGE feeding a
+subgraph that only *looked* like a video sink because the instance declares a VIDEO output — the
+input plate reported as an output — and 2 were an instance output slot nothing inside ever fed. **No
+graph that used to find a stream finds none now.**
+
+14 of the 37 newly-covered graphs came from a second, smaller correction in the same pass: a save
+node is an end even when it also hands the picture on. `SaveImage` feeding an `ImageCompare` so the
+operator can see before and after is the shape, and it hid every SeedVR2 int8 upscaler.
+
+Instrumenting is measured too, not just analysis: all 586 corpus graphs that have anything to
+instrument were tapped and had their loader replaced, and all 586 came out with unique node and link
+ids across the document, no dangling endpoint, every instance's output count matching its
+definition's, and the publish node fed by exactly the stream that was asked for.
+
+The 134 that still find nothing are mostly 3D, audio and text graphs with no image output at all,
+correctly out of scope.
+
+Before the sink rule learned that frames assembled into another medium end an image stream too
+(`instrument._is_sink`) the number was 57%. That one fix moved 124 workflows, nearly all of them
+video. Those frames now publish as one Version carrying one movie — see "Output is always a movie".
+
+### Subgraphs
+
+`instrument.py` analyses a flattened view (`_flatten`), because a subgraph instance is a relay rather
+than a node: what the definition's `inputNode` hands on is whatever the instance's input was fed, and
+what its `outputNode` receives is what the instance's output emits. Splicing those pairs gives the
+graph ComfyUI itself executes — confirmed against `graphToPrompt`, which addresses the same interior
+node as `306:296` where this addresses it `306/296`. Nesting comes out for free and does occur: 76
+places in the corpus instantiate a definition inside another, one level deep, never more.
+
+Tapping crosses the boundary at the instance's output: the stream is **promoted** to an output slot,
+exactly as dragging an interior output onto the subgraph's output panel does in the editor, so the
+publish node itself stays at the top level with its pickers rather than being buried a level down. If
+the stream already leaves through an output — as a template's own `depth` pass does — that slot is
+reused and nothing is added at all.
+
+Promotion is additive and safe. The reverse is not: a definition's interior is shared by every
+instance of it, so rewiring an interior input to feed it from outside would break the other
+instances. A loader inside a subgraph is therefore replaced *inside* that same subgraph. Only 3
+corpus graphs have one, and no corpus graph instantiates a definition twice — but the file is
+someone else's, so the rule is the rule and not the measurement.
+
+The naming rule is unchanged in spirit and needed one addition: what a stream is called still comes
+from what the graph already says, and inside a subgraph the graph says one more thing — the
+subgraph's own name. Its useful half is the *opposite* half from a sink label's. "Preview Image
+(normal_opengl)" says what the stream is inside the brackets; "Depth Estimation (Depth Anything 3)"
+says it before them and names a model inside. So the trailing bracket is dropped, and the name is
+tried only after everything nearer the stream.
 
 ## Non-goals
 
 Charts, dashboards, reports, webhooks, automations — see `CLAUDE.md`. Video and OTIO. Inpainting UI. three.js. Browser extension.
 
 ## Later
-
-Publishing a sequence AS a sequence, rather than as the movie made from it. That wants `PublishedFile` —
-probe 022's own verdict, since media is single-valued and Attachments are storage rather than review — plus
-shared storage for `sg_path_to_frames` to point at. `PublishedFile` is still unproven: probe 021 found the
-types a graph wants carrying no `path` at all on the one site available, so the probe that closes it belongs
-in `sg-groundtruth`, not here.
 
 React review surface showing iteration lineage, extracted into an MIT component registry. Not in this repo.
 

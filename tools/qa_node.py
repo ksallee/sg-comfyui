@@ -115,6 +115,29 @@ BOOT = """async ({node_type, drive}) => {
 }"""
 
 
+USAGE_SOURCE = "comfyui-fpt qa_node.py"
+
+
+def _identify(route):
+    """Say who queued the prompt, in the body, on the way out.
+
+    `comfy_usage_source` is not an environment variable: it is `extra_data.comfy_usage_source` on
+    whatever POSTed `/prompt` (execution.py:224), and it is the field a Version later uses to explain
+    a missing workflow. The frontend hardcodes `"comfyui-frontend"` in the body, and the server reads
+    the `Comfy-Usage-Source` header only when the body omits the key (server.py:1120) — so a run
+    driven from here would claim to be a person clicking Run unless the body itself is corrected.
+    """
+    r = route.request
+    if r.method != "POST" or not r.post_data:
+        return route.continue_()
+    try:
+        body = json.loads(r.post_data)
+        body.setdefault("extra_data", {})["comfy_usage_source"] = USAGE_SOURCE
+    except Exception:
+        return route.continue_()
+    route.continue_(post_data=json.dumps(body))
+
+
 def main():
     ap = argparse.ArgumentParser(prog="qa_node.py", description=__doc__.split("\n")[0])
     ap.add_argument("--port", type=int, default=8188)
@@ -151,6 +174,7 @@ def main():
             pg = b.new_page(viewport={"width": 1100, "height": 950})
             # ComfyUI asks "leave site?" whenever the graph is dirty; nothing here needs saving.
             pg.on("dialog", lambda d: d.accept())
+            pg.route("**/prompt", _identify)
             pg.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
             out = pg.evaluate(BOOT, {"node_type": a.node, "drive": drive or "return {};"})
             if a.shot:
