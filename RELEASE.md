@@ -518,3 +518,105 @@ on every client site, which DESIGN.md refuses (probe 019: a name spent is spent 
 perfectly: all 7 with `visible.editable = true` are `sg_`-prefixed customs, the only `sg_` field on
 the stock side is `sg_status_list`, and no plain-named field lands in the custom bucket. Worth a
 corpus entry — it answers "is this field on every site?" with one read.
+
+## Matting, measured 2026-09-04 — what the demo templates must know
+
+A session spent on one question: why did `01_roto_matte` look bad. The answer was a **prompt**, not a
+pipeline, and most of what was built before finding that was compensation. Written down because
+every one of these cost real time to find.
+
+### Start from ComfyUI's own templates, not from scratch
+
+291 non-API templates ship in `comfyui_workflow_templates_json`, including
+`utility_video_segment_sam3`, `utility_birefnet_remove_background`, `video_wan_vace_inpainting` and
+`video_wan21_scail2_character_replacement`. The official SAM3 graph is
+`LoadVideo -> GetVideoComponents -> SAM3_Detect -> MaskPreview` and nothing more — **simpler than
+what this repo invented**, and its Note carried the fix below. Read them first.
+
+### SAM3's prompt takes a count, and `:1` is poison
+
+From the official template's own Note: max 32 tokens, comma-separate multiple subjects, and cap each
+with `:N` — `eye:2, window panels:4`. Measured on the plate, frames 8–12, where frame 10 had been
+losing one of two people:
+
+| prompt | frame 10 | verdict |
+|---|---|---|
+| `the couple` | **2.91%** against 5.44 either side | drops one person |
+| `person:2` | 5.50% | holds |
+| `woman:1, man:1` | 5.48% | holds |
+| `people:2` | 5.50% | holds |
+
+And on a single subject, measured on a green-screen plate where the subject is 23.6% of frame:
+
+| prompt | coverage |
+|---|---|
+| `person` | 23.65% |
+| `man` | 23.64% |
+| `the man in the purple shirt` | 23.61% |
+| **`person:1`** | **0.10% — matted a tracking marker instead of the man** |
+
+**The rule: a bare noun for one subject, `:N` only for N ≥ 2, never `:1`.**
+
+With `person:2` and `refine_iterations 5` the plate runs **48 frames with no frame-to-frame jump over
+0.6pt at all**. No tracking, no cropping, no bounding box.
+
+### SAM3 makes a stencil; BiRefNet makes a matte
+
+`SAM3_Detect` at `refine_iterations 5` returns **2 of 256 levels** — pure binary, zero partial alpha.
+`RemoveBackground` returns 256/256 levels with real falloff. For a roto *deliverable* the stencil may
+actually be preferable (real roto is hard-edged splines, softened deliberately downstream), but they
+are different products and the demo should not pretend otherwise.
+
+`refine_iterations` (0–5, default 2) visibly smooths SAM3's staircase; 5 is the best and costs
+nothing but time. It does **not** fix identity loss — that was always the prompt.
+
+### BiRefNet is core, and needs only a model
+
+`RemoveBackground` + `LoadBackgroundRemovalModel` are `comfy_extras.nodes_bg_removal`, backed by
+`comfy/background_removal/birefnet.py`. **A 424 MB weights download, not a custom node pack**, so a
+BiRefNet template keeps the "core nodes only, anyone can open this" promise.
+
+    Comfy-Org/BiRefNet -> background_removal/birefnet.safetensors  424 MB   sharp, real alpha
+                       -> background_removal/lucida.safetensors    844 MB   over-soft, reads blurred
+
+It is salient-object, not prompt-driven — which on a green-screen plate is an advantage (no prompt to
+get wrong) and on a busy plate is a limitation.
+
+### Both models resize to 1024, so subject size in frame decides quality
+
+The single most useful fact here. `birefnet.json` declares `image_size: 1024`, and SAM3's encoder is
+likewise fixed. The whole frame is resized to fit, so a small subject gets few model pixels:
+
+| subject size in a 1920x1080 frame | BiRefNet partial-alpha |
+|---|---|
+| 6.8% of frame (plate frame 1) | 5.42%, hair strands visible |
+| 3.0% of frame (plate frame 47) | 2.37%, blobby |
+
+Cropping to the subject before inference recovers it — a fixed work area of 655x566 put **2.93x more
+model pixels on the subject** and lifted partial-alpha from 2.37% to 17.82%. But **ComfyUI has no
+bounding-box concept**: `SAM3_Detect` emits `bboxes` and `ImageCropV2`/`CropByBBoxes` consume them,
+yet nothing converts a `BOUNDING_BOX` back to x/y integers and there is no paste-by-bbox node. So an
+automatic per-frame crop cannot be closed and a work area has to be a fixed, operator-set
+`PrimitiveBoundingBox` composited back with `ImageCompositeMasked`. Nuke gives this away free; here
+it is manual.
+
+With the prompt fixed, the plate no longer needs it. It stays the answer for a subject that is small
+in frame.
+
+### Core has no chroma keyer
+
+`ImageColorToMask(image, color)` is an exact-colour match — no tolerance, no spill suppression, no
+edge softness. There is nothing else. A green-screen template therefore either takes an external
+keyer (CorridorKey: CC BY-NC-SA plus terms, and **both leading ComfyUI wrappers carry no licence at
+all**) or does not key: measured on a cottonbro green-screen plate, **BiRefNet alone produced a clean
+matte of the subject with no prompt and no keyer**. On green screen the subject fills frame and the
+background is uniform, so both of this section's problems disappear at once.
+
+### Things that were tried and are dead
+
+- **`SAM3_VideoTrack` seeded with `initial_mask`** — collapses to 0% coverage within 8 frames.
+- **SAM3 x BiRefNet multiplied** — inherits SAM3's holes while gaining nothing.
+- **`ImageCropToMask` as a crop** — it also *applies* the mask, so it cannot be used to test
+  resolution in isolation. `ImageCropV2` with a `PrimitiveBoundingBox` is the clean crop.
+- **`SAM3_VideoTrack` instead of `SAM3_Detect`** — genuinely fixes the dropout, but so does the
+  correct prompt, at better edge quality and half the run time.
