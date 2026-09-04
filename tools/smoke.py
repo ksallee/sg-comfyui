@@ -36,6 +36,10 @@ REPO = HERE.parent
 # restore. Comparing it reports a mismatch every time the mirror works.
 MIRRORED = {"filters"}
 
+# The only input types ComfyUI draws as a widget. Everything else is a socket and takes no slot in
+# widgets_values.
+WIDGET_TYPES = {"INT", "FLOAT", "STRING", "BOOLEAN", "COMBO"}
+
 DRIVE = """
 const graph = %s;
 await app.loadGraphData(graph);
@@ -70,9 +74,12 @@ def declared(node_type, port):
     for section in ("required", "optional"):
         for name, v in (spec.get(section) or {}).items():
             kind = v[0] if v else None
-            if kind in ("IMAGE", "LATENT", "MODEL", "CLIP", "VAE", "CONDITIONING"):
-                continue     # a socket, never a widget, so it takes no slot in widgets_values
-            names.append(name)
+            # An allowlist, not a list of the socket types we happen to use: `video` arrived as a
+            # VIDEO input and a denylist counted it as a widget, which is exactly the one-slot
+            # displacement this tool exists to catch, reported against every graph at once.
+            # A combo declares its choices in place of a type name, so a list IS a widget.
+            if isinstance(kind, list) or kind in WIDGET_TYPES:
+                names.append(name)
     return names
 
 

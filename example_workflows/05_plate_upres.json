@@ -637,6 +637,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 20
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -649,13 +654,12 @@
         "(none)",
         "Pending Review",
         "esrgan",
-        0.0,
         "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail \u2014 same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 esrgan"
@@ -679,6 +683,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 21
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -691,13 +700,12 @@
         "(none)",
         "Pending Review",
         "seedvr2",
-        0.0,
         "Restorative upres: resized to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step. It invents detail where the source is soft, which is the point and the reason it needs a look before it ships.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 seedvr2"

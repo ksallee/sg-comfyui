@@ -470,6 +470,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 13
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -482,13 +487,12 @@
         "(none)",
         "(none)",
         "matte",
-        0.0,
         "Matte for the reference frame of demo_01_roto, from SAM 3.1 open-vocabulary segmentation on the prompt 'the actor'. The clip branch of the same graph rotos all 24 frames for review.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 matte"

@@ -782,6 +782,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 131
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -794,13 +799,12 @@
         "(none)",
         "Pending Review",
         "push_in",
-        0,
         "Push-in on the matte painting, driven by a named camera trajectory (Zoom In, speed 0.6, 33 frames @ 16fps). Wan 2.1 Fun Camera 1.3B.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 push_in"

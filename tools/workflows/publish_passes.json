@@ -343,6 +343,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 9
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -355,13 +360,12 @@
         "(none)",
         "(none)",
         "depth",
-        0,
         "MoGe depth pass",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 depth"
@@ -385,6 +389,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 10
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -397,13 +406,12 @@
         "(none)",
         "(none)",
         "normal_opengl",
-        0,
         "MoGe normals pass",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 normals"
@@ -427,6 +435,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 11
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -439,13 +452,12 @@
         "(none)",
         "(none)",
         "mask",
-        0,
         "MoGe mask pass",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 mask"

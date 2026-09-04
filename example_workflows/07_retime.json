@@ -474,6 +474,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 13
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -486,13 +491,12 @@
         "(none)",
         "Pending Review",
         "retime",
-        0.0,
         "Retimed 24 -> 48 fps with FILM. This Version is one synthesised in-between frame; the conformed clip is SaveVideo's output. Nothing here was sampled: no seed, no prompt.",
         "{entity.code}_{output}_v{version:03d}",
         "31754",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 retime"

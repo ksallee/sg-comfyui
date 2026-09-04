@@ -1043,6 +1043,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 43
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -1055,13 +1060,12 @@
         "(none)",
         "Pending Review",
         "cleanplate",
-        0,
         "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 cleanplate"

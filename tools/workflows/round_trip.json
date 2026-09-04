@@ -119,6 +119,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 2
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -131,13 +136,12 @@
         "(none)",
         "(none)",
         "regrade",
-        0,
         "derived from the Version above; lineage recorded by itself",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
-        "(none)",
+        false,
         ""
       ],
       "title": "Flow PT Publish \u2014 regrade"
