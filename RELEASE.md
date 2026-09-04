@@ -83,8 +83,11 @@ Still untested end to end, and each of these is a real gap rather than a nicety:
 - **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
 - **`FPTLoadVersion`, the round trip** — `round_trip.json` exists as a fixture and was not run.
 - **`/track-workflow`** — the actual product feature. Never run against a real graph.
-- **A browser-submitted publish** — `EXTRA_PNGINFO` is never sent by API submission, so the workflow
-  attachment has never been verified the way an operator would produce it.
+- ~~A browser-submitted publish~~ — **closed, and the claim was wrong.** `EXTRA_PNGINFO` is not
+  browser-only: two agents attached a real `.workflow.json` from a plain API POST by passing the graph
+  in `extra_data.extra_pnginfo.workflow` (Versions 31880 and 31882). ComfyUI's frontend sends it for
+  you; a script has to send it itself, and the node's "this client sent no EXTRA_PNGINFO" line is
+  telling the truth about the caller rather than reporting a limitation.
 - **The trim guard** — reasoned from ComfyUI source, never measured against a trimmed clip.
 - **`register_movie` on the new node** — it worked on `pf_seq` under the old one.
 
