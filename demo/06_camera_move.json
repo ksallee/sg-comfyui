@@ -1,0 +1,1115 @@
+{
+  "id": "175503e4-8e20-492f-9a34-526ba0955381",
+  "revision": 0,
+  "last_node_id": 64,
+  "last_link_id": 133,
+  "nodes": [
+    {
+      "id": 49,
+      "type": "CLIPVisionLoader",
+      "pos": [
+        -167.44577026367188,
+        549.6415405273438
+      ],
+      "size": [
+        373.4332275390625,
+        59.70098876953125
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP_VISION",
+          "type": "CLIP_VISION",
+          "slot_index": 0,
+          "links": [
+            94
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPVisionLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64",
+        "models": [
+          {
+            "name": "clip_vision_h.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/clip_vision/clip_vision_h.safetensors",
+            "directory": "clip_vision"
+          }
+        ]
+      },
+      "widgets_values": [
+        "clip_vision_h.safetensors"
+      ]
+    },
+    {
+      "id": 39,
+      "type": "VAELoader",
+      "pos": [
+        -167.44577026367188,
+        436.0390625
+      ],
+      "size": [
+        375.7519226074219,
+        58.68564987182617
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            76,
+            117
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64",
+        "models": [
+          {
+            "name": "wan_2.1_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "wan_2.1_vae.safetensors"
+      ]
+    },
+    {
+      "id": 38,
+      "type": "CLIPLoader",
+      "pos": [
+        -167.44577026367188,
+        285.86041259765625
+      ],
+      "size": [
+        377.0605163574219,
+        106
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 0,
+          "links": [
+            74,
+            75
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64",
+        "models": [
+          {
+            "name": "umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp8_e4m3fn_scaled.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "umt5_xxl_fp16.safetensors",
+        "wan",
+        "default"
+      ]
+    },
+    {
+      "id": 37,
+      "type": "UNETLoader",
+      "pos": [
+        -167.44577026367188,
+        157.3340301513672
+      ],
+      "size": [
+        376.1029357910156,
+        82
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            110
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64",
+        "models": [
+          {
+            "name": "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 52,
+      "type": "LoadImage",
+      "pos": [
+        -170,
+        1040
+      ],
+      "size": [
+        366.6621398925781,
+        326
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": []
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "slot_index": 1,
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "fpt_plate_paris.png",
+        "image"
+      ],
+      "title": "LoadImage \u2014 replaced, left unwired on purpose"
+    },
+    {
+      "id": 54,
+      "type": "ModelSamplingSD3",
+      "pos": [
+        739.6448364257812,
+        143.84304809570312
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 110
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            111
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingSD3",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        8
+      ]
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        746.4344482421875,
+        246.2737579345703
+      ],
+      "size": [
+        315,
+        262
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 111
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 118
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 119
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 120
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            35
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        606060606,
+        "fixed",
+        20,
+        6,
+        "uni_pc",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 51,
+      "type": "CLIPVisionEncode",
+      "pos": [
+        749.5863037109375,
+        835.120361328125
+      ],
+      "size": [
+        304.77197265625,
+        78.06840515136719
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip_vision",
+          "type": "CLIP_VISION",
+          "link": 94
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 132
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CLIP_VISION_OUTPUT",
+          "type": "CLIP_VISION_OUTPUT",
+          "slot_index": 0,
+          "links": [
+            113
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPVisionEncode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "none"
+      ]
+    },
+    {
+      "id": 58,
+      "type": "CreateVideo",
+      "pos": [
+        1344.8922119140625,
+        148.6174774169922
+      ],
+      "size": [
+        210,
+        78
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 128
+        },
+        {
+          "name": "audio",
+          "shape": 7,
+          "type": "AUDIO",
+          "link": null
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            129
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        16
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1100.927734375,
+        148.53817749023438
+      ],
+      "size": [
+        210,
+        46
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 35
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 76
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            128,
+            131
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [],
+      "title": "push_in"
+    },
+    {
+      "id": 59,
+      "type": "SaveVideo",
+      "pos": [
+        1092.015869140625,
+        268.6248779296875
+      ],
+      "size": [
+        677.1019897460938,
+        775.1019897460938
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 129
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "video/demo_06_camera",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 57,
+      "type": "WanCameraEmbedding",
+      "pos": [
+        250,
+        710
+      ],
+      "size": [
+        272.0084228515625,
+        322.0967102050781
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "camera_embedding",
+          "type": "WAN_CAMERA_EMBEDDING",
+          "links": [
+            124
+          ]
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "links": [
+            125
+          ]
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "links": [
+            126
+          ]
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "links": [
+            127
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WanCameraEmbedding",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "Zoom In",
+        832,
+        480,
+        33,
+        0.6,
+        0.5,
+        0.5,
+        0.5,
+        0.5
+      ],
+      "title": "the camera move"
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        250.68882751464844,
+        158.49562072753906
+      ],
+      "size": [
+        424.43255615234375,
+        204.60206604003906
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 74
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            115
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "A slow cinematic push-in along a rain-slicked Paris street at dusk. Wet cobblestones hold the warm reflections of shop windows and street lamps, headlights flare in the distance, the awnings and iron balconies drift past the frame edges. Anamorphic, shallow depth of field, subtle film grain, no cuts."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 56,
+      "type": "WanCameraImageToVideo",
+      "pos": [
+        748.0342407226562,
+        555.3203125
+      ],
+      "size": [
+        305.7822265625,
+        232.4929656982422
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 115
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 116
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 117
+        },
+        {
+          "name": "clip_vision_output",
+          "shape": 7,
+          "type": "CLIP_VISION_OUTPUT",
+          "link": 113
+        },
+        {
+          "name": "start_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 133
+        },
+        {
+          "name": "camera_conditions",
+          "shape": 7,
+          "type": "WAN_CAMERA_EMBEDDING",
+          "link": 124
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 125
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 126
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 127
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            118
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            119
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            120
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WanCameraImageToVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        832,
+        480,
+        33,
+        1
+      ]
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        255.7493896484375,
+        420.1629943847656
+      ],
+      "size": [
+        425.27801513671875,
+        180.6060791015625
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 75
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            116
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Negative Prompt)",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.64"
+      },
+      "widgets_values": [
+        "\u8272\u8c03\u8273\u4e3d\uff0c\u8fc7\u66dd\uff0c\u9759\u6001\uff0c\u7ec6\u8282\u6a21\u7cca\u4e0d\u6e05\uff0c\u5b57\u5e55\uff0c\u98ce\u683c\uff0c\u4f5c\u54c1\uff0c\u753b\u4f5c\uff0c\u753b\u9762\uff0c\u9759\u6b62\uff0c\u6574\u4f53\u53d1\u7070\uff0c\u6700\u5dee\u8d28\u91cf\uff0c\u4f4e\u8d28\u91cf\uff0cJPEG\u538b\u7f29\u6b8b\u7559\uff0c\u4e11\u964b\u7684\uff0c\u6b8b\u7f3a\u7684\uff0c\u591a\u4f59\u7684\u624b\u6307\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u624b\u90e8\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u8138\u90e8\uff0c\u7578\u5f62\u7684\uff0c\u6bc1\u5bb9\u7684\uff0c\u5f62\u6001\u7578\u5f62\u7684\u80a2\u4f53\uff0c\u624b\u6307\u878d\u5408\uff0c\u9759\u6b62\u4e0d\u52a8\u7684\u753b\u9762\uff0c\u6742\u4e71\u7684\u80cc\u666f\uff0c\u4e09\u6761\u817f\uff0c\u80cc\u666f\u4eba\u5f88\u591a\uff0c\u5012\u7740\u8d70"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 62,
+      "type": "MarkdownNote",
+      "pos": [
+        -680,
+        110
+      ],
+      "size": [
+        520,
+        700
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "title": "Read me",
+      "properties": {},
+      "widgets_values": [
+        "## demo 06 \u2014 camera move on a still\n\n**TD line:** *\"give the matte painting a push-in that matches the shot's camera.\"*\n\nCore nodes only. `WanCameraEmbedding` builds a named trajectory (Plucker embedding) and\n`WanCameraImageToVideo` conditions the Wan 2.1 Fun Camera model on it, with the still as the\nfirst frame.\n\n**The trajectory is the knob.** `camera_pose` picks the move (Static / Pan Up / Pan Down /\nPan Left / Pan Right / Zoom In / Zoom Out / ACW / CW), `speed` scales how far it travels over\n`length` frames. `WanCameraEmbedding`'s width/height/length outputs are wired into\n`WanCameraImageToVideo`, so the embedding node is where resolution and duration are set \u2014 the\nnumbers on the video node are overridden by those links.\n\n**Models \u2014 nothing new to download.**\n- diffusion: `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`\n- text encoder: `umt5_xxl_fp16.safetensors` \u2014 the stock template asks for\n  `umt5_xxl_fp8_e4m3fn_scaled` (6.27 GB). The template's own model list offers fp16 as the\n  alternative, so the `CLIPLoader` is repointed at the fp16 already on disk. No download.\n- clip vision: `clip_vision_h.safetensors`\n- vae: `wan_2.1_vae.safetensors`\n\n**The honest upgrade.** This is a *named* trajectory, not a shot camera. When the TD means the\nreal Maya camera, `WanUni3CControlnetApply` is the path \u2014 core, in\n`comfy_extras/nodes_model_patch.py`, fed by `ModelPatchLoader`. Its guidance input is an\nIMAGE sequence rendered from the camera trajectory, not a preset word, so a real camera\nfits. It costs a Uni3C checkpoint and a guidance render, which is why it is not here.\n\n**Flow PT.** The plate comes in through `Flow PT Load Version`, the frames go out through\n`Flow PT Publish Version`, and the published Versions record the plate in\n`sg_ai_generated_from`. A batch publishes as one Version per frame \u2014 there is no\nmovie-as-a-Version path yet.\n"
+      ],
+      "color": "#222",
+      "bgcolor": "#000"
+    },
+    {
+      "id": 63,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1580,
+        430
+      ],
+      "size": [
+        400,
+        460
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 131
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_06_camera (Shot)",
+        "(none)",
+        "Pending Review",
+        "push_in",
+        0,
+        "Push-in on the matte painting, driven by a named camera trajectory (Zoom In, speed 0.6, 33 frames @ 16fps). Wan 2.1 Fun Camera 1.3B.",
+        "{entity.code}_{output}_v{version:03d}",
+        "",
+        true,
+        0
+      ],
+      "title": "Flow PT Publish \u2014 push_in"
+    },
+    {
+      "id": 64,
+      "type": "FPTLoadVersion",
+      "pos": [
+        -170,
+        620
+      ],
+      "size": [
+        400,
+        380
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            132,
+            133
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTLoadVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_06_camera (Shot)",
+        "(none)",
+        "",
+        "plate",
+        "version number in the name",
+        0,
+        "auto",
+        1,
+        ""
+      ],
+      "title": "the matte painting, from Flow PT"
+    }
+  ],
+  "links": [
+    [
+      35,
+      3,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      74,
+      38,
+      0,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      75,
+      38,
+      0,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      76,
+      39,
+      0,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      94,
+      49,
+      0,
+      51,
+      0,
+      "CLIP_VISION"
+    ],
+    [
+      110,
+      37,
+      0,
+      54,
+      0,
+      "MODEL"
+    ],
+    [
+      111,
+      54,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      113,
+      51,
+      0,
+      56,
+      3,
+      "CLIP_VISION_OUTPUT"
+    ],
+    [
+      115,
+      6,
+      0,
+      56,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      116,
+      7,
+      0,
+      56,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      117,
+      39,
+      0,
+      56,
+      2,
+      "VAE"
+    ],
+    [
+      118,
+      56,
+      0,
+      3,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      119,
+      56,
+      1,
+      3,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      120,
+      56,
+      2,
+      3,
+      3,
+      "LATENT"
+    ],
+    [
+      124,
+      57,
+      0,
+      56,
+      5,
+      "WAN_CAMERA_EMBEDDING"
+    ],
+    [
+      125,
+      57,
+      1,
+      56,
+      6,
+      "INT"
+    ],
+    [
+      126,
+      57,
+      2,
+      56,
+      7,
+      "INT"
+    ],
+    [
+      127,
+      57,
+      3,
+      56,
+      8,
+      "INT"
+    ],
+    [
+      128,
+      8,
+      0,
+      58,
+      0,
+      "IMAGE"
+    ],
+    [
+      129,
+      58,
+      0,
+      59,
+      0,
+      "VIDEO"
+    ],
+    [
+      131,
+      8,
+      0,
+      63,
+      0,
+      "IMAGE"
+    ],
+    [
+      132,
+      64,
+      0,
+      51,
+      1,
+      "IMAGE"
+    ],
+    [
+      133,
+      64,
+      0,
+      56,
+      4,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 1,
+      "title": "Step 1 - Load Models Here",
+      "bounding": [
+        -180,
+        80,
+        400,
+        540
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 2,
+      "title": "Step 2 - Start Image (from Flow PT)",
+      "bounding": [
+        -190,
+        560,
+        440,
+        640
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "Step 3 - Prompt",
+      "bounding": [
+        240,
+        80,
+        450,
+        540
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 4,
+      "title": "Step 4 - Camera Settings",
+      "bounding": [
+        240,
+        640,
+        300,
+        420
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.6333327159458679,
+      "offset": [
+        818.6646758977604,
+        -51.4390233479129
+      ]
+    },
+    "frontendVersion": "1.29.2",
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}
