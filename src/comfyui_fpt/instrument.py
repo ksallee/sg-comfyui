@@ -11,11 +11,16 @@ exactly the ones nobody standardised.
 A sink is where the images stop being images: either nothing is wired out of it, or what comes out is
 another medium. Both halves were measured against 680 real workflows (the ComfyUI template set plus
 the three most-starred public collections) — see `_is_sink`.
+
+Modern templates put the work inside **subgraphs**, so the analysis runs over a flattened view of the
+graph rather than over `wf["nodes"]` — see `_flatten`. A node is therefore addressed by a *path*,
+`306/296`, not by an id, and everything here takes and returns those.
 """
 import json
 import re
-from copy import deepcopy
+from collections import namedtuple
 from pathlib import Path
+from uuid import uuid4
 
 # Consume an IMAGE and produce nothing: the end of a stream, so the thing feeding them is a Version.
 SINK_HINTS = ("save", "preview", "combine", "output", "write")
@@ -66,20 +71,113 @@ def save(wf, path):
     return path
 
 
-def _nodes(wf):
-    return {int(n["id"]): n for n in wf.get("nodes", [])}
+def _defs(wf):
+    """{uuid: definition}. A subgraph instance node carries the definition's uuid as its `type`."""
+    return {d["id"]: d for d in (wf.get("definitions") or {}).get("subgraphs") or [] if d.get("id")}
 
 
-def _links(wf):
-    """{link_id: (origin_node, origin_slot, target_node, target_slot, type)}"""
-    out = {}
-    for l in wf.get("links", []) or []:
+def _edges(container):
+    """[(origin_id, origin_slot, target_id, target_slot, type)] for a graph or a definition.
+
+    Same five values either way, spelled differently: the top level stores a link as a six-element
+    array, a subgraph definition as an object. Both are in the file at once, so both are read here.
+    """
+    out = []
+    for l in container.get("links") or []:
         if isinstance(l, list) and len(l) >= 6:
-            out[l[0]] = (l[1], l[2], l[3], l[4], l[5])
+            out.append((l[1], l[2], l[3], l[4], l[5]))
+        elif isinstance(l, dict) and l.get("origin_id") is not None:
+            out.append((l["origin_id"], l.get("origin_slot") or 0,
+                        l.get("target_id"), l.get("target_slot") or 0, l.get("type")))
     return out
 
 
-def _is_sink(node):
+SEP = "/"
+Flat = namedtuple("Flat", "nodes links subs labels")
+
+
+def _flatten(wf):
+    """The graph ComfyUI actually executes, with subgraph boundaries removed.
+
+    A subgraph instance is a relay, not a node. Inside the definition, a link out of `inputNode`
+    slot k continues whatever the instance's input k was fed; a link into `outputNode` slot j is
+    what the instance's output j hands on. Splicing those pairs is the whole trick, and it handles
+    nesting for free because a definition may instantiate another one (76 places in the corpus).
+
+    Returns
+      nodes   {path: node}    real nodes only — an instance is a relay and never appears
+      links   [(opath, oslot, tpath, tslot, type)]   boundaries spliced out
+      subs    {path: (instance node, definition)}
+      labels  {(path, slot): label}   the name the definition's own output slot gives that stream
+    A path is `306/296`: instance 306 at the top level, node 296 inside it. Top-level nodes keep the
+    bare id, so a graph with no subgraph reads exactly as it did before.
+    """
+    defs = _defs(wf)
+    nodes, subs, labels, raw, relay = {}, {}, {}, [], set()
+
+    def walk(container, prefix, q, stack):
+        # An instance's two sides need two names: `p` is its input side — the port an outside link
+        # targets and the definition's inputNode continues — and `p^` its output side.
+        inst = {str(n.get("id")) for n in container.get("nodes") or [] if n.get("type") in defs}
+        bi = (container.get("inputNode") or {}).get("id") if q is not None else None
+        bo = (container.get("outputNode") or {}).get("id") if q is not None else None
+        outs = container.get("outputs") or []
+        for o, os_, t, ts, ty in _edges(container):
+            op, tp = prefix + str(o), prefix + str(t)
+            src = (q, os_) if q is not None and o == bi else (op + "^" if str(o) in inst else op, os_)
+            leaves = q is not None and t == bo
+            dst = (q + "^", ts) if leaves else (tp, ts)
+            raw.append((src[0], src[1], dst[0], dst[1], ty))
+            if leaves and ts < len(outs):
+                lbl = outs[ts].get("label") or outs[ts].get("localized_name") or outs[ts].get("name")
+                if lbl:
+                    labels[src] = lbl
+        for n in container.get("nodes") or []:
+            p = prefix + str(n.get("id"))
+            d = defs.get(n.get("type"))
+            if d is None:
+                nodes[p] = n
+                continue
+            subs[p] = (n, d)
+            relay.add(p)
+            relay.add(p + "^")
+            # A definition that reaches itself would recurse forever; nothing sane writes one, but
+            # the file is someone else's and this is a setup tool, not a validator.
+            if d["id"] not in stack:
+                walk(d, p + SEP, p, stack + (d["id"],))
+
+    walk(wf, "", None, ())
+
+    by_port = {}
+    for e in raw:
+        by_port.setdefault((e[0], e[1]), []).append(e)
+
+    def reach(t, ts, seen):
+        if t not in relay:
+            return [(t, ts)]
+        if (t, ts) in seen:
+            return []
+        seen = seen | {(t, ts)}
+        return [r for e in by_port.get((t, ts), []) for r in reach(e[2], e[3], seen)]
+
+    links = [(o, os_, t2, ts2, ty) for o, os_, t, ts, ty in raw if o not in relay
+             for t2, ts2 in reach(t, ts, frozenset())]
+    return Flat(nodes, links, subs, labels)
+
+
+def _live(flat):
+    """{path: {slot}} — output slots that actually feed something once the boundaries are gone.
+
+    A node's own `outputs[].links` cannot answer this inside a subgraph: a link to the definition's
+    `outputNode` looks live whether or not the instance that uses it is wired to anything.
+    """
+    out = {}
+    for o, os_, _, _, _ in flat.links:
+        out.setdefault(o, set()).add(os_)
+    return out
+
+
+def _is_sink(node, live):
     """Where an IMAGE stream stops being images.
 
     Two ways that happens, and the old test only saw the first. `not node.get("outputs")` asked
@@ -90,206 +188,389 @@ def _is_sink(node):
 
     Nodes that merely re-express the images — VAEEncode, CLIPVisionEncode, GetImageSize — pass the
     stream on in another form and are deliberately not ends.
+
+    A save node is an end whether or not it also hands the picture on. Requiring that nothing be
+    wired out of it cost 20 more graphs, among them the SeedVR2 int8 upscalers, whose `SaveImage`
+    also feeds an `ImageCompare` so the operator can see the before and after. Saving is that node's
+    job; the pass-through is a convenience, and `outputs` already declines to report it twice.
+
+    `live` is the set of output slots `_live` found, not what the node declares.
     """
-    live = [o for o in node.get("outputs") or [] if o.get("links")]
-    if any(h in (node.get("type") or "").lower() for h in SINK_HINTS) and not live:
+    outs = node.get("outputs") or []
+    if any(h in (node.get("type") or "").lower() for h in SINK_HINTS):
         return True
-    return any(o.get("type") in ASSEMBLED for o in live)
+    return any(outs[s].get("type") in ASSEMBLED for s in live if s < len(outs))
 
 
 def _is_loader(node):
     return any(h in (node.get("type") or "").lower().replace(" ", "") for h in LOADER_HINTS)
 
 
-def descriptor(node, slot, sink_title=""):
+def _slug(text):
+    return re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
+
+
+# A name a stream may never take, however it was arrived at. The switch settings are here because a
+# widget value is a naming candidate and a boolean one says nothing: "none" named the SeedVR2 int8
+# video upscale, and "false" named three more.
+DROP = ("preview_image", "save_image", "image", "previewimage", "saveimage",
+        "none", "true", "false", "enable", "disable")
+# ...and more that a *sink* or a *slot* may not lend it, because a node whose whole job is to end
+# the stream is named after the medium, not after this picture: `CreateVideo` is what 37 of 680
+# corpus streams were called before subgraphs, and inside one the subgraph's own name is right
+# there and says something. The node's own type is exempt — it is the last candidate there is, and
+# `vaedecode` beats `out0`.
+NAMELESS = DROP + ("images", "video", "mask", "output", "value", "result", "frames", "any",
+                   "preview_video", "previewvideo", "save_video", "savevideo",
+                   "create_video", "createvideo", "preview_any", "previewany",
+                   "save_animated_webp", "saveanimatedwebp", "save_animated_png",
+                   "saveanimatedpng", "save_webm", "savewebm", "vhs_videocombine",
+                   "save_image_advanced", "saveimageadvanced")
+
+
+def descriptor(node, slot, sink_title="", out_label="", scope=""):
     """What a stream IS, in one token: depth, normal_opengl, mask.
 
-    Taken from what the graph already says — a node title the author set, a render-pass widget, or the
-    sink's label — because the operator named these things and we should not rename them. This is what
-    a proposed code is built from, and it is the reason three passes do not collapse onto one name.
+    Taken from what the graph already says — a node title the author set, a render-pass widget, the
+    sink's label, the name on the subgraph output it leaves through, or the subgraph's own name —
+    because the operator named these things and we should not rename them. This is what a proposed
+    code is built from, and it is the reason three passes do not collapse onto one name.
+
+    `scope` is the enclosing subgraph's name, and its useful half is the *opposite* half from a sink
+    label's: "Preview Image (normal_opengl)" says what it is inside the brackets, "Depth Estimation
+    (Depth Anything 3)" says it before them and names a model inside. So the trailing bracket is
+    dropped rather than preferred, and `scope` is tried late — after everything nearer the stream.
     """
     # widgets_values is a list on most nodes and a dict on some (VHS_VideoCombine writes
     # {frame_rate, loop_count, filename_prefix}). Slicing a dict raises, which took the whole CLI
     # down on 2 of 680 real workflows.
     w = node.get("widgets_values") or []
     w = list(w.values()) if isinstance(w, dict) else list(w)
-    for cand in (node.get("title"), *(str(x) for x in w[:1]),
-                 sink_title, node.get("type")):
+    # (text, the bracket is the useful half, tokens this candidate is not allowed to be)
+    cands = [(node.get("title"), True, DROP), *((str(x), True, DROP) for x in w[:1]),
+             (sink_title, True, NAMELESS), (out_label, True, NAMELESS),
+             (re.sub(r"\s*\([^)]*\)\s*$", "", scope or ""), False, NAMELESS),
+             (node.get("type"), True, DROP)]
+    for cand, bracket_wins, drop in cands:
         if not cand or not isinstance(cand, str):
             continue
-        tok = re.sub(r"[^A-Za-z0-9]+", "_", cand).strip("_").lower()
+        inner = re.search(r"\(([^)]+)\)", cand) if bracket_wins else None
         # A sink label like "Preview Image (normal_opengl)" carries the useful part in parentheses.
-        inner = re.search(r"\(([^)]+)\)", cand)
-        if inner:
-            tok = re.sub(r"[^A-Za-z0-9]+", "_", inner.group(1)).strip("_").lower()
+        tok = _slug(inner.group(1) if inner else cand)
         # A bare number is a widget value, not a name — ImageFromBatch's batch index reads as "0",
         # which says nothing about the pass and, worse, reads the same for every such stream in the
         # graph. Collapsing two passes onto one code is the failure this function exists to prevent.
-        if tok.isdigit():
+        # Digits with the punctuation slugged out are the same thing: "0.299, 0.587, 0.114" is a
+        # luma coefficient, and it named four streams apiece in the colour-adjustment templates.
+        if re.fullmatch(r"[\d_]+", tok):
             continue
-        if tok and tok not in ("preview_image", "save_image", "image", "previewimage", "saveimage"):
+        if tok and tok not in drop:
             return tok[:32]
     return f"out{slot}"
 
 
+def _scope(flat, path):
+    """The name of the subgraph a stream sits in, "" at the top level."""
+    parent = path.rpartition(SEP)[0]
+    if not parent or parent not in flat.subs:
+        return ""
+    inst, d = flat.subs[parent]
+    return inst.get("title") or d.get("name") or ""
+
+
 def descriptors(wf):
-    """{(node_id, slot): name} — what each stream is called, unique within this graph.
+    """{(path, slot): name} — what each stream is called, unique within this graph.
 
     `descriptor` names a stream from what the graph says about it, which is right but not
     necessarily distinct: the two symmetric tails of a two-shot video template describe themselves
     identically, and two Versions sharing one code is the collapse `code = auto` cannot recover
-    from. The node id breaks the tie, and the slot breaks it again for the node that feeds three
-    previews off one body — (id, slot) is what the graph guarantees is unique, so that is the floor.
+    from. The node type breaks the tie where it can, the path where it cannot, and the slot breaks it
+    again for the node that feeds three previews off one body — (path, slot) is what the graph
+    guarantees is unique, so that is the floor.
     """
-    nodes = _nodes(wf)
+    flat = _flatten(wf)
     raw, counts = [], {}
-    for oid, slot, _, sink in outputs(wf):
-        d = descriptor(nodes.get(oid, {}), slot, sink or "")
-        raw.append((oid, slot, d))
+    for path, slot, _, sink in outputs(wf):
+        d = descriptor(flat.nodes.get(path, {}), slot, sink or "",
+                       flat.labels.get((path, slot), ""), _scope(flat, path))
+        raw.append((path, slot, d))
         counts[d] = counts.get(d, 0) + 1
+    # When two streams describe themselves the same way — three taps inside one subgraph, whose name
+    # is all any of them has — the graph's own next word for them is the node type. Only when that
+    # repeats too does the path decide, and a path is not a name at all.
+    kinds = {p: _slug(flat.nodes.get(p, {}).get("type") or "") for p, _, _ in raw}
+    pairs = {}
+    for path, _, d in raw:
+        pairs[(d, kinds[path])] = pairs.get((d, kinds[path]), 0) + 1
     out, used = {}, set()
-    for oid, slot, d in raw:
-        name = d if counts[d] == 1 else f"{d}_{oid}"
+    for path, slot, d in raw:
+        tie, kind = path.replace(SEP, "_"), kinds[path]
+        name = d
+        if counts[d] > 1:
+            named = kind and kind not in d and pairs[(d, kind)] == 1
+            name = f"{d}_{kind}" if named else f"{d}_{tie}"
         if name in used:
-            name = f"{d}_{oid}_{slot}"
-        out[(oid, slot)] = name
+            name = f"{d}_{tie}_{slot}"
+        out[(path, slot)] = name
         used.add(name)
     return out
 
 
 def outputs(wf):
-    """[(origin_id, origin_slot, label, consumed_by)] — every IMAGE stream worth publishing."""
-    nodes, links = _nodes(wf), _links(wf)
+    """[(origin_path, origin_slot, label, consumed_by)] — every IMAGE stream worth publishing."""
+    flat = _flatten(wf)
+    live = _live(flat)
+    incoming = {(t, ts): (o, os_) for o, os_, t, ts, _ in flat.links}
     found, seen = [], set()
-    for nid, n in nodes.items():
-        if not _is_sink(n):
+    for path, n in flat.nodes.items():
+        if not _is_sink(n, live.get(path, set())):
             continue
-        for inp in n.get("inputs") or []:
-            if inp.get("type") != "IMAGE" or inp.get("link") is None:
-                continue
-            l = links.get(inp["link"])
-            if not l:
-                continue
-            key = (l[0], l[1])
-            if key in seen:
+        for slot, inp in enumerate(n.get("inputs") or []):
+            key = incoming.get((path, slot))
+            if inp.get("type") != "IMAGE" or key is None or key in seen:
                 continue
             seen.add(key)
-            origin = nodes.get(l[0], {})
-            found.append((l[0], l[1], origin.get("title") or origin.get("type") or "?",
+            origin = flat.nodes.get(key[0], {})
+            found.append((key[0], key[1], origin.get("title") or origin.get("type") or "?",
                           n.get("title") or n.get("type")))
     # An IMAGE output nothing consumes is a stream too — often exactly the pass someone forgot to save.
-    for nid, n in nodes.items():
+    for path, n in flat.nodes.items():
         # ...but not a sink's own pass-through. A save node that hands the image straight back out
         # would otherwise report the same picture twice, once named for the node that made it and
         # once for the node that saved it. The first is the useful name, and it is already recorded.
-        if _is_sink(n) and any(i.get("type") == "IMAGE" and i.get("link") is not None
-                               for i in n.get("inputs") or []):
+        if _is_sink(n, live.get(path, set())) and any(
+                i.get("type") == "IMAGE" and (path, s) in incoming
+                for s, i in enumerate(n.get("inputs") or [])):
             continue
         for slot, o in enumerate(n.get("outputs") or []):
-            if o.get("type") == "IMAGE" and not (o.get("links") or []) and (nid, slot) not in seen:
-                seen.add((nid, slot))
-                found.append((nid, slot, n.get("title") or n.get("type") or "?", None))
+            if (o.get("type") == "IMAGE" and slot not in live.get(path, set())
+                    and (path, slot) not in seen):
+                seen.add((path, slot))
+                found.append((path, slot, n.get("title") or n.get("type") or "?", None))
     return found
 
 
 def loaders(wf):
-    """[(id, label, [(target_id, target_slot)])] — image inputs a Load node could replace."""
-    nodes, links = _nodes(wf), _links(wf)
+    """[(path, label, [(target_path, target_slot)])] — image inputs a Load node could replace."""
+    flat = _flatten(wf)
     out = []
-    for nid, n in nodes.items():
+    for path, n in flat.nodes.items():
         if not _is_loader(n):
             continue
-        targets = []
-        for slot, o in enumerate(n.get("outputs") or []):
-            if o.get("type") != "IMAGE":
-                continue
-            for lid in o.get("links") or []:
-                l = links.get(lid)
-                if l:
-                    targets.append((l[2], l[3]))
-        out.append((nid, n.get("title") or n.get("type"), targets))
+        image = {s for s, o in enumerate(n.get("outputs") or []) if o.get("type") == "IMAGE"}
+        targets = [(t, ts) for o, os_, t, ts, _ in flat.links if o == path and os_ in image]
+        out.append((path, n.get("title") or n.get("type"), targets))
     return out
 
 
-def _add_node(wf, ntype, pos, widgets, title, inputs=(), outs=()):
-    nid = int(wf.get("last_node_id", 0)) + 1
-    wf["last_node_id"] = nid
-    wf.setdefault("nodes", []).append({
+def _bump(wf, key):
+    """The next node or link id, kept in step everywhere the file records one.
+
+    ComfyUI counts nodes and links once for the whole document and mirrors the counter into every
+    subgraph definition's `state`. Reading only the top-level counter hands out an id a definition
+    has already used, and the editor then loads two things as one.
+    """
+    mirror = {"last_node_id": "lastNodeId", "last_link_id": "lastLinkId"}[key]
+    defs = list(_defs(wf).values())
+    n = max([int(wf.get(key) or 0)] + [int((d.get("state") or {}).get(mirror) or 0) for d in defs]) + 1
+    wf[key] = n
+    for d in defs:
+        d.setdefault("state", {})[mirror] = n
+    return n
+
+
+def _add_node(wf, container, ntype, pos, widgets, title, inputs=(), outs=()):
+    nid = _bump(wf, "last_node_id")
+    container.setdefault("nodes", []).append({
         "id": nid, "type": ntype, "pos": list(pos), "size": [400, 300], "flags": {},
-        "order": len(wf["nodes"]), "mode": 0,
+        "order": len(container["nodes"]), "mode": 0,
         "inputs": [dict(i) for i in inputs], "outputs": [dict(o) for o in outs],
         "properties": {"Node name for S&R": ntype}, "widgets_values": widgets, "title": title,
     })
     return nid
 
 
-def _add_link(wf, src, src_slot, dst, dst_slot, type_):
-    lid = int(wf.get("last_link_id", 0)) + 1
-    wf["last_link_id"] = lid
-    wf.setdefault("links", []).append([lid, src, src_slot, dst, dst_slot, type_])
+def _add_link(wf, container, src, src_slot, dst, dst_slot, type_):
+    """A link, spelled the way its container spells links — see `_edges`."""
+    lid = _bump(wf, "last_link_id")
+    container.setdefault("links", []).append(
+        [lid, src, src_slot, dst, dst_slot, type_] if container is wf else
+        {"id": lid, "origin_id": src, "origin_slot": src_slot,
+         "target_id": dst, "target_slot": dst_slot, "type": type_})
     return lid
 
 
-def add_publish(wf, origin_id, origin_slot, widgets, title="Flow PT Publish Version"):
-    """Tap an existing IMAGE stream. Additive — whatever already consumed it still does."""
-    nodes = _nodes(wf)
-    ox, oy = nodes[origin_id].get("pos", [0, 0])[:2]
-    nid = _add_node(wf, PUBLISH, (ox + 480, oy + 120), widgets, title,
-                    inputs=[{"name": "images", "type": "IMAGE", "link": None}])
-    lid = _add_link(wf, origin_id, origin_slot, nid, 0, "IMAGE")
-    for n in wf["nodes"]:
-        if n["id"] == nid:
-            n["inputs"][0]["link"] = lid
-        if n["id"] == origin_id:
-            o = (n.get("outputs") or [])[origin_slot]
+def _holder(wf, path):
+    """(container, local id) — the graph or definition that literally holds the node at `path`."""
+    parent, _, local = path.rpartition(SEP)
+    return (wf if not parent else _flatten(wf).subs[parent][1]), int(local)
+
+
+def _instances(wf, def_id):
+    """Every instance node of a definition, wherever it sits. No corpus graph instantiates one
+    definition twice, but a definition is shared state and this is someone else's file."""
+    where = [wf] + list(_defs(wf).values())
+    return [n for c in where for n in c.get("nodes") or [] if n.get("type") == def_id]
+
+
+def _promote(wf, path, slot, name):
+    """Give a stream inside a subgraph an output slot at the top level; return its (path, slot) there.
+
+    This is what dragging an interior output onto the subgraph's output panel does in the editor: the
+    definition gains an output, its instance gains the matching slot, and an interior link runs to the
+    definition's `outputNode` — or nothing is added at all, where the stream already leaves through an
+    output (`_sub_output`). Either way it is additive: everything already wired stays wired.
+
+    A publish node placed *inside* the definition would need none of this, and is the wrong trade: it
+    would run once per instance of a definition that is shared state, and it would hide the project
+    and link pickers a level down from the operator who has to fill them in.
+    """
+    while SEP in path:
+        parent, _, inner = path.rpartition(SEP)
+        d = _flatten(wf).subs[parent][1]
+        slot, path = _sub_output(wf, d, int(inner), slot, name), parent
+    return path, slot
+
+
+def _sub_output(wf, d, inner_id, inner_slot, name):
+    """The slot this stream already leaves the subgraph through, or a new one for it.
+
+    Reuse first: a template that exposes its `depth` pass has said what the stream is called and
+    where it comes out, and adding a second slot beside it — same picture, same name, one more thing
+    on the canvas — is the tool talking over the operator.
+
+    Only when that slot has exactly one feeder, though. Ten corpus templates carry a stale link into
+    an output they later rewired, and two of those leave a slot fed by two different nodes; tapping
+    one of those would publish whichever the editor happened to resolve. A fresh slot is unambiguous.
+    """
+    bo = (d.get("outputNode") or {}).get("id", -20)
+    feeds = {}
+    for l in d.get("links") or []:
+        if isinstance(l, dict) and l.get("target_id") == bo:
+            feeds.setdefault(l.get("target_slot") or 0, []).append(l)
+    for j, ls in feeds.items():
+        if (j < len(d.get("outputs") or []) and len(ls) == 1
+                and ls[0].get("origin_id") == inner_id and (ls[0].get("origin_slot") or 0) == inner_slot):
+            return j
+    return _add_sub_output(wf, d, inner_id, inner_slot, name)
+
+
+def _add_sub_output(wf, d, inner_id, inner_slot, name):
+    j = len(d.setdefault("outputs", []))
+    lid = _bump(wf, "last_link_id")
+    bo = (d.get("outputNode") or {}).get("id", -20)
+    # A link to an output slot the definition no longer declares is already dead — the editor cannot
+    # draw it — and two templates ship one. Left in place it would land on the slot being added here
+    # and the promoted stream would arrive with company. Dropped, in the copy, not the original.
+    d["links"] = [l for l in d.get("links") or []
+                  if not (isinstance(l, dict) and l.get("target_id") == bo
+                          and (l.get("target_slot") or 0) >= j)]
+    box = (d.get("outputNode") or {}).get("bounding") or [0, 0, 128, 68]
+    d["outputs"].append({"id": str(uuid4()), "name": name, "localized_name": name,
+                         "type": "IMAGE", "linkIds": [lid],
+                         "pos": [box[0] + 24, box[1] + 24 + 20 * j]})
+    if len(box) >= 4:
+        box[3] = max(box[3], 48 + 20 * (j + 1))
+    d.setdefault("links", []).append({"id": lid, "origin_id": inner_id, "origin_slot": inner_slot,
+                                      "target_id": bo, "target_slot": j, "type": "IMAGE"})
+    for n in d.get("nodes") or []:
+        if n.get("id") == inner_id and inner_slot < len(n.get("outputs") or []):
+            o = n["outputs"][inner_slot]
             o["links"] = (o.get("links") or []) + [lid]
+    for n in _instances(wf, d["id"]):
+        n.setdefault("outputs", []).append({"name": name, "type": "IMAGE", "links": []})
+    return j
+
+
+def add_publish(wf, origin_path, origin_slot, widgets, title="Flow PT Publish Version", name="image"):
+    """Tap an existing IMAGE stream. Additive — whatever already consumed it still does.
+
+    A stream inside a subgraph is taken at the instance's output first — the one it already leaves
+    through, or a new one called `name` — so the publish node itself always sits at the top level
+    where its pickers are.
+    """
+    path, slot = _promote(wf, str(origin_path), origin_slot, name)
+    origin = next(n for n in wf["nodes"] if str(n["id"]) == path)
+    ox, oy = origin.get("pos", [0, 0])[:2]
+    nid = _add_node(wf, wf, PUBLISH, (ox + 480, oy + 120), widgets, title,
+                    inputs=[{"name": "images", "type": "IMAGE", "link": None}])
+    lid = _add_link(wf, wf, origin["id"], slot, nid, 0, "IMAGE")
+    wf["nodes"][-1]["inputs"][0]["link"] = lid
+    o = origin["outputs"][slot]
+    o["links"] = (o.get("links") or []) + [lid]
     return nid
 
 
-def replace_loader(wf, loader_id, widgets, title="Flow PT Load Version"):
+def replace_loader(wf, loader_path, widgets, title="Flow PT Load Version"):
     """Feed what a loader fed, from Flow PT instead. The loader is left in place but unwired, so the
-    operator can see what was replaced and put it back."""
-    nodes = _nodes(wf)
-    targets = next((t for i, _, t in loaders(wf) if i == loader_id), [])
-    lx, ly = nodes[loader_id].get("pos", [0, 0])[:2]
-    nid = _add_node(wf, LOAD, (lx, ly - 40), widgets, title,
+    operator can see what was replaced and put it back.
+
+    The rewiring happens in whatever container the loader sits in, so a loader inside a subgraph is
+    replaced inside that same subgraph rather than promoted out. Crossing the boundary here would
+    mean rewriting the *interior* node's input, and a definition's interior is shared by every
+    instance of it — additive on the way out, destructive on the way in.
+    """
+    loader_path = str(loader_path)
+    container, local = _holder(wf, loader_path)
+    loader = next(n for n in container["nodes"] if n.get("id") == local)
+    image = {s for s, o in enumerate(loader.get("outputs") or []) if o.get("type") == "IMAGE"}
+    targets = [(t, ts) for o, os_, t, ts, _ in _edges(container) if o == local and os_ in image]
+    lx, ly = loader.get("pos", [0, 0])[:2]
+    nid = _add_node(wf, container, LOAD, (lx, ly - 40), widgets, title,
                     outs=[{"name": "image", "type": "IMAGE", "links": []},
                           {"name": "version_id", "type": "INT", "links": []},
                           {"name": "code", "type": "STRING", "links": []}])
-    wf["links"] = [l for l in wf.get("links", [])
-                   if not (isinstance(l, list) and len(l) >= 6 and l[1] == loader_id)]
-    for n in wf["nodes"]:
-        if n["id"] == loader_id:
-            for o in n.get("outputs") or []:
-                o["links"] = []
+    new = container["nodes"][-1]
+    cut = {l[0] if isinstance(l, list) else l.get("id") for l in container.get("links") or []
+           if (l[1] if isinstance(l, list) else l.get("origin_id")) == local}
+    container["links"] = [l for l in container.get("links") or []
+                          if (l[0] if isinstance(l, list) else l.get("id")) not in cut]
+    for o in loader.get("outputs") or []:
+        o["links"] = []
+    # A link the loader fed straight to the subgraph's own output is recorded on that output too.
+    for o in container.get("outputs") or []:
+        o["linkIds"] = [i for i in o.get("linkIds") or [] if i not in cut]
+    boundary = (container.get("outputNode") or {}).get("id")
+    by_id = {n.get("id"): n for n in container.get("nodes") or []}
+    # A LoadImage feeds a MASK as well as an IMAGE, and only the IMAGE is rewired. Whoever took the
+    # mask must be told the link is gone rather than left pointing at an id nothing answers to —
+    # nine inpainting templates in the corpus have exactly that shape.
+    for n in container.get("nodes") or []:
+        for i in n.get("inputs") or []:
+            if i.get("link") in cut:
+                i["link"] = None
     for tid, tslot in targets:
-        lid = _add_link(wf, nid, 0, tid, tslot, "IMAGE")
-        for n in wf["nodes"]:
-            if n["id"] == nid:
-                n["outputs"][0]["links"].append(lid)
-            if n["id"] == tid:
-                for inp in n.get("inputs") or []:
-                    if inp.get("link") is not None and inp.get("type") == "IMAGE":
-                        pass
-                if tslot < len(n.get("inputs") or []):
-                    n["inputs"][tslot]["link"] = lid
+        lid = _add_link(wf, container, nid, 0, tid, tslot, "IMAGE")
+        new["outputs"][0]["links"].append(lid)
+        if tid == boundary:
+            outs = container.get("outputs") or []
+            if tslot < len(outs):
+                outs[tslot]["linkIds"] = (outs[tslot].get("linkIds") or []) + [lid]
+        elif tid in by_id and tslot < len(by_id[tid].get("inputs") or []):
+            by_id[tid]["inputs"][tslot]["link"] = lid
     return nid
 
 
 def report(wf, name="", template=""):
+    flat = _flatten(wf)
     outs, lds = outputs(wf), loaders(wf)
     names = descriptors(wf)
-    lines = [f"{name or 'workflow'}: {len(wf.get('nodes', []))} nodes"]
+    counted = len(flat.nodes) + len(flat.subs)
+    lines = [f"{name or 'workflow'}: {counted} nodes"
+             + (f" ({len(flat.subs)} of them subgraphs)" if flat.subs else "")]
     lines.append(f"  publishable streams ({len(outs)}):")
-    for oid, slot, label, sink in outs:
-        d = names[(oid, slot)]
+    for path, slot, label, sink in outs:
+        d = names[(path, slot)]
         proposed = (template.replace("{output}", d).replace("{version}", "001")
                     if template else f"...{d}...")
-        lines.append(f"    node {oid}[{slot}] {label}" + (f"  -> {sink}" if sink else "  (unconsumed)"))
+        where = f'  in subgraph "{_scope(flat, path)}"' if SEP in path else ""
+        lines.append(f"    node {path}[{slot}] {label}"
+                     + (f"  -> {sink}" if sink else "  (unconsumed)") + where)
         lines.append(f"        output_name={d!r}   proposed code: {proposed}")
     lines.append(f"  image inputs a Load could replace ({len(lds)}):")
-    for lid, label, targets in lds:
-        lines.append(f"    node {lid} {label}  feeds {len(targets)} input(s)")
+    for path, label, targets in lds:
+        where = f'  in subgraph "{_scope(flat, path)}"' if SEP in path else ""
+        lines.append(f"    node {path} {label}  feeds {len(targets)} input(s)" + where)
     return "\n".join(lines)
 
 
@@ -299,8 +580,9 @@ def _cli(argv=None):
     ap.add_argument("workflow")
     ap.add_argument("--out", help="write an instrumented copy here; omit to only analyse")
     ap.add_argument("--publish", action="append", default=[], metavar="NODE[:SLOT]",
-                    help="tap this IMAGE stream with a publish node; repeatable")
-    ap.add_argument("--load", action="append", default=[], type=int, metavar="NODE",
+                    help="tap this IMAGE stream with a publish node; repeatable. NODE is what the "
+                         "report printed — an id, or a path like 306/296 inside a subgraph")
+    ap.add_argument("--load", action="append", default=[], metavar="NODE",
                     help="replace this loader with a Load node; repeatable")
     ap.add_argument("--template", default="", help="the show's convention, to show proposed codes")
     ap.add_argument("--project", default="")
@@ -315,19 +597,32 @@ def _cli(argv=None):
     # Only what was actually asked for: an empty --project must leave the default alone, not write
     # "" into a combo that cannot hold it.
     common = {k: v for k, v in (("project", a.project), ("link", a.link)) if v}
-    nodes = _nodes(wf)
+    flat = _flatten(wf)
     names = descriptors(wf)
     sinks = {(o, s): k for o, s, _, k in outputs(wf)}
     for spec in a.publish:
-        nid, _, slot = spec.partition(":")
-        nid, slot = int(nid), int(slot or 0)
-        d = names.get((nid, slot)) or descriptor(nodes.get(nid, {}), slot, sinks.get((nid, slot)) or "")
+        head, sep, tail = spec.rpartition(":")
+        path, slot = (head, int(tail)) if sep and tail.isdigit() else (spec, 0)
+        d = names.get((path, slot)) or descriptor(
+            flat.nodes.get(path, {}), slot, sinks.get((path, slot)) or "",
+            flat.labels.get((path, slot), ""), _scope(flat, path))
         w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, output_name=d, **common)
-        new = add_publish(wf, nid, slot, w, title=f"Flow PT Publish — {d}")
-        print(f"  + publish node {new} tapping {nid}[{slot}]  output_name={d!r}")
-    for lid in a.load:
-        new = replace_loader(wf, lid, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
-        print(f"  + load node {new} replacing loader {lid}")
+        head = path.split(SEP)[0]
+        crossed = SEP in path
+        was = len(_flatten(wf).subs[head][0].get("outputs") or []) if crossed else 0
+        # Every tap re-reads the graph, because promoting a stream out of a subgraph changes it.
+        new = add_publish(wf, path, slot, w, title=f"Flow PT Publish — {d}", name=d)
+        note = ""
+        if crossed:
+            grew = len(_flatten(wf).subs[head][0].get("outputs") or []) > was
+            note = (f"  (subgraph {head} gained an output {d!r})" if grew
+                    else f"  (through subgraph {head}'s existing output)")
+        print(f"  + publish node {new} tapping {path}[{slot}]  output_name={d!r}{note}")
+    for path in a.load:
+        new = replace_loader(wf, path, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
+        stem = str(path).rpartition(SEP)[0]
+        print(f"  + load node {stem + SEP if stem else ''}{new} replacing loader {path}"
+              + (f"  (inside subgraph {stem})" if stem else ""))
     save(wf, a.out)
     print(f"wrote {a.out}")
     return 0
