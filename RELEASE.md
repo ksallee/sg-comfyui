@@ -700,3 +700,37 @@ Gradient energy goes 4.41 -> 5.21 against a true 5.51, so edges genuinely come b
 strands become smooth ribbons and plaster grain becomes a waxy surface. It also scores *worse* than
 plain bicubic on PSNR and SSIM (31.52 vs 33.26), which is the normal GAN-upscaler trade and worth
 saying out loud rather than quietly claiming a win.
+
+### 03 cleanplate paintout — the matte is excellent, the fill is not
+
+Based on `video_wan_vace_inpainting`, though the repo's own `example_workflows/03_cleanplate_paintout.json`
+already ships a flattened debugged version of it, and its `.md` records both traps: CausVid is
+CFG-distilled so CFG 1 makes the negative prompt inert, and VACE redraws the whole frame so the result
+has to be composited back through a feathered matte. Both still true.
+
+**The matte half is the best evidence yet for the bare-noun rule.** `banner` gives a tight, correct
+matte with **IoU 0.998 across 5 frames and no drift**, and removal is clean — 99.4-100% of masked
+pixels change, 0.1% spill outside.
+
+**The fill half does not hold up.** Two runs:
+
+- a dark maroon slab carrying the banner's exact silhouette — a textbook ghost;
+- with that failure named in the negative, a flat neutral-brown panel with a fine crosshatch: no
+  stone, no wood grain, and it does not continue the horizontal grey band running across the wall
+  behind it.
+
+At full-frame size it reads as shadowed masonry and would pass as a first pass. At 100% it is
+obviously painted. And it **boils**: inside-matte frame-to-frame difference is **3.6-14.6 against
+0.12-0.22 on the plate**, a visible luminance strobe, and worse on the better-coloured run.
+
+**The cause is the same one that broke matting: subject size against a fixed model input.** The
+banner is ~90x225 px at the 848x480 the 1.3B model wants, so there is almost nothing to work with.
+The fix is the same too — crop, inpaint at native resolution, recomposite — or a 14B model. Neither
+tried.
+
+So the work-area pattern is not a matting trick, it is **the general rule for every model in this
+demo set**: a fixed-resolution model gets what the frame gives it, and a small subject starves it.
+
+Also: the repo's existing 03 uses a locked-off still, while this plate has a moving camera, which is
+why temporal stability here is far worse than the 0.5-0.9 its `.md` claims. Five frames only, and
+that `.md`'s own warning stands — a short probe does not predict a long one.
