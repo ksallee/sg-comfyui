@@ -667,3 +667,36 @@ Measured placement at `multiplier=4`:
 
 One honest caveat for the demo: this plate carries real motion blur, and slowing it down exposes
 that. It is the plate, not the model.
+
+### 05 plate upres — ESRGAN ships, SeedVR2 must not
+
+Based on `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_video` (the latter unpacked from
+its subgraph). Measured by downscaling the real plate to 480x270, upressing back to 960x540, and
+comparing against the true frame:
+
+| | PSNR | SSIM | gradient (truth 5.98) | frame-to-frame MAD (truth 0.40) |
+|---|---|---|---|---|
+| bicubic | **33.26** | **0.925** | 4.70 | 0.39 |
+| RealESRGAN_x4plus | 31.52 | 0.904 | 5.62 | 0.65 |
+| SeedVR2 (cc=none) | 22.72 | 0.673 | 7.12 | — |
+| SeedVR2 (cc=lab) | 25.24 | 0.715 | 7.01 | **2.23** |
+
+**SeedVR2 is disqualified, and the reason is the one this project exists to care about: it invents.**
+It turned a plain dark wall into a hallucinated fibrous texture, redrew a window sill that is not in
+the plate, shifted the tone darker and more contrasty, and flickers **5x more than the source** frame
+to frame. Sharper on paper, wrong in fact. That is restoration-style invention — reasonable for the
+grainy crf32 source its own template targets, and not something to put under a plate a supervisor
+will trust.
+
+It also **does not run on this machine**: the int8 build hits `aten::_int_mm` unimplemented on MPS,
+and forcing `SelectModelDevice device=cpu` takes 88 s for 3 frames at 960x540 — hours for a 48-frame
+1080p pass.
+
+**Ship `RealESRGAN_x4plus` -> downscale to target.** Zoomed, it puts cables, window bars, poster edges
+and the drainpipe back almost exactly where the true frame has them.
+
+**And state the limit honestly in the demo:** ESRGAN recovers **structure, not micro-texture**.
+Gradient energy goes 4.41 -> 5.21 against a true 5.51, so edges genuinely come back — but hair
+strands become smooth ribbons and plaster grain becomes a waxy surface. It also scores *worse* than
+plain bicubic on PSNR and SSIM (31.52 vs 33.26), which is the normal GAN-upscaler trade and worth
+saying out loud rather than quietly claiming a win.
