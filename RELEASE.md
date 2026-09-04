@@ -24,11 +24,38 @@ Landed in that commit:
 Verified after a restart: `/workflow_templates` returns the seven demos under this pack, keyed by
 the `custom_nodes` directory name.
 
-### An agent is running
+### The two-input node is built, unmerged
 
-Branch `publish-node-two-inputs`, in its own worktree, on the input-contract change below. It was
-briefed to write the DESIGN.md entry first and to merge nothing. **Check its report before touching
-`publish_version.py`, `movie.py`, `sequence.py`, `publish.py` or the panel JS.**
+Branch `publish-node-two-inputs` — three commits plus a merge of `readme-and-example-workflows`
+(so it no longer carries the reverted name). DESIGN.md gained "The node records; ComfyUI makes the
+media". `movie.encode` is gone; `movie.stage()` returns the source file untouched where the VIDEO
+is one, else `save_to()`; `movie.poster()` takes the thumbnail off the file about to be uploaded.
+All 11 shipped graphs moved to the 12-widget order in the same commit.
+
+`smoke.py` passes 4/4 over `tools/workflows/` and 7/7 over `example_workflows/`, and a live
+`/object_info` shows `required: []` with `images`, `video`, then 12 widgets, no `fps`, no
+`published_files`.
+
+**Not verified: no real publish ran.** The upload path — streamed `upload_file`, `.mov` on
+`sg_uploaded_movie`, PublishedFile registration of a clip — is unexercised against the site, and
+`save_to()` and `poster()` were never executed. The trim guard below is reasoned from ComfyUI
+source, not measured. Do that first in the next session.
+
+**Two deviations from the brief, both kept:** the impossible-state error fires only when no VIDEO is
+wired (with a clip wired the frames are simply not registered, which is coherent, and it logs rather
+than refuses); and `register_movie` gates the movie only where frames are also present, because
+otherwise a video-only tick becomes a silent no-op.
+
+**Two latent bugs found and fixed on the way.** `instrument.PUBLISH_WIDGETS` and the picker's
+`DECLARED` both stopped at `link_id` while the class declared 13 widgets, so
+`vals.length === DECLARED.length` never matched a shipped graph and the picker's `onConfigure`
+correction — the block that exists because a mismatch otherwise writes wrong values silently — had
+been dead since `published_files` was appended. And `smoke.py` decided widget-vs-socket with a
+denylist, which would have counted the new `VIDEO` input as a widget.
+
+**Follow-up it left deliberately:** `07_retime` still taps one frame from `ImageFromBatch` though
+its own notes argue for publishing the clip. Wiring its `CreateVideo` into `video` changes what that
+demo publishes and its .md records a past run, so it wants a decision, not a rewrite.
 
 ### Machine state, not in git
 
@@ -147,8 +174,20 @@ weights and their licences — `pyproject.toml` cannot express a dependency on a
 
 Same two-branch shape Kevin already uses, with the names the ecosystem expects: `main` is what
 GitHub shows, what `git clone` gives, and what a forker's agent lands on — and CLAUDE.md is explicit
-that forkers drive this with an agent rather than by reading it. Cheap to set up while the repo is
-still private.
+that forkers drive this with an agent rather than by reading it.
+
+**Done:** `dev` created at `main` (`0041646`) and pushed, tracking `origin/dev`. `main` is still the
+default branch. Nothing has been merged into either.
+
+**Branch cleanup, not done, needs Kevin.** 56 remote branches. `git branch -r --merged` is useless
+here because this repo squash-merges and squashes leave no ancestry — it reports 1. Cross-checking
+against merged PRs instead: **54 of 56 have a merged PR**, and the two that do not are
+`node/publish-version` and a branch literally named `origin`. To sweep:
+
+    gh pr list --state merged --limit 200 --json headRefName -q '.[].headRefName' | sort > /tmp/m
+    git branch -r --format='%(refname:short)' | sed 's|origin/||' \
+      | grep -vE '^(main|dev|HEAD)$' | sort > /tmp/r
+    comm -12 /tmp/m /tmp/r | xargs -n1 git push origin --delete
 
 ---
 
@@ -287,8 +326,8 @@ decision has not been written down.
 
 Dependencies are real: nothing that touches the node should start before the running agent reports.
 
-1. **Publish node, two inputs** — *agent running*, branch `publish-node-two-inputs`. DESIGN.md entry
-   first, then code, then every shipped graph updated, then `smoke.py` over both directories.
+1. **Publish node, two inputs** — *built, unmerged, unpublished-against-the-site.* Next step is a
+   real publish from a VIDEO-carrying graph, which is the only thing that exercises the upload path.
 2. **Confirm the entity structure and plate specs** — Kevin. Everything below waits on this.
 3. **`/demo-setup`** — `ensure()` a Shot, an Asset and their Tasks; `seed.py` the plates onto them as
    Versions; fill the template graphs' project and link values. Needs an entity-create path, which
@@ -341,3 +380,11 @@ are rebuilt.
   through.
 - `env.load` layers `.env.local` over `os.environ`, so `FPT_API_*` can come from the launch
   environment — which is how one machine reaches two sites today, with no UI for it.
+- `VideoFromFile.get_stream_source()` returns the **whole** source path even for a trimmed or
+  cropped clip: `as_trimmed`/`as_cropped` return a new `VideoFromFile` over the same file with the
+  window recorded beside it (`_input_impl/video_types.py:1040,1053`). Uploading on the strength of
+  the class alone files a ten-second plate as the two-second selection, silently.
+- `save_to`'s `color_space` accepts only `sRGB`, `HDR` and `HDR PQ`, so the node's freeform
+  `colour_space` widget is not passed to it — it stays a declaration on the record.
+- `smoke.py` needs `.env.local` and `profile.local.json` at the checkout root; a worktree has
+  neither, and without them every site-backed combo reads `(none)` and every graph reports failure.
