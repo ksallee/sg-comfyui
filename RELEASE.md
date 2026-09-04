@@ -42,10 +42,11 @@ The harness needs `uv run --with playwright --python 3.11 python tools/smoke.py`
 documents in its own docstring; neither the system Python nor ComfyUI's venv carries playwright, and
 `tools/qa_node.py --start` brings up its own isolated instance, so nothing needs to be running.
 
-**Not verified: no real publish ran.** The upload path — streamed `upload_file`, `.mov` on
-`sg_uploaded_movie`, PublishedFile registration of a clip — is unexercised against the site, and
-`save_to()` and `poster()` were never executed. The trim guard below is reasoned from ComfyUI
-source, not measured. Do that first in the next session.
+**Verified 2026-09-04.** Version 31874 then 31875 in the sandbox, from the rebuilt `01`: the clip
+encoded by `save_to()`, the thumbnail off `poster()`, the mp4 streamed to `sg_uploaded_movie`
+(`link_type upload`, `video/mp4`), frame fields `1-8`, `sg_path_to_frames` holding the `%04d`
+pattern, and PublishedFile 6869 with `link_type local` and the server's own LocalStorage join. The
+trim guard remains reasoned from ComfyUI source, not measured — no trimmed clip has been published.
 
 **Two deviations from the brief, both kept:** the impossible-state error fires only when no VIDEO is
 wired (with a clip wired the frames are simply not registered, which is coherent, and it logs rather
@@ -332,8 +333,10 @@ decision has not been written down.
 
 Dependencies are real: nothing that touches the node should start before the running agent reports.
 
-1. **Publish node, two inputs** — *merged, still unpublished-against-the-site.* Next step is a
-   real publish from a VIDEO-carrying graph, which is the only thing that exercises the upload path.
+1. **Publish node, two inputs** — **done, and published for real.** Version 31874 and 31875 in the
+   sandbox: `save_to()` encoded the review clip, `poster()` made the thumbnail, `upload_file`
+   streamed it, and `write_frames` -> `place` -> PublishedFile 6869 registered the sequence under
+   `/Volumes/FPT`. Every part of the upload path that had never run has now run.
 2. **Confirm the entity structure and plate specs** — Kevin. Everything below waits on this.
 3. **`/demo-setup`** — `ensure()` a Shot, an Asset and their Tasks; `seed.py` the plates onto them as
    Versions; fill the template graphs' project and link values. Needs an entity-create path, which
