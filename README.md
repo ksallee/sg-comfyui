@@ -185,5 +185,6 @@ lets the agent read back only its own answer.
 - **A sequence cannot be published as a sequence.** A batch publishes as one Version carrying one
   movie, which is what a review player wants. Keeping the frames themselves wants `PublishedFile`
   and shared storage, and `PublishedFile` is still unproven; see DESIGN.md.
-- **Graphs whose output lives inside a ComfyUI subgraph** are not walked into yet, so
-  `/track-workflow` finds nothing in them.
+- **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to
+  the top level, because a definition's interior is shared by every instance of it and rewiring it
+  would break the others. Output streams inside a subgraph are found and tapped normally.

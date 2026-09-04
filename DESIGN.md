@@ -309,16 +309,72 @@ C2PA where the writer supports it; custom fields plus attachment otherwise. Fiel
 graphs: the 629 ComfyUI template workflows every user sees in the template browser, plus the three
 most-starred public collections (ZHO, Yolain, `comfyanonymous/ComfyUI_examples`).
 
-    analysed without error   680 / 680
-    finds a publishable stream  509 / 680   75%
+Re-measured 2026-09-03, after `instrument.py` learned to see through subgraphs:
 
-The 171 that find nothing are not random. Roughly half are 3D, audio and text graphs with no image
-output at all — correctly out of scope. The rest are mostly graphs whose stream lives inside a
-ComfyUI subgraph, which `instrument.py` cannot yet walk into; 246 of the 680 contain one.
+                                    before   after
+    analysed without error         680/680  680/680
+    finds a publishable stream     509/680  546/680   75% → 80%
+    finds a loader to replace      428/680  430/680
+    publishable streams, in total      977     1419
 
-The number was 57% before the sink rule learned that frames assembled into another medium end an
-image stream too (`instrument._is_sink`). That one fix moved 124 workflows, nearly all of them video.
-Those frames now publish as one Version carrying one movie — see "Output is always a movie" above.
+**The count is the small half of it.** 246 of the 680 graphs put their work inside a subgraph, and of
+those, 200 already reported *something* — the instance's own output slot, or a plate feeding it. What
+they reported was the wrong thing. 297 streams moved from a subgraph instance's output onto the node
+that actually makes the picture, which is where the name lives: `video_ltx2_i2v` used to offer
+`scale_dimensions`, a node feeding the block, and now offers the `VAEDecode` inside it;
+`3d_moge_perspective_to_mesh` now offers `normal_opengl` and `normal_directx` by those names, which
+existed only inside. 215 graphs have a stream that exists nowhere else. So a TD opening a current
+template and running `/track-workflow` is no longer told there is nothing to do on a graph full of
+work.
+
+29 old addresses are gone rather than moved, and all 29 were wrong: 27 were an IMAGE feeding a
+subgraph that only *looked* like a video sink because the instance declares a VIDEO output — the
+input plate reported as an output — and 2 were an instance output slot nothing inside ever fed. **No
+graph that used to find a stream finds none now.**
+
+14 of the 37 newly-covered graphs came from a second, smaller correction in the same pass: a save
+node is an end even when it also hands the picture on. `SaveImage` feeding an `ImageCompare` so the
+operator can see before and after is the shape, and it hid every SeedVR2 int8 upscaler.
+
+Instrumenting is measured too, not just analysis: all 586 corpus graphs that have anything to
+instrument were tapped and had their loader replaced, and all 586 came out with unique node and link
+ids across the document, no dangling endpoint, every instance's output count matching its
+definition's, and the publish node fed by exactly the stream that was asked for.
+
+The 134 that still find nothing are mostly 3D, audio and text graphs with no image output at all,
+correctly out of scope.
+
+Before the sink rule learned that frames assembled into another medium end an image stream too
+(`instrument._is_sink`) the number was 57%. That one fix moved 124 workflows, nearly all of them
+video. Those frames now publish as one Version carrying one movie — see "Output is always a movie".
+
+### Subgraphs
+
+`instrument.py` analyses a flattened view (`_flatten`), because a subgraph instance is a relay rather
+than a node: what the definition's `inputNode` hands on is whatever the instance's input was fed, and
+what its `outputNode` receives is what the instance's output emits. Splicing those pairs gives the
+graph ComfyUI itself executes — confirmed against `graphToPrompt`, which addresses the same interior
+node as `306:296` where this addresses it `306/296`. Nesting comes out for free and does occur: 76
+places in the corpus instantiate a definition inside another, one level deep, never more.
+
+Tapping crosses the boundary at the instance's output: the stream is **promoted** to an output slot,
+exactly as dragging an interior output onto the subgraph's output panel does in the editor, so the
+publish node itself stays at the top level with its pickers rather than being buried a level down. If
+the stream already leaves through an output — as a template's own `depth` pass does — that slot is
+reused and nothing is added at all.
+
+Promotion is additive and safe. The reverse is not: a definition's interior is shared by every
+instance of it, so rewiring an interior input to feed it from outside would break the other
+instances. A loader inside a subgraph is therefore replaced *inside* that same subgraph. Only 3
+corpus graphs have one, and no corpus graph instantiates a definition twice — but the file is
+someone else's, so the rule is the rule and not the measurement.
+
+The naming rule is unchanged in spirit and needed one addition: what a stream is called still comes
+from what the graph already says, and inside a subgraph the graph says one more thing — the
+subgraph's own name. Its useful half is the *opposite* half from a sink label's. "Preview Image
+(normal_opengl)" says what the stream is inside the brackets; "Depth Estimation (Depth Anything 3)"
+says it before them and names a model inside. So the trailing bracket is dropped, and the name is
+tried only after everything nearer the stream.
 
 ## Non-goals
 
