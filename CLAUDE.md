@@ -17,7 +17,10 @@ duplicates nothing.
 Read `../sg-groundtruth/corpus/INDEX.md` first, always. Never code against behaviour no entry covers — that is a
 gap, and the probe that closes it belongs in `sg-groundtruth`. Code cites entries: `# probe 004`.
 
-Plan for both repos: `../sg-groundtruth/PLAN.md`.
+Plan for both repos: `../sg-groundtruth/PLAN.md` — older, and stale where this repo has moved past it.
+
+`RELEASE.md` is what is being built now, what was decided and why, and what is still open. Read it
+before starting work.
 
 ## Stack
 
