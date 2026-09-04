@@ -1,0 +1,933 @@
+{
+  "id": "demo-05-plate-upres",
+  "revision": 0,
+  "last_node_id": 19,
+  "last_link_id": 23,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "LoadImage",
+      "pos": [
+        40,
+        400
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "fpt_plate_figure.png",
+        "image"
+      ],
+      "title": "Load 480p section (replaced, kept for reference)"
+    },
+    {
+      "id": 2,
+      "type": "UpscaleModelLoader",
+      "pos": [
+        380,
+        120
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "UPSCALE_MODEL",
+          "type": "UPSCALE_MODEL",
+          "links": [
+            1
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UpscaleModelLoader"
+      },
+      "widgets_values": [
+        "RealESRGAN_x4plus.safetensors"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "ImageUpscaleWithModel",
+      "pos": [
+        700,
+        120
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "upscale_model",
+          "type": "UPSCALE_MODEL",
+          "link": 1
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            3
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageUpscaleWithModel"
+      },
+      "widgets_values": [],
+      "title": "RealESRGAN_x4plus (fixed 4x)"
+    },
+    {
+      "id": 4,
+      "type": "ImageScale",
+      "pos": [
+        1020,
+        120
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            4,
+            20
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        1920,
+        1080,
+        "center"
+      ],
+      "title": "Fit to plate res (esrgan)"
+    },
+    {
+      "id": 5,
+      "type": "SaveImage",
+      "pos": [
+        1340,
+        120
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 4
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "demo05/upres_esrgan"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "ImageScale",
+      "pos": [
+        380,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 23
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6,
+            18
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageScale"
+      },
+      "widgets_values": [
+        "lanczos",
+        1920,
+        1080,
+        "center"
+      ],
+      "title": "Resize to plate res"
+    },
+    {
+      "id": 7,
+      "type": "UNETLoader",
+      "pos": [
+        380,
+        820
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            9,
+            11
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader"
+      },
+      "widgets_values": [
+        "seedvr2_3b_int8_convrot.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAELoader",
+      "pos": [
+        380,
+        960
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            8,
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader"
+      },
+      "widgets_values": [
+        "seedvr2_ema_vae_fp16.safetensors"
+      ]
+    },
+    {
+      "id": 9,
+      "type": "SeedVR2Preprocess",
+      "pos": [
+        700,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "resized_images",
+          "type": "IMAGE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "links": [
+            7
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedVR2Preprocess"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "VAEEncodeTiled",
+      "pos": [
+        700,
+        800
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "pixels",
+          "type": "IMAGE",
+          "link": 7
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 8
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            10,
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEEncodeTiled"
+      },
+      "widgets_values": [
+        512,
+        128,
+        4096,
+        8
+      ]
+    },
+    {
+      "id": 11,
+      "type": "SeedVR2Conditioning",
+      "pos": [
+        1020,
+        800
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 9
+        },
+        {
+          "name": "vae_conditioning",
+          "type": "LATENT",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            12
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            13
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedVR2Conditioning"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 12,
+      "type": "KSampler",
+      "pos": [
+        1340,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 11
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 13
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 14
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            15
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler"
+      },
+      "widgets_values": [
+        959948902156062,
+        "fixed",
+        1,
+        1,
+        "euler",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 13,
+      "type": "VAEDecodeTiled",
+      "pos": [
+        1660,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 15
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 16
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecodeTiled"
+      },
+      "widgets_values": [
+        512,
+        128,
+        4096,
+        8
+      ]
+    },
+    {
+      "id": 14,
+      "type": "SeedVR2PostProcessing",
+      "pos": [
+        1980,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "name": "original_resized_images",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            19,
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SeedVR2PostProcessing"
+      },
+      "widgets_values": [
+        "lab"
+      ],
+      "title": "Post-Process SeedVR2 (seedvr2)"
+    },
+    {
+      "id": 15,
+      "type": "SaveImage",
+      "pos": [
+        2300,
+        640
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 19
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "demo05/upres_seedvr2"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "MarkdownNote",
+      "pos": [
+        40,
+        40
+      ],
+      "size": [
+        270,
+        120
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## 05 \u2014 Plate upres, both paths\n\nTake the 480p generated section back up to plate resolution without it looking AI-smeared.\nGenerative work happens at model resolution; delivery does not.\n\n**esrgan** \u2014 RealESRGAN_x4plus, fixed 4x, then a lanczos fit to 1920x1080. Deterministic: same\ninput, same pixels, no invented detail. This is the one a comp supervisor signs off.\n\n**seedvr2** \u2014 resize to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step\n(denoise 1, cfg 1, euler/simple). It *does* invent detail \u2014 that is the point when the source is\nsoft, and the reason it needs a look before it ships.\n\nModels: `seedvr2_3b_int8_convrot.safetensors` (3.22 GB, diffusion_models) and\n`seedvr2_ema_vae_fp16.safetensors` (0.47 GB, vae), both Apache-2.0;\n`RealESRGAN_x4plus.safetensors` (0.06 GB, upscale_models), BSD-3.\n\nDerived from the core templates `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_image`\n(Comfy-Org/workflow_templates, MIT), with the SeedVR2 subgraph expanded to plain nodes so the\nsampler is visible to provenance.\n\nDeliberately **not** SUPIR: `utility_image_upscale_supir` is a nicer restorer and its weights are\nnon-commercial, so it cannot ship in a studio delivery."
+      ],
+      "title": "Note"
+    },
+    {
+      "id": 17,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1500,
+        240
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 20
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_05_upres (Shot)",
+        "(none)",
+        "Pending Review",
+        "esrgan",
+        0.0,
+        "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail \u2014 same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
+        "{entity.code}_{output}_v{version:03d}",
+        "",
+        true,
+        0,
+        "(none)",
+        ""
+      ],
+      "title": "Flow PT Publish \u2014 esrgan"
+    },
+    {
+      "id": 18,
+      "type": "FPTPublishVersion",
+      "pos": [
+        2460,
+        760
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 21
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_05_upres (Shot)",
+        "(none)",
+        "Pending Review",
+        "seedvr2",
+        0.0,
+        "Restorative upres: resized to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step. It invents detail where the source is soft, which is the point and the reason it needs a look before it ships.",
+        "{entity.code}_{output}_v{version:03d}",
+        "",
+        true,
+        0,
+        "(none)",
+        ""
+      ],
+      "title": "Flow PT Publish \u2014 seedvr2"
+    },
+    {
+      "id": 19,
+      "type": "FPTLoadVersion",
+      "pos": [
+        40,
+        360
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            22,
+            23
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTLoadVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_05_upres (Shot)",
+        "(none)",
+        "Approved",
+        "gen480",
+        "version number in the name",
+        0,
+        "auto",
+        1,
+        "",
+        1
+      ],
+      "title": "Flow PT Load \u2014 the 480p section"
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      3,
+      0,
+      "UPSCALE_MODEL"
+    ],
+    [
+      3,
+      3,
+      0,
+      4,
+      0,
+      "IMAGE"
+    ],
+    [
+      4,
+      4,
+      0,
+      5,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      6,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      8,
+      0,
+      10,
+      1,
+      "VAE"
+    ],
+    [
+      9,
+      7,
+      0,
+      11,
+      0,
+      "MODEL"
+    ],
+    [
+      10,
+      10,
+      0,
+      11,
+      1,
+      "LATENT"
+    ],
+    [
+      11,
+      7,
+      0,
+      12,
+      0,
+      "MODEL"
+    ],
+    [
+      12,
+      11,
+      0,
+      12,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      11,
+      1,
+      12,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      14,
+      10,
+      0,
+      12,
+      3,
+      "LATENT"
+    ],
+    [
+      15,
+      12,
+      0,
+      13,
+      0,
+      "LATENT"
+    ],
+    [
+      16,
+      8,
+      0,
+      13,
+      1,
+      "VAE"
+    ],
+    [
+      17,
+      13,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      6,
+      0,
+      14,
+      1,
+      "IMAGE"
+    ],
+    [
+      19,
+      14,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      4,
+      0,
+      17,
+      0,
+      "IMAGE"
+    ],
+    [
+      21,
+      14,
+      0,
+      18,
+      0,
+      "IMAGE"
+    ],
+    [
+      22,
+      19,
+      0,
+      3,
+      1,
+      "IMAGE"
+    ],
+    [
+      23,
+      19,
+      0,
+      6,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

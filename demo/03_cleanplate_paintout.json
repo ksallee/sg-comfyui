@@ -1,0 +1,1602 @@
+{
+  "id": "0311a0e8-c1ea-4c2f-9a2f-0c1ea4c2f031",
+  "revision": 0,
+  "last_node_id": 102,
+  "last_link_id": 43,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "UNETLoader",
+      "pos": [
+        -1900,
+        -640
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            35
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "wan2.1_vace_1.3B_fp16.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "ModelSamplingSD3",
+      "pos": [
+        -1200,
+        -640
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 35
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            21
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingSD3",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        8.0
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CLIPLoader",
+      "pos": [
+        -1900,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3,
+            4
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "umt5_xxl_fp16.safetensors",
+        "wan",
+        "default"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "VAELoader",
+      "pos": [
+        -1900,
+        -320
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            18,
+            28
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "wan_2.1_vae.safetensors"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -1560,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            16
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "Empty wet cobblestone street at dusk in Paris, continuous road surface with warm street-lamp reflections, no vehicles, locked-off camera, no motion."
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)"
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -1560,
+        -260
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            17
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "car, vehicle, van, truck, bus, headlights, tail lights, glare, lens flare, bright light source, light streak, motion blur, long exposure, people, bad quality, blurry, messy, chaotic, text, watermark, flicker"
+      ],
+      "title": "CLIP Text Encode (Negative Prompt)"
+    },
+    {
+      "id": 8,
+      "type": "LoadImage",
+      "pos": [
+        -1900,
+        -40
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": []
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "fpt_plate_paris.png",
+        "image"
+      ],
+      "title": "plate"
+    },
+    {
+      "id": 9,
+      "type": "RepeatImageBatch",
+      "pos": [
+        -1520,
+        -40
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 34
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            8,
+            13,
+            39
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RepeatImageBatch",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        17
+      ],
+      "title": "locked-off plate clip"
+    },
+    {
+      "id": 10,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -1900,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            7
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            6
+          ]
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CheckpointLoaderSimple",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "sam3.1_multiplex_fp16.safetensors"
+      ],
+      "title": "SAM3"
+    },
+    {
+      "id": 11,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -1520,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            9
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "car"
+      ],
+      "title": "what to paint out"
+    },
+    {
+      "id": 12,
+      "type": "SAM3_Detect",
+      "pos": [
+        -1180,
+        120
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 7
+        },
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 8
+        },
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 9
+        },
+        {
+          "name": "bboxes",
+          "type": "BOUNDING_BOX",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "positive_coords",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        },
+        {
+          "name": "negative_coords",
+          "type": "STRING",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "masks",
+          "type": "MASK",
+          "links": [
+            10
+          ]
+        },
+        {
+          "name": "bboxes",
+          "type": "BOUNDING_BOX",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "SAM3_Detect",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        0.35,
+        2,
+        false
+      ]
+    },
+    {
+      "id": 13,
+      "type": "GrowMask",
+      "pos": [
+        -820,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            11,
+            15,
+            20,
+            31,
+            36
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "GrowMask",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        24,
+        true
+      ],
+      "title": "soften the matte"
+    },
+    {
+      "id": 14,
+      "type": "InvertMask",
+      "pos": [
+        -820,
+        380
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 11
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            12
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "InvertMask",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 15,
+      "type": "MaskToImage",
+      "pos": [
+        -620,
+        380
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 12
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            14
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskToImage",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 16,
+      "type": "ImageCompositeMasked",
+      "pos": [
+        -420,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "destination",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "source",
+          "type": "IMAGE",
+          "link": 14
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 15
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            19,
+            32
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageCompositeMasked",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        0,
+        0,
+        false
+      ],
+      "title": "paintout_target"
+    },
+    {
+      "id": 17,
+      "type": "WanVaceToVideo",
+      "pos": [
+        -820,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 16
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 17
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 18
+        },
+        {
+          "name": "control_video",
+          "type": "IMAGE",
+          "link": 19
+        },
+        {
+          "name": "control_masks",
+          "type": "MASK",
+          "link": 20
+        },
+        {
+          "name": "reference_image",
+          "type": "IMAGE",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            22
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            23
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            24
+          ]
+        },
+        {
+          "name": "trim_latent",
+          "type": "INT",
+          "links": [
+            26
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WanVaceToVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        832,
+        480,
+        17,
+        1,
+        1.0
+      ]
+    },
+    {
+      "id": 18,
+      "type": "KSampler",
+      "pos": [
+        -440,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 21
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 22
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 23
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 24
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            25
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        303198301,
+        "fixed",
+        20,
+        6.0,
+        "uni_pc",
+        "simple",
+        1.0
+      ]
+    },
+    {
+      "id": 19,
+      "type": "TrimVideoLatent",
+      "pos": [
+        -60,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 18,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 25
+        },
+        {
+          "name": "trim_amount",
+          "type": "INT",
+          "link": 26,
+          "widget": {
+            "name": "trim_amount"
+          }
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            27
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TrimVideoLatent",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        0
+      ]
+    },
+    {
+      "id": 20,
+      "type": "VAEDecode",
+      "pos": [
+        160,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 27
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 28
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            40
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [],
+      "title": "cleanplate"
+    },
+    {
+      "id": 21,
+      "type": "CreateVideo",
+      "pos": [
+        1180,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 42
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            30
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CreateVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        16.0
+      ]
+    },
+    {
+      "id": 22,
+      "type": "SaveVideo",
+      "pos": [
+        1520,
+        -460
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 30
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveVideo",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "video/demo_03_cleanplate",
+        "auto",
+        "auto"
+      ]
+    },
+    {
+      "id": 23,
+      "type": "MaskPreview",
+      "pos": [
+        -620,
+        620
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 31
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskPreview",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [],
+      "title": "the matte"
+    },
+    {
+      "id": 24,
+      "type": "PreviewImage",
+      "pos": [
+        -100,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 32
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "PreviewImage",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [],
+      "title": "what VACE is asked to fill"
+    },
+    {
+      "id": 100,
+      "type": "MarkdownNote",
+      "pos": [
+        -2400,
+        -640
+      ],
+      "size": [
+        440,
+        620
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## demo 03 \u2014 clean plate paint-out\n\nMask it once, get a temporally stable clean plate back.\n\nA locked-off Paris plate, a car painted out with SAM3 + Wan 2.1 VACE, and the result published to Flow Production Tracking with the plate it came from recorded as its ancestor.\n\nFlattened from the core `video_wan_vace_inpainting` template (which ships the same chain inside a subgraph) and re-wired to the 1.3B model path from `video_wan_vace_outpainting`.\n\n**Models** \u2014 all Apache-2.0\n\n| file | size |\n| --- | --- |\n| `wan2.1_vace_1.3B_fp16.safetensors` | 4.01 GB |\n| `Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors` | 0.08 GB |\n| `umt5_xxl_fp16.safetensors` | 11.4 GB |\n| `wan_2.1_vae.safetensors` | 0.25 GB |\n| `sam3.1_multiplex_fp16.safetensors` | 1.65 GB |\n\n1.3B replaces the template's 14B fp16 (32.29 GB). It is 480p only and its prompt adherence is weak \u2014 fine for a provenance demo, not for a shot.\n"
+      ],
+      "title": "About this workflow",
+      "color": "#432",
+      "bgcolor": "#653"
+    },
+    {
+      "id": 101,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1180,
+        -260
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 43
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_03_cleanplate (Shot)",
+        "(none)",
+        "Pending Review",
+        "cleanplate",
+        0,
+        "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
+        "{entity.code}_{output}_v{version:03d}",
+        "",
+        true,
+        0,
+        "(none)",
+        ""
+      ],
+      "title": "Flow PT Publish \u2014 cleanplate"
+    },
+    {
+      "id": 102,
+      "type": "FPTLoadVersion",
+      "pos": [
+        -1900,
+        -80
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            34
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTLoadVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_03_cleanplate (Shot)",
+        "(none)",
+        "",
+        "_plate_v",
+        "version number in the name",
+        0,
+        "auto",
+        1,
+        "",
+        1
+      ],
+      "title": "Flow PT Load Version"
+    },
+    {
+      "id": 25,
+      "type": "MaskToImage",
+      "pos": [
+        -260,
+        620
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 36
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            37
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskToImage",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [],
+      "title": "matte as image"
+    },
+    {
+      "id": 26,
+      "type": "ImageBlur",
+      "pos": [
+        100,
+        620
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 37
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            38
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageBlur",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        12,
+        6.0
+      ],
+      "title": "feather the matte"
+    },
+    {
+      "id": 27,
+      "type": "ImageToMask",
+      "pos": [
+        460,
+        620
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 38
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            41
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageToMask",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        "red"
+      ],
+      "title": "soft matte"
+    },
+    {
+      "id": 28,
+      "type": "ImageCompositeMasked",
+      "pos": [
+        820,
+        200
+      ],
+      "size": [
+        340,
+        120
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "destination",
+          "type": "IMAGE",
+          "link": 39
+        },
+        {
+          "name": "source",
+          "type": "IMAGE",
+          "link": 40
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 41
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            42,
+            43
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageCompositeMasked",
+        "cnr_id": "comfy-core"
+      },
+      "widgets_values": [
+        0,
+        0,
+        false
+      ],
+      "title": "model in the hole, plate everywhere else"
+    }
+  ],
+  "links": [
+    [
+      3,
+      4,
+      0,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      4,
+      0,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      6,
+      10,
+      1,
+      11,
+      0,
+      "CLIP"
+    ],
+    [
+      7,
+      10,
+      0,
+      12,
+      0,
+      "MODEL"
+    ],
+    [
+      8,
+      9,
+      0,
+      12,
+      1,
+      "IMAGE"
+    ],
+    [
+      9,
+      11,
+      0,
+      12,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      12,
+      0,
+      13,
+      0,
+      "MASK"
+    ],
+    [
+      11,
+      13,
+      0,
+      14,
+      0,
+      "MASK"
+    ],
+    [
+      12,
+      14,
+      0,
+      15,
+      0,
+      "MASK"
+    ],
+    [
+      13,
+      9,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      15,
+      0,
+      16,
+      1,
+      "IMAGE"
+    ],
+    [
+      15,
+      13,
+      0,
+      16,
+      2,
+      "MASK"
+    ],
+    [
+      16,
+      6,
+      0,
+      17,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      17,
+      7,
+      0,
+      17,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      18,
+      5,
+      0,
+      17,
+      2,
+      "VAE"
+    ],
+    [
+      19,
+      16,
+      0,
+      17,
+      3,
+      "IMAGE"
+    ],
+    [
+      20,
+      13,
+      0,
+      17,
+      4,
+      "MASK"
+    ],
+    [
+      21,
+      3,
+      0,
+      18,
+      0,
+      "MODEL"
+    ],
+    [
+      22,
+      17,
+      0,
+      18,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      23,
+      17,
+      1,
+      18,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      24,
+      17,
+      2,
+      18,
+      3,
+      "LATENT"
+    ],
+    [
+      25,
+      18,
+      0,
+      19,
+      0,
+      "LATENT"
+    ],
+    [
+      26,
+      17,
+      3,
+      19,
+      1,
+      "INT"
+    ],
+    [
+      27,
+      19,
+      0,
+      20,
+      0,
+      "LATENT"
+    ],
+    [
+      28,
+      5,
+      0,
+      20,
+      1,
+      "VAE"
+    ],
+    [
+      30,
+      21,
+      0,
+      22,
+      0,
+      "VIDEO"
+    ],
+    [
+      31,
+      13,
+      0,
+      23,
+      0,
+      "MASK"
+    ],
+    [
+      32,
+      16,
+      0,
+      24,
+      0,
+      "IMAGE"
+    ],
+    [
+      34,
+      102,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      35,
+      1,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      36,
+      13,
+      0,
+      25,
+      0,
+      "MASK"
+    ],
+    [
+      37,
+      25,
+      0,
+      26,
+      0,
+      "IMAGE"
+    ],
+    [
+      38,
+      26,
+      0,
+      27,
+      0,
+      "IMAGE"
+    ],
+    [
+      39,
+      9,
+      0,
+      28,
+      0,
+      "IMAGE"
+    ],
+    [
+      40,
+      20,
+      0,
+      28,
+      1,
+      "IMAGE"
+    ],
+    [
+      41,
+      27,
+      0,
+      28,
+      2,
+      "MASK"
+    ],
+    [
+      42,
+      28,
+      0,
+      21,
+      0,
+      "IMAGE"
+    ],
+    [
+      43,
+      28,
+      0,
+      101,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {
+    "frontendVersion": "1.31.7"
+  },
+  "version": 0.4
+}
