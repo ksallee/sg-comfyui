@@ -197,9 +197,21 @@ function publishPickers(nodeType) {
           // names the path the run took — the source file uploaded untouched, a ComfyUI encode, or
           // our own still — with the frame count and the rate measured off the clip itself.
           facts: [
+            // The Version first, and clickable: an id in a log has to be copied into a browser by
+            // hand, and this is the one moment the operator knows exactly which row they mean.
+            ...(rows[0].site_url
+              ? [{ label: "version", value: `Version ${rows[0].id}`,
+                   href: `${rows[0].site_url}/detail/Version/${rows[0].id}` }] : []),
             ...(rows[0].media ? [{ label: "media", value: rows[0].media }] : []),
             ...(rows[0].outputs && rows[0].outputs.length
               ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : []),
+            // What landed on disk. `file://` opens the containing folder in a file manager, and the
+            // path is shown in full because a wrong root is the failure this makes visible.
+            ...(rows[0].files || []).map((f) => ({
+              label: f.kind === "frames" ? `${f.count} frames` : f.kind,
+              value: f.path,
+              href: "file://" + f.path.replace(/[^/]*$/, ""),
+            })),
           ],
         });
       }
