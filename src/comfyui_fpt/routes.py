@@ -228,10 +228,16 @@ def register():
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
 
+            # Typed ids first, then upstream Load nodes — the order the node itself uses. Reading
+            # only the Load nodes made the panel say "nothing in this graph" for lineage the run
+            # would go on to write, which is the one direction a preview must never be wrong in.
+            own = (prompt.get(node_id) or {}).get("inputs") or {}
+            sources = [{"id": int(x), "code": "", "why": "typed on this node"}
+                       for x in str(own.get("source_versions") or "").replace(",", " ").split()
+                       if x.strip().isdigit()]
             # Upstream Load nodes: a pinned one is in the graph, a rule-driven one has to be
             # resolved the same way the node will resolve it at run time.
             scope = provenance.ancestors(prompt, node_id)
-            sources = []
             for nid in sorted(scope, key=lambda n: (0, int(n)) if str(n).isdigit() else (1, str(n))):
                 node = prompt.get(nid) or {}
                 if node.get("class_type") != "FPTLoadVersion":
@@ -239,13 +245,15 @@ def register():
                 i = node.get("inputs") or {}
                 pinned = i.get("pin_version_id") or i.get("version_id") or 0
                 if pinned:
-                    sources.append({"id": int(pinned), "code": "", "why": "pinned"})
+                    if not any(x["id"] == int(pinned) for x in sources):
+                        sources.append({"id": int(pinned), "code": "", "why": "pinned"})
                     continue
                 vid, code, why = FV._resolve(i.get("project", ""), i.get("link_type", ""),
                                              i.get("link", ""), i.get("task", ""),
                                              i.get("name_contains", ""), i.get("statuses", ""),
                                              i.get("newest_by", ""), i.get("filters", ""))
-                sources.append({"id": vid, "code": code, "why": why})
+                if not any(x["id"] == vid for x in sources):
+                    sources.append({"id": vid, "code": code, "why": why})
 
             fpt = site.client()
             have = fpt_fields.available(fpt)

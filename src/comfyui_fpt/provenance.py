@@ -14,6 +14,9 @@ SAMPLER_KEYS = ("steps", "cfg", "sampler_name", "scheduler", "denoise", "start_a
 MODEL_KEYS = ("ckpt_name", "unet_name", "vae_name", "clip_name", "control_net_name",
               "style_model_name", "model_name")
 LORA_KEYS = ("lora_name", "strength_model", "strength_clip")
+# What ComfyUI's own video nodes call it: `fps` on CreateVideo, SaveWEBM and the animated savers,
+# `frame_rate` on VideoHelperSuite.
+FPS_KEYS = ("fps", "frame_rate", "frames_per_second")
 
 
 def _is_link(v):
