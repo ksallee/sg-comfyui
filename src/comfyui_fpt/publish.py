@@ -46,6 +46,78 @@ def attach_json(fpt, version_id, obj, filename):
     upload(fpt, version_id, json.dumps(obj, indent=2).encode(), filename, field=None)
 
 
+def storages(fpt):
+    """Every LocalStorage row, with the root it defines per platform (recipe 004).
+
+    Read at publish time, not cached with the editor's lookups: a path that does not sit under one of
+    these roots is refused with 400 code 104, so this is the one read the frames' destination depends
+    on.
+    """
+    r = fpt.get("/entity/local_storages",
+                params={"fields": "code,mac_path,windows_path,linux_path"})
+    if not r.ok:
+        raise FPTError(f"local storages {r.status_code}: {r.text[:200]}")
+    return [{"id": d["id"], **d["attributes"]} for d in r.json().get("data", [])
+            if d["attributes"].get("code")]
+
+
+def published_file_type(fpt, candidates):
+    """The first of `candidates` this site already has, matched case-insensitively (recipe 004).
+
+    Never creates one: PublishedFileType has no `project`, so a create adds it to every show on the
+    site. A miss returns None and the caller says so — an unlabelled publish is honest, an invented
+    site-wide type is not.
+    """
+    r = fpt.get("/entity/published_file_types", params={"fields": "code", "page[size]": 200})
+    if not r.ok:
+        return None
+    have = {(d["attributes"].get("code") or "").strip().lower(): d["id"]
+            for d in r.json().get("data", [])}
+    for want in candidates:
+        if want.strip().lower() in have:
+            return {"type": "PublishedFileType", "id": have[want.strip().lower()]}
+    return None
+
+
+def published_files_of(fpt, version_ids):
+    """Every PublishedFile hanging off these Versions — the upstream half of a dependency link.
+
+    `upstream_published_files` is the PublishedFile-level twin of `sg_ai_generated_from`: the node
+    already knows which Versions this one came from, and where those Versions carry files, the files
+    are what a downstream tool actually opens.
+    """
+    ids = [int(v) for v in version_ids if v]
+    if not ids:
+        return []
+    from .site import ARRAY_JSON
+    r = fpt.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
+        "filters": [["version", "in", [{"type": "Version", "id": i} for i in ids]]],
+        "fields": ["code"], "page": {"size": 200}})
+    if not r.ok:
+        return []
+    return [{"type": "PublishedFile", "id": d["id"]} for d in r.json().get("data", [])]
+
+
+def create_published_file(fpt, project_id, code, name, local_path, fields=None):
+    """recipe 004 — one create, forward slashes only, and the server splits the root off `local_path`.
+
+    The 201 already carries the resolved `path`, so nothing needs reading back: `local_storage`,
+    `relative_path` and every `local_path_*` whose root the LocalStorage row defines come back filled,
+    and `path_cache_storage` with them. Returns (id, path) so the caller can report what resolved.
+
+    Nothing on the server makes this unique: the identical body posted twice returns two 201s, so the
+    version number is the client's convention and the guard is the query that produced it.
+    """
+    body = {"project": {"type": "Project", "id": int(project_id)},
+            "code": code, "name": name, "path": {"local_path": local_path}}
+    body.update(fields or {})
+    r = fpt.post("/entity/published_files", json=body)
+    if not r.ok:
+        raise FPTError(f"create published file {r.status_code}: {r.text[:400]}")
+    d = r.json()["data"]
+    return d["id"], d["attributes"].get("path") or {}
+
+
 def resolve_entity(fpt, entity_type, project_id, name, field="code"):
     """A dropdown carries names; Flow PT links want {type, id} (probe 012). One explicit lookup."""
     from .site import route
