@@ -13,6 +13,9 @@ graph surgery; you ask the questions and explain the result.
 2. Read the two lists back in plain language:
    - **publishable streams** — each becomes a Version. Say what feeds it and what consumes it, so they
      recognise it: "the normal_directx output that currently only goes to a Preview".
+     A node printed as `306/296` is inside the subgraph the line names; pass that whole path to
+     `--publish`, and say which subgraph it is in, because that is how the operator finds it on the
+     canvas.
    - **image inputs a Load could replace** — each is a place the graph could take its input from Flow
      PT instead of disk. This is what makes two graphs a pipeline.
 3. **Propose the naming, do not leave it to them from nothing.** You have just read what each stream
@@ -56,10 +59,16 @@ Publishing is additive: tapping a stream leaves whatever already consumed it con
 loader rewires its consumers and leaves the loader in place but unwired, so they can see what was
 swapped and put it back.
 
-Re-measured 2026-09-03 against the workflow templates ComfyUI ships (`comfyui_workflow_templates_json`):
-531 graphs, 0 errors, 366 have a publishable stream and 269 have both. The 13 remaining files in that
-directory are `index*.json`, the template catalogue, not workflows. DESIGN.md quotes a larger number
-over a wider corpus — the templates plus three public collections — which this run does not cover.
+A stream inside a subgraph is tapped at the subgraph's output: an existing output slot if the stream
+already leaves through one, otherwise a new one named after the stream — the same thing dragging an
+interior output onto the output panel does — so the publish node still sits at the top level. The
+script prints which of the two happened; say so in step 7. A loader inside a subgraph is replaced
+inside it instead, because adding an output to a definition is additive and rewiring its interior is
+not.
+
+Re-measured 2026-09-03 over the full 680-graph corpus (the ComfyUI templates plus three public
+collections): 0 errors, 546 have a publishable stream, 430 have a loader. See DESIGN.md, "Coverage,
+measured", for what changed and why the stream count matters more than the graph count.
 
 A workflow built from custom nodes this project has never heard of still analyses correctly, because
 the rule is structural — an IMAGE link into a sink — not a list of node names.

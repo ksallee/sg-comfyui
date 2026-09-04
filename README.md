@@ -225,5 +225,6 @@ lets the agent read back only its own answer.
   Comfy Registry install would not run, so this is not on the Registry.
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
-- **Graphs whose output lives inside a ComfyUI subgraph** are not walked into yet, so
-  `/track-workflow` finds nothing in them.
+- **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to
+  the top level, because a definition's interior is shared by every instance of it and rewiring it
+  would break the others. Output streams inside a subgraph are found and tapped normally.
