@@ -462,3 +462,59 @@ Three separate licences, the `05_plate_upres` situation again — wrapper code, 
 So keying can only ever be a **tier-2 template requiring an external pack**, the shape already
 decided for ComfyUI-OCIO. It can never be in the base set, because "core nodes only, anyone can open
 this" cannot survive an unlicensed wrapper.
+
+## The storage root is not required after all — measured 2026-09-04
+
+`register_files` today needs a LocalStorage root: `sequence.root_for` raises when
+`published_files.storage` is unset and the site has anything but one row, `check_root` raises when it
+is not mounted, and recipe 004 measured an unrooted `local_path` as `400 code 104`. That made
+"anyone can open this template" and "publish files" mutually exclusive.
+
+They are not. **A PublishedFile's stock `path` field accepts the three-call upload** (probe 013's
+flow, aimed at `/entity/published_files/{id}/path/_upload`), and an image sequence goes up as a zip.
+Measured end to end on the live site, row created and deleted:
+
+    create PublishedFile                          201
+    GET  .../published_files/{id}/path/_upload    200
+    PUT  presigned S3                             200
+    POST complete_upload                          201
+    read back path                                link_type "upload"
+    GET the url                                   200, sha1 IDENTICAL to what was sent
+    DELETE                                        204
+
+    path = {url, name, content_type, link_type, type, id}
+    content_type  "application/zip"   set by the server, not sent
+    type/id       Attachment 2718     persist THIS, not the url
+    local_path_mac / relative_path / local_storage   ABSENT
+
+So there are two file modes, and they belong in the profile beside `storage` and `path_template`:
+
+| mode | needs | what the record is worth |
+|---|---|---|
+| `local_path` under a LocalStorage root | a storage row, mounted, maybe an admin | the real thing — Toolkit, RV and Nuke resolve it in place |
+| **`upload`, zip for a sequence** | **nothing** | portable, round-trips on any machine, but a DCC cannot open it in place |
+
+`local` stays right for a facility with shared storage; `upload` is what makes a cloned repo work for
+a stranger. **Zip only when the count is > 1** — a single image is the commonest publish there is and
+should go up as itself.
+
+**`file:///` is dropped.** It exists on the site (2 of 192 PublishedFile rows carry a `web` link with
+a percent-encoded `file://` url) and `url.md` says a url field reads back exactly what was sent, but
+it is one machine's answer and loses to `upload` on portability, multi-OS and round trip.
+
+**`sg_uploaded_file` is NOT usable** — it is a custom field, so depending on it means a field creation
+on every client site, which DESIGN.md refuses (probe 019: a name spent is spent site-wide forever).
+
+**Two consequences for code, neither done:**
+
+1. `publish.upload` hardcodes `/entity/versions/{id}/...`. It needs the entity type as a parameter.
+2. `media.published_files` reads `(a.get("path") or {}).get(LOCAL_PATH)`, so every `upload` and `web`
+   row flattens to `""` and disappears from the Load picker. It must read `link_type` first. This is
+   already live: the two `file:///` rows on the site are invisible to our own Load node today.
+
+### Telling a stock field from a custom one, without a reference site
+
+`visible.editable` in `/schema/<Type>/fields`. On PublishedFile's 33 fields it separates them
+perfectly: all 7 with `visible.editable = true` are `sg_`-prefixed customs, the only `sg_` field on
+the stock side is `sg_status_list`, and no plain-named field lands in the custom bucket. Worth a
+corpus entry — it answers "is this field on every site?" with one read.
