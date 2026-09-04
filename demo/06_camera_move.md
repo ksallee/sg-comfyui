@@ -131,8 +131,10 @@ Shot reads `25.0`, which is what Flow PT stamps on a still it transcoded — so 
 distinguishable on the site, which is the whole point of not writing the transcoder's fields
 ourselves.
 
-What is still not solved is publishing the sequence *as* a sequence: the frames themselves want
-`PublishedFile` and shared storage, and `PublishedFile` is unproven on this site (DESIGN.md).
+Publishing the sequence *as* a sequence is now solved: the frames are registered as PublishedFiles
+under a LocalStorage root, alongside the Version carrying the movie for review. This run predates
+that and publishes the movie only, which for a previs board is the right deliverable anyway — set
+`published_files` on the publish node to keep the frames too.
 
 ## Flow PT, as run
 

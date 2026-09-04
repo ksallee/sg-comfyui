@@ -1,0 +1,1525 @@
+{
+  "id": "0400d0e0-5e70-4ce0-9d04-04setextension",
+  "revision": 0,
+  "last_node_id": 189,
+  "last_link_id": 273,
+  "nodes": [
+    {
+      "id": 48,
+      "type": "ModelSamplingSD3",
+      "pos": [
+        630,
+        50
+      ],
+      "size": [
+        315,
+        58
+      ],
+      "flags": {},
+      "order": 21,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 268
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            95
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ModelSamplingSD3",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        8.0
+      ]
+    },
+    {
+      "id": 158,
+      "type": "UNETLoader",
+      "pos": [
+        -670,
+        50
+      ],
+      "size": [
+        350,
+        82
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "slot_index": 0,
+          "links": [
+            235
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "UNETLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34",
+        "models": [
+          {
+            "name": "wan2.1_vace_1.3B_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors",
+            "directory": "diffusion_models"
+          }
+        ]
+      },
+      "widgets_values": [
+        "wan2.1_vace_1.3B_fp16.safetensors",
+        "default"
+      ]
+    },
+    {
+      "id": 159,
+      "type": "LoraLoader",
+      "pos": [
+        -670,
+        170
+      ],
+      "size": [
+        350,
+        126
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 235
+        },
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 236
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            268
+          ]
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            269,
+            270
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoraLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38",
+        "models": [
+          {
+            "name": "Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+            "url": "https://huggingface.co/Kijai/WanVideo_comfy/resolve/main/Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+            "directory": "loras"
+          }
+        ]
+      },
+      "widgets_values": [
+        "Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors",
+        0.7,
+        1
+      ]
+    },
+    {
+      "id": 49,
+      "type": "WanVaceToVideo",
+      "pos": [
+        634.6180419921875,
+        153.07472229003906
+      ],
+      "size": [
+        315,
+        254
+      ],
+      "flags": {},
+      "order": 28,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 96
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 97
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 260
+        },
+        {
+          "name": "control_video",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": 207
+        },
+        {
+          "name": "control_masks",
+          "shape": 7,
+          "type": "MASK",
+          "link": 204
+        },
+        {
+          "name": "reference_image",
+          "shape": 7,
+          "type": "IMAGE",
+          "link": null
+        },
+        {
+          "name": "width",
+          "type": "INT",
+          "widget": {
+            "name": "width"
+          },
+          "link": 215
+        },
+        {
+          "name": "height",
+          "type": "INT",
+          "widget": {
+            "name": "height"
+          },
+          "link": 217
+        },
+        {
+          "name": "length",
+          "type": "INT",
+          "widget": {
+            "name": "length"
+          },
+          "link": 209
+        }
+      ],
+      "outputs": [
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "links": [
+            98
+          ]
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "links": [
+            99
+          ]
+        },
+        {
+          "name": "latent",
+          "type": "LATENT",
+          "links": [
+            160
+          ]
+        },
+        {
+          "name": "trim_latent",
+          "type": "INT",
+          "links": [
+            115
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "WanVaceToVideo",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        704,
+        384,
+        1,
+        1,
+        1
+      ]
+    },
+    {
+      "id": 58,
+      "type": "TrimVideoLatent",
+      "pos": [
+        1000.3111572265625,
+        359.673095703125
+      ],
+      "size": [
+        315,
+        60
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 30,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 116
+        },
+        {
+          "name": "trim_amount",
+          "type": "INT",
+          "widget": {
+            "name": "trim_amount"
+          },
+          "link": 115
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            117
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "TrimVideoLatent",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        0
+      ]
+    },
+    {
+      "id": 8,
+      "type": "VAEDecode",
+      "pos": [
+        1172.2872314453125,
+        361.1716003417969
+      ],
+      "size": [
+        315,
+        46
+      ],
+      "flags": {
+        "collapsed": true
+      },
+      "order": 31,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 117
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 261
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": [
+            267,
+            271
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAEDecode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [],
+      "title": "VAE Decode (extension)"
+    },
+    {
+      "id": 111,
+      "type": "MaskToImage",
+      "pos": [
+        330,
+        914
+      ],
+      "size": [
+        240,
+        26
+      ],
+      "flags": {},
+      "order": 25,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "mask",
+          "type": "MASK",
+          "link": 180
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            201
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "MaskToImage",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 129,
+      "type": "RepeatImageBatch",
+      "pos": [
+        330,
+        802
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "flags": {},
+      "order": 26,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 201
+        },
+        {
+          "name": "amount",
+          "type": "INT",
+          "widget": {
+            "name": "amount"
+          },
+          "link": 212
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            202
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "RepeatImageBatch",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        1
+      ]
+    },
+    {
+      "id": 130,
+      "type": "ImageToMask",
+      "pos": [
+        330,
+        690
+      ],
+      "size": [
+        240,
+        60
+      ],
+      "flags": {},
+      "order": 27,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 202
+        }
+      ],
+      "outputs": [
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            204
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImageToMask",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        "red"
+      ]
+    },
+    {
+      "id": 139,
+      "type": "PrimitiveInt",
+      "pos": [
+        100,
+        1260
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            217
+          ]
+        }
+      ],
+      "title": "Height",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        384,
+        "fixed"
+      ]
+    },
+    {
+      "id": 161,
+      "type": "CLIPLoader",
+      "pos": [
+        -260,
+        380
+      ],
+      "size": [
+        350,
+        106
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "slot_index": 0,
+          "links": [
+            236
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "CLIPLoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34",
+        "models": [
+          {
+            "name": "umt5_xxl_fp16.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/text_encoders/umt5_xxl_fp16.safetensors",
+            "directory": "text_encoders"
+          }
+        ]
+      },
+      "widgets_values": [
+        "umt5_xxl_fp16.safetensors",
+        "wan",
+        "default"
+      ]
+    },
+    {
+      "id": 152,
+      "type": "VAELoader",
+      "pos": [
+        -260,
+        520
+      ],
+      "size": [
+        350,
+        58
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "slot_index": 0,
+          "links": [
+            260,
+            261
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "VAELoader",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34",
+        "models": [
+          {
+            "name": "wan_2.1_vae.safetensors",
+            "url": "https://huggingface.co/Comfy-Org/Wan_2.1_ComfyUI_repackaged/resolve/main/split_files/vae/wan_2.1_vae.safetensors",
+            "directory": "vae"
+          }
+        ]
+      },
+      "widgets_values": [
+        "wan_2.1_vae.safetensors"
+      ]
+    },
+    {
+      "id": 110,
+      "type": "ImagePadForOutpaint",
+      "pos": [
+        20,
+        830
+      ],
+      "size": [
+        250,
+        174
+      ],
+      "flags": {},
+      "order": 19,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 272
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            207,
+            214
+          ]
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": [
+            180
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "ImagePadForOutpaint",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        96,
+        32,
+        96,
+        64,
+        0
+      ]
+    },
+    {
+      "id": 137,
+      "type": "PrimitiveInt",
+      "pos": [
+        100,
+        1120
+      ],
+      "size": [
+        210,
+        82
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            215
+          ]
+        }
+      ],
+      "title": "Width",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        704,
+        "fixed"
+      ]
+    },
+    {
+      "id": 131,
+      "type": "PrimitiveInt",
+      "pos": [
+        -260,
+        1180
+      ],
+      "size": [
+        310,
+        90
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "INT",
+          "type": "INT",
+          "links": [
+            209,
+            212
+          ]
+        }
+      ],
+      "title": "Length",
+      "properties": {
+        "Node name for S&R": "PrimitiveInt",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": [
+        1,
+        "fixed"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "CLIPTextEncode",
+      "pos": [
+        160,
+        50
+      ],
+      "size": [
+        420,
+        280
+      ],
+      "flags": {},
+      "order": 22,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 269
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            96
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Positive Prompt)",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        "The same dim concrete service corridor, seen wider and taller than it was shot. The ribbed metal wall on the left and the poured concrete wall on the right continue outward; overhead the ceiling beams and conduit carry on; below, the scuffed concrete floor runs to the edge of frame. Same haze, same cold practical light down the corridor, same lens, locked-off camera."
+      ],
+      "color": "#232",
+      "bgcolor": "#353"
+    },
+    {
+      "id": 7,
+      "type": "CLIPTextEncode",
+      "pos": [
+        160,
+        380
+      ],
+      "size": [
+        420,
+        190
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 270
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "slot_index": 0,
+          "links": [
+            97
+          ]
+        }
+      ],
+      "title": "CLIP Text Encode (Negative Prompt)",
+      "properties": {
+        "Node name for S&R": "CLIPTextEncode",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        "bad quality, blurry, messy, chaotic, seam, visible border, colour shift at the edges"
+      ],
+      "color": "#223",
+      "bgcolor": "#335"
+    },
+    {
+      "id": 143,
+      "type": "PreviewImage",
+      "pos": [
+        630,
+        1070
+      ],
+      "size": [
+        390,
+        270
+      ],
+      "flags": {},
+      "order": 20,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 273
+        }
+      ],
+      "outputs": [],
+      "title": "Preview Image - plate as delivered to us",
+      "properties": {
+        "Node name for S&R": "PreviewImage",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 3,
+      "type": "KSampler",
+      "pos": [
+        992.5,
+        50
+      ],
+      "size": [
+        315,
+        262
+      ],
+      "flags": {},
+      "order": 29,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 95
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 98
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 99
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 160
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "slot_index": 0,
+          "links": [
+            116
+          ]
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "KSampler",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.34"
+      },
+      "widgets_values": [
+        40415,
+        "fixed",
+        3,
+        1,
+        "uni_pc",
+        "simple",
+        1
+      ]
+    },
+    {
+      "id": 135,
+      "type": "PreviewImage",
+      "pos": [
+        630,
+        690
+      ],
+      "size": [
+        390,
+        310
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 214
+        }
+      ],
+      "outputs": [],
+      "title": "Preview Image - padded plate + mask",
+      "properties": {
+        "Node name for S&R": "PreviewImage",
+        "cnr_id": "comfy-core",
+        "ver": "0.3.38"
+      },
+      "widgets_values": []
+    },
+    {
+      "id": 185,
+      "type": "LoadImage",
+      "pos": [
+        -680,
+        1400
+      ],
+      "size": [
+        315,
+        314
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "slot_index": 0,
+          "links": []
+        },
+        {
+          "name": "MASK",
+          "type": "MASK",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "LoadImage"
+      },
+      "widgets_values": [
+        "fpt_plate_setext.png",
+        "image"
+      ],
+      "title": "Load Image - clean plate"
+    },
+    {
+      "id": 186,
+      "type": "SaveImage",
+      "pos": [
+        1370,
+        50
+      ],
+      "size": [
+        610,
+        700
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 267
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "SaveImage"
+      },
+      "widgets_values": [
+        "demo_04_setext"
+      ],
+      "title": "Save Image - extended plate"
+    },
+    {
+      "id": 187,
+      "type": "MarkdownNote",
+      "pos": [
+        -670,
+        690
+      ],
+      "size": [
+        370,
+        330
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "MarkdownNote"
+      },
+      "widgets_values": [
+        "## Set extension\n\nThe plate is 512x288. `ImagePadForOutpaint` adds 96px left, 96px right, 32px top and 64px bottom, so the delivered frame is 704x384 \u2014 both divisible by 16, which `WanVaceToVideo` requires.\n\nThe pad node's MASK is the new territory. It goes round through `MaskToImage` \u2192 `RepeatImageBatch` \u2192 `ImageToMask` so it can be repeated to match `length`; at length 1 that is a single frame, and VACE outpaints the still.\n\nChange the pad and you must change Width and Height to match, or `WanVaceToVideo` rescales the plate and the original pixels stop lining up.\n\n1.3B + CausVid LoRA: steps 3, cfg 1.0, shift 8.0."
+      ],
+      "title": "How the extension is framed"
+    },
+    {
+      "id": 188,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1370,
+        800
+      ],
+      "size": [
+        400,
+        340
+      ],
+      "flags": {},
+      "order": 23,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 271
+        }
+      ],
+      "outputs": [],
+      "properties": {
+        "Node name for S&R": "FPTPublishVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_04_setext (Shot)",
+        "(none)",
+        "Pending Review",
+        "extension",
+        0.0,
+        "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
+        "{entity.code}_{output}_v{version:03d}",
+        "",
+        true,
+        0,
+        "(none)",
+        ""
+      ],
+      "title": "Flow PT Publish \u2014 extension",
+      "widgets_values_named": {
+        "project": "comfyui-fpt sandbox",
+        "link": "demo_04_setext (Shot)",
+        "task": "(none)",
+        "status": "Pending Review",
+        "output_name": "extension",
+        "note": "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
+        "code_template": "{entity.code}_{output}_v{version:03d}",
+        "source_versions": "",
+        "attach_workflow": true,
+        "link_id": 0
+      }
+    },
+    {
+      "id": 189,
+      "type": "FPTLoadVersion",
+      "pos": [
+        -680,
+        1060
+      ],
+      "size": [
+        400,
+        300
+      ],
+      "flags": {},
+      "order": 24,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            272,
+            273
+          ]
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": []
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": []
+        }
+      ],
+      "properties": {
+        "Node name for S&R": "FPTLoadVersion"
+      },
+      "widgets_values": [
+        "comfyui-fpt sandbox",
+        "demo_04_setext (Shot)",
+        "(none)",
+        "",
+        "plate",
+        "version number in the name",
+        0,
+        "auto",
+        1,
+        "",
+        1
+      ],
+      "title": "Flow PT Load Version \u2014 clean plate",
+      "widgets_values_named": {
+        "project": "comfyui-fpt sandbox",
+        "link": "demo_04_setext (Shot)",
+        "task": "(none)",
+        "statuses": "",
+        "name_contains": "plate",
+        "newest_by": "version number in the name",
+        "pin_version_id": 0,
+        "source": "auto",
+        "frame": 1,
+        "filters": ""
+      }
+    }
+  ],
+  "links": [
+    [
+      95,
+      48,
+      0,
+      3,
+      0,
+      "MODEL"
+    ],
+    [
+      96,
+      6,
+      0,
+      49,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      97,
+      7,
+      0,
+      49,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      98,
+      49,
+      0,
+      3,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      99,
+      49,
+      1,
+      3,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      115,
+      49,
+      3,
+      58,
+      1,
+      "INT"
+    ],
+    [
+      116,
+      3,
+      0,
+      58,
+      0,
+      "LATENT"
+    ],
+    [
+      117,
+      58,
+      0,
+      8,
+      0,
+      "LATENT"
+    ],
+    [
+      160,
+      49,
+      2,
+      3,
+      3,
+      "LATENT"
+    ],
+    [
+      180,
+      110,
+      1,
+      111,
+      0,
+      "MASK"
+    ],
+    [
+      201,
+      111,
+      0,
+      129,
+      0,
+      "IMAGE"
+    ],
+    [
+      202,
+      129,
+      0,
+      130,
+      0,
+      "IMAGE"
+    ],
+    [
+      204,
+      130,
+      0,
+      49,
+      4,
+      "MASK"
+    ],
+    [
+      207,
+      110,
+      0,
+      49,
+      3,
+      "IMAGE"
+    ],
+    [
+      209,
+      131,
+      0,
+      49,
+      8,
+      "INT"
+    ],
+    [
+      212,
+      131,
+      0,
+      129,
+      1,
+      "INT"
+    ],
+    [
+      214,
+      110,
+      0,
+      135,
+      0,
+      "IMAGE"
+    ],
+    [
+      215,
+      137,
+      0,
+      49,
+      6,
+      "INT"
+    ],
+    [
+      217,
+      139,
+      0,
+      49,
+      7,
+      "INT"
+    ],
+    [
+      235,
+      158,
+      0,
+      159,
+      0,
+      "MODEL"
+    ],
+    [
+      236,
+      161,
+      0,
+      159,
+      1,
+      "CLIP"
+    ],
+    [
+      260,
+      152,
+      0,
+      49,
+      2,
+      "VAE"
+    ],
+    [
+      261,
+      152,
+      0,
+      8,
+      1,
+      "VAE"
+    ],
+    [
+      267,
+      8,
+      0,
+      186,
+      0,
+      "IMAGE"
+    ],
+    [
+      268,
+      159,
+      0,
+      48,
+      0,
+      "MODEL"
+    ],
+    [
+      269,
+      159,
+      1,
+      6,
+      0,
+      "CLIP"
+    ],
+    [
+      270,
+      159,
+      1,
+      7,
+      0,
+      "CLIP"
+    ],
+    [
+      271,
+      8,
+      0,
+      188,
+      0,
+      "IMAGE"
+    ],
+    [
+      272,
+      189,
+      0,
+      110,
+      0,
+      "IMAGE"
+    ],
+    [
+      273,
+      189,
+      0,
+      143,
+      0,
+      "IMAGE"
+    ]
+  ],
+  "groups": [
+    {
+      "id": 2,
+      "title": "Prompt",
+      "bounding": [
+        140,
+        -30,
+        450,
+        620
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 3,
+      "title": "Sampling & Decoding",
+      "bounding": [
+        610,
+        -30,
+        720,
+        620
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 9,
+      "title": "Length - 1 should be divisible by 4",
+      "bounding": [
+        -290,
+        1040,
+        370,
+        330
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 10,
+      "title": "Repeat Mask Batch",
+      "bounding": [
+        310,
+        610,
+        280,
+        410
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 12,
+      "title": "Get video size & frame counts",
+      "bounding": [
+        610,
+        610,
+        720,
+        760
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 14,
+      "title": "Video size - Must be divisble by 16",
+      "bounding": [
+        90,
+        1040,
+        500,
+        330
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 21,
+      "title": "Load models here",
+      "bounding": [
+        -290,
+        -30,
+        410,
+        620
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 22,
+      "title": "14B",
+      "bounding": [
+        -270,
+        10,
+        370,
+        330
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    },
+    {
+      "id": 23,
+      "title": "1.3B",
+      "bounding": [
+        -680,
+        -30,
+        370,
+        330
+      ],
+      "color": "#3f789e",
+      "font_size": 24,
+      "flags": {}
+    }
+  ],
+  "config": {},
+  "extra": {
+    "ds": {
+      "scale": 0.4462002493494437,
+      "offset": [
+        1338.7934840651517,
+        354.7511023649753
+      ]
+    },
+    "frontendVersion": "1.29.2",
+    "node_versions": {
+      "comfy-core": "0.3.34"
+    },
+    "VHS_latentpreview": false,
+    "VHS_latentpreviewrate": 0,
+    "VHS_MetadataImage": true,
+    "VHS_KeepIntermediate": true
+  },
+  "version": 0.4
+}

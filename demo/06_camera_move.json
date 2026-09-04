@@ -799,7 +799,9 @@
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
-        0
+        0,
+        "(none)",
+        ""
       ],
       "title": "Flow PT Publish \u2014 push_in"
     },
@@ -851,7 +853,8 @@
         0,
         "auto",
         1,
-        ""
+        "",
+        1
       ],
       "title": "the matte painting, from Flow PT"
     }
