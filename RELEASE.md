@@ -809,3 +809,32 @@ Two gotchas worth keeping:
   04's graph does not yet do it.
 
 Both were capped at 5 frames on a shared queue. Neither is proven at 48.
+
+### Two things the first sh010 publish taught us
+
+**`status: "(none)"` does not mean no status.** It makes the node send no `sg_status_list` at all, so
+Flow PT applies the field's own default and the Version comes back **`rev`, Pending Review**. The node
+is behaving correctly — the site fills it — but a template that reads `(none)` implies a statusless
+Version and there is no such thing here. Say so in the templates rather than let it surprise someone.
+
+**The upres numbers, measured over all 48 frames rather than one:**
+
+| | PSNR | SSIM |
+|---|---|---|
+| plain bicubic | **31.88** | **0.929** |
+| RealESRGAN_x4plus | 30.81 | 0.900 |
+
+Same verdict as the single-frame survey — bicubic wins both — but different absolutes (that survey
+said 31.52/0.904 against 33.26/0.925). The published note on Version 31879 carries the single-frame
+figures. These are the ones to quote.
+
+**And the gap this run did NOT close:** every demo in it loads its plate from a repo file, so
+`provenance.ancestors` finds no upstream Version and every publish lands with an empty
+`sg_ai_generated_from`. Seven unconnected Versions, where the demo's whole spine is meant to be
+plate -> matte -> cleanplate -> retime -> upres. 05 is the sharpest case: it degrades the plate to
+480p and upresses that, and **the degraded plate — the actual input — exists nowhere on the site**.
+
+The fix is a `00_` seed template that publishes the repo's plates as Versions, after which `01`-`07`
+pull through `FPTLoadVersion` and the chain builds itself, because `provenance.ancestors` already
+walks upstream Load nodes. The overnight run had already reached for this: `demo_05_upres_gen480_v001`
+is the degraded plate as its own Version.
