@@ -429,7 +429,7 @@ useless. None of those reaches a conditioning input. Neither does `TextOverlay`'
 `SaveText`'s payload, which is why the loose `text` key is safe here and would not be on its own.
 
 Roles: `positive` and `negative` name one, a bare `conditioning` input does not. Text found with no
-role reads as positive **unless a roled walk already claimed it**, so a `ConditioningZeroOut` on a
+role reads as positive **unless a roled walk already claimed it**, so a `FluxGuidance` sitting on a
 sampler's negative cannot smuggle the negative prompt into the positive one.
 
 One exception to "must be conditioning": a widget named `prompt` or `negative_prompt`. Every cloud
@@ -455,8 +455,9 @@ them with " | " like any other.
 
 **`ConditioningZeroOut` is a wall.** It erases what it is handed, so text behind it reached nothing.
 A Flux or SD3 negative is conventionally the positive encoder zeroed out, so without the wall these
-keys would report every such graph's positive prompt as its negative one too. Six corpus graphs did
-exactly that already, through plain `CLIPTextEncode`; the wall is what fixes them.
+keys would report every such graph's positive prompt as its negative one too. 31 publish points in
+the corpus were already doing exactly that through plain `CLIPTextEncode`; the wall is what fixes
+them, and it is the larger half of this change.
 
 Deliberately **not** captured, and each for a reason:
 

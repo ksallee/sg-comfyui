@@ -119,8 +119,8 @@ def directing_text(prompt, scope):
     scraping every string widget — the obvious alternative — would bury the one line that matters.
 
     `positive`/`negative` name the role; a bare `conditioning` input names none. Text found with no
-    role reads as positive UNLESS a roled walk already claimed it, so `ConditioningZeroOut` sitting
-    on a sampler's negative cannot smuggle the negative prompt into the positive one.
+    role reads as positive UNLESS a roled walk already claimed it, so `FluxGuidance` sitting on a
+    sampler's negative cannot smuggle the negative prompt into the positive one.
     """
     pos, neg, unroled = [], [], []
     bucket = {"positive": pos, "negative": neg, "unroled": unroled}
