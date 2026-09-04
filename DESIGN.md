@@ -367,7 +367,7 @@ Captured per publish:
 | model, seed, sampler | ComfyUI prompt graph |
 | prompt | text that reached a conditioning input in this branch — see below; not "text near a seed" |
 | workflow JSON | attachment — best effort, see below |
-| submitting client | `COMFY_USAGE_SOURCE` |
+| submitting client | whoever POSTed `/prompt` said so — see below |
 | input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
 | user, timestamp | client |
 
@@ -378,11 +378,26 @@ client put in `extra_data`, and `None` otherwise (`execution.py:199`). The stand
 `comfy` CLI, the ComfyUI MCP server, and every wrapper UI that builds its own API-format prompt do not.
 
 So a publish must never depend on the workflow, and must say when it is missing rather than quietly
-omitting it. `COMFY_USAGE_SOURCE` records which client submitted the prompt, which is exactly the
-information needed to explain an absent workflow later.
+omitting it. Which client submitted the prompt is exactly the information needed to explain an
+absent workflow later, and that is what the generator field carries.
 
 This is also the reason the demo drives ComfyUI over plain HTTP rather than through its MCP server:
 an MCP-submitted prompt exercises the degraded provenance path.
+
+### The submitting client names itself; nothing else names it
+
+`COMFY_USAGE_SOURCE` is the hidden-input spelling and it reads like an environment variable. It is
+not one. ComfyUI hands the node `extra_data.get("comfy_usage_source")` from the submitted prompt
+(`execution.py:224`) — a string chosen by whoever POSTed `/prompt`, never read from the environment
+of the running server. A `Comfy-Usage-Source` header is copied into `extra_data` only when the body
+omitted the key (`server.py:1120`), so the body always wins.
+
+The standard frontend does set it: `comfyui-frontend`, hardcoded in the body of every Run, confirmed
+by driving a browser and reading the request off the wire. So a Version reading
+`ComfyUI (unknown client)` was not published by a person clicking Run — it was published by a script
+that POSTed a prompt and said nothing about itself. That is the whole value of the field, and it
+survives only if our own harnesses fill it in: `tools/qa_node.py` rewrites the body of every
+`/prompt` it drives so a QA run is not filed as an artist at a keyboard.
 
 ### Where each piece lands is the operator's, not ours
 
@@ -469,7 +484,7 @@ useless. None of those reaches a conditioning input. Neither does `TextOverlay`'
 `SaveText`'s payload, which is why the loose `text` key is safe here and would not be on its own.
 
 Roles: `positive` and `negative` name one, a bare `conditioning` input does not. Text found with no
-role reads as positive **unless a roled walk already claimed it**, so a `ConditioningZeroOut` on a
+role reads as positive **unless a roled walk already claimed it**, so a `FluxGuidance` sitting on a
 sampler's negative cannot smuggle the negative prompt into the positive one.
 
 One exception to "must be conditioning": a widget named `prompt` or `negative_prompt`. Every cloud
@@ -477,13 +492,38 @@ generator node (Kling, Veo, Runway, Bria, the Qwen edit encoders — 147 core cl
 that way and encodes nothing. All 147 declare it multiline and none of them ever names a file, so the
 name alone is enough. That is the only widget name trusted without the conditioning test.
 
+### One node, several tokenisers
+
+`CLIPTextEncodeSDXL` takes `text_g` and `text_l`, `CLIPTextEncodeFlux` takes `clip_l` and `t5xxl`,
+and SD3, HiDream, HunyuanDiT, Kandinsky5 and Lumina2 each spell it differently again. Only `text`
+was read, so every SDXL and Flux graph published an empty `sg_ai_prompt` — with a sampler present,
+which is what made this a second hole rather than the seedless one. `ENCODER_TEXT_KEYS` names all
+eleven spellings. Across the 908 core classes each name but `text` occurs on exactly one class,
+always a multiline STRING on a node returning CONDITIONING, so the name alone identifies it.
+
+**Two encoders that disagree are two texts, not one sentence.** They usually hold the same line and
+dedupe to one. When they differ — a scene in `text_g` and a style in `text_l`, keywords for `clip_l`
+and a paragraph for `t5xxl` — both are kept, separately. Concatenating would put a sentence nobody
+typed into the field a supervisor searches; picking one would silently drop the other. The list
+already carries several texts wherever a graph has several encoders, and `fields.concepts` joins
+them with " | " like any other.
+
+**`ConditioningZeroOut` is a wall.** It erases what it is handed, so text behind it reached nothing.
+A Flux or SD3 negative is conventionally the positive encoder zeroed out, so without the wall these
+keys would report every such graph's positive prompt as its negative one too. 31 publish points in
+the corpus were already doing exactly that through plain `CLIPTextEncode`; the wall is what fixes
+them, and it is the larger half of this change.
+
 Deliberately **not** captured, and each for a reason:
 
 - **A click instead of a prompt.** `SAM3_Detect.positive_coords` is a JSON point list. The role prefix
   would otherwise catch it, so `_coords` is excluded by name.
-- **`CLIPTextEncodeSDXL`'s `text_g`/`text_l` and `CLIPTextEncodeFlux`'s `clip_l`/`t5xxl`.** These are
-  prompts and are missed today, sampler or not — but that is the seeded path failing, a separate bug
-  with its own question (two encoders, one concept, joined how?). Not folded in here.
+- **`WanTrackToVideo.tracks`**, a multiline STRING of motion paths on a node that does return
+  CONDITIONING — the `positive_coords` case with a different name; and `MakeTrainingDataset.texts`,
+  a file list.
+- **`tags`, `lyrics` and `caption`** on the AceStep and MiniMax music encoders. They are conditioning
+  and they are words, but an audio graph publishes no image, and a lyric sheet is a document rather
+  than a direction.
 - **A `prompt` input wired from a string node** rather than typed. The words are then in a
   `PrimitiveString`'s `value`, which is a generic string widget again.
 - **Text assembled by third-party concat nodes**, as in the ZHO gallery graphs. Nothing readable

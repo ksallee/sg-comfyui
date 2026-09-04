@@ -9,6 +9,13 @@ lineage. Node inspection caught none of them. This does the one thing that did.
     tools/smoke.py                 # every workflow in workflows/
     tools/smoke.py --port 8999     # somewhere nothing else is running
 
+Needs playwright, which ComfyUI's own venv does not have:
+
+    uv run --with playwright --python 3.11 python tools/smoke.py --port 8999
+
+From a git worktree, also `SG_GROUNDTRUTH_PATH=…/sg-groundtruth`: a worktree has no sibling
+checkout, the node pack then fails to import, and every graph reports no FPT node instead of failing.
+
 Exit status is the number of workflows that failed, so it works in a pipeline.
 """
 import argparse
@@ -91,7 +98,7 @@ def main():
     failed = 0
     for f in files:
         graph = json.loads(f.read_text())
-        want, skipped = {}, []
+        want, misaligned = {}, []
         # Read the expected values straight out of the file, by position, using the class's own
         # declared order — the same mapping the frontend must reproduce on load.
         for n in graph.get("nodes", []):
@@ -100,13 +107,24 @@ def main():
                 continue
             vals = n.get("widgets_values") or []
             names = declared(t, port)
+            # widgets_values is positional. A count that no longer matches the class means every
+            # value from the divergence on loads into the wrong widget — which is one of the three
+            # bugs this tool exists to catch, not a reason to check nothing.
             if len(vals) != len(names):
-                skipped.append(f"{t}: file has {len(vals)} values, class declares {len(names)}")
+                misaligned.append(f"{t}#{n.get('id')}: file has {len(vals)} values, class declares"
+                                  f" {len(names)} — every value from the divergence on lands in the"
+                                  f" wrong widget")
                 continue
             pairs = {k: v for k, v in zip(names, vals) if k not in MIRRORED}
             want[str(n.get("id"))] = pairs
+        if misaligned:
+            failed += 1
+            print(f"  {f.name:26s} FAIL")
+            for m in misaligned:
+                print(f"      {m}")
+            continue
         if not want:
-            print(f"  {f.name:26s} no FPT node to check" + (f"  [{'; '.join(skipped)}]" if skipped else ""))
+            print(f"  {f.name:26s} no FPT node in this graph")
             continue
 
         drive = DRIVE % (json.dumps(graph), json.dumps(want))
@@ -134,8 +152,6 @@ def main():
         else:
             n = sum(r.get("checked", 0) for r in rows)
             print(f"  {f.name:26s} ok ({n} widgets over {len(rows)} node(s))")
-        if skipped:
-            print(f"      note: {'; '.join(skipped)}")
     proc.terminate()
     try:
         proc.wait(timeout=15)

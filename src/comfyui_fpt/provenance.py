@@ -22,6 +22,15 @@ FPS_KEYS = ("fps", "frame_rate", "frames_per_second")
 # multiline on all 147 classes that declare one and never names a file, which is what makes reading
 # it safe where reading every string widget would not be.
 PROMPT_WIDGET_KEYS = {"prompt": "positive", "negative_prompt": "negative"}
+# Text a CLIP encoder takes. `text` is the one-encoder spelling; the rest are the per-tokeniser
+# inputs of the dual and triple encoders — SDXL, Flux, SD3, HiDream, HunyuanDiT, Kandinsky5,
+# Lumina2. Across all 908 core classes each of those names appears on exactly one class, always a
+# multiline STRING on a node returning CONDITIONING, so the name alone identifies it. Deliberately
+# absent: `tracks` (WanTrackToVideo — a JSON motion path, the positive_coords case again), `texts`
+# (MakeTrainingDataset — a file list) and `tags`/`lyrics`/`caption` (the AceStep and MiniMax music
+# encoders — an audio graph publishes no image, and a lyric sheet is a document, not a direction).
+ENCODER_TEXT_KEYS = ("text", "text_g", "text_l", "clip_l", "clip_g", "t5xxl", "llama",
+                     "qwen25_7b", "bert", "mt5xl", "user_prompt")
 
 
 def _is_link(v):
@@ -57,7 +66,17 @@ def _trace_text(prompt, ref, role=None, seen=None):
         return []
     seen.add(nid)
     node = prompt[nid]
-    found = [v for k, v in _widgets(node).items() if k == "text" and isinstance(v, str)]
+    # ConditioningZeroOut erases what it is handed, so text behind it reached nothing. A Flux or SD3
+    # negative is conventionally the positive encoder zeroed out; without this wall every such graph
+    # reports its positive prompt as its negative one too.
+    if node.get("class_type") == "ConditioningZeroOut":
+        return []
+    # One node, several tokenisers: SDXL takes text_g and text_l, Flux clip_l and t5xxl. They
+    # usually hold the same line, and then dedupe to one. When they differ they were told to
+    # differ, so both are kept, separately: concatenating would report a sentence nobody typed and
+    # picking one would lose the other. The list already carries several texts wherever a graph has
+    # several encoders, and `fields.concepts` joins them with " | " like any other.
+    found = [v for k, v in _widgets(node).items() if k in ENCODER_TEXT_KEYS and isinstance(v, str)]
     links = [(k, v) for k, v in (node.get("inputs") or {}).items() if _is_link(v)]
     if role and any(k == role for k, _ in links):
         links = [(k, v) for k, v in links if k == role]
@@ -100,8 +119,8 @@ def directing_text(prompt, scope):
     scraping every string widget — the obvious alternative — would bury the one line that matters.
 
     `positive`/`negative` name the role; a bare `conditioning` input names none. Text found with no
-    role reads as positive UNLESS a roled walk already claimed it, so `ConditioningZeroOut` sitting
-    on a sampler's negative cannot smuggle the negative prompt into the positive one.
+    role reads as positive UNLESS a roled walk already claimed it, so `FluxGuidance` sitting on a
+    sampler's negative cannot smuggle the negative prompt into the positive one.
     """
     pos, neg, unroled = [], [], []
     bucket = {"positive": pos, "negative": neg, "unroled": unroled}

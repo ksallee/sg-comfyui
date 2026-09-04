@@ -134,9 +134,9 @@ Nine typed fields on Version, created by step 2 above:
 
 | field | programmatic name | from |
 |---|---|---|
-| AI Generator | `sg_ai_generator` | ComfyUI, plus the client that submitted the prompt |
+| AI Generator | `sg_ai_generator` | ComfyUI, plus the name the submitting client gave itself — see below |
 | AI Model | `sg_ai_model` | the checkpoints the graph loaded |
-| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch — no sampler needed, so a roto graph's "the actor" lands here too |
+| AI Prompt | `sg_ai_prompt` | positive conditioning on this branch — no sampler needed, so a roto graph's "the actor" lands here too, and a dual encoder's two texts both do |
 | AI Negative Prompt | `sg_ai_negative_prompt` | negative conditioning on this branch |
 | AI Seed | `sg_ai_seed` | text, not a number — ComfyUI seeds reach 2\*\*64-1 (probe 019) |
 | AI Sampler | `sg_ai_sampler` | sampler and scheduler |
@@ -152,6 +152,18 @@ The workflow attachment is **best effort and says so**. `PROMPT` is guaranteed �
 happen without it — but `EXTRA_PNGINFO` is whatever the client put in `extra_data`. The standard
 frontend sends it; the `comfy` CLI, the ComfyUI MCP server and wrapper UIs that build their own
 API-format prompt do not. A publish never depends on it, and reports when it is missing.
+
+The client's name is **the client's own claim, not an environment variable.** It is
+`extra_data.comfy_usage_source` on whatever POSTed `/prompt`; ComfyUI passes it to the node under the
+hidden name `COMFY_USAGE_SOURCE`, which is where the misreading starts. The standard frontend puts
+`comfyui-frontend` in the body of every Run. A script of your own that omits it publishes Versions
+reading `ComfyUI (unknown client)` — set it, and the field explains a missing workflow later instead
+of shrugging:
+
+    POST /prompt  {"prompt": {...}, "extra_data": {"comfy_usage_source": "my-farm-submitter"}}
+
+Or send a `Comfy-Usage-Source` header, which the server copies into `extra_data` only when the body
+left the key out (`server.py:1120`).
 
 Where each piece lands is yours, not ours. A studio that already records seeds in `sg_render_seed`, or
 that wants nothing but a readable paragraph, sets `provenance` in the profile rather than forking the
