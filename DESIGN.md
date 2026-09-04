@@ -326,6 +326,65 @@ default applies.
 (`entity_types/PublishedFile`). It is a plain text field, it takes a write, and the client already knows the
 answer.
 
+### Where someone else wrote the files, we register them
+
+`write_frames` is the one place this node makes a picture, and what it makes is an 8-bit PNG. That is the
+honest answer for an `IMAGE` batch, which is a tensor and has no file. It is the wrong answer the moment a
+colour-managed graph is in play, where `OCIO Write` has already written 32-bit EXR in a known space: writing
+8-bit PNGs of scene-linear data under a truthful `colour_space` label would be worse than refusing.
+
+So a third input, `files`, and the rule the other two already follow — `images` and `video` are the review
+side and may be derived; `files` is the deliverable side and is never touched:
+
+    images  wired    review media, plus PNGs written from the tensor when the box is ticked
+    video   wired    review media; a file on disk is uploaded untouched
+    files   wired    the deliverable, registered where it already lies. No PNG is written at all
+
+**It is a socket, not a widget**, so this lands without moving `widgets_values`. `OCIOWrite` declares
+`RETURN_TYPES = ("STRING",)` and `RETURN_NAMES = ("path",)` alongside `OUTPUT_NODE = True`, so the path is
+already on a wire and nobody has to type one. Adding an input slot is additive; adding a widget is not.
+
+**What comes down that wire is one concrete path, not a pattern.** `OCIOWrite` returns the written file for
+a still and for a movie, and `paths[0]` — the *first frame* — for a sequence: `<folder>/<name>.0086.exr`,
+four-digit, re-based to its own `start_number`. Everything here speaks the other notation (`media.SEQ`:
+`%04d`, `####`, `@@@@`), so the first job is `sequence.discover(first)` — same folder, same stem, same
+extension, digits in the frame slot and nothing else — giving back the pattern, the frames and the real
+range. Anchored on all four, because a loose glob in a render folder collects the neighbours.
+
+**The folder holds more than pictures.** `write_sidecar` defaults on, so `<name>.json` sits beside the
+frames, and a sequence carrying audio gets a `.wav` as well. Only the pictures are registered. The sidecar
+is named in the description, because an artist who cannot find a tag needs to know the file is there, and it
+gets no PublishedFile of its own: this site has no type for it, and a type is never created — a
+PublishedFileType has no `project`, so minting one adds it to every show on the site (recipe 004), which is
+probe 019's rule again.
+
+**The copy becomes conditional.** "We copy; ComfyUI writes wherever it writes" was written when the frames
+always began in ComfyUI's output directory. An operator who points `output_folder` straight at the storage
+root has already put the file where the site can resolve it, and copying it beside itself would duplicate a
+4K EXR sequence for nothing. So: already under the root, register in place; anywhere else, copy as before.
+`sequence.relative` answers `path_cache` either way.
+
+**Colour space stops being a claim.** `colour_space` is a widget the operator types precisely because this
+node cannot know what a tensor is. It *can* know what an EXR is: `output_colorspace` is a value on the
+`OCIO Write` that made the file, sitting in the graph this node already reads whole for provenance
+(`provenance.extract`). Where the wire leads back to a Write we can identify, that value wins and the panel
+says where it came from; the widget stays for everything else, and for when identification fails. Two
+sources for one field is worth it because one of them is measured and the other is a promise — but they are
+never blended, and the record always names which it was. Nothing is converted either way.
+
+**`register_files` does not gate it.** A tick that registered nothing would be a silent no-op, which is the
+same argument that already registers a clip published on its own: someone who wired a Write's output into a
+publish node has said what this is. `files` wired means registered.
+
+**The residual risk is `partial_execution_targets`, and it is not closed.** Both nodes are `OUTPUT_NODE`s,
+and ComfyUI's front end can send a list naming which output nodes to run — every output node not in it is
+dropped before execution starts. A selective run can therefore execute this node while `OCIO Write` never
+fires, leaving `files` pointing at whatever was on disk from last time. A missing file refuses loudly. A
+*stale* one cannot be refused: a cached Write that legitimately did not re-run returns the same path with
+the same mtime, so treating that as an error would break the normal case. The panel reports the path, the
+frame count and the mtime of what it registered, and the operator sees the date. Closing it properly needs
+a probe of what the front end actually sends on a selective run. That probe does not exist.
+
 ## Media comes back the same way it went out
 
 A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
