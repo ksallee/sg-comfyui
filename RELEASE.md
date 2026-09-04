@@ -413,3 +413,52 @@ are rebuilt.
 - Packaging that client does **not** break `.env.local` discovery. `env.ROOT` defaults to the
   package's own `parents[2]`, which would be wrong from site-packages — but `site.py:51` already
   calls `load_env(ROOT)` with this repo's root, so the default is never used here.
+
+## Plate sources investigated 2026-09-04, and what was ruled out
+
+Recorded so a later keying template does not re-derive any of it.
+
+### Tears of Steel — real VFX plates, CC-BY 3.0, but only two shots
+
+`media.xiph.org/tearsofsteel/linear-exr/` holds **two** shots, not the 4 TB the press coverage
+mentions: `03_2a` (599 frames) and `04_5f` (262 frames). Both 4096x2160 **float32 scene-linear
+EXR**, decoded from Sony F65 raw, **51 MB per frame**. `raw/` holds two `.mxf` files. The README
+states Creative Commons Attribution 3.0.
+
+- `04_5f` is a close-up of an actor against green. Not a plate for anything here.
+- `03_2a` is a green-screen stage: a rooftop set with a stone balustrade, candles, figures, a rope
+  hanging through frame. The camera pushes in and **settles by about frame 400**, so 400–448 is a
+  near-locked 48-frame window and the best-looking part of the shot.
+
+Why it was tempting: rig removal (the rope) is a better paint-out than a parked car; the real 4K
+gives demo 05 **ground truth to show the upres against**, which nothing generated can; and a keyed
+plate composited over `mp_skyline` would make one Version whose sources sit on two different
+entities. Provenance reads true — the plate is `unrecorded` because it came off a camera.
+
+Why it was not taken: dark and candle-lit so it screenshots poorly, almost no motion in the window
+so 07 retime gets worse, and the licence stack below.
+
+**51 MB/frame is the hard fact**: 48 frames is 2.4 GB, and even 1080p half-float is ~400 MB. Scene-
+linear EXR is not repo-shippable at any useful length. A 1080p h264 derivative is ~2 MB and CC-BY
+grants that redistribution explicitly, so a derivative ships in-repo with an attribution line and no
+install step.
+
+### CorridorKey — usable, but not by the base templates
+
+Corridor Digital's neural keyer (`nikopueringer/CorridorKey`, ~14.6k stars). Four ComfyUI wrappers
+exist; none installed here. Nodes: Load CorridorKey Model (~300 MB from HuggingFace), Chroma Key
+Prepass, CorridorKey Greenscreen, CorridorKey Composite.
+
+Three separate licences, the `05_plate_upres` situation again — wrapper code, tool, and weights:
+
+- **CorridorKey itself is CC BY-NC-SA 4.0 plus additional terms.** §1 permits commercial *processing*
+  of images, so a facility using it on a job is fine. §2b forbids paid inference services. **§2c
+  requires a separate written agreement to incorporate it into a commercial software package** —
+  the clause a forker hits. §3 requires the "CorridorKey" name in attribution. §4 is ShareAlike.
+- **Both leading wrappers report NO licence on GitHub** — `cnoellert/comfyui-corridorkey` (14 stars,
+  real MPS paths, "tested at 6K on Apple M4 Max") and `pixelworldai/ComfyUI-CorridorKeyWrapper`
+  (2 stars). No licence is a weaker grant than NC-SA, and neither is Registry-grade.
+
+So keying can only ever be a **tier-2 template requiring an external pack**, the shape already
+decided for ComfyUI-OCIO. It can never be in the base set, because "core nodes only, anyone can open
+this" cannot survive an unlicensed wrapper.
