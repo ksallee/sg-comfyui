@@ -221,7 +221,7 @@ Captured per publish:
 | model, seed, sampler | ComfyUI prompt graph |
 | prompt | text that reached a conditioning input in this branch — see below; not "text near a seed" |
 | workflow JSON | attachment — best effort, see below |
-| submitting client | `COMFY_USAGE_SOURCE` |
+| submitting client | whoever POSTed `/prompt` said so — see below |
 | input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
 | user, timestamp | client |
 
@@ -232,11 +232,26 @@ client put in `extra_data`, and `None` otherwise (`execution.py:199`). The stand
 `comfy` CLI, the ComfyUI MCP server, and every wrapper UI that builds its own API-format prompt do not.
 
 So a publish must never depend on the workflow, and must say when it is missing rather than quietly
-omitting it. `COMFY_USAGE_SOURCE` records which client submitted the prompt, which is exactly the
-information needed to explain an absent workflow later.
+omitting it. Which client submitted the prompt is exactly the information needed to explain an
+absent workflow later, and that is what the generator field carries.
 
 This is also the reason the demo drives ComfyUI over plain HTTP rather than through its MCP server:
 an MCP-submitted prompt exercises the degraded provenance path.
+
+### The submitting client names itself; nothing else names it
+
+`COMFY_USAGE_SOURCE` is the hidden-input spelling and it reads like an environment variable. It is
+not one. ComfyUI hands the node `extra_data.get("comfy_usage_source")` from the submitted prompt
+(`execution.py:224`) — a string chosen by whoever POSTed `/prompt`, never read from the environment
+of the running server. A `Comfy-Usage-Source` header is copied into `extra_data` only when the body
+omitted the key (`server.py:1120`), so the body always wins.
+
+The standard frontend does set it: `comfyui-frontend`, hardcoded in the body of every Run, confirmed
+by driving a browser and reading the request off the wire. So a Version reading
+`ComfyUI (unknown client)` was not published by a person clicking Run — it was published by a script
+that POSTed a prompt and said nothing about itself. That is the whole value of the field, and it
+survives only if our own harnesses fill it in: `tools/qa_node.py` rewrites the body of every
+`/prompt` it drives so a QA run is not filed as an artist at a keyboard.
 
 ### Where each piece lands is the operator's, not ours
 
