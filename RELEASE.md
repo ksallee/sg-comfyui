@@ -734,3 +734,39 @@ demo set**: a fixed-resolution model gets what the frame gives it, and a small s
 Also: the repo's existing 03 uses a locked-off still, while this plate has a moving camera, which is
 why temporal stability here is far worse than the 0.5-0.9 its `.md` claims. Five frames only, and
 that `.md`'s own warning stands — a short probe does not predict a long one.
+
+### 04 set extension — upward works, sideways is a lottery
+
+Based on `video_wan_vace_outpainting` (the 1.3B path; the 14B loaders ship mode-4 bypassed).
+`flux_fill_outpaint_example` was reviewed and rejected: **no `flux1-fill-dev` is installed**, and
+`flux1-schnell-fp8` is not a fill model, so VACE 1.3B is the only working route.
+
+**Upward extension is genuinely good.** Padding 192px up, the left building continues with a correct
+window — stone surround, glazing bars, a curtain — verticals converge correctly, the cornice line
+carries through, the centre facade runs up to a terracotta eave and the sky slot opens plausibly.
+Backlit haze matches, and a row-gradient across the seam shows no spike.
+
+**Sideways depends on having video context.** A single frame padded at the sides produced a **dead
+flat grey plane** on the right (band std 6.7, gradient 0.78, against 20.5/3.71 on the left): the
+plate's right edge is a near-black shadowed wall, so the model had no cue and invented a void. The
+same pad over 5 frames built a real facade with a stone lintel. **A still-only demo should pad top
+only.**
+
+Two gotchas worth keeping:
+
+- `RepeatImageBatch.amount` must equal `length`, because `ImagePadForOutpaint` returns a single 2D
+  mask rather than a batch (`nodes.py` `expand_image`).
+- `WanVaceToVideo` truncates `control_video` itself, but its `width`/`height` must equal the padded
+  size or it centre-crops and the plate stops lining up.
+
+### What 03 and 04 share, and it matters
+
+- **The same cross-hatch / mesh-weave artifact** over dark flat surfaces, in both demos, bleeding into
+  the plate region. Unchanged at 6 steps/lora 0.7 and 10 steps/lora 0.5, so it is not a step count —
+  it is what WAN VACE 1.3B does here.
+- **Neither preserves the plate.** VACE redraws the whole frame; 04 measures the VAE round-trip drift
+  inside the original border at **mean 6.0/255, p99 36**, concentrated on high-frequency edges. Both
+  demos therefore *must* composite the original back under the result through a feathered matte, and
+  04's graph does not yet do it.
+
+Both were capped at 5 frames on a shared queue. Neither is proven at 48.
