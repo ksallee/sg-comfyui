@@ -180,9 +180,9 @@ whatever this graph published last run, and the roto would start from its own ou
 ## Running it
 
 1. `models/checkpoints/sam3.1_multiplex_fp16.safetensors` — see above.
-2. Copy `demo/demo_01_roto_plate.mp4` into `ComfyUI/input/`.
+2. Copy `example_workflows/demo_01_roto_plate.mp4` into `ComfyUI/input/`.
 3. Seed a plate Version and point the Load node at it, or repoint the node at your own.
-4. Open `demo/01_roto_matte.json`.
+4. Open `example_workflows/01_roto_matte.json`.
 
 The plate clip shipped here is a 24-frame, 24 fps, 832×480 push-in built over
 `ComfyUI/input/fpt_plate_figure.png`, because the machine this was built on had no video plate at
@@ -199,6 +199,6 @@ its stream inside one reports nothing to publish.
 The Flow PT nodes were added by the repo's own tool, not by hand:
 
 ```sh
-python src/comfyui_fpt/instrument.py <base>.json --out demo/01_roto_matte.json \
+python src/comfyui_fpt/instrument.py <base>.json --out example_workflows/01_roto_matte.json \
   --publish 10:0 --load 3 --project "comfyui-fpt sandbox" --link "demo_01_roto (Shot)"
 ```

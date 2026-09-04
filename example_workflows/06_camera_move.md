@@ -184,7 +184,7 @@ plate into Flow PT before it can read it back out.
 tools/qa_node.py --start --port 8956 --repo <this checkout>
 ```
 
-Then open `demo/06_camera_move.json`. Three things worth knowing:
+Then open `example_workflows/06_camera_move.json`. Three things worth knowing:
 
 - `--base-directory` relocates **models** as well as `custom_nodes`, `input`, `output`, `temp` and
   `user` (`folder_paths.py:15`), contrary to the docstring in `tools/qa_node.py`. An isolated

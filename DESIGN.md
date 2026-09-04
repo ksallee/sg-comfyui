@@ -696,6 +696,14 @@ side, and on the ComfyUI side `Load` is what a node is called when it is where t
 `NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
 anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
 
+The cost of the long form is paid twice in the editor, and it is accepted rather than unnoticed: the
+Templates browser labels a pack's collection with the `custom_nodes` directory name verbatim
+(`title: e` in the frontend bundle) and the node's footer badge is `python_module` split on `.` —
+the same string. Neither reads `DisplayName`, and the only override is a frontend i18n key
+(`templateWorkflows.category.<name>`) that ships with the frontend and not with a pack. Registry
+names allow no spaces, so a short label was reachable only by renaming the repo, which trades a
+searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chips is the price.
+
 ### The dependency problem
 
 `_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a

@@ -124,7 +124,7 @@ graph fails validation before it queues:
     newest_by: 1 not in ['version number in the name', 'created_at', 'id (creation order)']
 
 Both FPT nodes here therefore carry `widgets_values_named` as well as the positional array — the
-same map the editor writes, and the branch `restoreDeclaredWidgets` prefers. `workflows/*.json` and
+same map the editor writes, and the branch `restoreDeclaredWidgets` prefers. `tools/workflows/*.json` and
 anything `instrument.py` writes have the same problem and the same fix.
 
 ## Running it
@@ -132,4 +132,4 @@ anything `instrument.py` writes have the same problem and the same fix.
     PYTHONPATH=src python -m comfyui_fpt.seed ComfyUI/input/fpt_plate_setext.png \
         --project 1180 --link "demo_04_setext (Shot)" --output plate
 
-then open `demo/04_set_extension.json` in ComfyUI and run it.
+then open `example_workflows/04_set_extension.json` in ComfyUI and run it.
