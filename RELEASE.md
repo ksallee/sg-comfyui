@@ -620,3 +620,83 @@ background is uniform, so both of this section's problems disappear at once.
   resolution in isolation. `ImageCropV2` with a `PrimitiveBoundingBox` is the clean crop.
 - **`SAM3_VideoTrack` instead of `SAM3_Detect`** — genuinely fixes the dropout, but so does the
   correct prompt, at better edge quality and half the run time.
+
+## 02 and 07, measured 2026-09-04
+
+Both built on ComfyUI's own templates rather than invented, per the lesson above.
+
+### 02 utility passes — normals are the strongest thing in the demo set
+
+`utility_depth_anything3_video_depth_estimation` and `utility_moge_depth_estimation` are the
+starting points. Both ship as **subgraphs**, so `definitions.subgraphs` has to be unpacked to get the
+real node types.
+
+- **Normals, MoGe-2 (`moge-2-vitl-normal.pt`) — excellent.** Every building face resolves as a
+  distinct plane, the ground reads, window reveals, drainpipes, the arch and the backpack all carve
+  out. Structurally identical frame to frame, no flicker. Sky is flat grey, correctly marked invalid.
+- **Depth, DA3 (`depth_anything_3_mono_large`) — good gradient, compressed near end.** The alley
+  recedes properly and `apply_sky_clip` clips the far end and sky to black, but the near end crowds
+  white (2.8% of pixels at 255, mean 202) and the figures read as near-flat silhouettes with little
+  internal relief. Try `min_max` normalization if figure modelling matters.
+- **Alpha comes from BiRefNet, not from MoGe.** MoGe's `mask` output is a **valid-geometry** mask —
+  it marks sky — and is *not* a subject alpha. Presenting it as one would be a lie about what the
+  model computed.
+
+The DA3 dynamic combo serialises flat in the API format: `output`, `output.normalization`,
+`output.apply_sky_clip`.
+
+### 07 retime — FILM is good, and `multiplier` above 2 is broken
+
+Based on `utility_video_frame_interpolation`.
+
+Quality against ground truth, predicting a real frame: **FILM 37.5 dB, a crossfade 32.4 dB, a frame
+hold 29.9 dB.** No ghosting, no double edges, no limb tearing on the hands or hair, and sharpness
+holds (Laplacian variance 474 -> 465). Error maps show only thin edge outlines — a sub-pixel timing
+offset, not synthesis failure — with the background error-free.
+
+**But `multiplier` > 2 in a single `FrameInterpolate` misplaces its in-betweens.** FILM's fusion net
+is trained at t=0.5 and ComfyUI asks it for other times by scaling the flow (`film_net.py:232`).
+Measured placement at `multiplier=4`:
+
+| | t values produced | |
+|---|---|---|
+| one node, `multiplier=4` | **0.385 / 0.531 / 0.672** | wanted 0.25/0.5/0.75 — the clip judders |
+| two chained `multiplier=2` | **0.266 / 0.531 / 0.778** | +1.7 and +2.0 dB on the off-centre frames |
+
+**Chain powers of two. Never set `multiplier` to 3 or 4 directly.**
+
+One honest caveat for the demo: this plate carries real motion blur, and slowing it down exposes
+that. It is the plate, not the model.
+
+### 05 plate upres — ESRGAN ships, SeedVR2 must not
+
+Based on `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_video` (the latter unpacked from
+its subgraph). Measured by downscaling the real plate to 480x270, upressing back to 960x540, and
+comparing against the true frame:
+
+| | PSNR | SSIM | gradient (truth 5.98) | frame-to-frame MAD (truth 0.40) |
+|---|---|---|---|---|
+| bicubic | **33.26** | **0.925** | 4.70 | 0.39 |
+| RealESRGAN_x4plus | 31.52 | 0.904 | 5.62 | 0.65 |
+| SeedVR2 (cc=none) | 22.72 | 0.673 | 7.12 | — |
+| SeedVR2 (cc=lab) | 25.24 | 0.715 | 7.01 | **2.23** |
+
+**SeedVR2 is disqualified, and the reason is the one this project exists to care about: it invents.**
+It turned a plain dark wall into a hallucinated fibrous texture, redrew a window sill that is not in
+the plate, shifted the tone darker and more contrasty, and flickers **5x more than the source** frame
+to frame. Sharper on paper, wrong in fact. That is restoration-style invention — reasonable for the
+grainy crf32 source its own template targets, and not something to put under a plate a supervisor
+will trust.
+
+It also **does not run on this machine**: the int8 build hits `aten::_int_mm` unimplemented on MPS,
+and forcing `SelectModelDevice device=cpu` takes 88 s for 3 frames at 960x540 — hours for a 48-frame
+1080p pass.
+
+**Ship `RealESRGAN_x4plus` -> downscale to target.** Zoomed, it puts cables, window bars, poster edges
+and the drainpipe back almost exactly where the true frame has them.
+
+**And state the limit honestly in the demo:** ESRGAN recovers **structure, not micro-texture**.
+Gradient energy goes 4.41 -> 5.21 against a true 5.51, so edges genuinely come back — but hair
+strands become smooth ribbons and plaster grain becomes a waxy surface. It also scores *worse* than
+plain bicubic on PSNR and SSIM (31.52 vs 33.26), which is the normal GAN-upscaler trade and worth
+saying out loud rather than quietly claiming a win.
