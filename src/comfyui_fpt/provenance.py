@@ -107,6 +107,38 @@ def loaded_versions(prompt, node_id):
     return ids
 
 
+def frame_rate(prompt, node_id=None):
+    """(fps, which node said so) if this graph states one, else (None, why it does not).
+
+    The branch is asked first and the whole graph second, because a movie node is usually a SIBLING
+    of the publish node rather than an ancestor — both hang off the same VAEDecode, so `ancestors`
+    alone would never see the fps the operator set two nodes away.
+
+    Two different rates and we say nothing. Picking one out of a tie is exactly the invented timing
+    a frame rate has to avoid.
+    """
+    prompt = prompt or {}
+    mine = str(node_id)
+    branch = ancestors(prompt, mine) if node_id is not None and mine in prompt else set()
+    for where, scope in (("this branch", branch), ("this graph", set(prompt))):
+        found = {}
+        for nid in _order(prompt):
+            node = prompt.get(nid) or {}
+            # A publish node's own fps widget is the question, never the answer.
+            if nid not in scope or node.get("class_type") == "FPTPublishVersion":
+                continue
+            w = _widgets(node)
+            for k in FPS_KEYS:
+                v = w.get(k)
+                if isinstance(v, (int, float)) and not isinstance(v, bool) and v > 0:
+                    found.setdefault(float(v), f'{node.get("class_type")} node {nid}')
+        if len(found) == 1:
+            return next(iter(found.items()))
+        if len(found) > 1:
+            return None, f"{len(found)} different frame rates in {where}"
+    return None, "no node in this graph states a frame rate"
+
+
 def extract(prompt, extra_pnginfo=None, node_id=None):
     """Everything the graph knows about how this image was made.
 

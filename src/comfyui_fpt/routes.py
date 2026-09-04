@@ -321,12 +321,21 @@ def register():
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
             # Media and attachments are uploads, not fields, but they are part of "what gets saved".
-            uploads = ["image (thumbnail)", "sg_uploaded_movie", "<name>.provenance.json"]
+            uploads = ["image (thumbnail) — frame 1",
+                       "sg_uploaded_movie — the movie, or the frame itself if there is only one",
+                       "<name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<name>.workflow.json — only if this client sends EXTRA_PNGINFO")
+            # How many frames the batch holds is a run-time fact, so the panel states the RULE and
+            # the frame rate rather than a count it cannot know. The node's own `movie.rate` answers,
+            # so the sentence in front of the operator is the sentence the run will print.
+            from . import movie
+            _, rate_note = movie.rate(prompt, node_id, w.get("fps") or 0.0)
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
+                "movie": f"more than one frame becomes ONE Version carrying a movie, with its "
+                         f"frame range — {rate_note}",
                 "sources": sources,
                 "missing_fields": sorted({t for t in where.values()
                                           if t and t != fpt_fields.DESCRIPTION and t not in have}),

@@ -137,8 +137,32 @@ deterministic, offline, and costs no tokens.
 - `Flow PT Load Version` — a Version's media back into the graph, and the link recorded
 
 `av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
-video nodes. Imported lazily inside the movie branch, so an install without it still loads every node and
-fails only when someone actually asks for a movie frame.
+video nodes. Imported lazily on both sides of the movie branch, decoding a frame in `media.py` and encoding a
+batch in `movie.py`, so an install without it still loads every node and fails only when someone actually
+asks for a movie frame or publishes a batch. Nothing shells out to ffmpeg.
+
+## Output is always a movie
+
+A run is one Version. One frame publishes as it always did; more than one becomes ONE Version carrying an
+h264 movie, uploaded to `sg_uploaded_movie`, with frame 1 also going to `image` so there is a thumbnail
+before the transcode lands.
+
+The rule comes from probe 022: a Version's media is single-valued, so a sequence cannot BE media. The node
+used to loop, and a two-second camera move produced 33 Versions and 33 one-frame transcodes while the real
+`.mp4` the graph wrote never reached the site.
+
+`sg_first_frame`, `sg_last_frame`, `frame_count` and `frame_range` are ours, and are written where the site
+has them. `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are the transcoder's and are never
+written: probe 022 measured `_mp4` still serving a transcode of a replaced file while status read 1, and
+writing them ourselves manufactures that same desync in any player that trusts them.
+
+**The frame rate is stated, never assumed.** The node's own `fps` widget wins; at 0 the graph is asked — any
+node with an `fps` or `frame_rate` widget, the branch first and the whole graph second, because a movie node
+is usually a sibling of the publish node rather than an ancestor — and two conflicting rates leave the graph
+treated as silent. Only then does 24 apply, and the panel names which of the three answered, before the run
+and after it. A supervisor reading timing off the player can tell a measured rate from a default one.
+
+Image sequences stay supported as *input*: the Load node's `frames` tier is untouched.
 
 ## Media comes back the same way it went out
 
@@ -294,14 +318,19 @@ ComfyUI subgraph, which `instrument.py` cannot yet walk into; 246 of the 680 con
 
 The number was 57% before the sink rule learned that frames assembled into another medium end an
 image stream too (`instrument._is_sink`). That one fix moved 124 workflows, nearly all of them video.
-Publishing those frames still produces one Version per frame — the movie-as-a-Version gap is
-unchanged and still gated on storage, see above.
+Those frames now publish as one Version carrying one movie — see "Output is always a movie" above.
 
 ## Non-goals
 
 Charts, dashboards, reports, webhooks, automations — see `CLAUDE.md`. Video and OTIO. Inpainting UI. three.js. Browser extension.
 
 ## Later
+
+Publishing a sequence AS a sequence, rather than as the movie made from it. That wants `PublishedFile` —
+probe 022's own verdict, since media is single-valued and Attachments are storage rather than review — plus
+shared storage for `sg_path_to_frames` to point at. `PublishedFile` is still unproven: probe 021 found the
+types a graph wants carrying no `path` at all on the one site available, so the probe that closes it belongs
+in `sg-groundtruth`, not here.
 
 React review surface showing iteration lineage, extracted into an MIT component registry. Not in this repo.
 

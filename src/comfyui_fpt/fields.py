@@ -116,13 +116,19 @@ if __name__ == "__main__":
     raise SystemExit(1 if f else 0)
 
 
+def schema_names(fpt, entity_type="Version"):
+    """Every field this site has on the type. probe 002 — the expensive call, so one per publish.
+
+    Unreadable schema is an empty set, which reads as "write nothing optional": a publish that
+    cannot see the schema must not guess a field into a 400.
+    """
+    r = fpt.get(f"/schema/{entity_type}/fields")
+    return set(r.json()["data"]) if r.ok else set()
+
+
 def available(fpt, entity_type="Version"):
     """Which provenance fields actually exist on this site right now."""
-    r = fpt.get(f"/schema/{entity_type}/fields")
-    if not r.ok:
-        return set()
-    schema = r.json()["data"]
-    return {n for n in names().values() if n in schema}
+    return set(names().values()) & schema_names(fpt, entity_type)
 
 
 # What the graph knows, named as concepts rather than as fields. The operator decides where each

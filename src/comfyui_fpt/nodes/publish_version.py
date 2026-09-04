@@ -1,12 +1,17 @@
-"""Flow PT Publish Version — an image out of the graph becomes a Version with its provenance."""
+"""Flow PT Publish Version — an image out of the graph becomes a Version with its provenance.
+
+One run is one Version. A batch of more than one frame is a movie, not a stack of Versions: probe 022
+found a Version's media single-valued, so the old frame-per-Version loop turned a two-second camera
+move into 33 Versions and 33 one-frame transcodes. Publishing a sequence AS a sequence wants
+PublishedFile and shared storage; see DESIGN.
+"""
 import io
 import json
 
-import numpy as np
 from PIL import Image
 
 from .. import fields as fpt_fields
-from .. import lineage, naming, provenance, publish, site
+from .. import lineage, movie, naming, provenance, publish, site
 
 MAX_ID = 2 ** 31 - 1
 # The default for an unset keyword, NOT the label a person picks — that is
@@ -17,9 +22,8 @@ UNSET = ""
 
 def _png(frame):
     """One frame of a ComfyUI IMAGE batch ([H,W,C] float 0-1) as PNG bytes."""
-    a = (frame.cpu().numpy() * 255.0).round().clip(0, 255).astype(np.uint8)
     buf = io.BytesIO()
-    Image.fromarray(a).save(buf, format="PNG")
+    Image.fromarray(movie.to_u8(frame)).save(buf, format="PNG")
     return buf.getvalue()
 
 
@@ -77,6 +81,14 @@ class FPTPublishVersion:
                                 "tooltip": "What this stream is — depth, normals, mask. Fills "
                                            "{output} in the name template, so it is part of the "
                                            "Version's name."}),
+                # A batch is published as one movie, and a movie without a frame rate is a movie
+                # with an invented one. 0 is not "no fps" — it is "do not decide here", and the
+                # panel names whichever source answered instead.
+                "fps": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 240.0, "step": 0.01,
+                        "tooltip": "Frame rate for the movie a multi-frame batch publishes. 0 takes "
+                                   "it from the graph — any node with an fps or frame_rate — and "
+                                   f"falls back to {movie.DEFAULT_FPS:g}, which the panel says out "
+                                   "loud so nobody reads it as measured timing."}),
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
@@ -146,7 +158,7 @@ class FPTPublishVersion:
     DESCRIPTION = "Create a Flow PT Version from this image, carrying the graph that made it."
 
     def publish(self, images, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
-                output_name="", note="", code_template=UNSET,
+                output_name="", fps=0.0, note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         # The picked project decides, then the profile answers for THAT project — two graphs open in
@@ -177,9 +189,11 @@ class FPTPublishVersion:
         wf = provenance.workflow(extra_pnginfo)
 
         fpt = site.client()
-        # Which typed fields this site actually has. Absent until `python -m comfyui_fpt.fields` has
-        # run, so the blob fallback is the honest default, not a bug.
-        have = fpt_fields.available(fpt)
+        # One schema read answers two questions: which provenance fields exist (absent until
+        # `python -m comfyui_fpt.fields` has run, so the blob fallback is the honest default, not a
+        # bug) and whether this site carries the frame range a movie wants.
+        schema = fpt_fields.schema_names(fpt)
+        have = set(fpt_fields.names().values()) & schema
         # Typed ids first, then whatever a Load node upstream already proves. The operator can add
         # a source the graph cannot see; they should never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
@@ -205,41 +219,60 @@ class FPTPublishVersion:
         next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
                     if vnum_field and target else None)
 
-        published, done = [], []
-        for i, frame in enumerate(images):
-            name = code if len(images) == 1 else f"{code}_{i + 1:02d}"
-            fields = dict(typed)
-            # description is the human note, plus whatever the operator routed into it. The full
-            # graph goes up as an attachment either way, so the blob fallback is only for a site
-            # that has no provenance fields and asked for nothing in the description.
-            if prov_lines:
-                fields["description"] = "\n".join(([note] if note else []) + prov_lines)
-            elif typed:
-                fields["description"] = note
-            else:
-                fields["description"] = json.dumps({"note": note, "provenance": prov}, indent=2)
-            if status_code:
-                fields["sg_status_list"] = status_code
-            if target:
-                fields[link_field] = {"type": link_type, "id": target}
-            if task_id:
-                fields["sg_task"] = {"type": "Task", "id": task_id}
-            if next_num is not None:
-                fields[vnum_field] = next_num + i
+        count = len(images)
+        as_movie = count > 1
+        rate, rate_note = movie.rate(prompt, unique_id, fps) if as_movie else (None, "")
+        # Encoded BEFORE the Version exists. An install with no PyAV, or a batch libx264 refuses,
+        # should stop here rather than leave a Version behind holding a still and calling it a movie.
+        reel = movie.encode(images, rate) if as_movie else None
 
-            vid = publish.create_version(fpt, project_id, name, fields)
-            # Every lookup a name depends on. `find` is the one the template reads; missing it let
-            # two publish nodes in one run propose the same version again.
-            site.forget("find", "versions_on", "vnums", "paths")
-            png = _png(frame)
-            publish.upload(fpt, vid, png, f"{name}.png", field="image")
-            publish.upload(fpt, vid, png, f"{name}.png", field="sg_uploaded_movie")
-            publish.attach_json(fpt, vid, prov, f"{name}.provenance.json")
-            if attach_workflow and wf is not None:
-                publish.attach_json(fpt, vid, wf, f"{name}.workflow.json")
-            published.append(f"{name} -> Version {vid}")
-            done.append({"code": name, "id": vid, "link": f"{link_type} {picked_name}".strip(),
-                         "status": status_code, "outputs": sorted(typed)})
+        fields = dict(typed)
+        # description is the human note, plus whatever the operator routed into it. The full
+        # graph goes up as an attachment either way, so the blob fallback is only for a site
+        # that has no provenance fields and asked for nothing in the description.
+        if prov_lines:
+            fields["description"] = "\n".join(([note] if note else []) + prov_lines)
+        elif typed:
+            fields["description"] = note
+        else:
+            fields["description"] = json.dumps({"note": note, "provenance": prov}, indent=2)
+        if status_code:
+            fields["sg_status_list"] = status_code
+        if target:
+            fields[link_field] = {"type": link_type, "id": target}
+        if task_id:
+            fields["sg_task"] = {"type": "Task", "id": task_id}
+        if next_num is not None:
+            fields[vnum_field] = next_num
+        # The range is ours; everything derived from the media is the transcoder's (probe 022).
+        if as_movie:
+            fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
+
+        vid = publish.create_version(fpt, project_id, code, fields)
+        # Every lookup a name depends on. `find` is the one the template reads; missing it let
+        # two publish nodes in one run propose the same version again.
+        site.forget("find", "versions_on", "vnums", "paths")
+        # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie too,
+        # but not until the transcode lands, and a Version with no picture until then is worse.
+        png = _png(images[0])
+        publish.upload(fpt, vid, png, f"{code}.png", field="image")
+        if as_movie:
+            publish.upload(fpt, vid, reel, f"{code}.mp4", field="sg_uploaded_movie")
+        else:
+            publish.upload(fpt, vid, png, f"{code}.png", field="sg_uploaded_movie")
+        publish.attach_json(fpt, vid, prov, f"{code}.provenance.json")
+        if attach_workflow and wf is not None:
+            publish.attach_json(fpt, vid, wf, f"{code}.workflow.json")
+
+        published = [f"{code} -> Version {vid}"]
+        if as_movie:
+            published.append(f"{count} frames as one movie — {rate_note}")
+            skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
+            if skipped:
+                published.append("no frame range recorded, this site has no " + ", ".join(skipped))
+        done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
+                 "status": status_code, "outputs": sorted(typed),
+                 "movie": f"{count} frames as one movie — {rate_note}" if as_movie else ""}]
 
         if attach_workflow and wf is None:
             published.append("no workflow attached: this client sent no EXTRA_PNGINFO")

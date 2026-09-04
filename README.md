@@ -182,7 +182,8 @@ lets the agent read back only its own answer.
   Comfy Registry install would not run, so this is not on the Registry.
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
-- **Movies publish as one Version per frame.** Assembling frames into a movie Version is gated on
-  storage; see DESIGN.md.
+- **A sequence cannot be published as a sequence.** A batch publishes as one Version carrying one
+  movie, which is what a review player wants. Keeping the frames themselves wants `PublishedFile`
+  and shared storage, and `PublishedFile` is still unproven; see DESIGN.md.
 - **Graphs whose output lives inside a ComfyUI subgraph** are not walked into yet, so
   `/track-workflow` finds nothing in them.

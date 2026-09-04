@@ -125,6 +125,7 @@
         "(none)",
         "(none)",
         "regrade",
+        0,
         "derived from the Version above; lineage recorded by itself",
         "{entity.code}_{output}_v{version:03d}",
         "",

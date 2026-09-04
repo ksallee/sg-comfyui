@@ -29,7 +29,7 @@ LOAD = "FPTLoadVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
-PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "note",
+PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "fps", "note",
                    "code_template", "source_versions", "attach_workflow", "link_id"]
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
                 "pin_version_id", "source", "frame", "filters"]
@@ -39,7 +39,9 @@ LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_
 NO_VALUE = "(none)"
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
                     "code_template": "{entity.code}_{output}_v{version:03d}",
-                    "attach_workflow": True, "link_id": 0}
+                    # 0 is "do not decide here": the node reads the graph's own fps instead, which
+                    # an instrumented video workflow almost always states.
+                    "fps": 0.0, "attach_workflow": True, "link_id": 0}
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
                  "source": "auto", "pin_version_id": 0, "frame": 1}

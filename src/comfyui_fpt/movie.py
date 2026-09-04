@@ -42,7 +42,7 @@ def rate(prompt, node_id, chosen=0.0):
     found, why = provenance.frame_rate(prompt, node_id)
     if found:
         return found, f"{found:g} fps, from {why}"
-    return DEFAULT_FPS, f"{DEFAULT_FPS:g} fps by default — {why}"
+    return DEFAULT_FPS, f"{DEFAULT_FPS:g} fps by default ({why})"
 
 
 def to_u8(frame):
