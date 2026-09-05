@@ -51,6 +51,10 @@ const CSS = `
 .fpt-body:empty { display: none; }
 /* The row wrapper stays in the markup but hands its children to the grid. */
 .fpt-row { display: contents; }
+/* A candidate is one line: what it is called, then what state it is in, together. */
+.fpt-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fpt-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  color: #b9c0c8; white-space: nowrap; }
 .fpt-body > .fpt-sec, .fpt-body > .fpt-why, .fpt-body > .fpt-filter,
 .fpt-body > .fpt-dim, .fpt-body > .fpt-err, .fpt-body > .fpt-ok, .fpt-body > .fpt-alert,
 .fpt-body > .fpt-full, .fpt-body > .fpt-v:only-child { grid-column: 1 / -1; }
@@ -269,9 +273,18 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         body.innerHTML =
           `<div class="fpt-dim">${esc((d && d.why) || "nothing resolved yet")}</div>` +
           (near.length
+            // One full-width row per candidate, name then status. It was a `.fpt-row`, which is
+            // `display: contents` — so its two children fell into the panel's own two-column grid
+            // and the list read as a table of names against a column of pills rather than as a list
+            // of "this one, in this state". The ICON identifies the status (recipe 010, the same
+            // one drawn everywhere else); the coloured pill does not come with it. A pill is how
+            // the ONE status this node resolved to is stated, and a column of them is a column of
+            // backgrounds competing with the names — which are what you are actually reading.
             ? `<div class="fpt-sec">what is there</div>` + near.map((v) =>
-                `<div class="fpt-row"><span class="fpt-v" style="flex:1">${esc(v.code)}</span>
-                 ${v.status && v.status.label ? badge(v.status) : ""}</div>`).join("")
+                `<div class="fpt-full fpt-cand">${esc(v.code)}` +
+                (v.status && v.status.label
+                  ? `<span class="fpt-cand-st">${iconHtml(v.status.icon, v.status.rgb)}` +
+                    `${esc(v.status.label)}</span>` : "") + `</div>`).join("")
             : "");
         fold("");
         relayout();

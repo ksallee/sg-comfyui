@@ -99,8 +99,13 @@ class FPTLoadVersion:
                               "tooltip": "What 'newest' means. A re-published v002 is newer by id "
                                          "but older by intent.", "advanced": True}),
                 "pin_version_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
-                                   "tooltip": "Escape hatch: this exact Version, ignoring the rule. "
-                                              "0 means resolve by the rule above.", "advanced": True}),
+                                   "tooltip": "REPLACES every field above — this exact Version by "
+                                              "id, whatever the rule says.\n\n"
+                                              "0 is off, and the rule resolves normally. Non-zero "
+                                              "and the panel says in amber that it is pinned, "
+                                              "because nothing else on this node is being read.\n\n"
+                                              "For when you want THIS version and not whatever is "
+                                              "newest or approved right now.", "advanced": True}),
                 "source": ([AUTO], {"default": AUTO,
                                     "tooltip": "Which media to pull. `auto` takes the best this "
                                                "Version can actually deliver.", "advanced": True}),
@@ -113,16 +118,21 @@ class FPTLoadVersion:
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "filters": ("STRING", {"default": "", "multiline": True,
-                            "display_name": "SG Filters",
+                            "display_name": "extra filters",
                             # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A
                             # hand-rolled toggle button ends up appended at the bottom, nowhere near
                             # the widget it controls, and cannot be moved next to it because
                             # widgets_values is positional.
                             "advanced": True,
-                            "tooltip": "The Flow PT filter the fields here add up to, shown as you "
-                                       "change them. Edit it and it takes over. An array is an "
-                                       "implicit AND; for OR use a group: {\"logical_operator\": "
-                                       "\"or\", \"conditions\": [...]} (probe 030)."}),
+                            "tooltip": "ADDED to the fields above with AND — it narrows, it never "
+                                       "replaces. Every field on this node keeps meaning what it "
+                                       "says.\n\nEmpty is the normal case. Put conditions here "
+                                       "for what the fields cannot express, in Flow PT's own filter "
+                                       "syntax: [[\"sg_ai_model\", \"contains\", \"flux\"]]. "
+                                       "An array is an implicit AND (probe 004); for OR use one "
+                                       "group: {\"logical_operator\": \"or\", \"conditions\": "
+                                       "[...]} (probe 030).\n\nThe panel shows the whole query "
+                                       "this adds up to."}),
                 # LAST, and it belongs beside `frame`. Widgets are appended and never inserted:
                 # widgets_values is positional, so a widget added above this one displaces every
                 # value in every graph already saved, including graphs this repo will never see.

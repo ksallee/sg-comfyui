@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-from . import site
+from . import resolve, site
 
 # Flow PT answers an error as a JSON:API envelope, and the useful part is one `detail` sentence
 # inside it. Four wrapped lines of `{"errors":[{"id":"0dc12...","status":404,...}]}` in a readout an
@@ -187,30 +187,33 @@ def register():
                 q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
             codes, _ = site.resolve_statuses(pid, typed)
             terms = [t for t in (q.get("name_contains", "") or "").split() if t]
-            # The widget mirrors the fields until someone edits it, so a filter identical to the
-            # generated one is not an override — treating it as one would lose the friendlier
-            # explanations and the "what is there" listing.
-            same = json.dumps(FPTLoadVersion._filters(raw), sort_keys=True) == json.dumps(
-                site.version_filters(pid, lt, target, task_id, terms, codes), sort_keys=True)
+            # No mirror to detect any more. `raw` holds EXTRA conditions only, ANDed onto the
+            # fields, so there is no state where the box might or might not be the node's own
+            # writing — which is what used to go stale and silently take over the whole query.
             if pin:
                 vid, code, why = pin, "", "pinned by id"
             else:
                 vid, code, why = FPTLoadVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
-                    q.get("newest_by", ""), "" if same else raw)
-            # What the fields add up to, in the API's own language — shown so an override can start
-            # from something that already works.
-            built = (None if same else FPTLoadVersion._filters(raw)) or site.version_filters(
-                pid, lt, target, task_id, terms, codes)
+                    q.get("newest_by", ""), raw)
+            # The WHOLE query in the API's own language — fields plus whatever was added — so the
+            # panel can show what is actually being asked rather than half of it.
+            built = resolve.combine(
+                site.version_filters(pid, lt, target, task_id, terms, codes),
+                FPTLoadVersion._filters(raw))
 
             if not vid:
                 # A rule that matches nothing is the moment you most need to see what IS there, so
                 # the same link and task are listed with their statuses and the filters dropped.
                 colors, labels = site.status_colors(), dict(
                     (c, l) for l, c in site.statuses(pid))
+                # `icon` too, not just the colour: a status is drawn the same way everywhere it
+                # appears (recipe 010), and without this the candidate list rendered a bare pill
+                # while every other status on the node carried its icon.
+                icons = site.status_icons()
                 near = [{"code": c, "status": {"code": st, "label": labels.get(st, st),
-                                               "rgb": colors.get(st)}, "id": i}
+                                               "rgb": colors.get(st), "icon": icons.get(st)}, "id": i}
                         for c, st, i in site.find_versions(pid, lt, target, task_id)[:12]]
                 return web.json_response({"id": 0, "why": why, "media": [],
                                           "candidates": near, "filters": built})

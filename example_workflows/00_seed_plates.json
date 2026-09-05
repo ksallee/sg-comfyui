@@ -185,14 +185,14 @@
         "sh010 (Shot)",
         "Plate",
         "(none)",
-        "plate",
         "The hero plate, seeded so every other demo has a Version to pull from. Uploaded untouched - a VideoFromFile is already a file on disk and a deliverable is never transformed.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         true,
-        "sRGB"
+        "sRGB",
+        "{entity}_plate"
       ]
     },
     {
@@ -230,14 +230,14 @@
         "mp_skyline (Asset)",
         "Concept",
         "(none)",
-        "plate",
         "The matte painting, seeded on an ASSET rather than a Shot - the demo's only entity that is not a camera plate. 06 camera move pulls this.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         true,
-        "sRGB"
+        "sRGB",
+        "{entity}_plate"
       ]
     }
   ],

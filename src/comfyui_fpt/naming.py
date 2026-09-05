@@ -66,7 +66,7 @@ def next_number(existing_numbers):
 
 
 # What each token may contain when a template is turned into a concrete regex.
-TOKEN_RX = {"link": r".+?", "task": r"[A-Za-z][A-Za-z0-9]*", "output": r".+?", "version": r"\d+"}
+TOKEN_RX = {"link": r".+?", "task": r"[A-Za-z][A-Za-z0-9]*", "root_name": r".+?", "version": r"\d+"}
 
 
 def regex_from_template(template, link=""):
@@ -138,7 +138,11 @@ OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
 FRAME_SUFFIX = r"(?:_\d{2,})?"   # publish_version appends `_01` per frame of a batch
 LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
 
-DEFAULT_TEMPLATE = "{entity.code}_{output}_v{version:03d}"
+DEFAULT_TEMPLATE = "{root_name}_v{version:03d}"
+# The stream, which the versioned name is built FROM rather than derived from by subtraction.
+# recipe 004: `name` is the stream and `code` is one version of it, and composing that way means
+# there is no version token to strip back out — which is what used to go wrong.
+DEFAULT_ROOT_TEMPLATE = "{entity}"
 
 
 def normalise_template(template):

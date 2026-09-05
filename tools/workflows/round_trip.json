@@ -135,14 +135,14 @@
         "(none)",
         "(none)",
         "(none)",
-        "regrade",
         "derived from the Version above; lineage recorded by itself",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         false,
-        ""
+        "",
+        "{entity}_regrade"
       ],
       "title": "Flow PT Publish \u2014 regrade"
     }

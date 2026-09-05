@@ -23,22 +23,39 @@ def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains=""
                                 [t for t in (name_contains or "").split() if t], statuses)
 
 
+def combine(base, extra):
+    """The fields' filter with the operator's own conditions ANDed on.
+
+    A `_search` filter array is an implicit AND (probe 004), so extra conditions simply append. A
+    dict is a group carrying its own `logical_operator` (probe 030) and appends as ONE element, which
+    is how "these fields, and also (a or b)" is said.
+
+    Additive, not a replacement: an escape hatch that silently switched the pickers off meant an
+    operator could set a status, watch nothing change, and have no way to see why.
+    """
+    if not extra:
+        return list(base)
+    return list(base) + (list(extra) if isinstance(extra, list) else [extra])
+
+
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
          order=BY_VERSION, regex="", filters=None, where=""):
     """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently.
 
-    `filters` replaces everything the widgets add up to, so a power user or an agent owns the query
-    outright rather than fighting the fields.
+    `filters` is ANDed onto what the widgets add up to. It narrows; it never replaces, so every
+    field on the node keeps meaning what it says.
 
     `where` is what the operator called the link. Only ids reach here, and "nothing on Shot 7514"
     names a row they never typed; the caller knows the label they picked.
     """
     terms = [t for t in (name_contains or "").split() if t]
+    combined = combine(filters_for(project_id, link_type, link_id, task_id, name_contains, statuses),
+                       filters) if filters else None
     rows = site.find_versions(project_id, link_type, link_id, task_id, terms, statuses,
-                              sort=SORT.get(order, "-id"), filters=filters)
+                              sort=SORT.get(order, "-id"), filters=combined)
     if not rows:
         if filters:
-            return 0, "", "nothing matches the filter you supplied"
+            return 0, "", "nothing matches these fields plus the extra filter"
         where = where or (f"{link_type} {link_id}" if link_id else f"project {project_id}")
         bits = [b for b in (f"name containing {name_contains!r}" if terms else "",
                             f"status in {list(statuses)}" if statuses else "",

@@ -1057,14 +1057,14 @@
         "demo_04_setext (Shot)",
         "(none)",
         "Pending Review",
-        "extension",
         "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         false,
-        ""
+        "",
+        "{entity}_extension"
       ],
       "title": "Flow PT Publish \u2014 extension",
       "widgets_values_named": {

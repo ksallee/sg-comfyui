@@ -295,6 +295,46 @@ path:
 
 The version number is the Version's own, so `pf_seq_depth_v001` and `.../v001/` cannot disagree.
 
+### Two names, composed, and a path that refers to them
+
+`output` is gone. It was a text field whose entire effect was to fill `{output}` in a template hidden
+in the advanced fold — you typed a word and could not see what it did. Everything it did is now said
+out loud:
+
+    root name     {entity}_matte              the STREAM.  PublishedFile.name, and the folder
+    version name  {root_name}_v{version:03d}  one version of it.  Version.code
+    sequence      {entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}
+    movie         {entity}/{root_name}/v{version:03d}/{version_name}{ext}
+
+Three publish nodes on one Task read `{entity}_depth`, `{entity}_normal`, `{entity}_alpha` on their
+faces. That is the same distinction `output` used to make invisibly.
+
+**Composed, never subtracted.** recipe 004 says `name` is the stream and `code` is one version of it,
+and the old code derived the stream by stripping the version token back out of a template. That broke
+the moment a path template merely *referred* to a name: stripping the version from
+`{entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}` hands back the whole filename, frame
+number and all. Rendering `{root_name}` from its own template cannot fail that way, because there is
+nothing to strip.
+
+**The path stopped rewriting the name.** It used to spell the entire naming scheme a second time —
+`{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png` — so the two
+could disagree. Now it refers to `{root_name}` and `{version_name}`, and a sequence gets a folder
+because it is many files while a movie does not because it is one. Two templates, each sayable in a
+sentence, where there was one plus an implicit `single()` that stripped the frame token out to invent
+the movie's path.
+
+**Tokens are Flow PT's own syntax, to any depth.** `{entity.Shot.code}` still works, and so does
+`{sg_task.Task.entity.Shot.code}` — the server does the traversal and answers under the literal
+dotted key (probe 003), so the client hands over everything after the hop it already holds an id for
+rather than parsing the chain itself. A **bare** token is that link's own name, the way Flow PT
+returns one in a relationship dict: `{entity}` is the Shot's code, `{sg_task}` the Task's `content`
+(never its code — entity_types/Task).
+
+**An empty token is reported, not swallowed.** `_clean` collapses the `//` an unresolved token
+leaves, which is right for the path and wrong as the only response: probe 016 has a dotted read
+returning 200 with the key silently absent. So the staging step names every token that came back
+blank, on the same principle as corpus 028 — a path that rendered proves as little as a 200 does.
+
 ### Colour space is recorded, never converted
 
 A colour transform is the most consequential pixel change in a comp, and this project does not make images. So
