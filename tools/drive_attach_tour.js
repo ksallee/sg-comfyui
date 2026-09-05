@@ -6,7 +6,21 @@ const seen = [];
 const frame = async (node, scale = 0.85) => {           // centre and zoom, so nothing sits half off-screen
   app.canvas.centerOnNode(node);
   app.canvas.setZoom ? app.canvas.setZoom(scale) : (app.canvas.ds.state.scale = scale);
-  app.canvas.setDirty(true, true); await pause(500);
+  app.canvas.setDirty(true, true); await pause(700);
+};
+// Everything at once. The viewer has to see WHAT it is being attached to before we go in on it.
+const fitAll = async () => {
+  const ns = app.graph.nodes;
+  const x0 = Math.min(...ns.map(n => n.pos[0])) - 60, y0 = Math.min(...ns.map(n => n.pos[1])) - 60;
+  const x1 = Math.max(...ns.map(n => n.pos[0] + (n.size?.[0] || 260))) + 60;
+  const y1 = Math.max(...ns.map(n => n.pos[1] + (n.size?.[1] || 120))) + 60;
+  if (app.canvas.animateToBounds) { app.canvas.animateToBounds([x0, y0, x1 - x0, y1 - y0]); }
+  else {
+    const s = Math.min(app.canvas.canvas.width / (x1 - x0), app.canvas.canvas.height / (y1 - y0), 1);
+    app.canvas.ds.state.scale = s;
+    app.canvas.ds.state.offset = [-x0 + 40 / s, -y0 + 40 / s];
+  }
+  app.canvas.setDirty(true, true); await pause(900);
 };
 const type = async (inp, text, ms = 45) => {            // faster than a human, slow enough to read
   for (const ch of text) { inp.value += ch; inp.dispatchEvent(new Event("input", {bubbles:true})); await pause(ms); }
@@ -40,17 +54,21 @@ load.connect(0, prev, 0);
 app.canvas.setDirty(true, true); await pause(1400);
 seen.push("existing graph: " + app.graph.nodes.map(n => n.type).join(" -> "));
 
-// 2. add ours to it
+// 2. add ours to it — WIDE, so what it is being added TO stays on screen. Zooming here would show
+// a node connected to something the viewer never saw.
 const pub = LiteGraph.createNode("FPTPublishVersion"); pub.pos = [560, 520]; app.graph.add(pub);
-app.canvas.setDirty(true, true); await pause(1200);
-await frame(pub, 0.8);
-
-// 3. one wire is the whole integration
-load.connect(0, pub, 0);
 app.canvas.setDirty(true, true); await pause(1600);
+await fitAll(); await pause(1400);
+
+// 3. one wire is the whole integration — still wide, so the wire is the thing you watch
+load.connect(0, pub, 0);
+app.canvas.setDirty(true, true); await pause(2400);
 seen.push("connected LoadImage.IMAGE -> FPTPublishVersion.images");
 
-// 4. say where it goes
+// 4. only NOW go in, to fill it in
+await frame(pub, 0.85);
+
+// 5. say where it goes
 await pick("project", "", "sandbox");
 await pick("link", "sh010", "sh010");
 const w = (n) => pub.widgets.find(x => x.name === n);
@@ -58,7 +76,7 @@ if (w("output_name")) { w("output_name").value = "uidemo"; }
 if (w("note")) { w("note").value = "Added to an existing graph and published, for the README recording."; }
 app.canvas.setDirty(true, true); await pause(1200);
 
-// 5. run it for real
+// 6. run it for real
 // Wait for the RUN, not merely for a link: `latest` is already on screen from the preview, so
 // polling for any anchor would return before anything was published.
 const before = (document.querySelector(".fpt-log")?.textContent || "") + document.body.innerText.length;
