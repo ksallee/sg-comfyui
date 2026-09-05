@@ -678,14 +678,14 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "depth",
         "Z from the plate. Depth Anything 3, mono-large. Nothing here was rendered.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         false,
-        ""
+        "",
+        "{entity}_depth"
       ],
       "title": "Flow PT Publish \u2014 depth"
     },
@@ -724,14 +724,14 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "normal_opengl",
         "N from the plate. MoGe-2 normals, OpenGL orientation.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         false,
-        ""
+        "",
+        "{entity}_normal_opengl"
       ],
       "title": "Flow PT Publish \u2014 normal_opengl"
     },
@@ -770,14 +770,14 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "alpha",
         "Holdout matte for the figure, cut by SAM3 from a text prompt and joined onto the plate as its alpha.",
         "{entity.code}_{output}_v{version:03d}",
         "",
         true,
         0,
         false,
-        ""
+        "",
+        "{entity}_alpha"
       ],
       "title": "Flow PT Publish \u2014 alpha"
     },

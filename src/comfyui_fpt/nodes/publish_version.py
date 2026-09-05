@@ -106,14 +106,6 @@ class FPTPublishVersion:
                 "status": (_labels(statuses),
                            {"default": status_label,
                             "tooltip": "Usable statuses for this project (probe 009)."}),
-                # Shown as `output`, the token it fills in the template and the word the panel
-                # echoes back; `output_name` stays as the wire name because it is in every saved
-                # graph already. No placeholder: the frontend forwards one only to the multiline
-                # widget (`addMultilineWidget`), and a single-line STRING gets `{}` for options.
-                "output_name": ("STRING", {"default": "", "display_name": "output",
-                                "tooltip": "What this stream is — depth, normals, mask. Fills "
-                                           "{output} in the name template, so it is part of the "
-                                           "Version's name."}),
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
@@ -121,18 +113,20 @@ class FPTPublishVersion:
                                     "tooltip": "Human note, written to description. Provenance is "
                                                "recorded separately and does not belong here."}),
                 # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
-                # and ?fields use (probe 003). `{version:03d}` and `v%04d` both work.
+                # and ?fields use (probe 003), to any depth the server will traverse. A bare token
+                # is the relationship's own name — `{entity}`, `{sg_task}` — the way Flow PT returns
+                # it. `{version:03d}` and `v%04d` both work.
                 #
-                # Advanced, though it decides the name: it comes from the profile, it is a show's
-                # convention rather than this publish's decision, and the panel already shows the
-                # code it renders to. The fold hides the formula, never the answer.
+                # Advanced: `{root_name}_v{version:03d}` is a house convention, and the name you
+                # actually edit per publish is `root name` above.
                 "code_template": ("STRING", {
                     "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
-                    "display_name": "name template",
+                    "display_name": "version name",
                     "advanced": True,
-                    "tooltip": "e.g. {entity.Shot.code}_{task.Task.content}_v%04d — "
-                               "`entity` is what the Version hangs off, `task` its Task, `output` "
-                               "the pass above. Leave a literal name to use it as-is."}),
+                    "tooltip": "How a version of the stream is named — almost always "
+                               "{root_name}_v{version:03d}. Advanced because the versioning "
+                               "convention is the house's and rarely changes; the name you edit is "
+                               "`root name` above."}),
                 # Lineage the graph already proves is added by itself; this is for a source no
                 # upstream Load node can show.
                 "source_versions": ("STRING", {"default": "", "advanced": True,
@@ -165,6 +159,21 @@ class FPTPublishVersion:
                     "tooltip": "What these pixels ARE — sRGB, ACEScg, linear. Recorded on the "
                                "PublishedFile and in the provenance record. Nothing is converted, "
                                "and nothing is guessed when it is empty."}),
+                # APPENDED, never inserted: widgets_values is positional and everything above this
+                # is in saved graphs already (CLAUDE.md).
+                #
+                # Empty is not "no name" — it is "derive one", the filename minus its version, which
+                # is what recipe 004 means by `name` being the stream and `code` one version of it.
+                # Typing into it locks that answer, so a later filename change cannot silently move
+                # a stream someone downstream is already following.
+                "root_name": ("STRING", {
+                    "default": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
+                    "display_name": "root name",
+                    "tooltip": "The stream this publish belongs to, without a version — "
+                               "e.g. {entity}_matte. It is the PublishedFile's `name`, the "
+                               "folder the files land in, and what `version name` is built from. "
+                               "Any dotted Flow PT path works, and a bare token is that link's "
+                               "own name."}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -175,26 +184,33 @@ class FPTPublishVersion:
         }
 
     @classmethod
-    def next_name(cls, template, project_id, link_type, link_id, task_id, output_name):
+    def next_name(cls, template, project_id, link_type, link_id, task_id, root_template=""):
         """(code, version number) this node would publish next.
 
         The number comes back because the path template needs the same one: a Version called v003 and
         a sequence written to `v001/` would be two answers to one question.
+
+        `{root_name}` is rendered FIRST and handed to the version template as a value, because that
+        template is `{root_name}_v{version:03d}` — the stream composed, then versioned. Resolving it
+        the other way round is what left the code as a bare `v001`.
         """
         template = (template or naming.DEFAULT_TEMPLATE).strip()
         if not naming.template_fields(template) and "{version" not in naming.normalise_template(template):
             return template, 1       # a literal name, used as-is
-        vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, link_id,
-                                  task_id, {"output": output_name})
+        root_t = (root_template or naming.DEFAULT_ROOT_TEMPLATE).strip()
+        fields = set(naming.template_fields(template)) | set(naming.template_fields(root_t))
+        vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
+        vals["root_name"] = naming.render(root_t, vals)
         codes = [c for c, _, _ in site.find_versions(project_id, link_type, link_id)]
         n = naming.next_version(codes, template, vals)
         return naming.render(template, vals, n), n
 
     @classmethod
-    def next_code(cls, template, project_id, link_type, link_id, task_id, output_name):
+    def next_code(cls, template, project_id, link_type, link_id, task_id, root_template=""):
         """The code this node would publish next. Shared with /fpt/preview_code so what the panel
         shows is what gets written."""
-        return cls.next_name(template, project_id, link_type, link_id, task_id, output_name)[0]
+        return cls.next_name(template, project_id, link_type, link_id, task_id,
+                             root_template)[0]
 
     @classmethod
     def VALIDATE_INPUTS(cls, project=None, link=None, task=None, status=None):
@@ -213,7 +229,7 @@ class FPTPublishVersion:
 
     @staticmethod
     def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
-               p, fpt, project_id, link_type, target, task_id, output_name):
+               p, fpt, project_id, link_type, target, task_id, code_template="", root_name=""):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
         The storage root and the path template are profile data, per project like every other
@@ -226,32 +242,47 @@ class FPTPublishVersion:
         pf = p.get("published_files") or {}
         storage_id, root = sequence.root_for(publish.storages(fpt), pf.get("storage", ""))
         sequence.check_root(root)
-        template = pf.get("path_template") or sequence.DEFAULT_PATH_TEMPLATE
-        vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, target,
-                                  task_id, {"output": output_name})
+        seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
+        mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
+        # The two names the templates already decided, handed to the path as `{root_name}` and
+        # `{version_name}`. That is what stops a path rewriting the naming scheme a second time, and
+        # why `{output}` no longer appears in one: `{root_name}` IS the stream.
+        # The stream is RENDERED, not derived by subtraction. `{root_name}` is its own template, so
+        # there is no version token to strip back out — which is what used to go wrong when the path
+        # template was stripped instead of the name one.
+        root_t = root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE
+        fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
+                  | set(naming.template_fields(root_t)))
+        vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
+        # A token nobody could resolve leaves an empty segment, and `_clean` swallows it silently —
+        # so name them. corpus 028: a 200 proves nothing, and neither does a path that rendered.
+        blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
 
         # The extension follows the files, never the template: PNG is what Pillow writes from an
         # IMAGE tensor, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
-        pattern = sequence.pattern(root, template, vals, version_no, ".png")
-        out = {"root": root, "storage_id": storage_id, "template": template,
-               "declared_ext": os.path.splitext(sequence.single(template))[1].lower(),
+        out = {"root": root, "storage_id": storage_id, "template": seq_t, "blank_tokens": blank,
+               "declared_ext": os.path.splitext(sequence.single(seq_t))[1].lower(),
                "colour": colour_space.strip(), "count": count}
         if want_frames:
+            name = naming.render(root_t, vals, version_no)
+            v = dict(vals, version_name=code, root_name=name, ext=".png")
+            pattern = sequence.pattern(root, seq_t, v, version_no, ".png")
             # ComfyUI's own output directory first. The copy is what puts a file where the site can
             # resolve it; the original stays put so a failed publish is recoverable.
             out["frames"] = sequence.place(sequence.write_frames(images, code), pattern)
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
-            out["frames_name"] = sequence.stream_name(template, vals, ".png")
+            out["frames_name"] = name
         if want_movie:
             # The clip's real extension, because a deliverable is never transformed: a `.mov` off
             # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
             ext = os.path.splitext(media_path)[1].lower() or ".mp4"
-            dest = sequence.swap_ext(sequence.single(pattern), ext)
+            name = naming.render(root_t, vals, version_no)
+            v = dict(vals, version_name=code, root_name=name, ext=ext)
+            dest = sequence.pattern(root, mov_t, v, version_no, ext)
             out["media"] = sequence.copy_one(media_path, dest)
             out["media_code"] = os.path.basename(dest)
-            out["media_name"] = sequence.swap_ext(
-                sequence.single(sequence.stream_name(template, vals, ".png")), ext)
+            out["media_name"] = name
         return out
 
     @staticmethod
@@ -331,9 +362,9 @@ class FPTPublishVersion:
                    "made it.")
 
     def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
-                output_name="", note="", code_template=UNSET,
+                note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
-                register_files=False, colour_space="",
+                register_files=False, colour_space="", root_name="",
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         if images is None and video is None:
             raise ValueError(
@@ -408,7 +439,7 @@ class FPTPublishVersion:
         # to. A real version-number field is authoritative where the site has one (Toolkit sites
         # usually do); the template's own {version} is the fallback for the many sites that do not.
         code, version_no = self.next_name(code_template, project_id, link_type, target, task_id,
-                                          output_name)
+                                          root_name)
         vnum_field = p.get("version_number_field", "")
         next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
                     if vnum_field and target else None)
@@ -439,7 +470,7 @@ class FPTPublishVersion:
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
                              want_frames, want_movie, p, fpt, project_id, link_type, target,
-                             task_id, output_name)
+                             task_id, code_template, root_name)
 
         fields = dict(typed)
         # description is the human note, plus whatever the operator routed into it. The full

@@ -56,9 +56,9 @@ function publishPickers(nodeType) {
   // Every declared widget, and every one of them: the list stopped at `link_id` while the class
   // declared two more, so `vals.length === DECLARED.length` never matched a shipped graph and this
   // whole block fell through to the frontend it exists to correct.
-  const DECLARED = ["project", "link", "task", "status", "output_name", "note",
+  const DECLARED = ["project", "link", "task", "status", "note",
                     "code_template", "source_versions", "attach_workflow", "link_id",
-                    "register_files", "colour_space"];
+                    "register_files", "colour_space", "root_name"];
 
   // The node maps its own saved values, because the frontend cannot. This node has widgets the
   // class never declared — the two pickers and the panel — and widgets_values is positional, so

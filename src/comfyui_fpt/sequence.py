@@ -34,8 +34,17 @@ SEQ = media.SEQ
 # stream, `code` is one version of it).
 VERSION_TOKEN = re.compile(r"[._\-]?v?\{version[^{}]*\}", re.I)
 
-DEFAULT_PATH_TEMPLATE = ("{entity.code}/{output}/v{version:03d}/"
-                         "{entity.code}_{output}_v{version:03d}.%04d.png")
+# Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
+# not. They used to be one template with the movie path derived by stripping the frame token out of
+# it (`single`), which put a movie in among its own frames and could only be explained by reading the
+# code.
+#
+# Neither repeats the name any more. `{root_name}` and `{version_name}` are the two names themselves,
+# so the scheme is written once and a path refers to it — which is also why `{output}` is gone from
+# here: `{root_name}` IS the stream, so it is the better folder name.
+DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}"
+DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/v{version:03d}/{version_name}{ext}"
+DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # kept: profiles in the wild name this one
 
 # What to ask for, in preference order, against the types the site already has. Never created: a
 # PublishedFileType has no `project`, so creating one adds it to every show on the site (recipe 004),
@@ -160,10 +169,11 @@ def pattern(root, template, values, version, ext):
 
 
 def stream_name(template, values, ext):
-    """The filename with the version dropped: `name`, the publish stream (recipe 004).
+    """The name with the version dropped — kept for a template that still spells the version inline.
 
-    `code` is one version of a stream and `name` is the stream, so the two differ by exactly the
-    version token — which is why it is removed from the template and not from the rendered string.
+    The publish node no longer needs this: `root_name` is its own template and renders directly, so
+    the stream is composed rather than subtracted. Subtraction is what broke — strip the version out
+    of a template that merely REFERS to a name and you get the whole name back, frame number and all.
     """
     held, token = _protect(template or DEFAULT_PATH_TEMPLATE)
     bare = VERSION_TOKEN.sub("", naming.normalise_template(held))

@@ -34,9 +34,9 @@ LOAD = "FPTLoadVersion"
 
 # ComfyUI serialises widgets positionally, so these must match INPUT_TYPES order (required, then
 # optional). Built by name here because an off-by-one silently writes a value into the wrong field.
-PUBLISH_WIDGETS = ["project", "link", "task", "status", "output_name", "note",
+PUBLISH_WIDGETS = ["project", "link", "task", "status", "note",
                    "code_template", "source_versions", "attach_workflow", "link_id",
-                   "register_files", "colour_space"]
+                   "register_files", "colour_space", "root_name"]
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
                 "pin_version_id", "source", "frame", "filters"]
 # site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of

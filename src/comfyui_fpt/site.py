@@ -587,6 +587,11 @@ def status_icons():
     return _cached(("status_icons",), fetch)
 
 
+# What a bare `{entity}` / `{sg_task}` / `{project}` resolves to. A Task is named by `content` and a
+# Project by `name`; everything a Version hangs off is named by `code` (entity_types/Task, /Shot).
+NAME_FIELD = {"Task": "content", "Project": "name"}
+
+
 def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=None):
     """{path: value} for template paths like `entity.Shot.code` or `task.Task.content`.
 
@@ -601,13 +606,23 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
         if p in out:
             continue
         bits = p.split(".")
-        prefix, field = bits[0], bits[-1]
-        if prefix == "entity" and link_type and link_id:
-            wanted.setdefault((link_type, int(link_id)), []).append((p, field))
-        elif prefix in ("task", "sg_task") and task_id:
-            wanted.setdefault(("Task", int(task_id)), []).append((p, field))
-        elif prefix == "project" and project_id:
-            wanted.setdefault(("Project", int(project_id)), []).append((p, field))
+        prefix = bits[0]
+        who = ((link_type, int(link_id)) if prefix == "entity" and link_type and link_id
+               else ("Task", int(task_id)) if prefix in ("task", "sg_task") and task_id
+               else ("Project", int(project_id)) if prefix == "project" and project_id
+               else None)
+        if not who:
+            continue
+        # A BARE token is that link's own name, the way Flow PT hands one back in a relationship
+        # dict. Which field that is depends on the type: a Task is named by `content`, never `code`
+        # (entity_types/Task).
+        #
+        # A DOTTED token is handed to the server verbatim, minus the hops we already hold an id for:
+        # `sg_task.Task.entity.Shot.code` becomes `entity.Shot.code` asked of that Task. probe 003
+        # measured the answer coming back flat under the literal dotted key, which is why `field` is
+        # both what we ask for and what we read.
+        field = NAME_FIELD.get(who[0], "code") if len(bits) == 1 else (".".join(bits[2:]) or bits[-1])
+        wanted.setdefault(who, []).append((p, field))
 
     for (etype, eid), items in wanted.items():
         fields = sorted({f for _, f in items})
