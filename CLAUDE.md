@@ -27,7 +27,8 @@ before starting work.
 Python 3.11. `sg_groundtruth` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
 `shotgun_api3`, never `fpt-api` — it is AGPL. A new dependency needs a line in DESIGN.md justifying it.
 
-The sibling checkout (`sg-groundtruth/`, package `sg_groundtruth`) is expected; override with `SG_GROUNDTRUTH_PATH`.
+`sg_groundtruth` is a normal PyPI dependency — install `requirements.txt` into the interpreter ComfyUI runs on.
+The sibling checkout is still expected for the *corpus* and for `inspect_site.py`, which the package does not ship.
 
 ## Running it
 

@@ -30,7 +30,6 @@ from glob import glob
 
 import requests
 
-from . import _deps  # noqa: F401
 from sg_groundtruth.client import FPTError
 
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",

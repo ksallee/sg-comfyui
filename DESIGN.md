@@ -35,8 +35,8 @@ Requirements this imposes:
 Site access goes through `sg_groundtruth`, the sibling corpus repo's client. This repo holds node code only.
 
 The root `__init__.py` is not optional and not decoration: ComfyUI imports `custom_nodes/<dir>/__init__.py`
-directly (`nodes.py:2263`) and a `src/` layout is invisible to it. Any module importing `sg_groundtruth` must
-import `_deps` first — import order inside the package decides whether the path is set up yet.
+directly (`nodes.py:2263`) and a `src/` layout is invisible to it. `sg_groundtruth` is an ordinary installed
+dependency, so any module may import it in any order.
 
 ### Two paths
 
@@ -882,21 +882,21 @@ searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chip
 
 ### The dependency problem
 
-`_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a
-registry install gets this repo and nothing else, and `sg-groundtruth` is private.
+**Closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI and this repo depends on it normally, in
+`requirements.txt` (what ComfyUI-Manager installs) and in `pyproject.toml` (what the Registry reads).
+`_deps.py`, which put a sibling checkout on `sys.path`, is gone, and with it `SG_GROUNDTRUTH_PATH`.
 
-Three ways out were weighed, and the first is **chosen** (2026-09-04):
+Until then a registry install got this repo and nothing else, and `sg-groundtruth` was private. Three ways
+out were weighed, and the first was **chosen** (2026-09-04) and is now done:
 
 1. **Publish the *client* half of `sg-groundtruth` to PyPI as a slim package** and depend on it normally. The
-   corpus stays private; only the client ships. Done in `sg-groundtruth`, not here — this repo keeps
-   `_deps.py` and the sibling checkout until the package is on PyPI and the green light is given, then swaps
-   to a plain dependency in one commit.
+   corpus stays private; only the client ships.
 2. Vendor the client into this repo. Rejected: it forks, and a client fix would have to land twice.
 3. Declare a git dependency. Rejected: fragile, and impossible while the repo is private.
 
 The surface is small enough that the choice was never about effort — 99 lines across two files, `FPT` and
 `FPTError` from `client.py` and `load` from `env.py`, with `mcp.py`, `naming.py` and `schema.py` unused and
-nothing reaching the corpus. `env.ROOT` resolving to site-packages once installed is a non-issue: `site.py`
-already passes this repo's own root to `load`.
+nothing reaching the corpus. `env.ROOT` resolving to site-packages once installed is a non-issue, and this
+is the case now: `site.py` passes this repo's own root to `load`.
 
 Decided before publishing, not after — `[project].name` on the Registry is immutable.

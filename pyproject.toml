@@ -13,8 +13,10 @@ version = "0.1.0"
 keywords = ["flow production tracking", "shotgrid", "shotgun", "vfx", "provenance", "version", "pipeline"]
 license = "MIT"
 license-files = ["LICENSE"]
-# sg_groundtruth is missing on purpose — see the note at the end of this file.
-dependencies = ["requests", "Pillow"]
+# sg-groundtruth is the corpus repo's client half, on PyPI since 0.1.1 (DESIGN: "The dependency
+# problem"). It pulls `requests` itself; `requests` and `Pillow` are named anyway because ComfyUI
+# ships both and a Registry install must not depend on that staying true.
+dependencies = ["sg-groundtruth>=0.1.1", "requests", "Pillow"]
 
 [project.urls]
 Repository = "https://github.com/ksallee/comfyui-flow-production-tracking"
@@ -29,8 +31,3 @@ Icon = ""
 # MIT, because a studio's legal review of a node pack should take no time and the repo is meant to be
 # forked. Nothing is vendored from ComfyUI's GPL-3.0 frontend, which is the constraint that would
 # have forced otherwise.
-#
-# One thing must still be decided before this can publish:
-#
-#   the client  `sg_groundtruth` is not installable, so a Registry install of this package alone will
-#             not run. DESIGN.md, "The dependency problem", lists the three ways out.
