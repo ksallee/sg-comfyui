@@ -136,10 +136,17 @@ rendered sequence and the mp4 are told apart at a glance. A file whose path is o
 has not mounted is not offered at all.
 
 `frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
-loaded clip a real input to a video graph. It defaults to `1`, the single image the node always
-returned, so nothing already saved changes. The ceiling is a size rather than a count: past 4 GiB of
-float32 the node refuses and says how many frames fit at that resolution, instead of running out of
-VRAM. Frames of differing resolution cannot stack and are refused by name.
+loaded clip a real input to a video graph.
+
+`frame` is the frame **number**, the one in the filename: `1003` means `plate.1003.exr`, not the 1003rd
+file. Leave it at **0** and it starts wherever the sequence starts, which is what a 1001-based plate
+wants and why it usually needs no typing at all; the panel shows the range the source actually has, so
+you are not guessing. Ask for a frame that is not there and it is refused, naming the range — it will
+never quietly hand back a different frame. `frame_count` **0** reads to the end; it defaults to `1`,
+the single image the node always returned, so nothing already saved changes. The ceiling is a size
+rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
+resolution, instead of running out of VRAM. Frames of differing resolution cannot stack and are
+refused by name.
 
 `colour_space` comes back as a fourth output and on the panel when the publisher declared one. Read
 back, never applied — nothing here converts, and a Version that declared nothing says nothing.

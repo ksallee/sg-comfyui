@@ -308,6 +308,24 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       // must see before the pixels reach a node that assumes sRGB. Said, never applied — this
       // project does not convert.
       if (d.source_label) rows.push(["source", d.source_label]);
+      // The frame numbers this source actually has. `frame` is a number in a filename, and without
+      // this the only way to learn a plate runs 1001-1048 was to type a wrong number and read the
+      // error. 0 needs nothing typed at all, which is why it says so here rather than only in a
+      // tooltip nobody opens twice.
+      if (d.frames) {
+        // `?? 1`, not `|| 1`: 0 is the value that means "all of them", and `||` reads it as unset.
+        const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 1);
+        const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
+        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}`;
+        if (ask && (ask < f.first || ask > f.last)) {
+          note += ` — frame ${ask} is not in it; this will not run`;
+        } else {
+          const at = ask || f.first;
+          const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
+          note += ` — reads ${got === 1 ? `frame ${at}` : `${got} from ${at}`}`;
+        }
+        rows.push(["frames", note]);
+      }
       if (d.colour_space) rows.push(["colour space", `${d.colour_space} — declared, not converted`]);
       for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);

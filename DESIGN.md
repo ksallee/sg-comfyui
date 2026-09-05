@@ -466,6 +466,23 @@ A sequence that comes back one frame at a time is not an input to a video graph,
 **batch of N frames** — a sequence off disk, or a movie decoded. `frame` is the first frame of the range and
 kept that meaning; `frame_count` beside it says how many.
 
+`frame` is a frame **number**, the one in the filename and the one Flow PT shows. It was a *position* in the
+sorted list, and only in the batch path: `_at_frame` substituted the number into the pattern while
+`load_frames` — which is what the node actually calls — indexed. On a 1001-based plate that made `frame` 1003
+hand back frame 1008, the last one, silently clamped. Both read the numbers off the filenames now
+(`media.frame_numbers`), a frame the sequence does not have is refused with the range it does have, and the
+one thing this repo cannot do is return a different frame than the one asked for.
+
+The numbers come off **disk**, not from `sg_first_frame`/`sg_last_frame`. Those are a claim a publisher made
+once and nothing keeps them true; the filenames are the sequence.
+
+`frame` **0** is "whatever this source starts at", which is the answer nearly every time — a plate that runs
+1001-1048 needs nothing typed. That is also why the range is on the panel beside the source: a number you
+must know before you can type it, and could previously learn only by typing a wrong one, is not a widget an
+artist can use. `frame_count` **0** is every frame to the end. A movie carries no numbering inside it, so
+there `frame` counts decoded frames from 1 and 0 means the same as 1, and the panel says nothing rather than
+inventing a range.
+
 `frame_count` defaults to **1**, which is exactly what the node always returned. A batch is opted into, never
 handed over: a graph saved before the widget existed asks for one image and must keep getting one. The widget
 is also *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
@@ -476,7 +493,9 @@ not.
 The batch has to be bounded, because 300 frames of 4K is 27.8 GiB of float32 and an allocator's answer to
 that is a stack trace. So the ceiling is a **size**, not a count: `media.BATCH_BUDGET` is 4 GiB, checked
 against the real resolution after the first frame is read, and the refusal names the resolution, the total,
-and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. A short
+and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. With
+`frame_count` 0 there is no count to check up front, so a sequence — which knows its length from the glob
+before it reads anything — still gets the one check, and a movie gets it against what has accumulated. A short
 read comes back short and says so — padding a batch to the number asked for would be this node inventing
 frames — and frames whose size changes mid-sequence are refused by filename rather than by two shapes in a
 torch traceback, because they cannot stack and no resize belongs here.

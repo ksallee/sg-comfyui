@@ -103,6 +103,33 @@ def frame_glob(pattern):
     return pattern if not m else pattern[:m.start()] + "*" + pattern[m.end():]
 
 
+def frame_numbers(pattern):
+    """(number, path) for every file of a sequence, in frame order.
+
+    The numbers off disk, not `sg_first_frame`/`sg_last_frame`. Those two are a claim the publisher
+    made once and nothing keeps them true; the filenames are the sequence. A plate is 1001-based far
+    more often than it is 1-based, so the difference between the two is a wrong frame, not a detail.
+    """
+    m = SEQ.search(pattern or "")
+    if not m:
+        return []
+    # The glob finds the files; this says which frame each one IS. `\d+` rather than the token's own
+    # width, because a sequence that runs past its padding (`.9999.png`, `.10000.png`) is still that
+    # sequence and reading 4 digits would drop the frames that need 5.
+    rx = re.compile(re.escape(pattern[:m.start()]) + r"(\d+)" + re.escape(pattern[m.end():]) + r"$")
+    return sorted((int(hit.group(1)), p) for p in glob(frame_glob(pattern))
+                  if (hit := rx.match(p)))
+
+
+def frame_range(v, key):
+    """(first, last, count) of the sequence this source reads, or None when it is not a sequence.
+
+    For the panel, so `frame` is a number the operator can see rather than one they guess at.
+    """
+    nums = frame_numbers(pattern_of(v, key))
+    return (nums[0][0], nums[-1][0], len(nums)) if nums else None
+
+
 def published_files(fpt, version_id):
     """Every PublishedFile on this Version, flattened to what a picker and a loader need.
 
@@ -332,14 +359,21 @@ def load(v, key, frame=1):
 
 
 def _at_frame(pattern, frame):
-    """(bytes, filename) for one file of a sequence, or for a path with no frame token at all."""
+    """(bytes, filename) for one file of a sequence, or for a path with no frame token at all.
+
+    `frame` is the number in the filename. It used to fall back to the position in the sorted list
+    when that file was missing, which is how "frame 1003" could come back as frame 1008; the range
+    is named instead, because a reader that quietly returns a different frame than the one asked for
+    is the failure this node exists to make impossible.
+    """
     path = frame_path(pattern, frame)
-    if not os.path.exists(path):
-        hits = sorted(glob(frame_glob(pattern or "")))
-        if not hits:
-            raise FPTError(f"no frames match {pattern!r}")
-        path = hits[min(max(int(frame) - 1, 0), len(hits) - 1)]
-    return open(path, "rb").read(), os.path.basename(path)
+    if os.path.exists(path):
+        return open(path, "rb").read(), os.path.basename(path)
+    nums = frame_numbers(pattern)
+    if not nums:
+        raise FPTError(f"no frames match {pattern!r}")
+    raise FPTError(f"{os.path.basename(pattern)} has no frame {frame}. It runs "
+                   f"{nums[0][0]}-{nums[-1][0]}, {len(nums)} frames.")
 
 
 def _download(url):
@@ -350,31 +384,47 @@ def _download(url):
     return r.content
 
 
-def load_frames(v, key, start=1, count=1):
-    """`count` PIL images from `start`. One item is exactly what a single-frame read always was.
+def load_frames(v, key, start=0, count=1):
+    """`count` PIL images from frame `start`. One item is exactly what a single-frame read always was.
 
     A clip is why this exists: a sequence PublishedFile that comes back one frame at a time is not an
     input to a video graph, and neither is a movie decoded to its first frame.
 
+    `start` is the frame NUMBER, the one in the filename and the one Flow PT shows — not a position
+    in the list. It was a position, and on a 1001-based plate that made `frame` 1003 hand back the
+    last frame of the sequence without saying anything. Two functions here disagreed about it:
+    `_at_frame` substituted the number into the pattern and this one indexed, and this one is what
+    the node calls.
+
+    `start` 0 is the first frame the source actually has, which is the answer nearly every time and
+    the reason the widget can be left alone. `count` 0 is every frame from there to the end.
+
     Fewer than `count` come back when the source runs out. A short batch is a fact about the media;
     padding it to the number asked for would be this node inventing frames.
     """
-    count = max(int(count), 1)
+    count, start = int(count), int(start)
     pat = pattern_of(v, key)
     if pat:
-        hits = sorted(glob(frame_glob(pat)))
-        if not hits:
+        nums = frame_numbers(pat)
+        if not nums:
             raise FPTError(f"no frames match {pat!r}")
-        # `start` is the first frame of the range, never a repurposed "which one frame": the widget
-        # kept its meaning when the count was added beside it.
-        first = min(max(int(start) - 1, 0), len(hits) - 1)
-        chosen = hits[first:first + count]
+        first = nums[0][0] if start <= 0 else start
+        at = next((i for i, (n, _) in enumerate(nums) if n == first), None)
+        if at is None:
+            raise FPTError(
+                f"{os.path.basename(pat)} has no frame {first}. It runs {nums[0][0]}-{nums[-1][0]}, "
+                f"{len(nums)} frames. `frame` is the number in the filename, not a position in the "
+                f"list, and 0 starts at whatever the sequence itself starts at.")
+        chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
         # never has to refuse frame_count 500, and a 500-frame one still does.
         return _stack(_stills(chosen), len(chosen),
-                      f"{os.path.basename(pat)} has no frame {start}")
-    data, filename = load(v, key, start)
-    return _stack(_decode(data, filename, start), count, f"{filename} has no frame {start}")
+                      f"{os.path.basename(pat)} has no frame {first}")
+    # Not a sequence: one blob, and a movie's frames come out of decoding it. There are no numbers in
+    # a container to match, so here `start` counts decoded frames from 1 and 0 means the same as 1.
+    at = max(start, 1)
+    data, filename = load(v, key, at)
+    return _stack(_decode(data, filename, at), count, f"{filename} has no frame {at}")
 
 
 def _stills(paths):
@@ -412,7 +462,7 @@ def _stack(frames, count, empty):
     out = []
     for img, name in frames:
         if not out:
-            _budget(img.size, count)
+            _budget(img.size, max(count, 1))
         elif img.size != out[0].size:
             w, h = img.size
             w0, h0 = out[0].size
@@ -420,7 +470,12 @@ def _stack(frames, count, empty):
                 f"{name} is {w}×{h} but this batch started {w0}×{h0}: frames of different sizes "
                 f"cannot stack into one IMAGE. Load the runs separately, or resize before the batch.")
         out.append(img)
-        if len(out) >= count:
+        # `count` 0 is "everything there is". A sequence knows how many that is before it reads
+        # anything and arrives here with a real number; a movie does not, so the budget is checked
+        # against what has actually accumulated rather than against a count nobody has yet.
+        if count <= 0:
+            _budget(out[0].size, len(out))
+        elif len(out) >= count:
             break
     if not out:
         raise FPTError(empty)
