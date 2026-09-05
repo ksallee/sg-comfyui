@@ -19,7 +19,6 @@ from pathlib import Path
 
 import requests
 
-from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
 from sg_groundtruth.client import FPT, FPTError
 from sg_groundtruth.env import load as load_env
 

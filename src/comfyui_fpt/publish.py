@@ -6,7 +6,6 @@ import json
 
 import requests
 
-from . import _deps  # noqa: F401  puts sg_groundtruth on sys.path
 from sg_groundtruth.client import FPTError
 
 

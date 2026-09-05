@@ -16,25 +16,25 @@ studio's conventions are hardcoded.
   Key, made in the Flow PT web UI under Admin > Scripts. The script needs to read Projects, Versions,
   Tasks and whatever entities you link to, to create Versions and upload media, and — for the one-off
   field setup — to create fields on Version.
-- **A checkout of `sg-groundtruth` beside this one.** That is the API client and the corpus of probe
-  findings the code cites. It is **private and not on PyPI**, so today there is no way to install this
-  without access to it. Whether to publish the client half is an open decision (DESIGN.md, "The
-  dependency problem"); until it is made, a Registry install of this repo alone would not run. This is
-  the single thing standing between here and a normal install.
+- **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
+  names it, and ComfyUI-Manager installs that file. Nothing to clone to *run* the nodes.
+- **A checkout of `sg-groundtruth` beside this one, to *set up*.** Step 1 below measures your site with
+  `../sg-groundtruth/inspect_site.py`, and that inspector is in the corpus repo, not in the PyPI
+  package. Without it there is no `profile.local.json`, and no picker has anything to read.
 
 ## Install
 
 ```sh
 cd ComfyUI/custom_nodes
 git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
-git clone <sg-groundtruth>            # beside it, not inside it
 cd comfyui-flow-production-tracking
-cp .env.local.example .env.local      # then fill in the three keys
+<comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
+cp .env.local.example .env.local                    # then fill in the three keys
 ```
 
-`sg-groundtruth` is looked for in the directory *containing* this repo — so cloning into
-`custom_nodes/` puts it at `custom_nodes/sg-groundtruth`, which works. To keep it elsewhere, export
-`SG_GROUNDTRUTH_PATH=/path/to/sg-groundtruth` in the environment ComfyUI is launched from.
+`<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
+launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
+imports, the site never answers.
 
 `.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
 value.

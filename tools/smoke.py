@@ -13,8 +13,8 @@ Needs playwright, which ComfyUI's own venv does not have:
 
     uv run --with playwright --python 3.11 python tools/smoke.py --port 8999
 
-From a git worktree, also `SG_GROUNDTRUTH_PATH=…/sg-groundtruth`: a worktree has no sibling
-checkout, the node pack then fails to import, and every graph reports no FPT node instead of failing.
+`--with sg-groundtruth` is worth adding if the interpreter running this does not have it: without it
+the node pack fails to import and every graph reports no FPT node instead of failing.
 
 Exit status is the number of workflows that failed, so it works in a pipeline.
 """
