@@ -363,7 +363,9 @@ function loadPickers(nodeType) {
     let projectId = 0, linkIds = {}, projectRows = [];
     // The SG Filters box mirrors the pickers until someone edits it, then it is theirs. Comparing
     // against the last value we wrote is how we tell: no flag to keep in sync, no mode to explain.
-    let mirrored = "";
+    // No mirror state. `extra filters` holds the operator's OWN conditions, ANDed onto the fields
+    // server-side, so the box is never something this node wrote — which is what used to go stale
+    // and silently replace the whole query on a reloaded graph.
 
     const relayout = () => fitNode(this);
 
@@ -444,8 +446,9 @@ function loadPickers(nodeType) {
         // its own (now stale) content win over the very fields it is meant to reflect.
         // String(): a workflow saved before this widget moved can land a number here, and a raw
         // .trim() on it takes the whole picker down.
-        filters: String(val("filters") ?? "").trim() === mirrored.trim()
-          ? "" : String(val("filters") ?? ""),
+        // String(): a graph saved before this widget moved can land a number here, and a raw
+        // .trim() on it takes the whole picker down.
+        filters: String(val("filters") ?? ""),
       });
       for (const s of String(val("statuses") || "").split(",")) {
         const t = s.trim();
@@ -454,15 +457,17 @@ function loadPickers(nodeType) {
       panel.loading();
       const d = await get(`/fpt/resolve?${q}`);
       if (mine !== resolving) return;      // superseded while we waited; that answer is the current one
-      panel.show(d);
-      const box = w("filters");
-      if (box && d.filters && String(box.value ?? "").trim() === mirrored) {
-        const next = JSON.stringify(d.filters, null, 1);
-        if (next !== mirrored) {          // only when it actually changed; a no-op write still
-          mirrored = next;                // notifies under the Vue value store
-          box.value = next;
-        }
-      }
+      // An escape hatch that is switched on must SAY so. Both of these make the fields above
+      // decorative, and silently: a pinned id ignores the whole rule, and an edited filter replaces
+      // it. The alert line is amber for the same reason the name's is — it is not an error, it is
+      // "what you are reading is not what those fields say".
+      // `extra filters` narrows rather than replaces, so it is not an override and says nothing.
+      // A pin still is one: it ignores every field on the node.
+      const pinned = Number(val("pin_version_id") || 0);
+      panel.show({
+        ...d,
+        alert: d.alert || (pinned ? `pinned to Version ${pinned} — every field above is ignored` : ""),
+      });
       if (source) {
         source.options.values = ["auto"].concat(d.media || []);
         // A saved value the site no longer offers falls back to `auto` rather than staying as a
@@ -523,13 +528,18 @@ function loadPickers(nodeType) {
     wrap(project, loadProject);
     wrap(linkTypeW, loadLinks);
     wrap(link, loadTasks);
-    // `filters` is deliberately absent. refresh writes it (`box.value = mirrored`), and wrapping it
-    // made that write call refresh again — 7 resolves every 6 seconds at idle, one always in flight,
-    // so the panel could never leave "loading".
+    // `filters` is here now. It used to be excluded because refresh WROTE it, so wrapping it made
+    // that write call refresh again — 7 resolves every 6 seconds at idle. Nothing writes it any
+    // more, so it can drive a refresh like any other field; debounced, because it is typed.
     // `source` is here and `frame`/`frame_count` are not: which file is read changes the type, the
     // count and the declared colour space the readout shows, while where in it to start does not.
     ["task", "name_contains", "statuses", "newest_by", "pin_version_id", "source"].forEach((n) =>
       wrap(w(n), (value) => refresh({ [n]: value })));
+    let typing;
+    wrap(w("filters"), (value) => {
+      clearTimeout(typing);
+      typing = setTimeout(() => refresh({ filters: value }), 400);
+    });
 
     dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
     loadProject();

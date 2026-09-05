@@ -84,7 +84,10 @@ const CSS = `
    status colour is a dot: still there to recognise, no longer carrying the selected state too. */
 .fpt-chips { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
   padding: 2px 0; font: 11px Inter, ui-sans-serif, system-ui, sans-serif; }
-.fpt-chip { display: inline-flex; align-items: center; gap: 5px; padding: 2px 8px; cursor: pointer;
+.fpt-more { font-style: italic; opacity: .75; }
+.fpt-more .fpt-tick { display: none; }
+.fpt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; cursor: pointer;
+  font-size: 11px;
   border-radius: 9px; font-size: 10px; color: var(--color-node-component-slot-text, #b9c0c8);
   background: var(--color-component-node-widget-background, #23272d);
   border: 1px solid transparent; }
@@ -512,15 +515,31 @@ export function chipSelect(node, target, { load, label, empty = "this project of
 
   const chosen = () => new Set(String(target.value || "").split(",").map((s) => s.trim()).filter(Boolean));
 
+  // A show allows twenty statuses and uses two. `/fpt/statuses` already returns them most-used-first
+  // (probe 020), so the first few are the answer and the rest are the long tail — 15 chips over
+  // seven rows made the node mostly status picker.
+  const KEEP = 4;
+  let expanded = false;
+
   const draw = (items) => {
     const on = chosen();
-    root.innerHTML = items.map((it) => (
+    // A selected status is never hidden, however far down the tail it sits: a fold that swallows
+    // part of the current answer is worse than a long row.
+    const head = items.filter((it, i) => i < KEEP || on.has(it.label));
+    const shown = expanded ? items : head;
+    const hidden = items.length - shown.length;
+    const chip = (it) =>
       `<span class="fpt-chip${on.has(it.label) ? " on" : ""}" data-label="${esc(it.label)}">
         <span class="fpt-tick">✓</span>
-        ${iconHtml(it.icon, it.rgb)}${esc(it.label)}</span>`
-    )).join("") || `<span class="fpt-pop-note">${esc(empty)}</span>`;
+        ${iconHtml(it.icon, it.rgb)}${esc(it.label)}</span>`;
+    root.innerHTML = (shown.map(chip).join("")
+      + (hidden > 0 ? `<span class="fpt-chip fpt-more" data-more="1">+${hidden} more</span>` : "")
+      + (expanded && items.length > head.length
+         ? `<span class="fpt-chip fpt-more" data-more="0">less</span>` : ""))
+      || `<span class="fpt-pop-note">${esc(empty)}</span>`;
     root.querySelectorAll(".fpt-chip").forEach((el) => {
       el.onclick = () => {
+        if (el.dataset.more !== undefined) { expanded = el.dataset.more === "1"; return draw(items); }
         const set = chosen();
         const l = el.dataset.label;
         set.has(l) ? set.delete(l) : set.add(l);
