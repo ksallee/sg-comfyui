@@ -146,6 +146,8 @@ def main():
     ap.add_argument("--drive", default="", help="file with the async body to run; - for stdin")
     ap.add_argument("--shot", default="", help="write a screenshot here")
     ap.add_argument("--video", default="", help="record the session to this .webm")
+    ap.add_argument("--viewport", default="1100x950",
+                    help="browser size WxH; a recording wants a fixed aspect, not a crop")
     ap.add_argument("--repo", default="", help="checkout to load as the node pack (default: this one)")
     ap.add_argument("--keep", action="store_true", help="leave the instance running")
     # The notice a node draws when Nodes 2.0 is off is a thing to look at, so it has to be reachable
@@ -176,9 +178,10 @@ def main():
             b = p.chromium.launch(headless=True)
             # Video is a context setting, not a page one, and the file is only finalised when the
             # context closes — so the path is read back after, never before.
-            ctx = b.new_context(viewport={"width": 1100, "height": 950},
+            vw, vh = (int(x) for x in a.viewport.lower().split("x"))
+            ctx = b.new_context(viewport={"width": vw, "height": vh},
                                 **({"record_video_dir": str(Path(a.video).parent),
-                                    "record_video_size": {"width": 1100, "height": 950}}
+                                    "record_video_size": {"width": vw, "height": vh}}
                                    if a.video else {}))
             pg = ctx.new_page()
             # ComfyUI asks "leave site?" whenever the graph is dirty; nothing here needs saving.
