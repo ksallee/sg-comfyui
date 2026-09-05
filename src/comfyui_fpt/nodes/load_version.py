@@ -109,9 +109,16 @@ class FPTLoadVersion:
                 "source": ([AUTO], {"default": AUTO,
                                     "tooltip": "Which media to pull. `auto` takes the best this "
                                                "Version can actually deliver.", "advanced": True}),
-                "frame": ("INT", {"default": 1, "min": 1, "max": 1048576,
-                                  "tooltip": "First frame to read from a sequence or a movie.",
-                                  "advanced": True}),
+                "frame": ("INT", {"default": 0, "min": 0, "max": 1048576, "advanced": True,
+                          "tooltip": "Which frame to start at, BY THE NUMBER IN THE FILENAME — 1003 "
+                                     "means `plate.1003.exr`, not the 1003rd file in the folder. It "
+                                     "is the number Flow PT shows you.\n\n0 is 'whatever this "
+                                     "source starts at', which is the right answer nearly always and "
+                                     "why this can be left alone: a plate that runs 1001-1048 needs "
+                                     "no typing. Ask for a frame the sequence does not have and it "
+                                     "is refused, and the error names the range it does have.\n\n"
+                                     "A movie has no numbers inside it, so there this counts decoded "
+                                     "frames from 1 and 0 means the same as 1."}),
                 # The API's own language, for when the fields here cannot say it. Empty means the
                 # fields decide; the panel shows what they add up to, so this starts as a copy of
                 # something that already works rather than a blank page.
@@ -141,10 +148,11 @@ class FPTLoadVersion:
                 # Default 1 for the same reason. A batch is what makes a loaded clip a real input to
                 # a video graph, but a graph saved before this widget existed asks for one image and
                 # must keep getting one — the operator opts in to a clip, they are never given one.
-                "frame_count": ("INT", {"default": 1, "min": 1, "max": media.MAX_FRAMES,
+                "frame_count": ("INT", {"default": 1, "min": 0, "max": media.MAX_FRAMES,
                                 "advanced": True,
                                 "tooltip": "How many frames to read as one batch, starting at "
-                                           "`frame`. 1 is a single image. A sequence or a movie can "
+                                           "`frame`. 1 is a single image; 0 is all of them, to the "
+                                           "end of the sequence or the movie. A sequence or a movie can "
                                            "give more; a still cannot. Large batches are refused by "
                                            "size, not by count — the error says what fits at this "
                                            "resolution."}),
@@ -227,7 +235,7 @@ class FPTLoadVersion:
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
-                   source=AUTO, frame=1, frame_count=1, **kw):
+                   source=AUTO, frame=0, frame_count=1, **kw):
         """Re-resolve at queue time, so the graph sees what has been published since.
 
         Without this ComfyUI caches on unchanged widgets and a re-run costs 0.00s without asking the
@@ -246,7 +254,7 @@ class FPTLoadVersion:
 
     def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-              frame=1, frame_count=1, unique_id=None):
+              frame=0, frame_count=1, unique_id=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:
@@ -289,7 +297,11 @@ class FPTLoadVersion:
         frames = media.load_frames(v, key, frame, frame_count)
         a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
         colour = media.colour_of(v, key)
-        got = f"{len(frames)} frames from {frame}" if len(frames) > 1 else f"frame {frame}"
+        # The frame it STARTED at, not the number that was typed: `frame` 0 means "wherever this
+        # sequence begins", and a log line saying "from 0" names a frame that does not exist.
+        rng = media.frame_range(v, key)
+        at = (rng[0] if rng else 1) if int(frame) <= 0 else int(frame)
+        got = f"{len(frames)} frames from {at}" if len(frames) > 1 else f"frame {at}"
         # Said out loud, because a batch that came back short is a fact about the media the graph
         # downstream will otherwise discover as a wrong frame count.
         short = f" (asked for {frame_count})" if len(frames) < int(frame_count) else ""

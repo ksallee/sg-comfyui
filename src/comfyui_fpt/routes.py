@@ -238,6 +238,11 @@ def register():
                 # The label of what will actually be read — "Rendered Image — foo.%04d.png, 6
                 # frames" says the type, the file and the count that the bare key cannot.
                 "source_label": next((l for k, l in available if k == key), ""),
+                # The frame numbers this source actually has, so `frame` is read off the panel
+                # instead of guessed. Only a sequence has them: a movie carries no numbering, and
+                # saying nothing is the honest answer there.
+                "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
+                    media.frame_range(v, key)),
                 "colour_space": media.colour_of(v, key)})
         except Exception as e:
             # `error`, not `summary`: nothing read `summary`, so a pin pointing at a Version that is

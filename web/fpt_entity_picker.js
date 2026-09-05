@@ -430,6 +430,27 @@ function loadPickers(nodeType) {
     // `over` carries the value the callback was handed. A widget's own .value is not always
     // assigned yet when its callback fires (see `wrap`), so reading it here asked the site about
     // the PREVIOUS status and rendered that answer as if it were current.
+    // The last answer from /fpt/resolve, kept so the frame widgets can redraw the readout without
+    // asking the site again: the range came off disk once and which slice of it to take is
+    // arithmetic. A spinner held down would otherwise be one round trip per click.
+    let resolved = null;
+    const draw = () => {
+      if (!resolved) return;
+      panel.show({
+        ...resolved,
+        // What the two frame widgets are asking for, so the frames row says what WILL be read
+        // rather than only what exists. Read off the widgets, not through refresh's `val` — that
+        // one closes over the pending override and does not exist out here.
+        frame_ask: Number(w("frame")?.value || 0),
+        count_ask: Number(w("frame_count")?.value ?? 1),
+        // An escape hatch that is switched on must SAY so, and silently is how it goes wrong: a
+        // pinned id ignores the whole rule. `extra filters` narrows rather than replaces, so it is
+        // not an override and says nothing.
+        alert: resolved.alert || (resolved.pinned
+          ? `pinned to Version ${resolved.pinned} — every field above is ignored` : ""),
+      });
+    };
+
     const refresh = async (over = {}) => {
       const mine = ++resolving;
       const val = (n) => (n in over ? over[n] : w(n)?.value);
@@ -457,17 +478,9 @@ function loadPickers(nodeType) {
       panel.loading();
       const d = await get(`/fpt/resolve?${q}`);
       if (mine !== resolving) return;      // superseded while we waited; that answer is the current one
-      // An escape hatch that is switched on must SAY so. Both of these make the fields above
-      // decorative, and silently: a pinned id ignores the whole rule, and an edited filter replaces
-      // it. The alert line is amber for the same reason the name's is — it is not an error, it is
-      // "what you are reading is not what those fields say".
-      // `extra filters` narrows rather than replaces, so it is not an override and says nothing.
-      // A pin still is one: it ignores every field on the node.
       const pinned = Number(val("pin_version_id") || 0);
-      panel.show({
-        ...d,
-        alert: d.alert || (pinned ? `pinned to Version ${pinned} — every field above is ignored` : ""),
-      });
+      resolved = { ...d, pinned };
+      draw();
       if (source) {
         source.options.values = ["auto"].concat(d.media || []);
         // A saved value the site no longer offers falls back to `auto` rather than staying as a
@@ -531,10 +544,14 @@ function loadPickers(nodeType) {
     // `filters` is here now. It used to be excluded because refresh WROTE it, so wrapping it made
     // that write call refresh again — 7 resolves every 6 seconds at idle. Nothing writes it any
     // more, so it can drive a refresh like any other field; debounced, because it is typed.
-    // `source` is here and `frame`/`frame_count` are not: which file is read changes the type, the
-    // count and the declared colour space the readout shows, while where in it to start does not.
+    // `source` is here: which file is read changes the type, the count and the declared colour
+    // space the readout shows.
     ["task", "name_contains", "statuses", "newest_by", "pin_version_id", "source"].forEach((n) =>
       wrap(w(n), (value) => refresh({ [n]: value })));
+    // `frame` and `frame_count` redraw and do not re-resolve. They used to do neither, on the
+    // reasoning that where in a sequence to start does not change the readout — which stopped being
+    // true when the readout started saying which frames will be read.
+    ["frame", "frame_count"].forEach((n) => wrap(w(n), draw));
     let typing;
     wrap(w("filters"), (value) => {
       clearTimeout(typing);
