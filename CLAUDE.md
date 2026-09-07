@@ -70,4 +70,17 @@ Forkers drive this repo with an agent, not by reading it. Small files, explicit 
 
 ## Style
 
-Terse. Comments explain why, never what. Docstrings only for non-obvious behaviour or a probe citation.
+Terse and declarative. The code says what it is; comments and docstrings do not narrate how it got
+there.
+
+- **Docstrings** are one short sentence saying what the thing does. A parameter gets a short phrase
+  only where its name does not already say it. A function whose behaviour is genuinely not
+  self-evident may take three or four more sentences — that is the exception, not the shape.
+- **Comments** appear only where the code alone is hard to follow, and state the rule or the
+  constraint, never its discovery.
+- **No history.** No dates, no "used to", no past bugs, no PR or commit numbers, no session
+  narrative, no first person. What changed is in git; what was decided is in DESIGN.md.
+- **`probe NNN` and `recipe NNN` citations stay.** They point at the corpus, which is the only
+  reason this repo may claim anything about the API.
+- A measured fact the code cannot show survives as one declarative line. Losing the fact is the only
+  thing worse than telling its story.

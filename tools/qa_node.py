@@ -1,11 +1,6 @@
 #!/usr/bin/env python3
 """Drive one node in a real ComfyUI, headless, and print only what was asked for.
 
-Why a script and not a browser MCP: an MCP returns an accessibility snapshot and a console log on
-every call, which is most of what a UI session costs. Published benchmarks put a ten-step task at
-~114k tokens through Playwright MCP against ~27k through a CLI that writes to disk and lets the
-agent read only what it needs. This is that shape, narrowed to one job.
-
     tools/qa_node.py --start --port 8189 --node FPTLoadVersion --drive drive.js --shot out.png
 
 --start launches an isolated ComfyUI: its own port AND its own --user-directory, so two agents never
@@ -13,6 +8,10 @@ share settings, workflows or a queue. Without it, an already-running instance on
 
 The drive file is the body of an async function receiving ({app, node, wait, $, $$}). Whatever it
 returns is printed as JSON. Nothing else is printed, so the agent pays for its own answer only.
+
+Needs playwright, which ComfyUI's own venv does not have:
+
+    uv run --with playwright --python 3.11 python tools/qa_node.py --start --node FPTLoadVersion
 """
 import argparse
 import json
@@ -23,6 +22,7 @@ import subprocess
 import sys
 import tempfile
 import time
+import urllib.request
 from pathlib import Path
 
 COMFY = Path(os.environ.get("COMFYUI_PATH", Path.home() / "dev" / "ComfyUI"))
@@ -40,14 +40,12 @@ def free_port(start):
 def start_comfy(port, vue=True, repo=None):
     """An instance of our own: own port, own custom_nodes, own user directory.
 
-    --base-directory relocates custom_nodes, input, output, temp, user AND models — it resets every
-    default path (folder_paths.py:15), which the help text does not say. So models and inputs are
-    pointed back at the real tree explicitly; without that an isolated instance sees an empty model
-    list and every loader fails validation.
+    ComfyUI/custom_nodes/<pack> is a symlink to the main checkout, so without a base directory of
+    its own every instance loads main's code and an agent verifies someone else's work, not its own.
 
-    The isolation is what matters: ComfyUI/custom_nodes/<pack> is a symlink to the MAIN checkout, so
-    without a base directory every instance loads main's code and an agent verifies someone else's
-    work instead of its own.
+    --base-directory resets every default path (folder_paths.py:15) — custom_nodes, input, output,
+    temp, user AND models — so models and inputs are pointed back at the real tree explicitly.
+    Without that the instance sees an empty model list and every loader fails validation.
     """
     base = Path(tempfile.mkdtemp(prefix=f"comfyqa-{port}-"))
     repo = Path(repo or Path(__file__).resolve().parents[1])
@@ -74,7 +72,6 @@ def start_comfy(port, vue=True, repo=None):
 
 
 def wait_ready(port, timeout=180):
-    import urllib.request
     for _ in range(timeout):
         try:
             urllib.request.urlopen(f"http://127.0.0.1:{port}{READY}", timeout=3).read()
@@ -82,6 +79,29 @@ def wait_ready(port, timeout=180):
         except Exception:
             time.sleep(1)
     return False
+
+
+def launch(port, vue=True, repo=None):
+    """Start an isolated ComfyUI on the first free port at or above `port`: (proc, base, port).
+
+    Raises RuntimeError, with the instance already torn down, if it never answers.
+    """
+    port = free_port(port)
+    proc, base = start_comfy(port, vue=vue, repo=repo)
+    if not wait_ready(port):
+        stop_comfy(proc, base)
+        raise RuntimeError(f"ComfyUI did not come up on {port}")
+    return proc, base, port
+
+
+def stop_comfy(proc, base):
+    """Terminate the instance and remove the base directory it was given."""
+    proc.terminate()
+    try:
+        proc.wait(timeout=15)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+    shutil.rmtree(base, ignore_errors=True)
 
 
 BOOT = """async ({node_type, drive}) => {
@@ -96,8 +116,7 @@ BOOT = """async ({node_type, drive}) => {
   }
   const app = window.comfyAPI.app.app;
   // ComfyUI loads its default workflow asynchronously after the graph exists. Clearing before that
-  // lands means it drops its default on top of the node under test — the drive script sees the
-  // right thing and the screenshot shows someone else's graph.
+  // lands drops its default on top of the node under test.
   for (let i = 0; i < 40; i++) { if (app.graph._nodes?.length) break; await wait(250); }
   await wait(500);
   app.graph.clear();
@@ -119,13 +138,13 @@ USAGE_SOURCE = "comfyui-fpt qa_node.py"
 
 
 def _identify(route):
-    """Say who queued the prompt, in the body, on the way out.
+    """Name this harness as the submitting client, in the body of every /prompt.
 
     `comfy_usage_source` is not an environment variable: it is `extra_data.comfy_usage_source` on
     whatever POSTed `/prompt` (execution.py:224), and it is the field a Version later uses to explain
     a missing workflow. The frontend hardcodes `"comfyui-frontend"` in the body, and the server reads
-    the `Comfy-Usage-Source` header only when the body omits the key (server.py:1120) — so a run
-    driven from here would claim to be a person clicking Run unless the body itself is corrected.
+    the `Comfy-Usage-Source` header only when the body omits the key (server.py:1120), so a run driven
+    from here claims to be a person clicking Run unless the body itself is corrected.
     """
     r = route.request
     if r.method != "POST" or not r.post_data:
@@ -155,14 +174,13 @@ def main():
     ap.add_argument("--no-vue", action="store_true", help="start with Comfy.VueNodes.Enabled false")
     a = ap.parse_args()
 
-    proc = userdir = None
+    proc = base = None
     port = a.port
     if a.start:
-        port = free_port(a.port)
-        proc, userdir = start_comfy(port, vue=not a.no_vue, repo=a.repo)
-        if not wait_ready(port):
-            print(json.dumps({"error": f"ComfyUI did not come up on {port}"}))
-            proc.terminate()
+        try:
+            proc, base, port = launch(a.port, vue=not a.no_vue, repo=a.repo)
+        except RuntimeError as e:
+            print(json.dumps({"error": str(e)}))
             return 1
 
     drive = ""
@@ -200,12 +218,7 @@ def main():
                 out["video"] = a.video
     finally:
         if proc and not a.keep:
-            proc.terminate()
-            try:
-                proc.wait(timeout=15)
-            except Exception:
-                proc.kill()
-            shutil.rmtree(userdir, ignore_errors=True)
+            stop_comfy(proc, base)
     print(json.dumps(out, indent=1, default=str))
     return 0
 

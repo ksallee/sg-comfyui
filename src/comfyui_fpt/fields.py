@@ -1,21 +1,21 @@
-"""Typed provenance fields on Version, and the idempotent create that puts them there.
+"""Typed provenance fields on Version: the list, the idempotent create, and where each concept lands.
 
-Setup path. Run once per site by the operator; the node only reads the result.
+Setup path for `ensure` — run once per site by the operator (`python -m comfyui_fpt.fields`); the
+node only reads the result. The routing half (`concepts`, `targets`, `route`) runs on the publish
+path and consults nothing but its arguments.
 
-Field names are permanent. probe 019 — DELETE frees the field but never the name, and trashed fields
-cannot be enumerated, so a name spent here is spent forever. Add to this list deliberately.
+Field names are permanent. probe 019 — DELETE frees the field but never its name, and trashed fields
+cannot be enumerated, so a name spent here is spent site-wide forever. Add to FIELDS deliberately.
 
-Display and programmatic names are kept in step on purpose: the site derives one from the other at
-creation, and a TD reading `sg_ai_generated_from` in the schema should find "AI Generated From" in the
-UI. Renaming only the label would break that correspondence for everyone who comes later.
+Display and programmatic names are kept in step: the site derives one from the other at creation, and
+a TD reading `sg_ai_generated_from` in the schema must find "AI Generated From" in the UI. Relabelling
+alone breaks that correspondence, so a rename means a new field.
 """
 import re
 
-DISPLAY_PREFIX = "AI"
-
-# (display name, data_type, extra properties). Chosen to fit any graph, not one workflow:
-# every diffusion sampler has a seed, steps and cfg; every graph loads a model; text prompts may be
-# absent (img2img, video) and simply stay empty.
+# (display name, data_type, extra properties). Chosen to fit any graph, not one workflow: every
+# diffusion sampler has a seed, steps and cfg; every graph loads a model; text prompts may be absent
+# (img2img, video) and simply stay empty.
 FIELDS = [
     ("AI Generator",       "text",         {}),
     ("AI Model",           "text",         {}),
@@ -28,18 +28,19 @@ FIELDS = [
     ("AI CFG",             "float",        {}),
     # probe 019 — valid_types takes exactly one element; two returns 400.
     # "Generated From", not "Source Versions": the sources need not be AI — a scanned plate feeding a
-    # previs is the ordinary case. The AI modifies THIS Version's generation, not its inputs.
+    # previs is the ordinary case. The AI describes THIS Version's generation, not its inputs.
     ("AI Generated From",  "multi_entity", {"valid_types": ["Version"]}),
 ]
 
 
 def programmatic_name(display):
-    """probe 019 — the site lowercases the display name and replaces each non-alphanumeric character
-    with an underscore, then prefixes sg_. Pass a display name: 'sg_x' would become 'sg_sg_x'."""
+    """probe 019 — the site lowercases the display name, replaces each non-alphanumeric character
+    with an underscore, and prefixes sg_. Takes a display name: 'sg_x' would become 'sg_sg_x'."""
     return "sg_" + re.sub(r"[^a-z0-9]", "_", display.lower())
 
 
 def names():
+    """{display name: programmatic name} for every field in FIELDS."""
     return {display: programmatic_name(display) for display, _, _ in FIELDS}
 
 
@@ -81,9 +82,9 @@ def _explain(resp):
         return f"HTTP {resp.status_code}: {resp.text[:160]}"
 
     if "schema_field_create() failed" in title:
-        return (f"{title} — the name is almost certainly held by a TRASHED field. probe 019: deleting a "
-                f"field never frees its name and trashed fields cannot be listed, so this collision is "
-                f"invisible. Rename the field in fields.py (its display name) and re-run.")
+        return (f"{title} — the name is almost certainly held by a TRASHED field. probe 019: deleting "
+                f"a field never frees its name and trashed fields cannot be listed, so this collision "
+                f"is invisible. Rename the field in fields.py (its display name) and re-run.")
     if "Only true or false" in title:
         return f"{title} — a checkbox needs a default_value property."
     if "missing required 'properties'" in title:
@@ -94,6 +95,7 @@ def _explain(resp):
 
 
 def report(present, created, failed):
+    """What `ensure` did, one line per field."""
     lines = []
     for display, name, dt in present:
         lines.append(f"  ok       {display:<20} {name:<28} ({dt})")
@@ -109,18 +111,11 @@ def report(present, created, failed):
     return "\n".join(lines)
 
 
-if __name__ == "__main__":
-    from . import site
-    p, c, f = ensure(site.client())
-    print(report(p, c, f))
-    raise SystemExit(1 if f else 0)
-
-
 def schema_names(fpt, entity_type="Version"):
     """Every field this site has on the type. probe 002 — the expensive call, so one per publish.
 
-    Unreadable schema is an empty set, which reads as "write nothing optional": a publish that
-    cannot see the schema must not guess a field into a 400.
+    Unreadable schema is an empty set, which reads as "write nothing optional": a publish that cannot
+    see the schema must not guess a field into a 400.
     """
     r = fpt.get(f"/schema/{entity_type}/fields")
     return set(r.json()["data"]) if r.ok else set()
@@ -131,8 +126,8 @@ def available(fpt, entity_type="Version"):
     return set(names().values()) & schema_names(fpt, entity_type)
 
 
-# What the graph knows, named as concepts rather than as fields. The operator decides where each
-# one lands (site.provenance_map); DEFAULT_MAP is only what happens when they have not said.
+# What the graph knows, named as concepts rather than as fields. The operator decides where each one
+# lands (site.provenance_map); DEFAULT_MAP is only what happens when they have not said.
 DEFAULT_MAP = {
     "generator":       "sg_ai_generator",
     "model":           "sg_ai_model",
@@ -216,6 +211,7 @@ def concepts(prov, source_version_ids=()):
                     seen.append(item)
         return " | ".join(str(x) for x in seen)
 
+    scheduler = join("scheduler")
     client = prov.get("comfy_usage_source") or "unknown client"
     out = {
         "generator": f"{prov.get('generator', 'ComfyUI')} ({client})",
@@ -223,10 +219,17 @@ def concepts(prov, source_version_ids=()):
         "prompt": " | ".join(prompts.get("positive") or []),
         "negative_prompt": " | ".join(prompts.get("negative") or []),
         "seed": join("seed"),                # text: 2**64 seeds overflow a number field (probe 019)
-        "sampler": join("sampler_name") + ("/" + join("scheduler") if join("scheduler") else ""),
+        "sampler": join("sampler_name") + (f"/{scheduler}" if scheduler else ""),
         "steps": last.get("steps"),
         "cfg": last.get("cfg"),
         # probe 019 — multi_entity round-trips {type, id} hashes and reads back under relationships.
         "generated_from": [{"type": "Version", "id": int(i)} for i in source_version_ids],
     }
     return {k: v for k, v in out.items() if v not in (None, "", [])}
+
+
+if __name__ == "__main__":
+    from . import site
+    p, c, f = ensure(site.client())
+    print(report(p, c, f))
+    raise SystemExit(1 if f else 0)

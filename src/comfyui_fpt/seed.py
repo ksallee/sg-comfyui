@@ -1,15 +1,14 @@
 """Publish a file that is already on disk as a Version.
 
 Setup path. A chain has to start somewhere: a graph that reads its plate from ComfyUI's `input/`
-cannot be pointed at Flow PT until that plate is *in* Flow PT. So `/track-workflow` offers this
-before it replaces a loader, and the first link stops being a chicken-and-egg.
+cannot be pointed at Flow PT until that plate is *in* Flow PT, so `/track-workflow` offers this
+before it replaces a loader.
 
 Naming, link, task and version-number resolution are the publish node's own — `next_code` is called
 here rather than reimplemented, so a seeded Version follows the show's convention like any other.
 
-It writes no AI fields, and that is the point rather than an omission: a file on disk does not say
-how it was made, so the Version reads as `unrecorded` (media.provenance_state) instead of claiming a
-provenance nobody measured.
+It writes no AI fields by design: a file on disk does not say how it was made, so the Version reads
+as `unrecorded` (media.provenance_state) rather than claiming a provenance nobody measured.
 """
 import argparse
 from pathlib import Path
@@ -19,7 +18,8 @@ from .nodes.publish_version import FPTPublishVersion
 
 
 def _pick(pairs, label):
-    return next((i for l, i in pairs if l == label), 0)
+    """The id whose label matches exactly, or 0."""
+    return next((i for name, i in pairs if name == label), 0)
 
 
 def seed(path, project="", link="", task="", code="", template="", status="", note="", output=""):
@@ -42,7 +42,7 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     if link and not target:
         raise ValueError(f"no {link_type} named {picked_name!r} in project {project_id}")
     task_id = _pick(site.tasks_for(link_type, target), task) if (task and target) else 0
-    status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
+    status_code = next((c for label, c in site.statuses(project_id) if label == status), "")
 
     name = code or FPTPublishVersion.next_code(
         template or p.get("code_template", ""), project_id, link_type, target, task_id,
@@ -66,7 +66,7 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     filename = f"{name}{Path(path).suffix or '.png'}"
     publish.upload(fpt, vid, data, filename, field="image")
     publish.upload(fpt, vid, data, filename, field="sg_uploaded_movie")
-    # Seeding several files in one run re-reads the codes it just wrote, or every one numbers v001.
+    # Seeding several files in one run must re-read the codes it just wrote, or every one numbers v001.
     site.forget("find", "versions_on", "vnums", "paths")
     return vid, name
 

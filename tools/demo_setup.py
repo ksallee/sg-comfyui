@@ -13,7 +13,8 @@ A Task is named by `content`, never `code` (entity_types/Task). Steps are site-w
 left off where nothing matches — a bare Task with only `content` is legal and better than inventing a
 Step, which would appear on every show on the site.
 
-Nothing here writes a Version. `seed.py` does that.
+Credentials reach the site through `site.client()` and are never printed: what this logs is entity
+names and ids. Nothing here writes a Version; `seed.py` does that.
 """
 import argparse
 import sys
@@ -23,8 +24,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 from comfyui_fpt import site                      # noqa: E402
 from comfyui_fpt.site import ARRAY_JSON           # noqa: E402
 
-# The structure Kevin confirmed on 2026-09-04. `step` is a NAME to look for, not an id: another site
-# will have different ids and may not have the Step at all.
+# The demo's structure. `step` is a NAME to look for, not an id: another site has different ids and
+# may not carry the Step at all.
 SHOTS = {
     "sh010": [("Plate", None), ("Roto", "Roto"), ("Prep", None),
               ("Paint", None), ("Comp", "Comp"), ("Delivery", "Online")],
@@ -34,34 +35,40 @@ ASSETS = {
 }
 
 
-def find(fpt, kind, project_id, code):
+def search(fpt, kind, filters, fields, size):
+    """The rows matching these filters, or none where the site refuses the read."""
     r = fpt.post(f"/entity/{kind}/_search", headers=ARRAY_JSON,
-                 json={"filters": [["project", "is", {"type": "Project", "id": project_id}],
-                                   ["code", "is", code]],
-                       "fields": "code", "page": {"size": 10}})
-    rows = r.json().get("data", []) if r.ok else []
+                 json={"filters": filters, "fields": fields, "page": {"size": size}})
+    return r.json().get("data", []) if r.ok else []
+
+
+def by_name(rows, field):
+    """{name: id}, lowered — text matching is case-insensitive on this API (field_types/text)."""
+    return {(d["attributes"].get(field) or "").strip().lower(): d["id"] for d in rows}
+
+
+def find(fpt, kind, project_id, code):
+    """The id of the row with this code on this project, or 0."""
+    rows = search(fpt, kind, [["project", "is", {"type": "Project", "id": project_id}],
+                              ["code", "is", code]], "code", 10)
     return rows[0]["id"] if rows else 0
 
 
 def steps_for(fpt, entity_type):
-    r = fpt.post("/entity/steps/_search", headers=ARRAY_JSON,
-                 json={"filters": [["entity_type", "is", entity_type]],
-                       "fields": "code", "page": {"size": 100}})
-    # text matching is case-insensitive on this API (field_types/text), so compare lowered
-    return {(d["attributes"].get("code") or "").strip().lower(): d["id"]
-            for d in (r.json().get("data", []) if r.ok else [])}
+    """The site's Steps for this entity type, by name."""
+    return by_name(search(fpt, "steps", [["entity_type", "is", entity_type]], "code", 100), "code")
 
 
 def tasks_on(fpt, entity_type, entity_id, project_id):
-    r = fpt.post("/entity/tasks/_search", headers=ARRAY_JSON,
-                 json={"filters": [["project", "is", {"type": "Project", "id": project_id}],
-                                   ["entity", "is", {"type": entity_type, "id": entity_id}]],
-                       "fields": "content", "page": {"size": 200}})
-    return {(d["attributes"].get("content") or "").strip().lower(): d["id"]
-            for d in (r.json().get("data", []) if r.ok else [])}
+    """The tasks already on this entity, by content."""
+    rows = search(fpt, "tasks", [["project", "is", {"type": "Project", "id": project_id}],
+                                 ["entity", "is", {"type": entity_type, "id": entity_id}]],
+                  "content", 200)
+    return by_name(rows, "content")
 
 
 def create(fpt, kind, body, write):
+    """The new row's id, or -1 on a dry run."""
     if not write:
         return -1
     r = fpt.post(f"/entity/{kind}", json=body)
@@ -71,6 +78,7 @@ def create(fpt, kind, body, write):
 
 
 def ensure(fpt, kind, entity_type, project_id, code, tasks, write, log):
+    """The entity and its tasks, created where the project does not already have them."""
     eid = find(fpt, kind, project_id, code)
     if eid:
         log.append(f"  {entity_type} {code}: exists ({eid})")
@@ -78,6 +86,7 @@ def ensure(fpt, kind, entity_type, project_id, code, tasks, write, log):
         eid = create(fpt, kind, {"project": {"type": "Project", "id": project_id}, "code": code},
                      write)
         log.append(f"  {entity_type} {code}: CREATED ({eid if write else 'dry run'})")
+    # A dry run that would have created the entity has no id to hang tasks off, so it says how many.
     if not write and eid == -1:
         log.append(f"    would add {len(tasks)} task(s): " + ", ".join(t for t, _ in tasks))
         return

@@ -1,15 +1,16 @@
-"""Flow PT Publish Version — what the graph made becomes a Version with its provenance.
+"""Flow PT Publish Version — what the graph made becomes a Version carrying its provenance.
 
-One run is one Version, because probe 022 found a Version's media single-valued. What that Version
-carries is decided by what is wired in, never by a combo asking the operator to say it again: a VIDEO
-is the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the video.
+One run is one Version, because a Version's media is single-valued (probe 022). What that Version
+carries follows from what is wired in, never from a combo asking the operator to say it again: a
+VIDEO is the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the
+video.
 
 This node records; it does not make images. A VIDEO that is already a file on disk goes up as that
 file, byte for byte, and anything else is written by ComfyUI's own encoder (`movie.stage`).
 
 The frames themselves are a PublishedFile, not media — the other half of probe 022's verdict. Tick
 `register_files` and the run still produces exactly one Version, plus a PublishedFile per registered
-file, copied under a LocalStorage root the site can resolve (recipe 004). See `sequence.py` for what
+file, copied under a LocalStorage root the site can resolve (recipe 004). `sequence.py` is what
 happens on disk.
 """
 import io
@@ -22,9 +23,8 @@ from .. import fields as fpt_fields
 from .. import lineage, movie, naming, provenance, publish, sequence, site
 
 MAX_ID = 2 ** 31 - 1
-# The default for an unset keyword, NOT the label a person picks — that is
-# site.NO_VALUE, "(none)". Naming both NONE is what produced a combo whose
-# declared value the editor could never offer back.
+# The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
+# "(none)" — and the two must stay distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
 
 
@@ -45,12 +45,7 @@ def _id_for(pairs, label):
 
 
 def _wants_files(pf):
-    """The profile's default for the tick.
-
-    `published_files.default` held a combo label before this was a checkbox, and `(none)` was that
-    combo's way of saying no — so a profile written for the old node reads correctly here rather
-    than turning every publish into a deliverable.
-    """
+    """The profile's default for the tick. `published_files.default` of `(none)` means no."""
     d = pf.get("default")
     return bool(d) and d != site.NO_VALUE
 
@@ -59,8 +54,8 @@ class FPTPublishVersion:
     @classmethod
     def INPUT_TYPES(cls):
         # Re-evaluated on every /object_info request (server.py:756), so a profile edit or a new Shot
-        # reaches the operator on a browser refresh. The JS extension keeps the dependent lists in step
-        # while the graph is open; these are only the seed values.
+        # reaches the operator on a browser refresh. The JS extension keeps the dependent lists in
+        # step while the graph is open; these are only the seed values.
         project_id = site.default_project()
         p = site.for_project(project_id)
         rows = site.links(project_id)
@@ -70,26 +65,27 @@ class FPTPublishVersion:
         status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
 
         return {
-            # Neither is required and at least one is: what a Version carries is the shape of what
-            # was wired, so the node cannot declare one of them the real input. `images` stays the
-            # first input and keeps its name — an input slot is addressed by name in a saved graph.
+            # Neither input is required and at least one is: what a Version carries is the shape of
+            # what was wired, so the node cannot declare one of them the real input. `images` stays
+            # first and keeps its name — an input slot is addressed by name in a saved graph.
             "required": {},
             # Order is the order they are decided: the pixels, then which show, what they belong to,
             # which task, what state it is in, which stream, and last the note a person writes.
             # Everything below the note is fine print and lives behind ComfyUI's advanced fold.
             #
             # There is no link_type. Version.entity accepts 15 types and a show may use several at
-            # once (DESIGN), the link picker searches every type the show uses server-side, and each
-            # option carries its own — so a combo whose only job was to shorten a list nobody scrolls
-            # any more was one decision to make before the one that mattered.
+            # once (DESIGN); the link picker searches every type the show uses, server-side, and
+            # each option carries its own type.
+            #
+            # WIDGET ORDER IS FROZEN. widgets_values is positional, so a key inserted, removed or
+            # renamed here displaces every value below it in every graph already saved. Append only,
+            # and move instrument.PUBLISH_WIDGETS, web/fpt_entity_picker.js DECLARED and every
+            # *.json under example_workflows/ and tools/workflows/ in the same commit.
             "optional": {
                 "images": ("IMAGE", {"tooltip": "Frames out of the graph. Alone they publish frame "
                                                 "1 as the Version's still; tick Create Published "
                                                 "Files to register the sequence itself."}),
-                # An input slot is additive and safe where a widget is not, so this is the one part
-                # of this change that a saved graph would have survived. `save_to` on it carries the
-                # colour space, the bit depth and the audio our own encode never could, and a
-                # `VideoFromFile` is a file on disk that is uploaded rather than touched.
+                # An input slot is additive: adding one does not move widgets_values.
                 "video": ("VIDEO", {"tooltip": "A clip out of the graph — LoadVideo, CreateVideo, or "
                                                "any of the hosted video models. It becomes the "
                                                "Version's review media, uploaded as the source file "
@@ -113,13 +109,12 @@ class FPTPublishVersion:
                                     "tooltip": "Human note, written to description. Provenance is "
                                                "recorded separately and does not belong here."}),
                 # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
-                # and ?fields use (probe 003), to any depth the server will traverse. A bare token
-                # is the relationship's own name — `{entity}`, `{sg_task}` — the way Flow PT returns
-                # it. `{version:03d}` and `v%04d` both work.
+                # and ?fields use (probe 003), to any depth the server will traverse. A bare token is
+                # the relationship's own name — `{entity}`, `{sg_task}`. `{version:03d}` and `v%04d`
+                # both pad.
                 #
-                # Not advanced: this is the name that ends up on the Version, so it is the one an
-                # operator checks against the readout before pressing Run. `root name` is the
-                # house's stream convention and sits in the fold.
+                # Not advanced: this is the name that ends up on the Version, so it is what an
+                # operator checks against the readout before pressing Run.
                 "code_template": ("STRING", {
                     "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
                     "display_name": "version name",
@@ -133,13 +128,9 @@ class FPTPublishVersion:
                 "attach_workflow": ("BOOLEAN", {"default": True, "advanced": True}),
                 "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID, "advanced": True,
                                     "tooltip": "Overrides `link` when non-zero, for a stale list."}),
-                # The one per-publish question left, and it was never about media: is this a
-                # deliverable, or only review? WHICH files follow from what is wired, and whether
-                # the house also keeps the review movie is `register_movie` in the profile.
-                #
-                # ComfyUI stores widget values by position, so nothing may be inserted above this
-                # once anything outside this repo has saved a graph — DESIGN, "the widget window
-                # closes at release".
+                # The one per-publish question, and it is not about media: is this a deliverable, or
+                # only review? WHICH files follow from what is wired, and whether the house also
+                # keeps the review movie is `register_movie` in the profile.
                 "register_files": ("BOOLEAN",
                                    {"default": _wants_files(p.get("published_files") or {}),
                                     "display_name": "Create Published Files",
@@ -150,21 +141,18 @@ class FPTPublishVersion:
                                                "published_files.register_movie says this house "
                                                "keeps its review media too."}),
                 # Declared, never inferred and never applied. A colour transform is the most
-                # consequential pixel change in a comp, and this node does not make images (DESIGN),
-                # so what the operator says is recorded and nothing is converted.
+                # consequential pixel change in a comp, and this node does not make images (DESIGN).
                 "colour_space": ("STRING", {
                     "default": (p.get("published_files") or {}).get("colour_space") or "",
                     "advanced": True,
                     "tooltip": "What these pixels ARE — sRGB, ACEScg, linear. Recorded on the "
                                "PublishedFile and in the provenance record. Nothing is converted, "
                                "and nothing is guessed when it is empty."}),
-                # APPENDED, never inserted: widgets_values is positional and everything above this
-                # is in saved graphs already (CLAUDE.md).
+                # APPENDED, never inserted: everything above this is in saved graphs already.
                 #
-                # Empty is not "no name" — it is "derive one", the filename minus its version, which
-                # is what recipe 004 means by `name` being the stream and `code` one version of it.
-                # Typing into it locks that answer, so a later filename change cannot silently move
-                # a stream someone downstream is already following.
+                # recipe 004: `name` is the stream and `code` is one version of it. Empty derives
+                # the stream from the profile; typing one locks it, so a later filename change
+                # cannot silently move a stream someone downstream is following.
                 "root_name": ("STRING", {
                     "default": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
                     "display_name": "root name",
@@ -186,12 +174,10 @@ class FPTPublishVersion:
     def next_name(cls, template, project_id, link_type, link_id, task_id, root_template=""):
         """(code, version number) this node would publish next.
 
-        The number comes back because the path template needs the same one: a Version called v003 and
-        a sequence written to `v001/` would be two answers to one question.
-
-        `{root_name}` is rendered FIRST and handed to the version template as a value, because that
-        template is `{root_name}_v{version:03d}` — the stream composed, then versioned. Resolving it
-        the other way round is what left the code as a bare `v001`.
+        The number comes back because the path template needs the same one: a Version called v003
+        and a sequence written to `v001/` would be two answers to one question. `{root_name}` is
+        rendered first and handed to the version template as a value, because that template is
+        `{root_name}_v{version:03d}` — the stream composed, then versioned.
         """
         template = (template or naming.DEFAULT_TEMPLATE).strip()
         if not naming.template_fields(template) and "{version" not in naming.normalise_template(template):
@@ -206,8 +192,7 @@ class FPTPublishVersion:
 
     @classmethod
     def next_code(cls, template, project_id, link_type, link_id, task_id, root_template=""):
-        """The code this node would publish next. Shared with /fpt/preview_code so what the panel
-        shows is what gets written."""
+        """The code this node would publish next. Shared with /fpt/preview_code and `seed.py`."""
         return cls.next_name(template, project_id, link_type, link_id, task_id,
                              root_template)[0]
 
@@ -217,24 +202,23 @@ class FPTPublishVersion:
 
         These combos are seeded for the default project and then repopulated per project by the JS
         (`setOptions`), so a value the operator legitimately picked need not be in the list this
-        class declared at load time. ComfyUI skips its own membership check for any input named
-        here (execution.py:1019), which is the mechanism core nodes use for the same problem
-        (comfy_extras/nodes_model_advanced.py:380).
-
-        Nothing is lost: a label that resolves to no entity still fails at run time, naming the
-        label and the project, which is the more useful error anyway.
+        class declared at load time. ComfyUI skips its own membership check for any input named here
+        (execution.py:1019), the mechanism core nodes use for the same problem
+        (comfy_extras/nodes_model_advanced.py:380). A label that resolves to no entity still fails
+        at run time, naming the label and the project.
         """
         return True
 
     @staticmethod
     def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
-               p, fpt, project_id, link_type, target, task_id, code_template="", root_name=""):
+               p, fpt, project_id, link_type, target, task_id, root_name=""):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
-        The storage root and the path template are profile data, per project like every other
-        site-specific decision (DESIGN: site profile). The template is the language the code template
-        already speaks — dotted Flow PT paths and Python's format spec (`naming.render`) — plus the
-        frame token `sg_path_to_frames` uses, so nothing here is a second vocabulary.
+        The storage root and the path templates are profile data, per project like every other
+        site-specific decision (DESIGN). A path template is the language the code template already
+        speaks — dotted Flow PT paths and Python's format spec (`naming.render`) — plus the frame
+        token `sg_path_to_frames` uses. A sequence earns a folder and a movie does not, which is why
+        there are two templates.
         """
         if not (want_frames or want_movie):
             return None
@@ -243,19 +227,22 @@ class FPTPublishVersion:
         sequence.check_root(root)
         seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
         mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
-        # The two names the templates already decided, handed to the path as `{root_name}` and
-        # `{version_name}`. That is what stops a path rewriting the naming scheme a second time, and
-        # why `{output}` no longer appears in one: `{root_name}` IS the stream.
-        # The stream is RENDERED, not derived by subtraction. `{root_name}` is its own template, so
-        # there is no version token to strip back out — which is what used to go wrong when the path
-        # template was stripped instead of the name one.
+        # The stream is RENDERED from its own template, never derived by subtracting a version token
+        # from a longer one. A path refers to `{root_name}` and `{version_name}` rather than
+        # spelling the naming scheme a second time, so the two cannot disagree.
         root_t = root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE
         fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
                   | set(naming.template_fields(root_t)))
         vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
-        # A token nobody could resolve leaves an empty segment, and `_clean` swallows it silently —
-        # so name them. corpus 028: a 200 proves nothing, and neither does a path that rendered.
+        # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
+        # corpus 028: a 200 proves nothing, and neither does a path that rendered.
         blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
+        name = naming.render(root_t, vals, version_no)
+
+        def path_for(template, ext):
+            return sequence.pattern(root, template,
+                                    dict(vals, version_name=code, root_name=name, ext=ext),
+                                    version_no, ext)
 
         # The extension follows the files, never the template: PNG is what Pillow writes from an
         # IMAGE tensor, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
@@ -263,11 +250,9 @@ class FPTPublishVersion:
                "declared_ext": os.path.splitext(sequence.single(seq_t))[1].lower(),
                "colour": colour_space.strip(), "count": count}
         if want_frames:
-            name = naming.render(root_t, vals, version_no)
-            v = dict(vals, version_name=code, root_name=name, ext=".png")
-            pattern = sequence.pattern(root, seq_t, v, version_no, ".png")
-            # ComfyUI's own output directory first. The copy is what puts a file where the site can
-            # resolve it; the original stays put so a failed publish is recoverable.
+            pattern = path_for(seq_t, ".png")
+            # Written to ComfyUI's own output directory first. The copy is what puts a file where
+            # the site can resolve it; the original stays put so a failed publish is recoverable.
             out["frames"] = sequence.place(sequence.write_frames(images, code), pattern)
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
@@ -276,9 +261,7 @@ class FPTPublishVersion:
             # The clip's real extension, because a deliverable is never transformed: a `.mov` off
             # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
             ext = os.path.splitext(media_path)[1].lower() or ".mp4"
-            name = naming.render(root_t, vals, version_no)
-            v = dict(vals, version_name=code, root_name=name, ext=ext)
-            dest = sequence.pattern(root, mov_t, v, version_no, ext)
+            dest = path_for(mov_t, ext)
             out["media"] = sequence.copy_one(media_path, dest)
             out["media_code"] = os.path.basename(dest)
             out["media_name"] = name
@@ -289,16 +272,14 @@ class FPTPublishVersion:
                   note, colour_space, src_ids, src_files=None):
         """One PublishedFile per registered file, linked to the Version carrying the review media.
 
-        Returns the lines the panel logs: what was registered, where it landed, and what could not be
-        said — an unrecognised type, or ancestors with no files to depend on.
+        Returns the lines the panel logs: what was registered, where it landed, and what could not
+        be said — an unrecognised type, or ancestors with no files to depend on.
 
         `upstream_published_files` is the file-level twin of `sg_ai_generated_from`: the same
-        ancestors, resolved to the files those Versions published. A tool downstream opens files, not
-        Versions, so the dependency is only useful at this level.
-
-        `src_files` is what an upstream Load node actually read (lineage.py). Where it has an answer
-        the link is that file; where it does not, the site is asked and the link is every file of
-        that ancestor.
+        ancestors, resolved to the files those Versions published, because a tool downstream opens
+        files rather than Versions. `src_files` is what an upstream Load node actually read
+        (lineage.py); where it has an answer the link is that one file, where it does not the site
+        is asked and the link is every file of that ancestor.
         """
         if not staged:
             return []
@@ -329,9 +310,9 @@ class FPTPublishVersion:
         notes = []
         for kind, code, name, path, what in jobs:
             body = dict(common)
-            # path_cache is null after a REST create even though path resolved, so a filter on it
-            # misses every row published this way (entity_types/PublishedFile). It is a plain text
-            # field and takes a write, so the client writes what it already knows.
+            # path_cache is null after a REST create even though the path resolved, so a filter on
+            # it misses every row published this way (entity_types/PublishedFile). It is a plain
+            # text field and takes a write, so the client writes what it already knows.
             body["path_cache"] = sequence.relative(staged["root"], path)
             pft = publish.published_file_type(fpt, sequence.TYPE_CANDIDATES[kind])
             if pft:
@@ -371,8 +352,8 @@ class FPTPublishVersion:
                 "This node records what the graph made and never makes it.")
         frames = len(images) if images is not None else 0
         # A sequence cannot BE a Version's media (probe 022) and nothing here is being asked to
-        # register it, so frame 1 would go up and the rest would vanish. Loud, never silent
-        # (corpus 028) — and refused here, before the site is touched at all.
+        # register it, so frame 1 would go up and the rest would vanish. Refused loudly, and refused
+        # before the site is touched at all.
         if video is None and frames > 1 and not register_files:
             raise ValueError(
                 f"{frames} frames on `images` with Create Published Files off: there is nowhere for "
@@ -387,11 +368,10 @@ class FPTPublishVersion:
             raise ValueError("no project: pick one, or set default_project in profile.local.json")
         p = site.for_project(project_id)
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
-        # The type comes from what was picked, not from a profile default: Version.entity accepts 15
-        # types and a show may use several at once.
         link, task, status = site.unset(link), site.unset(task), site.unset(status)
+        # The label carries its own type: Version.entity accepts 15 types and a show may use several
+        # at once. The profile answers only for a link picked before labels carried a type.
         picked_type, picked_name = site.split_link(link)
-        # The label carries its own type; the profile answers only for a link picked before it did.
         link_type = picked_type or p.get("link_type", "Shot")
 
         # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
@@ -405,20 +385,20 @@ class FPTPublishVersion:
         # unique_id scopes provenance to this node's branch (provenance.ancestors).
         prov = provenance.extract(prompt, extra_pnginfo, node_id=unique_id)
         prov["comfy_usage_source"] = usage_source  # which client submitted this (execution.py:216)
-        # Declared, not measured. The attachment is the record, so an operator's statement about the
-        # pixels belongs in it — and stays a statement, never a transform.
+        # Declared, not measured: an operator's statement about the pixels belongs in the record and
+        # stays a statement, never a transform.
         if colour_space.strip():
             prov["colour_space"] = colour_space.strip()
         wf = provenance.workflow(extra_pnginfo)
 
         fpt = site.client()
         # One schema read answers two questions: which provenance fields exist (absent until
-        # `python -m comfyui_fpt.fields` has run, so the blob fallback is the honest default, not a
-        # bug) and whether this site carries the frame range a movie wants.
+        # `python -m comfyui_fpt.fields` has run, so the blob fallback is the honest default) and
+        # whether this site carries the frame range a movie wants.
         schema = fpt_fields.schema_names(fpt)
         have = set(fpt_fields.names().values()) & schema
-        # Typed ids first, then whatever a Load node upstream already proves. The operator can add
-        # a source the graph cannot see; they should never have to retype one it can.
+        # Typed ids first, then whatever a Load node upstream already proves. The operator can add a
+        # source the graph cannot see; they never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
         # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
         upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
@@ -431,12 +411,12 @@ class FPTPublishVersion:
         routed, prov_lines = fpt_fields.route(prov, src_ids, mapping, prov_mode)
         typed = {k: v for k, v in routed.items() if k in have}
         # A target the operator named that this site does not have. Dropping it silently would hide
-        # a typo in their profile behind a Version that looks fine (corpus 028, loud and silent).
+        # a typo in their profile behind a Version that looks fine (corpus 028: loud, never silent).
         missing = sorted(set(routed) - set(have))
 
-        # The template decides the name, rendered from the entity and task it is actually linked
-        # to. A real version-number field is authoritative where the site has one (Toolkit sites
-        # usually do); the template's own {version} is the fallback for the many sites that do not.
+        # The template decides the name, rendered from the entity and task it is actually linked to.
+        # A real version-number field is authoritative where the site has one (Toolkit sites usually
+        # do); the template's own {version} is the fallback for the many sites that do not.
         code, version_no = self.next_name(code_template, project_id, link_type, target, task_id,
                                           root_name)
         vnum_field = p.get("version_number_field", "")
@@ -444,10 +424,9 @@ class FPTPublishVersion:
                     if vnum_field and target else None)
 
         # Staged BEFORE the Version exists — an install with no PyAV, or a clip `save_to` refuses,
-        # should stop here rather than leave a Version behind holding a still and calling it a clip.
-        # The thumbnail is read here too, off the media rather than off `images`, so the still and
-        # the clip cannot disagree about what this Version shows — and so a clip that decodes no
-        # frames refuses before the Version exists rather than after it.
+        # stops here rather than leaving a Version behind holding a still and calling it a clip. The
+        # thumbnail is read off the media rather than off `images`, so the still and the clip cannot
+        # disagree about what this Version shows.
         media_path = ""
         if video is not None:
             media_path, how = movie.stage(video, sequence.folder(code), code)
@@ -457,10 +436,10 @@ class FPTPublishVersion:
             count = frames
             media_note = "frame 1 as a still" if frames > 1 else "the image itself"
             png = _png(images[0])
-        # Whether the house ALSO keeps the review movie as a file is a convention, so it lives in
-        # the profile; whether this publish is a deliverable at all is the node's tick. A clip
-        # published on its own IS the deliverable, so it is registered without the house saying so —
-        # a tick that registered nothing would be a silent no-op.
+        # Whether the house ALSO keeps the review movie as a file is a convention and lives in the
+        # profile; whether this publish is a deliverable at all is the node's tick. A clip published
+        # on its own IS the deliverable, so it is registered without the house saying so — a tick
+        # that registered nothing would be a silent no-op.
         keeps_movie = bool((p.get("published_files") or {}).get("register_movie"))
         want_frames = bool(register_files and images is not None)
         want_movie = bool(register_files and video is not None and (images is None or keeps_movie))
@@ -469,12 +448,12 @@ class FPTPublishVersion:
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
                              want_frames, want_movie, p, fpt, project_id, link_type, target,
-                             task_id, code_template, root_name)
+                             task_id, root_name)
 
         fields = dict(typed)
-        # description is the human note, plus whatever the operator routed into it. The full
-        # graph goes up as an attachment either way, so the blob fallback is only for a site
-        # that has no provenance fields and asked for nothing in the description.
+        # description is the human note, plus whatever the operator routed into it. The full graph
+        # goes up as an attachment either way, so the blob fallback is only for a site that has no
+        # provenance fields and asked for nothing in the description.
         if prov_lines:
             fields["description"] = "\n".join(([note] if note else []) + prov_lines)
         elif typed:
@@ -492,16 +471,16 @@ class FPTPublishVersion:
         # The range is ours; everything derived from the media is the transcoder's (probe 022).
         if count > 1:
             fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
-        # probe 022's own verdict: the `%04d` pattern belongs in sg_path_to_frames, with a
-        # transcoded movie uploaded for the player. Until now there was no real path to put there.
-        # These are tier 2 in probe 021, which is what the Load node reads to pull frames back.
+        # probe 022's verdict: the `%04d` pattern belongs in sg_path_to_frames, with a transcoded
+        # movie uploaded for the player. These are tier 2 in probe 021, which is what the Load node
+        # reads to pull frames back.
         for field, value in (("sg_path_to_frames", (staged or {}).get("frames_pattern")),
                              ("sg_path_to_movie", (staged or {}).get("media"))):
             if value and field in schema:
                 fields[field] = value
 
         vid = publish.create_version(fpt, project_id, code, fields)
-        # Every lookup a name depends on. `find` is the one the template reads; missing it let
+        # Every lookup a name depends on. `find` is the one the template reads, and a stale one lets
         # two publish nodes in one run propose the same version again.
         site.forget("find", "versions_on", "vnums", "paths")
         # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie too,
@@ -523,8 +502,7 @@ class FPTPublishVersion:
                                     task_id, count, note, colour_space, src_ids,
                                     lineage.files_for_nodes(upstream))
 
-        published = [f"{code} -> Version {vid}"]
-        published.append(f"review media: {media_note}")
+        published = [f"{code} -> Version {vid}", f"review media: {media_note}"]
         if count > 1:
             skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
             if skipped:
@@ -534,9 +512,16 @@ class FPTPublishVersion:
         if images is not None and video is not None and not want_frames:
             published.append(f"{frames} frames wired but not registered; the clip is the media")
         published += file_notes
+        if attach_workflow and wf is None:
+            published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
+        if missing:
+            published.append("mapped to fields this site does not have: " + ", ".join(missing))
+        if not typed and not prov_lines:
+            published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
+
         # The panel turns these into links. `site_url` comes off the client rather than the profile
         # because the run already authenticated against it — a second source could disagree. Paths
-        # are what landed on disk this run, which is the one thing not recoverable from the site.
+        # are what landed on disk this run, the one thing not recoverable from the site.
         staged_files = []
         if staged:
             if staged.get("frames_pattern"):
@@ -547,13 +532,6 @@ class FPTPublishVersion:
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
                  "status": status_code, "outputs": sorted(typed), "media": media_note,
                  "site_url": fpt.site, "files": staged_files}]
-
-        if attach_workflow and wf is None:
-            published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
-        if missing:
-            published.append("mapped to fields this site does not have: " + ", ".join(missing))
-        if not typed and not prov_lines:
-            published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
-        # `text` keeps the plain readout ComfyUI shows anywhere; `published` is what the node's own
+        # `text` is the plain readout ComfyUI shows anywhere; `published` is what the node's own
         # panel renders — the same run, described rather than printed.
         return {"ui": {"text": published, "published": done}}

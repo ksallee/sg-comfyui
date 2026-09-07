@@ -1,22 +1,18 @@
-/* Controls the canvas widgets could not give us.
+/* The shared widget layer: DOM controls that sit in a node's own widget grid, plus the escaping,
+ * colour and stylesheet helpers every file here uses.
  *
- * Both write into the node's *declared* widget rather than replacing it, so serialization, the
- * prompt and widgets_values are untouched — the declared widget is only hidden. That also means the
- * value need not be one the class declared, which VALIDATE_INPUTS now allows.
+ * A control writes into the node's *declared* widget rather than replacing it, so serialization,
+ * the prompt and widgets_values are untouched — the declared widget is only hidden.
  *
- * These are DOM widgets on purpose. A Vue component cannot be registered by an extension
- * (coreWidgetDefinitions is module-private, there is no registerWidget), and an unregistered widget
- * type falls back to WidgetLegacy, which draws the old canvas widget inside the new node.
- *
- * Nodes 2.0 only. Every row here is `label | control` in the node's OWN widget grid, so a picker is
- * indistinguishable from the native `task` combo beside it; the classic canvas has no such grid and
- * is not supported (requireVueNodes says so on the node rather than degrading quietly).
+ * Nodes 2.0 only. A Vue widget cannot be registered by an extension (coreWidgetDefinitions is
+ * module-private), and an unregistered widget type falls back to WidgetLegacy, which draws the old
+ * canvas widget inside the new node. The classic canvas has no widget grid and is not supported;
+ * `requireVueNodes` says so on the node rather than degrading quietly.
  */
 import { app } from "../../scripts/app.js";
 
 // Verbatim from the frontend's own widget markup, so a picker inherits the theme instead of
-// guessing at it. Copying the class strings is what keeps light mode, hover and focus rings right
-// without a single colour of our own.
+// guessing at it: light mode, hover and focus rings come free, with no colour of our own.
 const NATIVE = {
   label: "content-center-safe truncate",
   field: "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground" +
@@ -39,22 +35,21 @@ const NATIVE = {
 const CSS = `
 /* Under Nodes 2.0 each widget is wrapped in "flex flex-col *:flex-1 col-span-2", itself one item of
    the node's own "grid-cols-subgrid" row. Turning that wrapper into a subgrid hands our label and
-   our control straight to the node's label and control columns — which is the whole trick: our rows
-   line up with task because they are in the same two tracks, not because we guessed its width.
-   display:contents also takes .fpt-dom out of the flow, so "*:flex-1" can no longer stretch it. */
+   our control straight to the node's label and control columns, so our rows line up with the native
+   ones because they are in the same two tracks. display:contents also takes .fpt-dom out of the
+   flow, so "*:flex-1" can no longer stretch it — and leaves it with no box to measure. */
 .lg-node-widget > :has(> .fpt-dom) { display: grid; grid-template-columns: subgrid;
   align-items: start; gap: 0 8px; }
 .lg-node-widget > :has(> .fpt-dom) > .fpt-dom { display: contents; }
 .fpt-dom > .fpt-lab { min-height: 24px; display: flex; align-items: center; }
 /* A row with nothing to label (the panel) takes both tracks. */
 .fpt-dom.fpt-wide > .fpt-ctl { grid-column: 1 / -1; }
-/* A column, so the one child fills the row when the row is given more than its content — which is
-   how the readout takes the slack from a node the operator dragged taller. */
+/* A column, so the one child fills a row given more than its content. */
 .fpt-dom > .fpt-ctl { min-width: 0; display: flex; flex-direction: column; }
 .fpt-dom > .fpt-ctl > * { flex: 1 1 auto; min-height: 0; }
 
-/* Surplus height is pooled at the bottom rather than sprinkled between rows: every DOM widget gets
-   an "auto" grid track (hasLayoutSize), and align-content:normal would stretch all of them. */
+/* Surplus height pools at the bottom rather than between rows: every DOM widget gets an "auto" grid
+   track (hasLayoutSize), and align-content:normal would stretch all of them. */
 .lg-node:has(.fpt-dom) .lg-node-widgets { align-content: start; }
 
 .fpt-val { min-width: 4ch; flex: 1; padding: 0 4px 0 8px; text-align: left; font-size: 12px;
@@ -63,7 +58,7 @@ const CSS = `
 .fpt-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none;
   margin-left: 6px; background: rgba(128,128,128,.15); }
 
-/* The popup lives on <body>: a node is inside a transformed, clipping ancestor, where a fixed
+/* The popup lives on <body>: a node sits inside a transformed, clipping ancestor, where a fixed
    position resolves against the transform and an overflowing menu is cut off. The frontend's own
    combo teleports for the same reason. */
 .fpt-pop { position: fixed; }
@@ -72,16 +67,16 @@ const CSS = `
 .fpt-pop-input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   font: 12px Inter, ui-sans-serif, system-ui, sans-serif; color: inherit; }
 .fpt-pop-note { padding: 8px; opacity: .6; font-size: 11px; }
-/* The slot is reserved on every row and tinted only where there is a picture: an empty grey tile
-   on every project without one is more noise than the alignment is worth. */
+/* The thumbnail slot is reserved on every row and tinted only where there is a picture, so names
+   stay aligned without an empty grey tile on every project that has none. */
 .fpt-pop-thumb { width: 22px; height: 22px; border-radius: 3px; flex: none;
   background: none center/cover no-repeat; }
 .fpt-pop-thumb.on { background-color: rgba(128,128,128,.15); }
 .fpt-pop-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .fpt-pop-meta { opacity: .55; flex: none; font-size: 10px; }
 
-/* One neutral chip, so "chosen" reads as chosen rather than as a slightly brighter colour. The
-   status colour is a dot: still there to recognise, no longer carrying the selected state too. */
+/* One neutral chip: "chosen" reads as chosen rather than as a slightly brighter colour, and the
+   status colour stays a dot to recognise. */
 .fpt-chips { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
   padding: 2px 0; font: 11px Inter, ui-sans-serif, system-ui, sans-serif; }
 .fpt-more { font-style: italic; opacity: .75; }
@@ -92,9 +87,8 @@ const CSS = `
   background: var(--color-component-node-widget-background, #23272d);
   border: 1px solid transparent; }
 .fpt-chip:hover { border-color: currentColor; }
-/* Never font-weight: a bolder label is a wider chip, so picking one reflowed the row under the
-   cursor and the next chip moved out from under the pointer. text-shadow thickens the same glyphs
-   at the same metrics; the inversion and the tick are what say "chosen" anyway. */
+/* Never font-weight: a bolder label is a wider chip, so picking one reflows the row under the
+   cursor. text-shadow thickens the same glyphs at the same metrics. */
 .fpt-chip.on { color: #10131a; background: #cfd6de;
   text-shadow: 0 0 .3px currentColor, 0 0 .3px currentColor; }
 .fpt-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
@@ -107,20 +101,73 @@ const CSS = `
 .fpt-tick { width: 8px; flex: none; opacity: 0; }
 .fpt-chip.on .fpt-tick { opacity: 1; }
 `;
-let injected = false;
-function ensureCss() {
-  if (injected) return;
-  injected = true;
+
+const styled = new Set();
+
+/** Add a stylesheet to the page once, however many nodes ask for it. */
+export function styleOnce(key, css) {
+  if (styled.has(key)) return;
+  styled.add(key);
   const el = document.createElement("style");
-  el.textContent = CSS;
+  el.textContent = css;
   document.head.appendChild(el);
 }
 
-const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) =>
-  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+const ensureCss = () => styleOnce("fpt-widgets", CSS);
 
-/** Hide a declared widget. Nodes 2.0 reads `options.hidden` (isWidgetVisible); `hidden` is one more
- *  line and keeps litegraph's own layout in step, so it stays. */
+/** Text safe to interpolate into markup, quotes included: every string here comes off the site. */
+export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+  ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/** Flow PT's `bg_color` ("179,179,179") as three numbers, or null (probe 010). */
+export function rgbParts(rgb) {
+  const s = String(rgb ?? "");
+  return /^\d+,\d+,\d+$/.test(s) ? s.split(",").map(Number) : null;
+}
+
+/** That colour as CSS, or `fallback` when the site sent something else. */
+export const rgbCss = (rgb, fallback) => (rgbParts(rgb) ? `rgb(${rgb})` : fallback);
+
+/** A remote URL fit for an `src`, or "". http, https and embedded images only, so nothing the site
+ *  sends can carry a `javascript:` scheme into the DOM. */
+function safeUrl(u) {
+  const s = String(u ?? "").replace(/[\t\n\r]/g, "").trim();
+  return /^(?:https?:\/\/|data:image\/)/i.test(s) ? s : "";
+}
+
+// encodeURIComponent leaves ' ( ) alone, and those are what close a CSS url('…').
+const CSS_ESCAPES = { '"': "%22", "'": "%27", "(": "%28", ")": "%29", "\\": "%5C",
+                      "<": "%3C", ">": "%3E" };
+
+/** The same URL fit for a CSS `url('…')`: every character that could close the string or the
+ *  attribute is percent-encoded, which HTML unescaping cannot undo. */
+const cssUrl = (u) => safeUrl(u).replace(/["'()\\<>\s]/g,
+  (c) => CSS_ESCAPES[c] || encodeURIComponent(c));
+
+const ICON_TAGS = new Set(["span", "b", "i", "em", "strong", "small", "sub", "sup", "br"]);
+const ICON_ATTRS = new Set(["class", "style", "title"]);
+
+/** Site-authored markup with everything executable taken out. A status icon's `html` is markup by
+ *  design (recipe 010) and it renders inside ComfyUI's own origin, so unknown elements are unwrapped
+ *  and every attribute but class, style and title is dropped. A `<template>` is inert: parsing it
+ *  runs no script and loads no image. */
+function safeHtml(html) {
+  const t = document.createElement("template");
+  t.innerHTML = String(html ?? "");
+  for (const el of t.content.querySelectorAll("*")) {
+    if (!ICON_TAGS.has(el.tagName.toLowerCase())) {
+      el.replaceWith(...el.childNodes);
+      continue;
+    }
+    for (const a of [...el.attributes]) {
+      if (!ICON_ATTRS.has(a.name.toLowerCase())) el.removeAttribute(a.name);
+    }
+  }
+  return t.innerHTML;
+}
+
+/** Hide a declared widget. Nodes 2.0 reads `options.hidden` (isWidgetVisible) and litegraph reads
+ *  `hidden`, so both are set. */
 export function hideWidget(widget) {
   if (!widget) return;
   widget.hidden = true;
@@ -128,13 +175,11 @@ export function hideWidget(widget) {
   widget.options.hidden = true;
 }
 
-/** Put a widget inside ComfyUI's OWN "Show advanced inputs" fold, beside `code_template` and the
- *  rest of the fine print.
+/** Put a widget inside ComfyUI's own "Show advanced inputs" fold.
  *
- *  `isWidgetVisible` reads `options.advanced` exactly as it reads `options.hidden`
- *  (useProcessedWidgets.ts), and the node's footer button appears as soon as any widget carries it
- *  (`widgets.some(w => w.options?.advanced)`). `advanced`, the property, is what litegraph's own
- *  `LGraphNode.isWidgetVisible` tests — the same pair `hideWidget` sets. */
+ *  `isWidgetVisible` reads `options.advanced` exactly as it reads `options.hidden`, and the node's
+ *  footer button appears as soon as any widget carries it; `advanced`, the property, is what
+ *  litegraph's own `LGraphNode.isWidgetVisible` tests. The same pair `hideWidget` sets. */
 export function advancedWidget(widget) {
   if (!widget) return widget;
   widget.advanced = true;
@@ -147,12 +192,9 @@ export function advancedWidget(widget) {
  *
  * `rows` in INPUT_TYPES does not reach it: Nodes 2.0 builds a `customtext` with its own options
  * object and copies nothing from the spec. Set here it does, because WidgetTextarea v-binds every
- * option it is not told to drop straight onto the `<textarea>`, and the element's height is `auto`
- * against an auto-height row — so `rows` decides it, floored by the stock `min-h-16`.
- *
- * `getMinHeight` is NOT the lever, whatever a DOM widget's options suggest: it is read by
- * BaseDOMWidget.computeLayoutSize, which Nodes 2.0 never calls for a widget it renders itself. The
- * note sat at 64px — the height of a name field — for as long as that was the mechanism.
+ * option it is not told to drop onto the `<textarea>`, whose height is `auto` against an auto-height
+ * row. `getMinHeight` is not the lever: it is read by BaseDOMWidget.computeLayoutSize, which
+ * Nodes 2.0 never calls for a widget it renders itself.
  */
 export function textRows(widget, rows) {
   if (!widget) return widget;
@@ -163,13 +205,11 @@ export function textRows(widget, rows) {
 
 /** Restore a saved value onto a declared widget, and leave the editor able to recognise it.
  *
- * A combo whose value is in no option draws a red invalid ring — `WidgetSelectDefault.isInvalid` is
- * exactly "there is a value and nothing in the list matches it". Every combo on these nodes is
- * seeded for the default project and repopulated per project one round trip later, so a saved
- * graph's `task` arrives before its list does; the ring then stayed on for the rest of the session,
- * because the Vue component reads the options when it builds and a later `options.values = […]`
- * never reached it. Widening the list is the same thing VALIDATE_INPUTS does on the server: accept
- * the value the operator legitimately picked, whatever the class declared at load time.
+ * `WidgetSelectDefault.isInvalid` is "there is a value and nothing in the list matches it", and it
+ * draws a red ring that stays for the session: the Vue component reads the options when it builds,
+ * so a later `options.values = […]` never reaches it. Every combo here is seeded for the default
+ * project and repopulated per project one round trip later, so a saved graph's `task` arrives before
+ * its list does. Widening the list is what VALIDATE_INPUTS already does on the server.
  */
 export function restoreValue(widget, value) {
   if (!widget) return;
@@ -180,11 +220,11 @@ export function restoreValue(widget, value) {
 
 /** Keep a widget of ours out of `widgets_values`.
  *
- * `addDOMWidget(…, {serialize: false})` does NOT do this: both the save and the restore test
- * `widget.serialize`, the property, and never the option (LGraphNode.serialize / .configure). An
- * injected widget that serializes eats a slot in a POSITIONAL array, which silently shifts every
- * declared value after it — the Load node restored `statuses = "version number in the name"`, and
- * the Publish node put `attach_workflow`'s `true` into `source_versions`.
+ * `addDOMWidget(…, {serialize: false})` does not do this: the option is never copied onto the
+ * widget, and both the save and the restore test `widget.serialize`, the property
+ * (LGraphNode.serialize / .configure). So `widget.serialize` reads undefined on a DOM widget and
+ * filtering on it excludes nothing. An injected widget that serializes eats a slot in a POSITIONAL
+ * array and shifts every declared value after it.
  */
 export function dontSerialize(widget) {
   if (widget) widget.serialize = false;
@@ -196,9 +236,9 @@ export function dontSerialize(widget) {
  * dontSerialize is not enough on its own, because the frontend's save and its restore disagree:
  * `serialize()` writes `widgets_values[i]` at the index over ALL widgets, leaving a null hole where
  * it skipped one, while `configure()` reads with a counter that only advances on serialized
- * widgets. Every value after our first injected row therefore comes back off by one. Since
- * `widgets_values_named` is always written and `Comfy.Workflow.NamedValuesRestore` is off by
- * default, that name map is the reliable answer; the fallback aligns on the index the save used.
+ * widgets, so every value after our first injected row comes back off by one. `widgets_values_named`
+ * is always written by the editor and `Comfy.Workflow.NamedValuesRestore` is off by default, so that
+ * name map is the reliable answer; the fallback walks the array with the counter the save used.
  */
 export function restoreDeclaredWidgets(nodeType) {
   const prev = nodeType.prototype.onConfigure;
@@ -214,10 +254,6 @@ export function restoreDeclaredWidgets(nodeType) {
     }
     const vals = info && info.widgets_values;
     if (!Array.isArray(vals)) return;
-    // The array holds ONLY the serializable widgets, so it must be walked with its own counter.
-    // Indexing it by the position in `widgets` shifts every value by the number of pickers above
-    // it — on the shipped load_demo that put "auto" in name_contains and "" in pin_version_id,
-    // which ComfyUI then refused to queue.
     let k = 0;
     for (const w of widgets) {
       if (w.serialize === false) continue;
@@ -239,12 +275,12 @@ export function vueNodesEnabled() {
   return false;
 }
 
-/** Say so on the node when Nodes 2.0 is off, and answer false. Never flips the setting: it changes
- *  the operator's whole editor, so it is their call. */
+/** Say so on the node when Nodes 2.0 is off, and answer false. Never flips the setting: that
+ *  changes the operator's whole editor, so it is their call. */
 export function requireVueNodes(node) {
   if (vueNodesEnabled()) return true;
   // A button, because on the classic canvas it is the one widget whose text is drawn full width and
-  // legibly: a markdown widget there renders as the frontend's own "Markdown: Node 2.0 only"
+  // legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
   // placeholder, which names the widget type rather than what the operator has to do.
   dontSerialize(node.addWidget(
     "button", "⚠ needs Nodes 2.0 — click to open Settings › Lite Graph", null,
@@ -264,14 +300,9 @@ function nodeElement(node) {
 /** Set node.size from what the node actually renders.
  *
  * The Vue node is `min-h-(--node-height)`, so its DOM height is the larger of node.size and its
- * content — which means computeSize() can disagree with the picture and nothing notices. Zeroing
- * the variable for one reflow asks the content what it wants, which is the only number that is
- * never a guess.
- *
- * There is no "grow" row any more. The readout used to pool a taller node's surplus, which sounded
- * generous and in practice put an empty band under two lines of text every time the CONTENT shrank
- * — a node widened until the status chips needed one row fewer, a fold shut. It never even served
- * the case it was for: dragging a node taller routes through litegraph, not through here.
+ * content and computeSize() can disagree with the picture unnoticed. Zeroing the variable for one
+ * reflow asks the content what it wants, which is the only number that is never a guess. Surplus
+ * from a manual drag stays at the bottom of the node: dragging routes through litegraph, not here.
  */
 export function fitNode(node) {
   const el = nodeElement(node);
@@ -287,8 +318,9 @@ export function fitNode(node) {
 
 /** One `label | control` row in the node's own widget grid.
  *
- * `target` is the declared widget this replaces: addDOMWidget appends, which would float every
- * picker below every plain widget, so the row is spliced back to where its widget sat.
+ * Omit `label` for a row that spans both columns. `target` is the declared widget this replaces:
+ * addDOMWidget appends, which would float every picker below every plain widget, so the row is
+ * spliced back to where its widget sat.
  */
 export function domRow(node, name, { label, control, target }) {
   ensureCss();
@@ -308,8 +340,8 @@ export function domRow(node, name, { label, control, target }) {
   (node.__fptRoots = node.__fptRoots || []).push(root);
 
   const widget = node.addDOMWidget(name, name, root, {
-    // .fpt-dom is display:contents under Nodes 2.0 and has no box; the control block is what has a
-    // height, and it is never stretched (align-items: start).
+    // .fpt-dom is display:contents and has no box; the control block is what has a height, and it
+    // is never stretched (align-items: start).
     getMinHeight: () => Math.max(ctl.offsetHeight, 24),
   });
   dontSerialize(widget);
@@ -324,22 +356,22 @@ export function domRow(node, name, { label, control, target }) {
   return { widget, root, ctl, relayout: () => requestAnimationFrame(() => fitNode(node)) };
 }
 
-/** One status icon, whichever of the three renderings it has (recipe 010). Falls back to the
- *  colour dot when the sheet rule was not found, which is what `sprite()` returning null means. */
+/** One status icon, whichever of the three renderings it has (recipe 010). The colour dot is the
+ *  fallback, which is also what a sprite rule the stylesheet did not yield comes back as. */
 export function iconHtml(icon, rgb) {
-  if (icon && icon.kind === "sprite") {
+  if (icon && icon.kind === "sprite" && cssUrl(icon.url)) {
     const [ox, oy] = icon.offset, [w, h] = icon.size;
-    return `<span class="fpt-ico" style="width:${w}px;height:${h}px;
-      background-image:url('${icon.url}');background-position:${ox}px ${oy}px"></span>`;
+    return `<span class="fpt-ico" style="width:${Number(w)}px;height:${Number(h)}px;
+      background-image:url('${esc(cssUrl(icon.url))}');
+      background-position:${Number(ox)}px ${Number(oy)}px"></span>`;
   }
-  if (icon && icon.kind === "data_uri" && icon.url) {
-    return `<img class="fpt-ico-img" src="${icon.url}" alt="">`;
+  if (icon && icon.kind === "data_uri" && safeUrl(icon.url)) {
+    return `<img class="fpt-ico-img" src="${esc(safeUrl(icon.url))}" alt="">`;
   }
   if (icon && icon.kind === "text" && icon.html) {
-    return `<span class="fpt-ico-txt">${icon.html}</span>`;
+    return `<span class="fpt-ico-txt">${safeHtml(icon.html)}</span>`;
   }
-  const dot = /^\d+,\d+,\d+$/.test(rgb || "") ? `rgb(${rgb})` : "#5a626b";
-  return `<span class="fpt-dot" style="background:${dot}"></span>`;
+  return `<span class="fpt-dot" style="background:${rgbCss(rgb, "#5a626b")}"></span>`;
 }
 
 const svg = (paths) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -350,11 +382,13 @@ const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
 
 /** A select-shaped trigger whose popup holds the search.
  *
- * Multi-word goes straight to Flow PT (site.entities splits on whitespace and ANDs a `contains` per
- * word), which is the search an artist expects: `gir rul` finds `giraffe_ruler`. Filtering here
- * would only ever see the page the server already sent.
+ * `search(q)` is async and answers with items — `{value, name, type, code, image}`, of which only
+ * `value` and `name` are required. Multi-word queries go straight to the site (site.entities ANDs a
+ * `contains` per word), which is the search an artist expects: `gir rul` finds `giraffe_ruler`.
+ * Filtering here would only ever see the page the server already sent.
  *
- * Items are `{value, name, type, code, image}`; only `value` and `name` are required.
+ * Returns `{refresh, relayout, close}`; pass the current item to `refresh` to put its thumbnail on
+ * the trigger.
  */
 export function searchPicker(node, target, {
   search, placeholder = "search…", onPick, label, empty = "nothing matches that",
@@ -381,13 +415,12 @@ export function searchPicker(node, target, {
     const set = v && v !== "(none)";
     valEl.textContent = set ? v : "None";
     valEl.classList.toggle("is-empty", !set);
-    const src = set && item && item.image;
+    const src = set && item ? safeUrl(item.image) : "";
     thumbEl.hidden = !src;
     if (src) thumbEl.src = src;
   };
   showCurrent();
 
-  // --- the popup, on <body>
   const pop = document.createElement("div");
   pop.className = `fpt-pop ${NATIVE.pop}`;
   pop.setAttribute("role", "listbox");
@@ -426,15 +459,18 @@ export function searchPicker(node, target, {
       at = -1;
       return;
     }
-    // One fixed slot for the thumbnail as soon as ANY row has one, so the names still line up: a
-    // list where half the rows indent themselves reads as two lists.
+    // One fixed thumbnail slot as soon as ANY row has a picture, so the names still line up: a list
+    // where half the rows indent themselves reads as two lists.
     const thumbs = rows.some((it) => it.image);
-    list.innerHTML = rows.map((it, i) => `<div class="${NATIVE.item}" role="option" data-i="${i}">
+    list.innerHTML = rows.map((it, i) => {
+      const img = cssUrl(it.image);
+      return `<div class="${NATIVE.item}" role="option" data-i="${i}">
         <span class="fpt-pop-name">${thumbs
-          ? `<span class="fpt-pop-thumb${it.image ? " on" : ""}"${it.image
-              ? ` style="background-image:url('${esc(it.image)}')"` : ""}></span>` : ""
+          ? `<span class="fpt-pop-thumb${img ? " on" : ""}"${img
+              ? ` style="background-image:url('${esc(img)}')"` : ""}></span>` : ""
         }<span class="truncate">${esc(it.name)}</span></span>
-        <span class="fpt-pop-meta">${esc(it.code || it.type || "")}</span></div>`).join("");
+        <span class="fpt-pop-meta">${esc(it.code || it.type || "")}</span></div>`;
+    }).join("");
     [...list.children].forEach((el, i) => {
       el.onmouseenter = () => highlight(i);
       el.onclick = () => choose(i);
@@ -504,9 +540,8 @@ export function searchPicker(node, target, {
   return { refresh: showCurrent, relayout, close };
 }
 
-/** Several statuses, any of which will do. This was a comma-separated text field because ComfyUI's
- *  MultiCombo rendered at 16px inside an 82px slot; as chips it shows each status in its own colour
- *  (probe 010) and says what is selected without the operator typing a label exactly right. */
+/** Several statuses, any of which will do: one chip each, in the status's own colour (probe 010),
+ *  so nothing has to be typed exactly right. `load()` is async and answers with status items. */
 export function chipSelect(node, target, { load, label, empty = "this project offers no statuses" }) {
   ensureCss();
   const root = document.createElement("div");
@@ -515,9 +550,8 @@ export function chipSelect(node, target, { load, label, empty = "this project of
 
   const chosen = () => new Set(String(target.value || "").split(",").map((s) => s.trim()).filter(Boolean));
 
-  // A show allows twenty statuses and uses two. `/fpt/statuses` already returns them most-used-first
-  // (probe 020), so the first few are the answer and the rest are the long tail — 15 chips over
-  // seven rows made the node mostly status picker.
+  // A show allows twenty statuses and uses two. `/fpt/statuses` returns them most-used-first
+  // (probe 020), so the first few are the answer and the rest are the long tail.
   const KEEP = 4;
   let expanded = false;
 

@@ -1,12 +1,10 @@
 """Flow PT Load Version — a Version's media comes back into the graph, and the link is recorded.
 
-The point is not only the pixels. A Version loaded here is remembered as an ancestor, so anything
-published downstream records what it came from without the operator typing an id. A plate becomes a
-previs; several Versions become one output; the chain is in Flow PT, not in someone's memory.
+The pixels are half of it. A Version loaded here is remembered as an ancestor (`lineage`), so
+anything published downstream records what it came from without the operator typing an id.
 
-The inputs are a rule an artist would say out loud — *the newest approved depth on this shot* — not a
-Version id. An id is the escape hatch, not the interface: `pin_version_id` overrides everything when
-you need one exact Version and nothing else will do.
+The inputs are a rule an artist would say out loud — *the newest approved depth on this shot* —
+rather than a Version id. `pin_version_id` is the escape hatch and overrides everything above it.
 """
 import json
 
@@ -16,9 +14,8 @@ import torch
 from .. import lineage, media, resolve, site
 
 MAX_ID = 2 ** 31 - 1
-# The default for an unset keyword, NOT the label a person picks — that is
-# site.NO_VALUE, "(none)". Naming both NONE is what produced a combo whose
-# declared value the editor could never offer back.
+# The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
+# "(none)" — and the two must stay distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
 AUTO = "auto"
 
@@ -32,8 +29,8 @@ def _id_for(pairs, label):
     return next((i for l, i in pairs if l == label), 0)
 
 
-# shotgun_api3 spells the same tree differently (probe 030), and a TD reaching for a filter will
-# type the Python spelling. Accept it and translate rather than 400 on a reasonable guess.
+# shotgun_api3 spells the same filter tree differently (probe 030), and a TD reaching for a filter
+# will type the Python spelling. Accept it and translate rather than 400 on a reasonable guess.
 _PY_KEYS = {"filter_operator": "logical_operator", "filters": "conditions"}
 _PY_OPS = {"any": "or", "all": "and"}
 
@@ -54,7 +51,7 @@ def _as_rest_filter(v):
 
 
 def _as_list(v):
-    """The multi-select arrives as a list; a hand-edited graph may hold a string."""
+    """The multi-select arrives as a list; a hand-edited graph may hold a comma-separated string."""
     if isinstance(v, (list, tuple)):
         return [str(x) for x in v if x]
     return [x.strip() for x in str(v or "").split(",") if x.strip()]
@@ -67,7 +64,12 @@ class FPTLoadVersion:
         statuses = site.statuses(project_id)
         return {
             # Order is the order they are read: which show, which thing, which task, which state.
-            # Everything else is behind the advanced fold — it is the rule's fine print, not the rule.
+            # Everything else is the rule's fine print and lives behind ComfyUI's advanced fold.
+            #
+            # WIDGET ORDER IS FROZEN. widgets_values is positional, so a key inserted, removed or
+            # renamed here displaces every value below it in every graph already saved. Append only,
+            # and move instrument.LOAD_WIDGETS, web/fpt_entity_picker.js DECLARED and every *.json
+            # under example_workflows/ and tools/workflows/ in the same commit.
             "required": {
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id)}),
@@ -75,19 +77,16 @@ class FPTLoadVersion:
                          {"tooltip": "What to read from. Empty searches the whole project."}),
             },
             "optional": {
-                # site.NO_VALUE, not UNSET: this is the label a person picks, and the two are not
-                # the same string. Declaring "" here while the editor offered "(none)" is what made
-                # ComfyUI refuse to run the graph.
+                # site.NO_VALUE, not UNSET: this is a label a person picks, and declaring "" while
+                # the editor offers "(none)" makes ComfyUI refuse to run the graph.
                 "task": ([site.NO_VALUE], {"tooltip": "Narrow to one Task on that entity. Optional — probe "
                                              "005 found sg_task filled on 1% of Versions."}),
-                # Several statuses, any of which will do. There is no "approved" concept in Flow PT —
-                # the codes differ per project (probe 009), so the operator names this project's.
+                # Several statuses, any of which will do. Flow PT has no "approved" concept and the
+                # codes differ per project (probe 009), so the operator names this project's.
                 #
-                # A plain text field, not ComfyUI's MultiCombo. That widget renders at 16px in a slot
-                # the node reserves from the widget spec rather than from the DOM, so CSS shrinks the
-                # control to 33px and leaves it floating in 82px of gap. One ordinary row that works
-                # on every frontend beats a prettier control that looks broken; the tooltip carries
-                # the choices and `resolves to` says at once when nothing matches.
+                # A plain text field, not ComfyUI's MultiCombo: that widget reserves its slot from
+                # the widget spec rather than the DOM, so CSS shrinks the control to 33px inside an
+                # 82px gap. The tooltip carries the choices instead.
                 "statuses": ("STRING", {"default": "",
                              "tooltip": "Any of these will do; empty means any status. Comma "
                                         "separated. This project allows: "
@@ -119,17 +118,17 @@ class FPTLoadVersion:
                                      "is refused, and the error names the range it does have.\n\n"
                                      "A movie has no numbers inside it, so there this counts decoded "
                                      "frames from 1 and 0 means the same as 1."}),
-                # The API's own language, for when the fields here cannot say it. Empty means the
-                # fields decide; the panel shows what they add up to, so this starts as a copy of
-                # something that already works rather than a blank page.
+                # The API's own language, for what the fields above cannot say. Empty means the
+                # fields decide, and the panel shows what they add up to.
+                #
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "filters": ("STRING", {"default": "", "multiline": True,
                             "display_name": "extra filters",
                             # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A
                             # hand-rolled toggle button ends up appended at the bottom, nowhere near
-                            # the widget it controls, and cannot be moved next to it because
-                            # widgets_values is positional.
+                            # the widget it controls, and widgets_values is positional so it cannot
+                            # be moved next to it.
                             "advanced": True,
                             "tooltip": "ADDED to the fields above with AND — it narrows, it never "
                                        "replaces. Every field on this node keeps meaning what it "
@@ -140,14 +139,13 @@ class FPTLoadVersion:
                                        "group: {\"logical_operator\": \"or\", \"conditions\": "
                                        "[...]} (probe 030).\n\nThe panel shows the whole query "
                                        "this adds up to."}),
-                # LAST, and it belongs beside `frame`. Widgets are appended and never inserted:
-                # widgets_values is positional, so a widget added above this one displaces every
-                # value in every graph already saved, including graphs this repo will never see.
-                # A row in the wrong place is a cosmetic cost; a silently shifted value is not.
+                # LAST, appended after the multiline box it has no business sitting under, because
+                # widgets_values is positional and a widget added above an existing one displaces
+                # every value in every graph already saved. A row in the wrong place is cosmetic;
+                # a silently shifted value is not.
                 #
-                # Default 1 for the same reason. A batch is what makes a loaded clip a real input to
-                # a video graph, but a graph saved before this widget existed asks for one image and
-                # must keep getting one — the operator opts in to a clip, they are never given one.
+                # Default 1 for the same reason: a widget's declared default is what a graph saved
+                # before the widget existed loads, and such a graph asks for one image.
                 "frame_count": ("INT", {"default": 1, "min": 0, "max": media.MAX_FRAMES,
                                 "advanced": True,
                                 "tooltip": "How many frames to read as one batch, starting at "
@@ -166,19 +164,16 @@ class FPTLoadVersion:
 
         These combos are seeded for the default project and then repopulated per project by the JS
         (`setOptions`), so a value the operator legitimately picked need not be in the list this
-        class declared at load time. ComfyUI skips its own membership check for any input named
-        here (execution.py:1019), which is the mechanism core nodes use for the same problem
-        (comfy_extras/nodes_model_advanced.py:380).
-
-        Nothing is lost: a label that resolves to no entity still fails at run time, naming the
-        label and the project, which is the more useful error anyway.
+        class declared at load time. ComfyUI skips its own membership check for any input named here
+        (execution.py:1019), the mechanism core nodes use for the same problem
+        (comfy_extras/nodes_model_advanced.py:380). A label that resolves to no entity still fails
+        at run time, naming the label and the project.
         """
         return True
 
-    # `colour_space` is an output rather than a line in the log because an artist about to comp acts
-    # on it: it feeds the publish node's own colour_space widget, so a claim made once upstream
-    # travels with the pixels instead of being retyped. Empty when nothing was declared — recorded,
-    # never applied, never inferred (DESIGN: this project does not make images).
+    # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
+    # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
+    # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
     RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING")
     RETURN_NAMES = ("image", "version_id", "code", "colour_space")
     FUNCTION = "load"
@@ -198,7 +193,7 @@ class FPTLoadVersion:
 
     @staticmethod
     def _filters(raw):
-        """Parsed override, or None. A broken filter must say so, not silently fall back."""
+        """The parsed `filters` override, or None. A broken filter raises rather than falling back."""
         raw = (raw or "").strip()
         if not raw:
             return None
@@ -206,8 +201,8 @@ class FPTLoadVersion:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
             raise ValueError(f"filters is not valid JSON: {e}")
-        # Both shapes, because Flow PT takes both — under different Content-Types (probe 030).
-        # An array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
+        # Both shapes, because Flow PT takes both under different Content-Types (probe 030). An
+        # array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
         # only way to express `or`, nested up to 265 groups deep.
         if isinstance(v, dict):
             return _as_rest_filter(v)
@@ -220,7 +215,7 @@ class FPTLoadVersion:
     @classmethod
     def _resolve(cls, project, link_type, link, task, name_contains, statuses, newest_by,
                  filters=""):
-        """The rule, applied. Shared by execution and IS_CHANGED so the two cannot disagree."""
+        """(version_id, code, why) for the rule. Shared by execution, IS_CHANGED and the panel."""
         project_id, lt, target, task_id = cls._context(project, link_type, link, task)
         p = site.for_project(project_id)
         codes, unknown = site.resolve_statuses(project_id, _as_list(statuses))
@@ -236,11 +231,10 @@ class FPTLoadVersion:
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
                    source=AUTO, frame=0, frame_count=1, **kw):
-        """Re-resolve at queue time, so the graph sees what has been published since.
+        """The id this node WOULD load, so it re-executes when that changes and only then.
 
-        Without this ComfyUI caches on unchanged widgets and a re-run costs 0.00s without asking the
-        site — the read node keeps serving v001 after v002 lands, which defeats resolving by rule.
-        Returns the id it WOULD load, so it re-executes when that changes and only then.
+        ComfyUI otherwise caches on unchanged widgets, and a node resolving by rule keeps serving
+        v001 after v002 lands.
         """
         if int(pin_version_id):
             return f"{int(pin_version_id)}:{source}:{frame}:{frame_count}"
@@ -261,8 +255,8 @@ class FPTLoadVersion:
             vid, code, why = self._resolve(project, link_type, link, task, name_contains, statuses,
                                            newest_by, filters)
             if not vid:
-                # Failing at run time is exactly when you need to see what IS on that link, so the
-                # error carries it rather than only the rule that missed.
+                # A rule that matches nothing is when you most need to see what IS on that link, so
+                # the error carries it rather than only the rule that missed.
                 project_id, lt, target, task_id = self._context(project, link_type, link, task)
                 near = site.find_versions(project_id, lt, target, task_id)[:8]
                 labels = {c: l for l, c in site.statuses(project_id)}   # 'pndvs' means nothing
@@ -283,27 +277,27 @@ class FPTLoadVersion:
         key = available[0][0] if source in (AUTO, UNSET) else source.split(" — ")[0].strip()
         if key not in [k for k, _ in available]:
             # The labels, not the keys: a PublishedFile that has been renamed or re-typed no longer
-            # matches the saved value, and "it has: Rendered Image · …" is what tells you which.
+            # matches the saved value, and the listing is what tells you which.
             raise ValueError(f"Version {vid} cannot deliver {key!r}; it has:\n  "
                              + "\n  ".join(label for _, label in available))
 
         # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
-        # Version is not in the prompt graph, only the rule is. The file goes with it: when this read
-        # came off a PublishedFile, the dependency the publish writes is that one file rather than
-        # every file the ancestor ever published.
+        # Version is not in the prompt graph, only the rule is. The file goes with it: a read that
+        # came off a PublishedFile makes the downstream dependency that one file rather than every
+        # file the ancestor ever published.
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0))
 
         frames = media.load_frames(v, key, frame, frame_count)
         a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
         colour = media.colour_of(v, key)
-        # The frame it STARTED at, not the number that was typed: `frame` 0 means "wherever this
-        # sequence begins", and a log line saying "from 0" names a frame that does not exist.
+        # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
+        # line saying "from 0" would name a frame that does not exist.
         rng = media.frame_range(v, key)
         at = (rng[0] if rng else 1) if int(frame) <= 0 else int(frame)
         got = f"{len(frames)} frames from {at}" if len(frames) > 1 else f"frame {at}"
-        # Said out loud, because a batch that came back short is a fact about the media the graph
-        # downstream will otherwise discover as a wrong frame count.
+        # A batch that came back short is a fact about the media, said out loud rather than left for
+        # the graph downstream to discover as a wrong frame count.
         short = f" (asked for {frame_count})" if len(frames) < int(frame_count) else ""
         print(f"[Flow PT] loaded Version {vid}: {why}; source={key}; {got}{short}"
               + (f"; colour space declared {colour} — recorded, not applied" if colour else ""))

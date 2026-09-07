@@ -1,28 +1,29 @@
 """Read someone else's ComfyUI workflow and put Flow PT tracking into it.
 
-Setup path. The operator has a graph that already works; this finds where a Version would come out of
-it and where one could go in, then does the wiring. It never rewrites the original file.
+    python src/comfyui_fpt/instrument.py WORKFLOW.json                     # analyse only
+    python src/comfyui_fpt/instrument.py WORKFLOW.json --out COPY.json --publish 306/296
+
+Run as a file, never `python -m`: `-m` imports the package `__init__` and therefore torch, and a
+graph must stay analysable on a machine with neither torch nor a route to the site. Setup path — it
+asks the site nothing, and never writes the original file.
 
 The rule is structural, not a list of node names: an **output stream** is any IMAGE link feeding a
-sink, plus any IMAGE output nothing consumes. That way a workflow built from custom nodes this project
-has never heard of still analyses correctly — which matters, because the graphs worth tracking are
-exactly the ones nobody standardised.
-
-A sink is where the images stop being images: either nothing is wired out of it, or what comes out is
-another medium. Both halves were measured against 680 real workflows (the ComfyUI template set plus
-the three most-starred public collections) — see `_is_sink`.
+sink, plus any IMAGE output nothing consumes, so a workflow built from custom nodes this project has
+never heard of still analyses correctly. A sink is where the images stop being images — see
+`_is_sink`.
 
 Modern templates put the work inside **subgraphs**, so the analysis runs over a flattened view of the
 graph rather than over `wf["nodes"]` — see `_flatten`. A node is therefore addressed by a *path*,
 `306/296`, not by an id, and everything here takes and returns those.
 """
+import argparse
 import json
 import re
 from collections import namedtuple
 from pathlib import Path
 from uuid import uuid4
 
-# Consume an IMAGE and produce nothing: the end of a stream, so the thing feeding them is a Version.
+# A node whose type says it ends the stream: whatever feeds it is a Version.
 SINK_HINTS = ("save", "preview", "combine", "output", "write")
 # Frames assembled into another medium end the image stream just as finally as saving them does.
 # A type, not a node name, so an unknown video node still reads correctly.
@@ -37,45 +38,35 @@ LOAD = "FPTLoadVersion"
 PUBLISH_WIDGETS = ["project", "link", "task", "status", "note",
                    "code_template", "source_versions", "attach_workflow", "link_id",
                    "register_files", "colour_space", "root_name"]
-# `frame_count` was appended to the class and never here, so `/track-workflow` wrote Load nodes
-# holding 10 of 11 values — the same drift that had already been found and fixed once for
-# PUBLISH_WIDGETS at `link_id`. All five declared orders move together (CLAUDE.md).
+# All five declared orders move together (CLAUDE.md).
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
                 "pin_version_id", "source", "frame", "filters", "frame_count"]
 # site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of
 # the client. A combo cannot hold "" — the editor would show a value it can never offer back — so an
 # unset pick is the visible "no value" the node declares.
 NO_VALUE = "(none)"
+# Every default mirrors the node class's own. `register_files` is off because a tap added to somebody
+# else's graph must not start copying their frames onto a shared volume.
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
-                    # `{output}` is gone from the vocabulary: the stream is `root_name`, and a code
-                    # template naming `{output}` renders it as nothing — `sh010_depth_v001` came
-                    # out `sh010_v001` and every stream in a graph collapsed onto one name.
                     "code_template": "{root_name}_v{version:03d}",
-                    # Review, not a deliverable: a tap added to somebody else's graph must not start
-                    # copying their frames onto a shared volume because we instrumented it.
                     "register_files": False,
                     "attach_workflow": True, "link_id": 0}
-# `frame` is 0, "wherever this sequence starts", which is what the class declares — it was 1 here,
-# so an instrumented graph asked for frame 1 of a plate that starts at 1001 and was refused.
+# `frame` 0 is "wherever this sequence starts", so a plate numbered from 1001 needs nothing typed.
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
                  "source": "auto", "pin_version_id": 0, "frame": 0, "frame_count": 1}
 
 
 def _stream(descriptor):
-    """A stream descriptor — "depth", "matte" — as the root-name TEMPLATE for that stream.
+    """A stream descriptor — "depth", "matte" — as that stream's `root_name` template.
 
-    `widgets()` refuses a name the node does not declare, so passing the old `output_name` raised
-    ValueError and `--publish` could not add a node at all. The stream is `root_name` now, and it is
-    a template rather than a literal: `{entity}_depth` names the same thing on every shot, which is
-    what `{entity.code}_{output}_...` used to do in one string.
+    A template rather than a literal: `{entity}_depth` names the same thing on every shot.
     """
     return "{entity}_" + descriptor
 
 
 def widgets(names, defaults, **values):
-    """The positional array, built by name. A name nothing declares is an error, not a no-op:
-    silently dropping one is how a value ends up in the field next to the one it was meant for."""
+    """The positional array, built by name. A name nothing declares is an error, not a no-op."""
     unknown = sorted((set(defaults) | set(values)) - set(names))
     if unknown:
         raise ValueError(f"not widgets of this node: {', '.join(unknown)}")
@@ -123,7 +114,7 @@ def _flatten(wf):
     A subgraph instance is a relay, not a node. Inside the definition, a link out of `inputNode`
     slot k continues whatever the instance's input k was fed; a link into `outputNode` slot j is
     what the instance's output j hands on. Splicing those pairs is the whole trick, and it handles
-    nesting for free because a definition may instantiate another one (76 places in the corpus).
+    nesting for free, because a definition may instantiate another one.
 
     Returns
       nodes   {path: node}    real nodes only — an instance is a relay and never appears
@@ -199,21 +190,13 @@ def _live(flat):
 
 
 def _is_sink(node, live):
-    """Where an IMAGE stream stops being images.
+    """Whether an IMAGE stream stops being images here.
 
-    Two ways that happens, and the old test only saw the first. `not node.get("outputs")` asked
-    whether the node *declares* an output slot, so a save node with a slot nobody wired was missed,
-    and `CreateVideo` — which does have a VIDEO output — hid the frame stream behind it. Measured on
-    680 real workflows: 196 of them found no publishable stream at all for that reason, every one a
-    video graph whose frames were sitting right there on `VAEDecode`.
-
-    Nodes that merely re-express the images — VAEEncode, CLIPVisionEncode, GetImageSize — pass the
-    stream on in another form and are deliberately not ends.
-
-    A save node is an end whether or not it also hands the picture on. Requiring that nothing be
-    wired out of it cost 20 more graphs, among them the SeedVR2 int8 upscalers, whose `SaveImage`
-    also feeds an `ImageCompare` so the operator can see the before and after. Saving is that node's
-    job; the pass-through is a convenience, and `outputs` already declines to report it twice.
+    Two ways it stops: the node's type says it saves or previews, or a live output of it carries
+    another medium. A save node is an end whether or not it also hands the picture on, so
+    `SaveImage` feeding an `ImageCompare` still ends the stream. Nodes that merely re-express the
+    images — VAEEncode, CLIPVisionEncode, GetImageSize — pass the stream on in another form and are
+    deliberately not ends.
 
     `live` is the set of output slots `_live` found, not what the node declares.
     """
@@ -231,16 +214,13 @@ def _slug(text):
     return re.sub(r"[^A-Za-z0-9]+", "_", text).strip("_").lower()
 
 
-# A name a stream may never take, however it was arrived at. The switch settings are here because a
-# widget value is a naming candidate and a boolean one says nothing: "none" named the SeedVR2 int8
-# video upscale, and "false" named three more.
+# A name a stream may never take, however it was arrived at. A widget value is a naming candidate,
+# so the switch settings are here too: a boolean says nothing about the stream.
 DROP = ("preview_image", "save_image", "image", "previewimage", "saveimage",
         "none", "true", "false", "enable", "disable")
-# ...and more that a *sink* or a *slot* may not lend it, because a node whose whole job is to end
-# the stream is named after the medium, not after this picture: `CreateVideo` is what 37 of 680
-# corpus streams were called before subgraphs, and inside one the subgraph's own name is right
-# there and says something. The node's own type is exempt — it is the last candidate there is, and
-# `vaedecode` beats `out0`.
+# ...and more that a *sink* or a *slot* may not lend it: a node whose whole job is to end the stream
+# is named after the medium, not after this picture. The node's own type is exempt — it is the last
+# candidate there is, and `vaedecode` beats `out0`.
 NAMELESS = DROP + ("images", "video", "mask", "output", "value", "result", "frames", "any",
                    "preview_video", "previewvideo", "save_video", "savevideo",
                    "create_video", "createvideo", "preview_any", "previewany",
@@ -263,8 +243,7 @@ def descriptor(node, slot, sink_title="", out_label="", scope=""):
     dropped rather than preferred, and `scope` is tried late — after everything nearer the stream.
     """
     # widgets_values is a list on most nodes and a dict on some (VHS_VideoCombine writes
-    # {frame_rate, loop_count, filename_prefix}). Slicing a dict raises, which took the whole CLI
-    # down on 2 of 680 real workflows.
+    # {frame_rate, loop_count, filename_prefix}), and slicing a dict raises.
     w = node.get("widgets_values") or []
     w = list(w.values()) if isinstance(w, dict) else list(w)
     # (text, the bracket is the useful half, tokens this candidate is not allowed to be)
@@ -278,11 +257,9 @@ def descriptor(node, slot, sink_title="", out_label="", scope=""):
         inner = re.search(r"\(([^)]+)\)", cand) if bracket_wins else None
         # A sink label like "Preview Image (normal_opengl)" carries the useful part in parentheses.
         tok = _slug(inner.group(1) if inner else cand)
-        # A bare number is a widget value, not a name — ImageFromBatch's batch index reads as "0",
-        # which says nothing about the pass and, worse, reads the same for every such stream in the
+        # A bare number is a widget value, not a name: ImageFromBatch's batch index reads as "0" and
+        # a luma coefficient slugs down to digits, and both read the same for every stream in the
         # graph. Collapsing two passes onto one code is the failure this function exists to prevent.
-        # Digits with the punctuation slugged out are the same thing: "0.299, 0.587, 0.114" is a
-        # luma coefficient, and it named four streams apiece in the colour-adjustment templates.
         if re.fullmatch(r"[\d_]+", tok):
             continue
         if tok and tok not in drop:
@@ -302,12 +279,10 @@ def _scope(flat, path):
 def descriptors(wf):
     """{(path, slot): name} — what each stream is called, unique within this graph.
 
-    `descriptor` names a stream from what the graph says about it, which is right but not
-    necessarily distinct: the two symmetric tails of a two-shot video template describe themselves
-    identically, and two Versions sharing one code is the collapse `code = auto` cannot recover
-    from. The node type breaks the tie where it can, the path where it cannot, and the slot breaks it
-    again for the node that feeds three previews off one body — (path, slot) is what the graph
-    guarantees is unique, so that is the floor.
+    `descriptor` names a stream from what the graph says about it, which is right but not necessarily
+    distinct, and two Versions sharing one code is a collapse `code = auto` cannot recover from. The
+    node type breaks the tie where it can, the path where it cannot, and the slot breaks it again for
+    a node feeding three previews off one body — (path, slot) is the floor the graph guarantees.
     """
     flat = _flatten(wf)
     raw, counts = [], {}
@@ -316,9 +291,8 @@ def descriptors(wf):
                        flat.labels.get((path, slot), ""), _scope(flat, path))
         raw.append((path, slot, d))
         counts[d] = counts.get(d, 0) + 1
-    # When two streams describe themselves the same way — three taps inside one subgraph, whose name
-    # is all any of them has — the graph's own next word for them is the node type. Only when that
-    # repeats too does the path decide, and a path is not a name at all.
+    # When two streams describe themselves the same way, the graph's own next word for them is the
+    # node type. Only when that repeats too does the path decide, and a path is not a name at all.
     kinds = {p: _slug(flat.nodes.get(p, {}).get("type") or "") for p, _, _ in raw}
     pairs = {}
     for path, _, d in raw:
@@ -372,7 +346,7 @@ def outputs(wf):
 
 
 def loaders(wf):
-    """[(path, label, [(target_path, target_slot)])] — image inputs a Load node could replace."""
+    """[(path, label, [(target_path, target_slot)])] — image loaders a Load node could replace."""
     flat = _flatten(wf)
     out = []
     for path, n in flat.nodes.items():
@@ -457,12 +431,10 @@ def _sub_output(wf, d, inner_id, inner_slot, name):
     """The slot this stream already leaves the subgraph through, or a new one for it.
 
     Reuse first: a template that exposes its `depth` pass has said what the stream is called and
-    where it comes out, and adding a second slot beside it — same picture, same name, one more thing
-    on the canvas — is the tool talking over the operator.
+    where it comes out, and a second slot beside it is the tool talking over the operator.
 
-    Only when that slot has exactly one feeder, though. Ten corpus templates carry a stale link into
-    an output they later rewired, and two of those leave a slot fed by two different nodes; tapping
-    one of those would publish whichever the editor happened to resolve. A fresh slot is unambiguous.
+    Only where that slot has exactly one feeder. Templates carry stale links into outputs they later
+    rewired, and a slot fed by two nodes would publish whichever the editor happened to resolve.
     """
     bo = (d.get("outputNode") or {}).get("id", -20)
     feeds = {}
@@ -481,8 +453,7 @@ def _add_sub_output(wf, d, inner_id, inner_slot, name):
     lid = _bump(wf, "last_link_id")
     bo = (d.get("outputNode") or {}).get("id", -20)
     # A link to an output slot the definition no longer declares is already dead — the editor cannot
-    # draw it — and two templates ship one. Left in place it would land on the slot being added here
-    # and the promoted stream would arrive with company. Dropped, in the copy, not the original.
+    # draw it — and left in place it would land on the slot being added here. Dropped in the copy.
     d["links"] = [l for l in d.get("links") or []
                   if not (isinstance(l, dict) and l.get("target_id") == bo
                           and (l.get("target_slot") or 0) >= j)]
@@ -557,8 +528,7 @@ def replace_loader(wf, loader_path, widgets, title="Flow PT Load Version"):
     boundary = (container.get("outputNode") or {}).get("id")
     by_id = {n.get("id"): n for n in container.get("nodes") or []}
     # A LoadImage feeds a MASK as well as an IMAGE, and only the IMAGE is rewired. Whoever took the
-    # mask must be told the link is gone rather than left pointing at an id nothing answers to —
-    # nine inpainting templates in the corpus have exactly that shape.
+    # mask is told the link is gone rather than left pointing at an id nothing answers to.
     for n in container.get("nodes") or []:
         for i in n.get("inputs") or []:
             if i.get("link") in cut:
@@ -599,7 +569,6 @@ def report(wf, name="", template=""):
 
 
 def _cli(argv=None):
-    import argparse
     ap = argparse.ArgumentParser(prog="comfyui_fpt.instrument", description=__doc__.split("\n")[0])
     ap.add_argument("workflow")
     ap.add_argument("--out", help="write an instrumented copy here; omit to only analyse")
@@ -625,22 +594,22 @@ def _cli(argv=None):
     names = descriptors(wf)
     sinks = {(o, s): k for o, s, _, k in outputs(wf)}
     for spec in a.publish:
-        head, sep, tail = spec.rpartition(":")
-        path, slot = (head, int(tail)) if sep and tail.isdigit() else (spec, 0)
+        stem, sep, tail = spec.rpartition(":")
+        path, slot = (stem, int(tail)) if sep and tail.isdigit() else (spec, 0)
         d = names.get((path, slot)) or descriptor(
             flat.nodes.get(path, {}), slot, sinks.get((path, slot)) or "",
             flat.labels.get((path, slot), ""), _scope(flat, path))
         w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, root_name=_stream(d), **common)
-        head = path.split(SEP)[0]
+        top = path.split(SEP)[0]
         crossed = SEP in path
-        was = len(_flatten(wf).subs[head][0].get("outputs") or []) if crossed else 0
+        was = len(_flatten(wf).subs[top][0].get("outputs") or []) if crossed else 0
         # Every tap re-reads the graph, because promoting a stream out of a subgraph changes it.
         new = add_publish(wf, path, slot, w, title=f"Flow PT Publish — {d}", name=d)
         note = ""
         if crossed:
-            grew = len(_flatten(wf).subs[head][0].get("outputs") or []) > was
-            note = (f"  (subgraph {head} gained an output {d!r})" if grew
-                    else f"  (through subgraph {head}'s existing output)")
+            grew = len(_flatten(wf).subs[top][0].get("outputs") or []) > was
+            note = (f"  (subgraph {top} gained an output {d!r})" if grew
+                    else f"  (through subgraph {top}'s existing output)")
         print(f"  + publish node {new} tapping {path}[{slot}]  root name={_stream(d)!r}{note}")
     for path in a.load:
         new = replace_loader(wf, path, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))

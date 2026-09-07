@@ -1,6 +1,8 @@
-// "Attach it to any workflow" — the actual feature, as a recording.
-// An existing graph is already on the canvas; we add the publish node to it, connect it, fill it in,
-// run it, and read back what it wrote. Deliberately paced: this is watched, not asserted on.
+// "Attach it to any workflow", as a recording: an existing graph is built on the canvas, the publish
+// node is added to it, wired, filled in, run, and what it wrote is read back. The body of an async
+// function, run as
+//   tools/qa_node.py --start --drive tools/drive_attach_tour.js --video attach.webm
+// Deliberately paced: this is watched, not asserted on.
 const pause = (ms) => wait(ms);
 const seen = [];
 const frame = async (node, scale = 0.85) => {           // centre and zoom, so nothing sits half off-screen
@@ -72,16 +74,14 @@ await frame(pub, 0.85);
 await pick("project", "", "sandbox");
 await pick("link", "sh010", "sh010");
 const w = (n) => pub.widgets.find(x => x.name === n);
-if (w("output_name")) { w("output_name").value = "uidemo"; }
 if (w("note")) { w("note").value = "Added to an existing graph and published, for the README recording."; }
 app.canvas.setDirty(true, true); await pause(1200);
 
 // 6. run it for real
-// Wait for the RUN, not merely for a link: `latest` is already on screen from the preview, so
-// polling for any anchor would return before anything was published.
-const before = (document.querySelector(".fpt-log")?.textContent || "") + document.body.innerText.length;
 await app.queuePrompt(0, 1);
 seen.push("queued");
+// Wait for the RUN, not merely for a link: `latest` is already on screen from the preview, so
+// polling for any anchor would return before anything was published.
 for (let i = 0; i < 90; i++) {
   await pause(1000);
   if (/-> Version \d+/.test(document.body.innerText)) break;   // the node's own run log
