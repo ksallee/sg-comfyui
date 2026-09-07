@@ -81,7 +81,8 @@ Still untested end to end, and each of these is a real gap rather than a nicety:
 
 - **PublishedFiles for 02-07.**
 - **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
-- **`FPTLoadVersion`, the round trip** — `round_trip.json` exists as a fixture and was not run.
+- ~~**`FPTLoadVersion`, the round trip**~~ — **closed 2026-09-07.** `00_example` runs it, and 02
+  chains a load into a publish three times over with the lineage checked each time.
 - **`/track-workflow`** — the actual product feature. Never run against a real graph.
 - ~~A browser-submitted publish~~ — **closed, and the claim was wrong.** `EXTRA_PNGINFO` is not
   browser-only: two agents attached a real `.workflow.json` from a plain API POST by passing the graph
@@ -459,6 +460,25 @@ its own Publish node writes.
 
 Open: whether "newest by version number" should be per stream by default, which would mean parsing
 the stream out of the code and grouping first. Nothing is decided.
+
+### Run three times, not once — 2026-09-07
+
+"Does it even work consistently?" is the right question and one run is not an answer. 01 then 02,
+three times end to end against the sandbox:
+
+    01 published         02 published        02 generated_from
+    sh010_concept_v002   sh010_fusion_v002   [concept_v002, style_v001]
+    sh010_concept_v003   sh010_fusion_v003   [concept_v003, style_v001]
+    sh010_concept_v004   sh010_fusion_v004   [concept_v004, style_v001]
+
+Three things this settles. Version numbers increment per stream. Each 02 read the concept published
+seconds earlier, so `site.forget()` after a publish really does invalidate the cached version list
+and the 600s TTL is not in the way. And the two Load nodes track their own streams: `style` stayed
+at v001 while `concept` advanced, rather than both grabbing the newest thing on the Shot.
+
+Still unproven, and not by omission: `register_files` is off in every shipped template, so the
+deliverable half has still never run from one. Nothing exercises the batch-budget refusal, an
+unmounted storage root, or `register_movie`. One machine, one site, one link, three iterations.
 
 ## Facts worth not re-deriving
 
