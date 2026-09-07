@@ -120,7 +120,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
   hideWidget(widget);
   return searchPicker(node, widget, {
     label: "link",
-    placeholder: "search links: gir rul finds giraffe_ruler",
+    placeholder: "search links",
     empty,
     search: async (q) => {
       const d = await get(`/fpt/entities?project_id=${state.projectId}` +
