@@ -37,21 +37,40 @@ LOAD = "FPTLoadVersion"
 PUBLISH_WIDGETS = ["project", "link", "task", "status", "note",
                    "code_template", "source_versions", "attach_workflow", "link_id",
                    "register_files", "colour_space", "root_name"]
+# `frame_count` was appended to the class and never here, so `/track-workflow` wrote Load nodes
+# holding 10 of 11 values — the same drift that had already been found and fixed once for
+# PUBLISH_WIDGETS at `link_id`. All five declared orders move together (CLAUDE.md).
 LOAD_WIDGETS = ["project", "link", "task", "statuses", "name_contains", "newest_by",
-                "pin_version_id", "source", "frame", "filters"]
+                "pin_version_id", "source", "frame", "filters", "frame_count"]
 # site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of
 # the client. A combo cannot hold "" — the editor would show a value it can never offer back — so an
 # unset pick is the visible "no value" the node declares.
 NO_VALUE = "(none)"
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
-                    "code_template": "{entity.code}_{output}_v{version:03d}",
+                    # `{output}` is gone from the vocabulary: the stream is `root_name`, and a code
+                    # template naming `{output}` renders it as nothing — `sh010_depth_v001` came
+                    # out `sh010_v001` and every stream in a graph collapsed onto one name.
+                    "code_template": "{root_name}_v{version:03d}",
                     # Review, not a deliverable: a tap added to somebody else's graph must not start
                     # copying their frames onto a shared volume because we instrumented it.
                     "register_files": False,
                     "attach_workflow": True, "link_id": 0}
+# `frame` is 0, "wherever this sequence starts", which is what the class declares — it was 1 here,
+# so an instrumented graph asked for frame 1 of a plate that starts at 1001 and was refused.
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
-                 "source": "auto", "pin_version_id": 0, "frame": 1}
+                 "source": "auto", "pin_version_id": 0, "frame": 0, "frame_count": 1}
+
+
+def _stream(descriptor):
+    """A stream descriptor — "depth", "matte" — as the root-name TEMPLATE for that stream.
+
+    `widgets()` refuses a name the node does not declare, so passing the old `output_name` raised
+    ValueError and `--publish` could not add a node at all. The stream is `root_name` now, and it is
+    a template rather than a literal: `{entity}_depth` names the same thing on every shot, which is
+    what `{entity.code}_{output}_...` used to do in one string.
+    """
+    return "{entity}_" + descriptor
 
 
 def widgets(names, defaults, **values):
@@ -566,12 +585,12 @@ def report(wf, name="", template=""):
     lines.append(f"  publishable streams ({len(outs)}):")
     for path, slot, label, sink in outs:
         d = names[(path, slot)]
-        proposed = (template.replace("{output}", d).replace("{version}", "001")
+        proposed = (template.replace("{root_name}", _stream(d)).replace("{version}", "001")
                     if template else f"...{d}...")
         where = f'  in subgraph "{_scope(flat, path)}"' if SEP in path else ""
         lines.append(f"    node {path}[{slot}] {label}"
                      + (f"  -> {sink}" if sink else "  (unconsumed)") + where)
-        lines.append(f"        output_name={d!r}   proposed code: {proposed}")
+        lines.append(f"        root name={_stream(d)!r}   proposed code: {proposed}")
     lines.append(f"  image inputs a Load could replace ({len(lds)}):")
     for path, label, targets in lds:
         where = f'  in subgraph "{_scope(flat, path)}"' if SEP in path else ""
@@ -611,7 +630,7 @@ def _cli(argv=None):
         d = names.get((path, slot)) or descriptor(
             flat.nodes.get(path, {}), slot, sinks.get((path, slot)) or "",
             flat.labels.get((path, slot), ""), _scope(flat, path))
-        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, output_name=d, **common)
+        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, root_name=_stream(d), **common)
         head = path.split(SEP)[0]
         crossed = SEP in path
         was = len(_flatten(wf).subs[head][0].get("outputs") or []) if crossed else 0
@@ -622,7 +641,7 @@ def _cli(argv=None):
             grew = len(_flatten(wf).subs[head][0].get("outputs") or []) > was
             note = (f"  (subgraph {head} gained an output {d!r})" if grew
                     else f"  (through subgraph {head}'s existing output)")
-        print(f"  + publish node {new} tapping {path}[{slot}]  output_name={d!r}{note}")
+        print(f"  + publish node {new} tapping {path}[{slot}]  root name={_stream(d)!r}{note}")
     for path in a.load:
         new = replace_loader(wf, path, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
         stem = str(path).rpartition(SEP)[0]

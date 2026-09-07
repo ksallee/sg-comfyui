@@ -61,7 +61,7 @@
         "",
         1
       ],
-      "title": "Flow PT Load \u2014 newest depth on this link"
+      "title": "Flow PT Load — newest depth on this link"
     },
     {
       "id": 2,
@@ -136,7 +136,7 @@
         "(none)",
         "(none)",
         "derived from the Version above; lineage recorded by itself",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_regrade_v{version:03d}",
         "",
         true,
         0,
@@ -144,7 +144,7 @@
         "",
         "{entity}_regrade"
       ],
-      "title": "Flow PT Publish \u2014 regrade"
+      "title": "Flow PT Publish — regrade"
     }
   ],
   "links": [

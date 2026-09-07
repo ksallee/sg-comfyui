@@ -488,7 +488,7 @@
         "(none)",
         "(none)",
         "Roto matte of the two walkers, from SAM 3.1 open-vocabulary segmentation on the prompt 'person:2'. The count matters: 'the couple' lets SAM3 guess how many objects to find and it drops one of them on a frame. Never use ':1' - a bare noun is correct for a single subject.",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_matte_v{version:03d}",
         "",
         true,
         0,
@@ -496,7 +496,7 @@
         "",
         "{entity}_matte"
       ],
-      "title": "Flow PT Publish \u2014 matte"
+      "title": "Flow PT Publish — matte"
     },
     {
       "id": 24,
@@ -548,7 +548,7 @@
         "",
         1
       ],
-      "title": "Flow PT Load \u2014 plate"
+      "title": "Flow PT Load — plate"
     },
     {
       "id": 25,

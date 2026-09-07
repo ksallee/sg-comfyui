@@ -47,7 +47,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     root that is not mounted should be visible here rather than at the end of a render.
     """
     if not widgets.get("register_files"):
-        return ""
+        return []
     from . import naming, publish, sequence
     from .nodes.publish_version import FPTPublishVersion as PV
     # Which files follow from what is wired, and whether the house also keeps its review movie is
@@ -57,24 +57,40 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     want_frames = images
     want_movie = video and (not images or bool(pf.get("register_movie")))
     if not (want_frames or want_movie):
-        return ""
+        return []
     try:
         _, root = sequence.root_for(publish.storages(site.client()), pf.get("storage", ""))
-        template = pf.get("path_template") or sequence.DEFAULT_PATH_TEMPLATE
-        _, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
-                                     target, task_id, widgets.get("output_name", ""))
-        vals = site.resolve_paths(naming.template_fields(template), project_id, link_type, target,
-                                  task_id, {"output": widgets.get("output_name", "")})
-        path = sequence.pattern(root, template, vals, version_no, ".png")
-        where = [path] if want_frames else []
+        # Two templates, because a sequence earns a folder and a movie does not — the same pair
+        # `publish_version._stage` picks. One template for both put the movie among its own frames.
+        seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
+        mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
+        root_t = (widgets.get("root_name", "") or prof.get("root_name")
+                  or naming.DEFAULT_ROOT_TEMPLATE)
+        code, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
+                                        target, task_id, root_t)
+        # `{root_name}` and `{version_name}` are RENDERED, not looked up — resolve_paths has never
+        # heard of either. Leaving them out is what wrote `/<root>/<entity>/v001/.png`: the stream
+        # folder and the whole filename collapsed to nothing and `swap_ext` pasted `.png` onto the
+        # empty stem. The run hands the path the two names its templates already decided
+        # (publish_version._stage), so the preview has to hand it the same two.
+        fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
+                  | set(naming.template_fields(root_t)))
+        vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
+        vals["root_name"] = naming.render(root_t, vals, version_no)
+        vals["version_name"] = code
+        where = []
+        if want_frames:
+            where.append(sequence.pattern(root, seq_t, dict(vals, ext=".png"), version_no, ".png"))
         # The clip's real extension is a run-time fact — a deliverable is never transformed, so a
         # `.mov` off LoadVideo stays a `.mov` — and this states that rather than guessing one.
         if want_movie:
-            where.append(sequence.swap_ext(sequence.single(path), ".<the clip's own extension>"))
-        mounted = "" if os.path.isdir(root) else f"  — {root} is NOT mounted, the run will stop"
-        return "copied to " + ", ".join(where) + mounted
+            ext = ".<the clip's own extension>"
+            where.append(sequence.pattern(root, mov_t, dict(vals, ext=ext), version_no, ext))
+        if not os.path.isdir(root):
+            where.append(f"{root} is NOT mounted — the run will stop")
+        return where
     except Exception as e:
-        return f"published files asked for, but: {_sentence(e)}"
+        return [f"published files asked for, but: {_sentence(e)}"]
 
 
 def register():
@@ -265,14 +281,22 @@ def register():
                 if q.get("link") else 0
             task_id = _id_for(site.tasks_for(lt, target), q.get("task", "")) \
                 if (q.get("task") and target) else 0
-            code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id,
-                                q.get("output_name", ""))
+            # `root_name`, not the `output_name` widget that was deleted: this argument is the ROOT
+            # template, and sending a name no widget has answered since meant the panel rendered
+            # `{root_name}` as empty. A stream called `{entity}_plate` previewed as a bare `v001`
+            # while the run wrote `sh010_plate_v001` — the readout promising less than it delivers.
+            root_t = q.get("root_name", "")
+            code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id, root_t)
             # A template renders what it can and drops the rest, so `corridor_depth_v004` and a bare
             # `v004` come back looking equally finished. Say which fields the name is missing and
             # why, because the name is the one thing the operator checks before a Run.
             from . import naming
-            needs = {f.split(".")[0] for f in naming.template_fields(q.get("code_template", "")
-                                                                    or naming.DEFAULT_TEMPLATE)}
+            # Both templates, because `{root_name}` hides whatever the root one asks for: a code of
+            # `{root_name}_v{version:03d}` over a root of `{entity}_plate` still needs a link, and
+            # reading only the code template said it needed nothing.
+            needs = {f.split(".")[0] for f in
+                     naming.template_fields(q.get("code_template", "") or naming.DEFAULT_TEMPLATE)
+                     + naming.template_fields(root_t or naming.DEFAULT_ROOT_TEMPLATE)}
             if q.get("link") and not target:
                 alert = f"no {lt} named {picked_name!r} on this project — the run will stop here"
             elif "entity" in needs and not target:
@@ -409,32 +433,30 @@ def register():
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
             # Media and attachments are uploads, not fields, but they are part of "what gets saved".
-            uploads = ["image (thumbnail) — frame 1 of whatever becomes the media",
-                       "sg_uploaded_movie — the clip, or the frame itself when no VIDEO is wired",
-                       "<name>.provenance.json"]
+            # A list of what lands, not a paragraph about it: the rule that decides WHICH of these
+            # the media is stated once, in `media` below, rather than again on every row.
+            uploads = ["image  (thumbnail)", "sg_uploaded_movie", "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
-                uploads.append("<name>.workflow.json — only if this client sends EXTRA_PNGINFO")
-            # A copied file is not an upload, but this block is "what gets saved" and a publish that
-            # writes onto a shared volume is the line an operator most wants to read before a Run.
-            files = _files_preview(w, prof, pid, link_type, target, task_id)
-            if files:
-                uploads.append(files)
+                uploads.append("<version name>.workflow.json")
+            # A copied file is not an upload, so it gets its own list. A publish that writes onto a
+            # shared volume is the line an operator most wants to read before a Run.
+            writes = _files_preview(w, prof, pid, link_type, target, task_id)
             # Which row of the truth table this node is on. The frame count and the frame rate are
             # run-time facts, so the panel states the rule and names the path the run will take —
             # which is the half an operator cannot see from the wires alone.
             if _wired(w, "video"):
-                media = ("the VIDEO is the review media — its own source file where the graph did "
-                         "not change it, otherwise a ComfyUI encode")
+                media = "the clip, uploaded as its own file unless the graph re-encoded it"
                 if _wired(w, "images"):
-                    media += "; the frames are files, never media"
+                    media += ". The frames can only be Published Files, never media"
             elif _wired(w, "images"):
-                media = ("frame 1 as the still. More than one frame needs Create Published Files, "
-                         "or a VIDEO out of CreateVideo — a Version's media is single-valued")
+                media = ("frame 1, as a still. For every frame, tick Create Published Files or "
+                         "wire a VIDEO — a Version holds one piece of media")
             else:
-                media = "nothing wired into images or video: this run would refuse"
+                media = "nothing — neither images nor video is wired, so this run will refuse"
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
+                "writes": writes,
                 "media": media,
                 "sources": sources,
                 "missing_fields": sorted({t for t in where.values()

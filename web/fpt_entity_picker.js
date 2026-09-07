@@ -140,7 +140,7 @@ function publishPickers(nodeType) {
       const q = new URLSearchParams({
         project: project?.value || "", link: bare(link?.value), task: bare(task?.value),
         code_template: w("code_template")?.value || "",
-        output_name: w("output_name")?.value || "",
+        root_name: w("root_name")?.value || "",
       });
       const d = await get(`/fpt/preview_code?${q}`);
       if (mine !== previewing) return;
@@ -165,11 +165,6 @@ function publishPickers(nodeType) {
       // the wrong trade. It becomes the line under the name instead.
       const { error, ...rest } = extra || {};
       const missing = (rest.missing_fields || []).length;
-      // Which show this lands in and which stream it claims to be. Both are combos two rows up, so
-      // they are `echo`, not `facts`: the readout repeating the node is noise where the name is
-      // supposed to be the signal.
-      const echo = [["project", project?.value], ["output", w("output_name")?.value]]
-        .filter(([, v]) => bare(v)).map(([label, value]) => ({ label, value }));
       // Which row of the truth table this node is on, in front of the operator rather than in the
       // fold: one run is one Version, and what that Version will carry is decided by what is wired,
       // so it is read before Run rather than discovered after it.
@@ -181,7 +176,7 @@ function publishPickers(nodeType) {
         // preview_code answers with the type it would use even when nothing is picked, so an unset
         // link came back as a bare "Shot" and read like a decision that had been made.
         link: bare(link?.value) ? d.link : "",
-        status: statusOf(status?.value), echo,
+        status: statusOf(status?.value),
         // Why the name is not the name a Run would write. Never folded — the name is the readout.
         alert: d.alert || "",
         // The reason lives in the fold now, so the pill has to carry it: a publish that cannot read
@@ -328,7 +323,7 @@ function publishPickers(nodeType) {
     // what stops this becoming the resolve loop the Load node had.
     ["task", "status", "attach_workflow", "register_files"].forEach((n) =>
       wrap(w(n), () => preview()));
-    ["code_template", "output_name", "note", "source_versions", "colour_space"].forEach((n) =>
+    ["code_template", "root_name", "note", "source_versions", "colour_space"].forEach((n) =>
       wrap(w(n), previewSoon));
 
     // Every row we add is already marked by domRow; a button is the one litegraph never marks

@@ -1019,7 +1019,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## demo 03 \u2014 clean plate paint-out\n\nMask it once, get a temporally stable clean plate back.\n\nA locked-off Paris plate, a car painted out with SAM3 + Wan 2.1 VACE, and the result published to Flow Production Tracking with the plate it came from recorded as its ancestor.\n\nFlattened from the core `video_wan_vace_inpainting` template (which ships the same chain inside a subgraph) and re-wired to the 1.3B model path from `video_wan_vace_outpainting`.\n\n**Models** \u2014 all Apache-2.0\n\n| file | size |\n| --- | --- |\n| `wan2.1_vace_1.3B_fp16.safetensors` | 4.01 GB |\n| `Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors` | 0.08 GB |\n| `umt5_xxl_fp16.safetensors` | 11.4 GB |\n| `wan_2.1_vae.safetensors` | 0.25 GB |\n| `sam3.1_multiplex_fp16.safetensors` | 1.65 GB |\n\n1.3B replaces the template's 14B fp16 (32.29 GB). It is 480p only and its prompt adherence is weak \u2014 fine for a provenance demo, not for a shot.\n"
+        "## demo 03 — clean plate paint-out\n\nMask it once, get a temporally stable clean plate back.\n\nA locked-off Paris plate, a car painted out with SAM3 + Wan 2.1 VACE, and the result published to Flow Production Tracking with the plate it came from recorded as its ancestor.\n\nFlattened from the core `video_wan_vace_inpainting` template (which ships the same chain inside a subgraph) and re-wired to the 1.3B model path from `video_wan_vace_outpainting`.\n\n**Models** — all Apache-2.0\n\n| file | size |\n| --- | --- |\n| `wan2.1_vace_1.3B_fp16.safetensors` | 4.01 GB |\n| `Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors` | 0.08 GB |\n| `umt5_xxl_fp16.safetensors` | 11.4 GB |\n| `wan_2.1_vae.safetensors` | 0.25 GB |\n| `sam3.1_multiplex_fp16.safetensors` | 1.65 GB |\n\n1.3B replaces the template's 14B fp16 (32.29 GB). It is 480p only and its prompt adherence is weak — fine for a provenance demo, not for a shot.\n"
       ],
       "title": "About this workflow",
       "color": "#432",
@@ -1061,7 +1061,7 @@
         "(none)",
         "Pending Review",
         "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_cleanplate_v{version:03d}",
         "",
         true,
         0,
@@ -1069,7 +1069,7 @@
         "",
         "{entity}_cleanplate"
       ],
-      "title": "Flow PT Publish \u2014 cleanplate"
+      "title": "Flow PT Publish — cleanplate"
     },
     {
       "id": 102,

@@ -211,7 +211,7 @@
         "fpt_plate_paris.png",
         "image"
       ],
-      "title": "LoadImage \u2014 replaced, left unwired on purpose"
+      "title": "LoadImage — replaced, left unwired on purpose"
     },
     {
       "id": 54,
@@ -734,7 +734,7 @@
         "ver": "0.3.64"
       },
       "widgets_values": [
-        "\u8272\u8c03\u8273\u4e3d\uff0c\u8fc7\u66dd\uff0c\u9759\u6001\uff0c\u7ec6\u8282\u6a21\u7cca\u4e0d\u6e05\uff0c\u5b57\u5e55\uff0c\u98ce\u683c\uff0c\u4f5c\u54c1\uff0c\u753b\u4f5c\uff0c\u753b\u9762\uff0c\u9759\u6b62\uff0c\u6574\u4f53\u53d1\u7070\uff0c\u6700\u5dee\u8d28\u91cf\uff0c\u4f4e\u8d28\u91cf\uff0cJPEG\u538b\u7f29\u6b8b\u7559\uff0c\u4e11\u964b\u7684\uff0c\u6b8b\u7f3a\u7684\uff0c\u591a\u4f59\u7684\u624b\u6307\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u624b\u90e8\uff0c\u753b\u5f97\u4e0d\u597d\u7684\u8138\u90e8\uff0c\u7578\u5f62\u7684\uff0c\u6bc1\u5bb9\u7684\uff0c\u5f62\u6001\u7578\u5f62\u7684\u80a2\u4f53\uff0c\u624b\u6307\u878d\u5408\uff0c\u9759\u6b62\u4e0d\u52a8\u7684\u753b\u9762\uff0c\u6742\u4e71\u7684\u80cc\u666f\uff0c\u4e09\u6761\u817f\uff0c\u80cc\u666f\u4eba\u5f88\u591a\uff0c\u5012\u7740\u8d70"
+        "色调艳丽，过曝，静态，细节模糊不清，字幕，风格，作品，画作，画面，静止，整体发灰，最差质量，低质量，JPEG压缩残留，丑陋的，残缺的，多余的手指，画得不好的手部，画得不好的脸部，畸形的，毁容的，形态畸形的肢体，手指融合，静止不动的画面，杂乱的背景，三条腿，背景人很多，倒着走"
       ],
       "color": "#223",
       "bgcolor": "#335"
@@ -758,7 +758,7 @@
       "title": "Read me",
       "properties": {},
       "widgets_values": [
-        "## demo 06 \u2014 camera move on a still\n\n**TD line:** *\"give the matte painting a push-in that matches the shot's camera.\"*\n\nCore nodes only. `WanCameraEmbedding` builds a named trajectory (Plucker embedding) and\n`WanCameraImageToVideo` conditions the Wan 2.1 Fun Camera model on it, with the still as the\nfirst frame.\n\n**The trajectory is the knob.** `camera_pose` picks the move (Static / Pan Up / Pan Down /\nPan Left / Pan Right / Zoom In / Zoom Out / ACW / CW), `speed` scales how far it travels over\n`length` frames. `WanCameraEmbedding`'s width/height/length outputs are wired into\n`WanCameraImageToVideo`, so the embedding node is where resolution and duration are set \u2014 the\nnumbers on the video node are overridden by those links.\n\n**Models \u2014 nothing new to download.**\n- diffusion: `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`\n- text encoder: `umt5_xxl_fp16.safetensors` \u2014 the stock template asks for\n  `umt5_xxl_fp8_e4m3fn_scaled` (6.27 GB). The template's own model list offers fp16 as the\n  alternative, so the `CLIPLoader` is repointed at the fp16 already on disk. No download.\n- clip vision: `clip_vision_h.safetensors`\n- vae: `wan_2.1_vae.safetensors`\n\n**The honest upgrade.** This is a *named* trajectory, not a shot camera. When the TD means the\nreal Maya camera, `WanUni3CControlnetApply` is the path \u2014 core, in\n`comfy_extras/nodes_model_patch.py`, fed by `ModelPatchLoader`. Its guidance input is an\nIMAGE sequence rendered from the camera trajectory, not a preset word, so a real camera\nfits. It costs a Uni3C checkpoint and a guidance render, which is why it is not here.\n\n**Flow PT.** The plate comes in through `Flow PT Load Version`, the frames go out through\n`Flow PT Publish Version`, and the published Versions record the plate in\n`sg_ai_generated_from`. A batch publishes as one Version per frame \u2014 there is no\nmovie-as-a-Version path yet.\n"
+        "## demo 06 — camera move on a still\n\n**TD line:** *\"give the matte painting a push-in that matches the shot's camera.\"*\n\nCore nodes only. `WanCameraEmbedding` builds a named trajectory (Plucker embedding) and\n`WanCameraImageToVideo` conditions the Wan 2.1 Fun Camera model on it, with the still as the\nfirst frame.\n\n**The trajectory is the knob.** `camera_pose` picks the move (Static / Pan Up / Pan Down /\nPan Left / Pan Right / Zoom In / Zoom Out / ACW / CW), `speed` scales how far it travels over\n`length` frames. `WanCameraEmbedding`'s width/height/length outputs are wired into\n`WanCameraImageToVideo`, so the embedding node is where resolution and duration are set — the\nnumbers on the video node are overridden by those links.\n\n**Models — nothing new to download.**\n- diffusion: `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`\n- text encoder: `umt5_xxl_fp16.safetensors` — the stock template asks for\n  `umt5_xxl_fp8_e4m3fn_scaled` (6.27 GB). The template's own model list offers fp16 as the\n  alternative, so the `CLIPLoader` is repointed at the fp16 already on disk. No download.\n- clip vision: `clip_vision_h.safetensors`\n- vae: `wan_2.1_vae.safetensors`\n\n**The honest upgrade.** This is a *named* trajectory, not a shot camera. When the TD means the\nreal Maya camera, `WanUni3CControlnetApply` is the path — core, in\n`comfy_extras/nodes_model_patch.py`, fed by `ModelPatchLoader`. Its guidance input is an\nIMAGE sequence rendered from the camera trajectory, not a preset word, so a real camera\nfits. It costs a Uni3C checkpoint and a guidance render, which is why it is not here.\n\n**Flow PT.** The plate comes in through `Flow PT Load Version`, the frames go out through\n`Flow PT Publish Version`, and the published Versions record the plate in\n`sg_ai_generated_from`. A batch publishes as one Version per frame — there is no\nmovie-as-a-Version path yet.\n"
       ],
       "color": "#222",
       "bgcolor": "#000"
@@ -799,7 +799,7 @@
         "(none)",
         "Pending Review",
         "Push-in on the matte painting, driven by a named camera trajectory (Zoom In, speed 0.6, 33 frames @ 16fps). Wan 2.1 Fun Camera 1.3B.",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_push_in_v{version:03d}",
         "",
         true,
         0,
@@ -807,7 +807,7 @@
         "",
         "{entity}_push_in"
       ],
-      "title": "Flow PT Publish \u2014 push_in"
+      "title": "Flow PT Publish — push_in"
     },
     {
       "id": 64,

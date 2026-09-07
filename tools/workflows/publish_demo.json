@@ -329,7 +329,7 @@
         "(none)",
         "(none)",
         "generated here, published straight to Flow PT",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_beauty_v{version:03d}",
         "",
         true,
         0,

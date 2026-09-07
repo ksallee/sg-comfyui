@@ -117,16 +117,15 @@ class FPTPublishVersion:
                 # is the relationship's own name — `{entity}`, `{sg_task}` — the way Flow PT returns
                 # it. `{version:03d}` and `v%04d` both work.
                 #
-                # Advanced: `{root_name}_v{version:03d}` is a house convention, and the name you
-                # actually edit per publish is `root name` above.
+                # Not advanced: this is the name that ends up on the Version, so it is the one an
+                # operator checks against the readout before pressing Run. `root name` is the
+                # house's stream convention and sits in the fold.
                 "code_template": ("STRING", {
                     "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
                     "display_name": "version name",
-                    "advanced": True,
-                    "tooltip": "How a version of the stream is named — almost always "
-                               "{root_name}_v{version:03d}. Advanced because the versioning "
-                               "convention is the house's and rarely changes; the name you edit is "
-                               "`root name` above."}),
+                    "tooltip": "The Version's own name. Write it out — {entity}_plate_v{version:03d} "
+                               "— or compose it from the stream with {root_name}_v{version:03d}. "
+                               "Any dotted Flow PT path works; {version:03d} and v%04d both pad."}),
                 # Lineage the graph already proves is added by itself; this is for a source no
                 # upstream Load node can show.
                 "source_versions": ("STRING", {"default": "", "advanced": True,
@@ -169,11 +168,11 @@ class FPTPublishVersion:
                 "root_name": ("STRING", {
                     "default": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
                     "display_name": "root name",
+                    "advanced": True,
                     "tooltip": "The stream this publish belongs to, without a version — "
-                               "e.g. {entity}_matte. It is the PublishedFile's `name`, the "
-                               "folder the files land in, and what `version name` is built from. "
-                               "Any dotted Flow PT path works, and a bare token is that link's "
-                               "own name."}),
+                               "e.g. {entity}_matte. It is the PublishedFile's `name` and the "
+                               "folder the files land in, and `version name` can build on it as "
+                               "{root_name}. Advanced because a house sets it once."}),
             },
             "hidden": {
                 "prompt": "PROMPT",

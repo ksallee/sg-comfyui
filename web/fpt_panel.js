@@ -156,13 +156,18 @@ function writesBlock(d) {
   };
   // No fold of its own any more: the whole block already sits behind the editor's advanced fold, and
   // two nested folds meant two clicks to see a list the operator opened the fold to read.
-  return `<div class="fpt-sec">metadata captured</div>` + f.map(row).join("") +
-    ((d.uploads || []).length
-      // fpt-full, not a .fpt-row with one child: `>` reads the DOM tree, so a lone .fpt-v inside a
-      // display:contents row never matched the span rule and two filenames sat side by side across
-      // the label and value columns.
-      ? `<div class="fpt-sec">uploads</div>` + d.uploads.map((u) =>
-          `<div class="fpt-full fpt-dim">${esc(u)}</div>`).join("") : "") +
+  // fpt-full, not a .fpt-row with one child: `>` reads the DOM tree, so a lone .fpt-v inside a
+  // display:contents row never matched the span rule and two filenames sat side by side across the
+  // label and value columns.
+  const list = (head, items) => ((items || []).length
+    ? `<div class="fpt-sec">${head}</div>` + items.map((u) =>
+        `<div class="fpt-full fpt-dim">${esc(u)}</div>`).join("") : "");
+  // "fields that will populate" — the heading names what the rows ARE. "metadata captured" read as
+  // a report on something already done, on a panel whose whole job is to say what a Run WOULD do.
+  return `<div class="fpt-sec">fields that will populate</div>` + f.map(row).join("") +
+    list("uploads", d.uploads) +
+    // Copies onto a shared volume, which are not uploads and are the ones worth reading twice.
+    list("copied to", d.writes) +
     ((d.missing_fields || []).length
       ? `<div class="fpt-why">${d.missing_fields.length} provenance field(s) missing on this site` +
         ` — run: python -m comfyui_fpt.fields</div>` : "");
@@ -240,9 +245,8 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
      *  readout cannot: a provenance field mapped to a name this site does not have still resolves a
      *  Version, so `id` alone read as valid while the publish would silently drop a value.
      *
-     *  `d.echo` is `[{label, value}]` the node's own widgets already answer. It goes in the fold
-     *  with `link` and `task`, and `d.facts` — what only the site knows about this Version — does
-     *  not. */
+     *  `d.facts` is what only the site knows about this Version. Nothing the node's own widgets
+     *  already answer belongs in here — the readout repeating the widgets above it is noise. */
     show(d) {
       const t = root.querySelector(".fpt-title");
       setState((d && d.state) || (d && d.error ? "warn" : (d && d.id) ? "ok" : "warn"));
@@ -333,14 +337,11 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       // renders what it can and drops the rest, so a collapsed `v004` and a finished
       // `sbx_0020_depth_v008` look equally settled — and the name is the whole readout now.
       body.innerHTML = (d.alert ? `<div class="fpt-alert">${esc(d.alert)}</div>` : "") + plain(rows);
-      // `link` and `task` are the node's own combos read back. So is everything in `d.echo`. `why`
-      // is the reasoning behind a name the operator can already see, and the writes block is the
-      // nine concepts that are the same every publish — all of it configuration-time reading.
-      const echoed = [];
-      if (d.link) echoed.push(["link", d.link]);
-      if (d.task) echoed.push(["task", d.task]);
-      for (const f of d.echo || []) echoed.push([f.label, f.value]);
-      fold(plain(echoed) + (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
+      // No echo of link, task, project or output any more. They are combos an inch above this
+      // fold, and repeating them pushed the one list worth opening the fold for below the scroll.
+      // `why` is the reasoning behind a name the operator can already see, and the writes block is
+      // the concepts that are the same every publish — all of it configuration-time reading.
+      fold((d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
         sourcesBlock(d) + writesBlock(d));
       relayout();
     },

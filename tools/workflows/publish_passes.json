@@ -360,7 +360,7 @@
         "(none)",
         "(none)",
         "MoGe depth pass",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_depth_v{version:03d}",
         "",
         true,
         0,
@@ -368,7 +368,7 @@
         "",
         "{entity}_depth"
       ],
-      "title": "Flow PT Publish \u2014 depth"
+      "title": "Flow PT Publish — depth"
     },
     {
       "id": 11,
@@ -406,7 +406,7 @@
         "(none)",
         "(none)",
         "MoGe normals pass",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_normal_opengl_v{version:03d}",
         "",
         true,
         0,
@@ -414,7 +414,7 @@
         "",
         "{entity}_normal_opengl"
       ],
-      "title": "Flow PT Publish \u2014 normals"
+      "title": "Flow PT Publish — normals"
     },
     {
       "id": 12,
@@ -452,7 +452,7 @@
         "(none)",
         "(none)",
         "MoGe mask pass",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_mask_v{version:03d}",
         "",
         true,
         0,
@@ -460,7 +460,7 @@
         "",
         "{entity}_mask"
       ],
-      "title": "Flow PT Publish \u2014 mask"
+      "title": "Flow PT Publish — mask"
     }
   ],
   "links": [
