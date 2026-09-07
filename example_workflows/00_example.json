@@ -1,18 +1,18 @@
 {
   "id": "fpt-00-example",
-  "last_node_id": 5,
-  "last_link_id": 2,
+  "last_node_id": 6,
+  "last_link_id": 3,
   "nodes": [
     {
       "id": 1,
       "type": "MarkdownNote",
       "pos": [
-        -560,
-        -60
+        -640,
+        0
       ],
       "size": [
-        430,
-        300
+        440,
+        340
       ],
       "flags": {},
       "order": 0,
@@ -21,19 +21,19 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Flow PT — start here\n\nTwo halves, run one at a time.\n\n**Publish.** Pick a **project** and a **link** on the Publish node, then Run. It reads\n`example.png`, creates a Version in Flow PT, and the panel names it before you press anything.\n\n**Load.** Now pick the same project and link on the Load node and Run again. It reads back what you\njust published.\n\nNothing here needs a model, and nothing is written to disk: **Create Published Files** is off.\nTurn it on once your profile names a storage."
+        "## Flow PT — start here\n\nTwo halves. Run one at a time.\n\n**Publish.** Pick a **project** and a **link** on the Publish node, then Run. It makes a test card,\ncreates a Version in Flow PT from it, and the panel names that Version before you press anything.\n\n**Load.** Now pick the same project and link on the Load node and Run again. It reads back the\nVersion you just made.\n\nNo model, no download, and nothing written to disk: **Create Published Files** is off. Turn it on\nonce your profile names a storage."
       ]
     },
     {
       "id": 2,
-      "type": "LoadImage",
+      "type": "EmptyImage",
       "pos": [
-        -60,
-        -60
+        -160,
+        0
       ],
       "size": [
-        320,
-        320
+        300,
+        180
       ],
       "flags": {},
       "order": 1,
@@ -47,30 +47,26 @@
             1
           ],
           "slot_index": 0
-        },
-        {
-          "name": "MASK",
-          "type": "MASK",
-          "links": null,
-          "slot_index": 1
         }
       ],
       "properties": {},
       "widgets_values": [
-        "example.png",
-        "image"
+        768,
+        768,
+        1,
+        1975344
       ]
     },
     {
       "id": 3,
-      "type": "FPTPublishVersion",
+      "type": "TextOverlay",
       "pos": [
-        320,
-        -60
+        -160,
+        230
       ],
       "size": [
-        400,
-        320
+        300,
+        260
       ],
       "flags": {},
       "order": 2,
@@ -80,6 +76,47 @@
           "name": "images",
           "type": "IMAGE",
           "link": 1
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            2
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "FLOW PT\nconnection test",
+        9.0,
+        "#F2F4F8",
+        "top",
+        "center",
+        true
+      ]
+    },
+    {
+      "id": 4,
+      "type": "FPTPublishVersion",
+      "pos": [
+        220,
+        0
+      ],
+      "size": [
+        430,
+        620
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 2
         },
         {
           "name": "video",
@@ -96,7 +133,7 @@
         "(none)",
         "{root_name}_v{version:03d}",
         false,
-        "Published from the Flow PT example workflow.",
+        "Connection test from the Flow PT example workflow.",
         "{entity}_example",
         "",
         "",
@@ -105,18 +142,18 @@
       ]
     },
     {
-      "id": 4,
+      "id": 5,
       "type": "FPTLoadVersion",
       "pos": [
-        -60,
-        340
+        -640,
+        700
       ],
       "size": [
-        400,
-        300
+        430,
+        640
       ],
       "flags": {},
-      "order": 3,
+      "order": 4,
       "mode": 0,
       "inputs": [],
       "outputs": [
@@ -124,7 +161,7 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            2
+            3
           ],
           "slot_index": 0
         },
@@ -163,24 +200,24 @@
       ]
     },
     {
-      "id": 5,
+      "id": 6,
       "type": "PreviewImage",
       "pos": [
-        420,
-        340
+        -160,
+        700
       ],
       "size": [
-        320,
-        300
+        330,
+        340
       ],
       "flags": {},
-      "order": 4,
+      "order": 5,
       "mode": 0,
       "inputs": [
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 2
+          "link": 3
         }
       ],
       "outputs": [],
@@ -198,9 +235,17 @@
     ],
     [
       2,
+      3,
+      0,
       4,
       0,
+      "IMAGE"
+    ],
+    [
+      3,
       5,
+      0,
+      6,
       0,
       "IMAGE"
     ]
