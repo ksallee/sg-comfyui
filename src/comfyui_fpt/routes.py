@@ -55,6 +55,8 @@ def _wired(widgets, name):
 
 def _batch_limit(v, key):
     """{width, height, fits, gib} for this source, or None where the size is not free to read."""
+    from . import media
+
     size = media.frame_size(v, key)
     if not size:
         return None

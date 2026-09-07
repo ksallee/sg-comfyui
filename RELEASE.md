@@ -446,6 +446,20 @@ is silent any more.
 
 It is a one-line change either way (`"default": 0` in `load_version.py`, plus the tooltip).
 
+### "Newest" needs a stream to be newest OF — found 2026-09-07
+
+Running `00_example` for the first time turned this up. A link carries several streams, each
+versioned on its own, and `newest_by` "version number in the name" compares the numbers across all
+of them: on `sh010` it picked `sh010_uidemo_v003` over the `sh010_example_v001` just published,
+because 3 > 1. The two streams have nothing to do with each other.
+
+`name_contains` is what makes it deterministic, which is the argument for it being a main field
+rather than an advanced one — it now is. `00_example` ships with `name_contains` set to the stream
+its own Publish node writes.
+
+Open: whether "newest by version number" should be per stream by default, which would mean parsing
+the stream out of the code and grouping first. Nothing is decided.
+
 ## Facts worth not re-deriving
 
 - **`frame` on the Load node is a frame number, not a position** — fixed 2026-09-05. It used to be
