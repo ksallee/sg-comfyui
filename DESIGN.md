@@ -89,6 +89,19 @@ because they hardcode one studio's conventions, or expose every field and become
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
 
+### One key is about the machine, not the site
+
+`batch_budget_gib` is the ceiling on a single IMAGE batch, and it sits at the top level of the
+profile rather than under a project, because how much memory a machine has is a fact about that
+machine. It is also why the profile is gitignored: a studio's workstation and its render node do not
+share an answer.
+
+A batch is one float32 RGB tensor, so a frame costs `w × h × 12` bytes. At the 4 GiB fallback that is
+172 frames of HD but only 43 of UHD — short of a normal shot at 4K, which is why a workstation should
+raise it. The Load node reads the whole sequence by default (`frame_count` 0), so this is on the
+ordinary path and not a backstop: the panel names the overrun before the Run, and the run refuses
+with the count that fits.
+
 The schema cache says what *exists*. The profile says what is *practiced* and what to expose.
 Different lifetimes: the cache refreshes when the schema changes, the profile is inference plus
 operator edits layered on top.

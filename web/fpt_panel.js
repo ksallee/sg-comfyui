@@ -255,6 +255,7 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         `<span class="fpt-code">${esc(d.code)}</span>`;
       badgeEl.innerHTML = d.status && d.status.label ? badge(d.status) : "";
       const rows = [];
+      let over = "";
       // "unrecorded" never reads as "not AI": it says only that this Version carries no record of
       // how it was made, which is all the data supports.
       if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
@@ -276,6 +277,14 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
           const at = ask || f.first;
           const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
           note += got === 1 ? ` Reads frame ${at}.` : ` Reads ${got} frames from ${at}.`;
+          // Said before the Run, not after it: one batch is a single tensor, and a plate too big
+          // to hold is a refusal the operator can avoid by setting frame_count or raising the
+          // budget. The same numbers the run would use.
+          if (d.batch && got > d.batch.fits) {
+            over = `${got} frames of ${d.batch.width}×${d.batch.height} will not fit in one batch. `
+              + `Set frame count to ${d.batch.fits} or less, or raise batch_budget_gib in `
+              + `profile.local.json above ${d.batch.gib} GiB.`;
+          }
         }
         rows.push(["frames", note]);
       }
@@ -284,7 +293,8 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       // The one line that never folds: what is wrong with the name directly above it.
-      body.innerHTML = (d.alert ? `<div class="fpt-alert">${esc(d.alert)}</div>` : "") + plain(rows);
+      const alert = d.alert || over;
+      body.innerHTML = (alert ? `<div class="fpt-alert">${esc(alert)}</div>` : "") + plain(rows);
       // The fold takes the reasoning behind a name the operator can already see, and the concepts
       // that are the same every publish: configuration-time reading, not pre-Run reading.
       fold((d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +

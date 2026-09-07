@@ -53,6 +53,16 @@ def _wired(widgets, name):
     return isinstance(widgets.get(name), list)
 
 
+def _batch_limit(v, key):
+    """{width, height, fits, gib} for this source, or None where the size is not free to read."""
+    size = media.frame_size(v, key)
+    if not size:
+        return None
+    budget = media.budget_bytes(site.profile().get("batch_budget_gib", 0))
+    return {"width": size[0], "height": size[1],
+            "fits": media.frames_that_fit(size, budget), "gib": round(budget / 2 ** 30, 1)}
+
+
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """Where the files would land, resolved against the real storage row.
 
@@ -264,6 +274,10 @@ def register():
                 # guessed. Only a sequence has them; a movie carries no numbering.
                 "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
                     media.frame_range(v, key)),
+                # What this machine will spend on one batch, so the panel can say a plate is too
+                # big to read in one go before the Run rather than after it. Only a sequence
+                # answers: a movie's size would cost a decode.
+                "batch": _batch_limit(v, key),
                 "colour_space": media.colour_of(v, key)}
         return answer(read, {"id": 0, "media": []})
 

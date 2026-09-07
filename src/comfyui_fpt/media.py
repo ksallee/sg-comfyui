@@ -58,8 +58,12 @@ COLOUR = re.compile(r"^\s*colour space:\s*([^\n(]+)", re.I | re.M)
 # A batch is one float32 RGB tensor, so N frames of W×H cost N·W·H·12 bytes to build and that much
 # again on the way to VRAM. The cap is here rather than in torch because an allocator's answer to
 # "300 frames of 4K" is a stack trace and this one is a sentence naming the resolution and the
-# count. 4 GiB is 43 frames of 4K, 172 of HD.
-BATCH_BUDGET = 4 * 1024 ** 3
+# count.
+#
+# How much memory a machine has is a fact about that machine, so the number lives in
+# `batch_budget_gib` in profile.local.json and this is only the fallback. At 4 GiB a batch holds 43
+# frames of UHD or 172 of HD, which is short of a normal shot at 4K — a workstation should raise it.
+DEFAULT_BUDGET_GIB = 4
 # The widget's own ceiling, so an obvious typo is refused by the editor before anything is read.
 MAX_FRAMES = 512
 
@@ -107,6 +111,24 @@ def frame_range(v, key):
     """
     nums = frame_numbers(pattern_of(v, key))
     return (nums[0][0], nums[-1][0], len(nums)) if nums else None
+
+
+def frame_size(v, key):
+    """(width, height) of this source's first frame, or None where nothing on disk answers.
+
+    PIL reads the header and stops, so this costs a file open rather than a decode. Only a sequence
+    answers: a movie's size needs the container opened, which the panel must not pay for.
+    """
+    from PIL import Image
+
+    nums = frame_numbers(pattern_of(v, key))
+    if not nums:
+        return None
+    try:
+        with Image.open(nums[0][1]) as im:
+            return im.size
+    except OSError:
+        return None
 
 
 def _frames_on_disk(pattern):
@@ -347,7 +369,7 @@ def _download(url):
     return r.content
 
 
-def load_frames(v, key, start=0, count=1):
+def load_frames(v, key, start=0, count=1, budget=0):
     """`count` PIL images from frame `start`. One item is exactly what a single-frame read returns.
 
     `start` is the frame NUMBER — the one in the filename and the one Flow PT shows — not a position
@@ -376,13 +398,15 @@ def load_frames(v, key, start=0, count=1):
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
         # never has to refuse frame_count 500, and a 500-frame one still does.
         return _stack(_stills(chosen), len(chosen),
-                      f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.")
+                      f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
+                      budget_bytes(budget))
     # Not a sequence: one blob, and a movie's frames come out of decoding it. A container carries no
     # frame numbers, so here `start` counts decoded frames from 1 and 0 means the same as 1.
     at = max(start, 1)
     data, filename = load(v, key, at)
     return _stack(_decode(data, filename, at), count,
-                  f"{filename} has no frame {at}. Pick a lower frame number.")
+                  f"{filename} has no frame {at}. Pick a lower frame number.",
+                  budget_bytes(budget))
 
 
 def _stills(paths):
@@ -412,7 +436,7 @@ def _decode(data, filename, start=1):
                 yield got.to_image().convert("RGB"), f"{filename} frame {i}"
 
 
-def _stack(frames, count, empty):
+def _stack(frames, count, empty, budget):
     """The frames that will become one IMAGE batch, refused before torch has to refuse them.
 
     Both checks are here rather than at the tensor because both have an answer a person can act on
@@ -422,7 +446,7 @@ def _stack(frames, count, empty):
     out = []
     for img, name in frames:
         if not out:
-            _budget(img.size, max(count, 1))
+            _budget(img.size, max(count, 1), budget)
         elif img.size != out[0].size:
             w, h = img.size
             w0, h0 = out[0].size
@@ -434,7 +458,7 @@ def _stack(frames, count, empty):
         # anything and arrives here with a real number; a movie does not, so the budget is checked
         # against what has accumulated.
         if count <= 0:
-            _budget(out[0].size, len(out))
+            _budget(out[0].size, len(out), budget)
         elif len(out) >= count:
             break
     if not out:
@@ -442,14 +466,28 @@ def _stack(frames, count, empty):
     return out
 
 
-def _budget(size, count):
-    """Refuse a batch past BATCH_BUDGET, naming the resolution and how many frames do fit at it."""
+def budget_bytes(gib=0):
+    """Bytes one IMAGE batch may cost. 0 means the built-in fallback."""
+    try:
+        gib = float(gib or 0) or DEFAULT_BUDGET_GIB
+    except (TypeError, ValueError):
+        gib = DEFAULT_BUDGET_GIB
+    return int(gib * 2 ** 30)
+
+
+def frames_that_fit(size, budget):
+    """How many frames of this size one batch can hold."""
+    w, h = size
+    return max(int(budget) // (w * h * 3 * 4), 1)
+
+
+def _budget(size, count, budget):
+    """Refuse a batch past `budget`, naming the resolution and how many frames do fit at it."""
     w, h = size
     need = w * h * 3 * 4 * int(count)     # float32 RGB, which is what an IMAGE tensor holds
-    if need > BATCH_BUDGET:
-        fits = max(BATCH_BUDGET // (w * h * 3 * 4), 1)
+    if need > budget:
         raise FPTError(
             f"{count} frames of {w}×{h} would need {need / 2 ** 30:.1f} GiB as one IMAGE batch. "
-            f"This node builds at most {BATCH_BUDGET / 2 ** 30:.0f} GiB in one go. Set "
-            f"frame_count to {fits} or less at this resolution, and read the rest in a "
-            f"second pass from a later frame.")
+            f"This machine is set to build at most {budget / 2 ** 30:.1f} GiB in one go. Set "
+            f"frame_count to {frames_that_fit(size, budget)} or less at this resolution, or raise "
+            f"batch_budget_gib in profile.local.json.")

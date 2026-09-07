@@ -223,7 +223,8 @@ class FPTLoadVersion:
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0))
 
-        frames = media.load_frames(v, key, frame, frame_count)
+        frames = media.load_frames(v, key, frame, frame_count,
+                                  site.profile().get("batch_budget_gib", 0))
         a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
         colour = media.colour_of(v, key)
         # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
