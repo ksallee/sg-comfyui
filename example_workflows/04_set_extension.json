@@ -1057,14 +1057,14 @@
         "demo_04_setext (Shot)",
         "(none)",
         "Pending Review",
-        "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
         "{entity}_extension_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
+        "{entity}_extension",
         "",
-        "{entity}_extension"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — extension"
     },
@@ -1110,14 +1110,14 @@
         "comfyui-fpt sandbox",
         "demo_04_setext (Shot)",
         "(none)",
+        "auto",
+        0,
+        1,
         "",
         "plate",
         "version number in the name",
-        0,
-        "auto",
-        0,
         "",
-        1
+        0
       ],
       "title": "Flow PT Load Version — clean plate"
     }

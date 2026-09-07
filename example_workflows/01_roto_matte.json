@@ -487,14 +487,14 @@
         "demo_01_roto (Shot)",
         "(none)",
         "(none)",
-        "Roto matte of the two walkers, from SAM 3.1 open-vocabulary segmentation on the prompt 'person:2'. The count matters: 'the couple' lets SAM3 guess how many objects to find and it drops one of them on a frame. Never use ':1' - a bare noun is correct for a single subject.",
         "{entity}_matte_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Roto matte of the two walkers, from SAM 3.1 open-vocabulary segmentation on the prompt 'person:2'. The count matters: 'the couple' lets SAM3 guess how many objects to find and it drops one of them on a frame. Never use ':1' - a bare noun is correct for a single subject.",
+        "{entity}_matte",
         "",
-        "{entity}_matte"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — matte"
     },
@@ -539,14 +539,14 @@
         "comfyui-fpt sandbox",
         "demo_01_roto (Shot)",
         "(none)",
+        "auto",
+        0,
+        1,
         "",
         "plate",
         "version number in the name",
-        0,
-        "auto",
-        0,
         "",
-        1
+        0
       ],
       "title": "Flow PT Load — plate"
     },

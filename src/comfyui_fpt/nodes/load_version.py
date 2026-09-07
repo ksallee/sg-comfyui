@@ -11,7 +11,7 @@ import json
 import numpy as np
 import torch
 
-from .. import lineage, media, resolve, site
+from .. import lineage, media, resolve, site, widgets
 
 MAX_ID = 2 ** 31 - 1
 # The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
@@ -63,87 +63,34 @@ class FPTLoadVersion:
         project_id = site.default_project()
         statuses = site.statuses(project_id)
         return {
-            # Order is the order they are read: which show, which thing, which task, which state.
-            # Everything else is the rule's fine print and lives behind ComfyUI's advanced fold.
-            #
-            # WIDGET ORDER IS FROZEN. widgets_values is positional, so a key inserted, removed or
-            # renamed here displaces every value below it in every graph already saved. Append only,
-            # and move instrument.LOAD_WIDGETS, web/fpt_entity_picker.js DECLARED and every *.json
-            # under example_workflows/ and tools/workflows/ in the same commit.
-            "required": {
-                "project": (_labels(site.projects()),
-                            {"default": site.project_name(project_id)}),
-                "link": (_labels([(l, i) for l, _, i in site.links(project_id)]),
-                         {"tooltip": "The Shot, Asset or other entity to read from. Leave it empty "
-                                     "to search the whole project."}),
-            },
-            "optional": {
-                # site.NO_VALUE, not UNSET: this is a label a person picks, and declaring "" while
-                # the editor offers "(none)" makes ComfyUI refuse to run the graph.
-                # Optional by design: probe 005 found sg_task set on 1% of Versions.
-                "task": ([site.NO_VALUE], {"tooltip": "Narrow the search to one Task on that "
-                                                     "entity."}),
-                # Several statuses, any of which will do. Flow PT has no "approved" concept and the
-                # codes differ per project (probe 009), so the operator names this project's.
-                #
-                # A plain text field, not ComfyUI's MultiCombo: that widget reserves its slot from
-                # the widget spec rather than the DOM, so CSS shrinks the control to 33px inside an
-                # 82px gap. The tooltip carries the choices instead.
-                "statuses": ("STRING", {"default": "",
-                             "tooltip": "The statuses to accept, separated by commas; empty accepts "
-                                        "any. This project allows: "
-                                        + ", ".join(l for l, _ in statuses)}),
-                "name_contains": ("STRING", {"default": "",
-                                  "tooltip": "Words that must all appear in the Version name, for "
-                                             "example depth v0."}),
-                "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
-                              "tooltip": "What newest means when several Versions match.",
-                              "advanced": True}),
-                "pin_version_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
-                                   "tooltip": "Load this exact Version by id, ignoring all the "
-                                              "fields above. 0 loads whatever those fields find.",
-                                   "advanced": True}),
-                "source": ([AUTO], {"default": AUTO,
-                                    "tooltip": "Which of the Version's media to read. Auto takes "
-                                               "the best it can deliver.", "advanced": True}),
-                "frame": ("INT", {"default": 0, "min": 0, "max": 1048576, "advanced": True,
-                          "tooltip": "The frame to start at, by the number in the filename: 1003 "
-                                     "means plate.1003.exr. 0 starts wherever the sequence starts, "
-                                     "so a plate running 1001-1048 needs no typing. A movie has no "
-                                     "frame numbers inside it, so there the count starts at 1."}),
-                # The API's own language, for what the fields above cannot say. Empty means the
-                # fields decide, and the panel shows what they add up to. An array is an implicit
-                # AND (probe 004); OR needs one group object (probe 030).
-                #
-                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
-                # built with an options object of its own and copies nothing from this spec.
-                "filters": ("STRING", {"default": "", "multiline": True,
-                            "display_name": "extra filters",
-                            # ComfyUI's own fold for advanced inputs — 246 core nodes use it. A
-                            # hand-rolled toggle button ends up appended at the bottom, nowhere near
-                            # the widget it controls, and widgets_values is positional so it cannot
-                            # be moved next to it.
-                            "advanced": True,
-                            "tooltip": "Extra conditions in Flow PT's filter syntax, added to the "
-                                       "fields above with AND, for example "
-                                       "[[\"sg_ai_model\", \"contains\", \"flux\"]]. For OR, use "
-                                       "one group: {\"logical_operator\": \"or\", \"conditions\": "
-                                       "[...]}. Leave it empty to let the fields above decide."}),
-                # LAST, appended after the multiline box it has no business sitting under, because
-                # widgets_values is positional and a widget added above an existing one displaces
-                # every value in every graph already saved. A row in the wrong place is cosmetic;
-                # a silently shifted value is not.
-                #
-                # Default 1 for the same reason: a widget's declared default is what a graph saved
-                # before the widget existed loads, and such a graph asks for one image.
-                "frame_count": ("INT", {"default": 1, "min": 0, "max": media.MAX_FRAMES,
-                                "advanced": True,
-                                "tooltip": "How many frames to read as one batch, starting at the "
-                                           "frame above. 1 is a single image, and 0 is all frames "
-                                           "to the end of the sequence or the movie. A batch too "
-                                           "large to hold is refused, and the error says how many "
-                                           "fit."}),
-            },
+            # Order, labels and copy come from `widgets.LOAD_FIELDS`, shared with instrument.py,
+            # smoke.py and the editor extension. ComfyUI's required/optional split is presentation:
+            # the positional array spans both sections in declared order.
+            "required": widgets.declare(
+                [f for f in widgets.LOAD_FIELDS if f.name in widgets.LOAD_REQUIRED],
+                choices={
+                    "project": _labels(site.projects()),
+                    "link": _labels([(l, i) for l, _, i in site.links(project_id)]),
+                },
+                overrides={"project": {"default": site.project_name(project_id)}}),
+            "optional": widgets.declare(
+                [f for f in widgets.LOAD_FIELDS if f.name not in widgets.LOAD_REQUIRED],
+                choices={
+                    # site.NO_VALUE, not "": a label a person picks, and declaring "" while the
+                    # editor offers "(none)" makes ComfyUI refuse to run the graph.
+                    "task": [site.NO_VALUE],
+                    "source": [AUTO],
+                    "newest_by": resolve.ORDERS,
+                },
+                overrides={
+                    "source": {"default": AUTO},
+                    "newest_by": {"default": resolve.BY_VERSION},
+                    "pin_version_id": {"max": MAX_ID},
+                    "frame_count": {"max": media.MAX_FRAMES},
+                    "statuses": {"tooltip": widgets.field(widgets.LOAD_FIELDS, "statuses").tooltip
+                                 + " This project allows: "
+                                 + ", ".join(l for l, _ in statuses)},
+                }),
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
 

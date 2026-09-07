@@ -20,7 +20,7 @@ import os
 from PIL import Image
 
 from .. import fields as fpt_fields
-from .. import lineage, movie, naming, provenance, publish, sequence, site
+from .. import lineage, movie, naming, provenance, publish, sequence, site, widgets
 
 MAX_ID = 2 ** 31 - 1
 # The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
@@ -66,93 +66,39 @@ class FPTPublishVersion:
 
         return {
             # Neither input is required and at least one is: what a Version carries is the shape of
-            # what was wired, so the node cannot declare one of them the real input. `images` stays
-            # first and keeps its name — an input slot is addressed by name in a saved graph.
+            # what was wired, so the node cannot declare one of them the real input.
             "required": {},
-            # Order is the order they are decided: the pixels, then which show, what they belong to,
-            # which task, what state it is in, which stream, and last the note a person writes.
-            # Everything below the note is fine print and lives behind ComfyUI's advanced fold.
+            # Order, labels and copy come from `widgets.PUBLISH_FIELDS`, which instrument.py,
+            # smoke.py and the editor extension read as well. An input slot is additive and stays
+            # outside that table; a widget is positional and does not.
             #
             # There is no link_type. Version.entity accepts 15 types and a show may use several at
             # once (DESIGN); the link picker searches every type the show uses, server-side, and
             # each option carries its own type.
-            #
-            # WIDGET ORDER IS FROZEN. widgets_values is positional, so a key inserted, removed or
-            # renamed here displaces every value below it in every graph already saved. Append only,
-            # and move instrument.PUBLISH_WIDGETS, web/fpt_entity_picker.js DECLARED and every
-            # *.json under example_workflows/ and tools/workflows/ in the same commit.
             "optional": {
                 "images": ("IMAGE", {"tooltip": "The frames out of the graph to publish."}),
-                # An input slot is additive: adding one does not move widgets_values.
                 "video": ("VIDEO", {"tooltip": "The clip out of the graph to publish, from "
                                                "LoadVideo, CreateVideo or a video model."}),
-                "project": (_labels(site.projects()),
-                            {"default": site.project_name(project_id),
-                             "tooltip": "Project to publish into."}),
-                "link": (_labels(links),
-                         {"tooltip": "The Shot, Asset or other entity this Version belongs to."}),
-                "task": (_labels(site.tasks_for(first_type, first_link)),
-                         {"tooltip": "Task this Version is for, if there is one."}),
-                "status": (_labels(statuses),
-                           {"default": status_label,
-                            "tooltip": "Status to set on the new Version."}),
-                # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
-                # built with an options object of its own and copies nothing from this spec.
-                "note": ("STRING", {"multiline": True, "default": "",
-                                    "placeholder": "What someone should know about this version.",
-                                    "tooltip": "A note for the people who will read this Version, "
-                                               "written to its description."}),
-                # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
-                # and ?fields use (probe 003), to any depth the server will traverse. A bare token is
-                # the relationship's own name — `{entity}`, `{sg_task}`. `{version:03d}` and `v%04d`
-                # both pad.
-                #
-                # Not advanced: this is the name that ends up on the Version, so it is what an
-                # operator checks against the readout before pressing Run.
-                "code_template": ("STRING", {
-                    "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
-                    "display_name": "version name",
-                    "tooltip": "The name given to the new Version, for example "
-                               "{entity}_plate_v{version:03d}. Use {root_name} to build on the root "
-                               "name, and {version:03d} or v%04d to pad the number."}),
-                # Lineage the graph already proves is added by itself; this is for a source no
-                # upstream Load node can show.
-                "source_versions": ("STRING", {"default": "", "advanced": True,
-                                    "tooltip": "Version ids this was made from, separated by "
-                                               "commas, for example 1042, 1043."}),
-                "attach_workflow": ("BOOLEAN", {"default": True, "advanced": True}),
-                "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID, "advanced": True,
-                                    "tooltip": "The id to link this Version to, used instead of the "
-                                               "link picker when it is not 0."}),
-                # The one per-publish question, and it is not about media: is this a deliverable, or
-                # only review? WHICH files follow from what is wired, and whether the house also
-                # keeps the review movie is `register_movie` in the profile.
-                "register_files": ("BOOLEAN",
-                                   {"default": _wants_files(p.get("published_files") or {}),
-                                    "display_name": "Create Published Files",
-                                    "tooltip": "Publish the files themselves beside the Version, "
-                                               "copied to the storage root this project's profile "
-                                               "names."}),
-                # Declared, never inferred and never applied. A colour transform is the most
-                # consequential pixel change in a comp, and this node does not make images (DESIGN).
-                "colour_space": ("STRING", {
-                    "default": (p.get("published_files") or {}).get("colour_space") or "",
-                    "advanced": True,
-                    "tooltip": "The colour space these pixels are already in, for example sRGB or "
-                               "ACEScg. It is recorded with the Version, never applied to the "
-                               "pixels."}),
-                # APPENDED, never inserted: everything above this is in saved graphs already.
-                #
-                # recipe 004: `name` is the stream and `code` is one version of it. Empty derives
-                # the stream from the profile; typing one locks it, so a later filename change
-                # cannot silently move a stream someone downstream is following.
-                "root_name": ("STRING", {
-                    "default": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
-                    "display_name": "root name",
-                    "advanced": True,
-                    "tooltip": "The name shared by all versions of this publish, without a version "
-                               "number, for example {entity}_matte. It names the folder the files "
-                               "land in, and version name can build on it with {root_name}."}),
+                **widgets.declare(
+                    widgets.PUBLISH_FIELDS,
+                    choices={
+                        "project": _labels(site.projects()),
+                        "link": _labels(links),
+                        "task": _labels(site.tasks_for(first_type, first_link)),
+                        "status": _labels(statuses),
+                    },
+                    overrides={
+                        "project": {"default": site.project_name(project_id)},
+                        "status": {"default": status_label},
+                        "code_template": {"default": p.get("code_template")
+                                          or naming.DEFAULT_TEMPLATE},
+                        "root_name": {"default": p.get("root_name")
+                                      or naming.DEFAULT_ROOT_TEMPLATE},
+                        "colour_space": {"default": (p.get("published_files") or {})
+                                         .get("colour_space") or ""},
+                        "register_files": {"default": _wants_files(p.get("published_files") or {})},
+                        "link_id": {"max": MAX_ID},
+                    }),
             },
             "hidden": {
                 "prompt": "PROMPT",

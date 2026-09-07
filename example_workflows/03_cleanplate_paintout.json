@@ -1060,14 +1060,14 @@
         "demo_03_cleanplate (Shot)",
         "(none)",
         "Pending Review",
-        "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
         "{entity}_cleanplate_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Clean plate: the car painted out with SAM3 + Wan 2.1 VACE 1.3B, 20 steps at CFG 6 so the negative prompt is live. The fill is composited back through a feathered matte, so only the hole comes from the model. Locked-off 832x480, 17 frames at 16 fps.",
+        "{entity}_cleanplate",
         "",
-        "{entity}_cleanplate"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — cleanplate"
     },
@@ -1112,14 +1112,14 @@
         "comfyui-fpt sandbox",
         "demo_03_cleanplate (Shot)",
         "(none)",
+        "auto",
+        0,
+        1,
         "",
         "_plate_v",
         "version number in the name",
-        0,
-        "auto",
-        0,
         "",
-        1
+        0
       ],
       "title": "Flow PT Load Version"
     },

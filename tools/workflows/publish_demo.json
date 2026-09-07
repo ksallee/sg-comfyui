@@ -328,14 +328,14 @@
         "(none)",
         "(none)",
         "(none)",
-        "generated here, published straight to Flow PT",
         "{entity}_beauty_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "generated here, published straight to Flow PT",
+        "{entity}_beauty",
         "",
-        "{entity}_beauty"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish Version"
     }

@@ -798,14 +798,14 @@
         "demo_06_camera (Shot)",
         "(none)",
         "Pending Review",
-        "Push-in on the matte painting, driven by a named camera trajectory (Zoom In, speed 0.6, 33 frames @ 16fps). Wan 2.1 Fun Camera 1.3B.",
         "{entity}_push_in_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Push-in on the matte painting, driven by a named camera trajectory (Zoom In, speed 0.6, 33 frames @ 16fps). Wan 2.1 Fun Camera 1.3B.",
+        "{entity}_push_in",
         "",
-        "{entity}_push_in"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — push_in"
     },
@@ -851,14 +851,14 @@
         "comfyui-fpt sandbox",
         "demo_06_camera (Shot)",
         "(none)",
+        "auto",
+        0,
+        1,
         "",
         "plate",
         "version number in the name",
-        0,
-        "auto",
-        0,
         "",
-        1
+        0
       ],
       "title": "the matte painting, from Flow PT"
     }

@@ -17,6 +17,22 @@ const ALL_TYPES = "(all types)";
 const bare = (v) => (!v || v === NONE || v === ALL_TYPES) ? "" : v;
 
 /** The type out of a `name (Type)` label — context on the row, never part of what is searched. */
+// Which of a node definition's inputs are widgets, in declared order. An input slot carries a type
+// name this list does not hold, so it is skipped; a combo arrives as an array of its labels.
+// Allowed types are named rather than excluded, because a new slot type would otherwise be counted
+// as a widget and shift every value after it.
+const WIDGET_TYPES = new Set(["STRING", "INT", "FLOAT", "BOOLEAN", "COMBO"]);
+
+function declaredWidgets(nodeData) {
+  const out = [];
+  for (const section of ["required", "optional"]) {
+    for (const [name, spec] of Object.entries(nodeData?.input?.[section] || {})) {
+      if (Array.isArray(spec?.[0]) || WIDGET_TYPES.has(spec?.[0])) out.push(name);
+    }
+  }
+  return out;
+}
+
 function typeFromLabel(label) {
   const m = /\s\(([^()]+)\)$/.exec(label || "");
   return m ? m[1] : "";
@@ -137,23 +153,17 @@ app.registerExtension({
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
     if (nodeData.name === "FPTLoadVersion") return loadPickers(nodeType);
-    if (nodeData.name === "FPTPublishVersion") return publishPickers(nodeType);
+    if (nodeData.name === "FPTPublishVersion") return publishPickers(nodeType, nodeData);
   },
 });
 
 // Publish node. The panel is the point: a publish is remote and irreversible, so everything the run
 // would do is on screen before it does it — the name it would create, where that lands, and every
 // provenance concept beside the field it will be written to.
-function publishPickers(nodeType) {
-  // The declared widgets, in INPUT_TYPES order: the order a saved graph's widgets_values is in, and
-  // the only order anything outside the editor has to know.
-  //
-  // FROZEN. widgets_values is positional, and the same order lives in
-  // nodes/publish_version.INPUT_TYPES, instrument.PUBLISH_WIDGETS and every graph under
-  // example_workflows/ and tools/workflows/. All of them move together or none do (CLAUDE.md).
-  const DECLARED = ["project", "link", "task", "status", "note",
-                    "code_template", "source_versions", "attach_workflow", "link_id",
-                    "register_files", "colour_space", "root_name"];
+function publishPickers(nodeType, nodeData) {
+  // The declared widgets, in INPUT_TYPES order, read from the definition the server just sent
+  // rather than repeated here. This is the order a saved graph's widgets_values is in.
+  const DECLARED = declaredWidgets(nodeData);
 
   // This node maps its own saved values, because the frontend cannot: it carries widgets the class
   // never declared — the two pickers and the panel — and a positional array walked across more

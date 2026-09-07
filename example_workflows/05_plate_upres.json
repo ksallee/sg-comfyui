@@ -653,14 +653,14 @@
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
-        "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail — same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
         "{entity}_esrgan_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail — same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
+        "{entity}_esrgan",
         "",
-        "{entity}_esrgan"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — esrgan"
     },
@@ -699,14 +699,14 @@
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
-        "Restorative upres: resized to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step. It invents detail where the source is soft, which is the point and the reason it needs a look before it ships.",
         "{entity}_seedvr2_v{version:03d}",
-        "",
-        true,
-        0,
         false,
+        "Restorative upres: resized to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step. It invents detail where the source is soft, which is the point and the reason it needs a look before it ships.",
+        "{entity}_seedvr2",
         "",
-        "{entity}_seedvr2"
+        "",
+        0,
+        true
       ],
       "title": "Flow PT Publish — seedvr2"
     },
@@ -752,14 +752,14 @@
         "comfyui-fpt sandbox",
         "demo_05_upres (Shot)",
         "(none)",
+        "auto",
+        0,
+        1,
         "Approved",
         "gen480",
         "version number in the name",
-        0,
-        "auto",
-        0,
         "",
-        1
+        0
       ],
       "title": "Flow PT Load — the 480p section"
     }
