@@ -68,6 +68,24 @@ that side.
 
 Forkers drive this repo with an agent, not by reading it. Small files, explicit names, no magic, no indirection. Conventions live here or in DESIGN.md — once, in one place.
 
+## Messages to the operator
+
+Every string a person reads — a node error, a panel line, an alert, a tooltip — has one shape.
+
+- **Say what to do.** Name the fields or the action. Never describe the consequence of leaving a
+  field empty. `Fill in the required fields (project, link).` — not `nothing is linked, so the name
+  has no shot or asset in it`.
+- **Wrong, then the fix**, in that order, one idea per sentence.
+  `No Shot named sh010 on this project. Pick one from the list.`
+- **Use the words on screen.** `Tick Create Published Files`, never `register_files`.
+- **No internal vocabulary.** Not "single-valued", not "the truth table", not "a Version holds one
+  piece of media". The operator does not have the docs open.
+- Full sentences, sentence case, a full stop. No em-dash chains and no clause stacked on clause.
+- **A tooltip** says what the widget sets, in one sentence, plus an example where the format is not
+  obvious from the name.
+- Diagnostic detail — a status code, a server body, a path — comes after the plain sentence, never
+  instead of it.
+
 ## Style
 
 Terse and declarative. The code says what it is; comments and docstrings do not narrate how it got

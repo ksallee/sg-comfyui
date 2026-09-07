@@ -86,17 +86,20 @@ def root_for(storages, code=""):
     key = {"darwin": "mac_path", "win32": "windows_path"}.get(sys.platform, "linux_path")
     have = ", ".join(sorted(s["code"] for s in storages)) or "none"
     if not code and len(storages) != 1:
-        raise RuntimeError(f"published_files.storage is not set in the profile and this site has "
-                           f"{len(storages)} LocalStorage rows ({have})")
+        raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
+                           f"site has {len(storages)} storages to choose from. Set it to one of "
+                           f"these: {have}.")
     rows = [s for s in storages
             if not code or s["code"].strip().lower() == code.strip().lower()]
     if not rows:
-        raise RuntimeError(f"no LocalStorage called {code!r} on this site (have: {have})")
+        raise RuntimeError(f"No storage called {code} on this site. Set published_files.storage "
+                           f"in profile.local.json to one of these: {have}.")
     row = rows[0]
     root = (row.get(key) or "").rstrip("/")
     if not root:
-        raise RuntimeError(f"LocalStorage {row['code']!r} has no {key}: this platform has no root "
-                           f"under it, so no path here can resolve")
+        raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "
+                           f"published to it from this machine. Set that path on the storage in "
+                           f"Flow PT, or name another storage in profile.local.json.")
     return row["id"], root
 
 
@@ -107,9 +110,11 @@ def check_root(root):
     nobody wrote is worse than a run that refused.
     """
     if not os.path.isdir(root):
-        raise RuntimeError(f"storage root {root} is not mounted on this machine")
+        raise RuntimeError(f"The storage root {root} is not mounted on this machine. Mount it, "
+                           f"then run again.")
     if not os.access(root, os.W_OK):
-        raise RuntimeError(f"storage root {root} is not writable by this process")
+        raise RuntimeError(f"The storage root {root} is not writable by ComfyUI. Give it write "
+                           f"access, then run again.")
 
 
 def swap_ext(path, ext):
@@ -167,8 +172,8 @@ def pattern(root, template, values, version, ext):
     rel = naming.render(held, values, version).replace(SENTINEL, token)
     out = _clean(swap_ext(f"{root}/{rel}", ext))
     if not _under(root, out):
-        raise RuntimeError(f"{out} is outside the storage root {root}: a field value that walks out "
-                           f"of the root cannot be published")
+        raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to sit "
+                           f"under the root, so fix path_template in profile.local.json.")
     return out
 
 

@@ -139,8 +139,8 @@ function writesBlock(d) {
     // Copies onto a shared volume are not uploads, and are the ones worth reading twice.
     list("copied to", d.writes) +
     ((d.missing_fields || []).length
-      ? `<div class="fpt-why">${d.missing_fields.length} provenance field(s) missing on this site` +
-        ` — run: python -m comfyui_fpt.fields</div>` : "");
+      ? `<div class="fpt-why">${d.missing_fields.length} field(s) below are missing from this ` +
+        `site. Run python -m comfyui_fpt.fields to add them.</div>` : "");
 }
 
 /** The Versions this publish would say it came from. The reason goes under the name, not beside it:
@@ -237,9 +237,9 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         // the icon identifies the status (recipe 010) and a column of coloured pills would compete
         // with the names, which are what is being read.
         body.innerHTML =
-          `<div class="fpt-dim">${esc((d && d.why) || "nothing resolved yet")}</div>` +
+          `<div class="fpt-dim">${esc((d && d.why) || "No Version matches these fields yet.")}</div>` +
           (near.length
-            ? `<div class="fpt-sec">what is there</div>` + near.map((v) =>
+            ? `<div class="fpt-sec">versions on this link</div>` + near.map((v) =>
                 `<div class="fpt-full fpt-cand">${esc(v.code)}` +
                 (v.status && v.status.label
                   ? `<span class="fpt-cand-st">${iconHtml(v.status.icon, v.status.rgb)}` +
@@ -268,17 +268,18 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         // `?? 1`, not `|| 1`: 0 is the value that means "all of them", and `||` reads it as unset.
         const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 1);
         const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
-        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}`;
+        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}.`;
         if (ask && (ask < f.first || ask > f.last)) {
-          note += ` — frame ${ask} is not in it; this will not run`;
+          note += ` Frame ${ask} is not in the sequence. Pick one between ${f.first} and ${f.last}.`;
         } else {
           const at = ask || f.first;
           const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
-          note += ` — reads ${got === 1 ? `frame ${at}` : `${got} from ${at}`}`;
+          note += got === 1 ? ` Reads frame ${at}.` : ` Reads ${got} frames from ${at}.`;
         }
         rows.push(["frames", note]);
       }
-      if (d.colour_space) rows.push(["colour space", `${d.colour_space} — declared, not converted`]);
+      if (d.colour_space) rows.push(
+        ["colour space", `${d.colour_space}. Declared on the file, not converted.`]);
       for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       // The one line that never folds: what is wrong with the name directly above it.

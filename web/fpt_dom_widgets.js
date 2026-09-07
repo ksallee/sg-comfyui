@@ -283,7 +283,7 @@ export function requireVueNodes(node) {
   // legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
   // placeholder, which names the widget type rather than what the operator has to do.
   dontSerialize(node.addWidget(
-    "button", "⚠ needs Nodes 2.0 — click to open Settings › Lite Graph", null,
+    "button", "⚠ Nodes 2.0 is off. Click to open Settings › Lite Graph.", null,
     () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog")));
   node.title = `${node.title} (needs Nodes 2.0)`;
   return false;
@@ -391,7 +391,7 @@ const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
  * the trigger.
  */
 export function searchPicker(node, target, {
-  search, placeholder = "search…", onPick, label, empty = "nothing matches that",
+  search, placeholder = "search…", onPick, label, empty = "Nothing matches those words.",
 }) {
   ensureCss();
   const field = document.createElement("div");
@@ -542,7 +542,8 @@ export function searchPicker(node, target, {
 
 /** Several statuses, any of which will do: one chip each, in the status's own colour (probe 010),
  *  so nothing has to be typed exactly right. `load()` is async and answers with status items. */
-export function chipSelect(node, target, { load, label, empty = "this project offers no statuses" }) {
+export function chipSelect(node, target,
+                           { load, label, empty = "This project has no statuses." }) {
   ensureCss();
   const root = document.createElement("div");
   root.className = "fpt-chips";

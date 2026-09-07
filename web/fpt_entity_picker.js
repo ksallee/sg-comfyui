@@ -31,7 +31,7 @@ async function get(url) {
     const r = await fetch(url);
     return await r.json();
   } catch (e) {
-    return { items: [], error: String(e) };
+    return { items: [], error: `The ComfyUI server did not answer. ${e}` };
   }
 }
 
@@ -66,7 +66,7 @@ function projectPicker(node, widget, state, onPick) {
   return searchPicker(node, widget, {
     label: "project",
     placeholder: "search projects",
-    empty: "no project here matches those words",
+    empty: "No project matches those words.",
     search: async (q) => {
       state.projects = (await get("/fpt/projects")).items || [];
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -104,7 +104,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
   hideWidget(widget);
   return searchPicker(node, widget, {
     label: "link",
-    placeholder: "search links — `gir rul` finds giraffe_ruler",
+    placeholder: "search links: gir rul finds giraffe_ruler",
     empty,
     search: async (q) => {
       const d = await get(`/fpt/entities?project_id=${state.projectId}` +
@@ -234,7 +234,7 @@ function publishPickers(nodeType) {
       if (mine !== previewing) return;
       panel.clearLog();
       if (!d.code) {
-        panel.show({ error: d.error || "the template does not resolve yet" });
+        panel.show({ error: d.error || "code_template produced no name. Check the template." });
         return;
       }
       // Provenance lives in the executing graph, so hand over the very thing Run would send.
@@ -269,9 +269,9 @@ function publishPickers(nodeType) {
         // The reason lives in the fold, so the pill carries it: a publish that cannot read its
         // provenance, or that would drop a mapped value, is not VALID however good the name is.
         state: (error || missing || d.alert) ? "warn" : "ok",
-        why: error ? `provenance could not be read: ${error}`
-          : missing ? `${missing} mapped field(s) missing on this site — struck through below`
-          : "this is what the next Run will create",
+        why: error ? `Provenance could not be read. ${error}`
+          : missing ? `${missing} field(s) below are missing from this site, struck through.`
+          : "This is what the next Run will create.",
       });
     };
     // A typed widget is debounced, because every keystroke costs a graphToPrompt and two requests.
@@ -310,7 +310,7 @@ function publishPickers(nodeType) {
     // it, so asking here as well would load the project twice.
     const projectPick = projectPicker(this, project, state);
     const linkPick = linkPicker(this, link, state, {
-      empty: "nothing on this show matches those words",
+      empty: "No link on this project matches those words.",
     });
 
     const loadTasks = async (picked) => {
@@ -384,7 +384,7 @@ function loadPickers(nodeType) {
 
     const projectPick = projectPicker(this, project, state, (it) => loadProject(it.value));
     const linkPick = linkPicker(this, link, state, {
-      empty: "nothing on this project matches those words",
+      empty: "No link on this project matches those words.",
       narrow: () => (linkTypeW && linkTypeW.value !== ALL_TYPES)
         ? `&type=${encodeURIComponent(linkTypeW.value)}` : "",
       onPick: () => loadTasks(),
@@ -392,7 +392,7 @@ function loadPickers(nodeType) {
     hideWidget(statuses);
     const statusChips = statuses && chipSelect(this, statuses, {
       label: "statuses",
-      empty: "this project offers no statuses",
+      empty: "This project has no statuses.",
       load: async () => (await get(`/fpt/statuses?project_id=${state.projectId}`)).items || [],
     });
 
@@ -418,7 +418,7 @@ function loadPickers(nodeType) {
         // An escape hatch that is switched on must say so: a pinned id ignores the whole rule.
         // `extra filters` narrows rather than replaces, so it is not an override and says nothing.
         alert: resolved.alert || (resolved.pinned
-          ? `pinned to Version ${resolved.pinned} — every field above is ignored` : ""),
+          ? `Pinned to Version ${resolved.pinned}. All the fields above are ignored.` : ""),
       });
     };
 

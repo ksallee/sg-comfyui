@@ -74,13 +74,15 @@ class FPTLoadVersion:
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id)}),
                 "link": (_labels([(l, i) for l, _, i in site.links(project_id)]),
-                         {"tooltip": "What to read from. Empty searches the whole project."}),
+                         {"tooltip": "The Shot, Asset or other entity to read from. Leave it empty "
+                                     "to search the whole project."}),
             },
             "optional": {
                 # site.NO_VALUE, not UNSET: this is a label a person picks, and declaring "" while
                 # the editor offers "(none)" makes ComfyUI refuse to run the graph.
-                "task": ([site.NO_VALUE], {"tooltip": "Narrow to one Task on that entity. Optional — probe "
-                                             "005 found sg_task filled on 1% of Versions."}),
+                # Optional by design: probe 005 found sg_task set on 1% of Versions.
+                "task": ([site.NO_VALUE], {"tooltip": "Narrow the search to one Task on that "
+                                                     "entity."}),
                 # Several statuses, any of which will do. Flow PT has no "approved" concept and the
                 # codes differ per project (probe 009), so the operator names this project's.
                 #
@@ -88,38 +90,30 @@ class FPTLoadVersion:
                 # the widget spec rather than the DOM, so CSS shrinks the control to 33px inside an
                 # 82px gap. The tooltip carries the choices instead.
                 "statuses": ("STRING", {"default": "",
-                             "tooltip": "Any of these will do; empty means any status. Comma "
-                                        "separated. This project allows: "
+                             "tooltip": "The statuses to accept, separated by commas; empty accepts "
+                                        "any. This project allows: "
                                         + ", ".join(l for l, _ in statuses)}),
                 "name_contains": ("STRING", {"default": "",
-                                  "tooltip": "Words that must ALL appear in the Version name, as in "
-                                             "the Flow PT UI: `depth v0` matches both."}),
+                                  "tooltip": "Words that must all appear in the Version name, for "
+                                             "example depth v0."}),
                 "newest_by": (resolve.ORDERS, {"default": resolve.BY_VERSION,
-                              "tooltip": "What 'newest' means. A re-published v002 is newer by id "
-                                         "but older by intent.", "advanced": True}),
+                              "tooltip": "What newest means when several Versions match.",
+                              "advanced": True}),
                 "pin_version_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID,
-                                   "tooltip": "REPLACES every field above — this exact Version by "
-                                              "id, whatever the rule says.\n\n"
-                                              "0 is off, and the rule resolves normally. Non-zero "
-                                              "and the panel says in amber that it is pinned, "
-                                              "because nothing else on this node is being read.\n\n"
-                                              "For when you want THIS version and not whatever is "
-                                              "newest or approved right now.", "advanced": True}),
+                                   "tooltip": "Load this exact Version by id, ignoring all the "
+                                              "fields above. 0 loads whatever those fields find.",
+                                   "advanced": True}),
                 "source": ([AUTO], {"default": AUTO,
-                                    "tooltip": "Which media to pull. `auto` takes the best this "
-                                               "Version can actually deliver.", "advanced": True}),
+                                    "tooltip": "Which of the Version's media to read. Auto takes "
+                                               "the best it can deliver.", "advanced": True}),
                 "frame": ("INT", {"default": 0, "min": 0, "max": 1048576, "advanced": True,
-                          "tooltip": "Which frame to start at, BY THE NUMBER IN THE FILENAME — 1003 "
-                                     "means `plate.1003.exr`, not the 1003rd file in the folder. It "
-                                     "is the number Flow PT shows you.\n\n0 is 'whatever this "
-                                     "source starts at', which is the right answer nearly always and "
-                                     "why this can be left alone: a plate that runs 1001-1048 needs "
-                                     "no typing. Ask for a frame the sequence does not have and it "
-                                     "is refused, and the error names the range it does have.\n\n"
-                                     "A movie has no numbers inside it, so there this counts decoded "
-                                     "frames from 1 and 0 means the same as 1."}),
+                          "tooltip": "The frame to start at, by the number in the filename: 1003 "
+                                     "means plate.1003.exr. 0 starts wherever the sequence starts, "
+                                     "so a plate running 1001-1048 needs no typing. A movie has no "
+                                     "frame numbers inside it, so there the count starts at 1."}),
                 # The API's own language, for what the fields above cannot say. Empty means the
-                # fields decide, and the panel shows what they add up to.
+                # fields decide, and the panel shows what they add up to. An array is an implicit
+                # AND (probe 004); OR needs one group object (probe 030).
                 #
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
@@ -130,15 +124,11 @@ class FPTLoadVersion:
                             # the widget it controls, and widgets_values is positional so it cannot
                             # be moved next to it.
                             "advanced": True,
-                            "tooltip": "ADDED to the fields above with AND — it narrows, it never "
-                                       "replaces. Every field on this node keeps meaning what it "
-                                       "says.\n\nEmpty is the normal case. Put conditions here "
-                                       "for what the fields cannot express, in Flow PT's own filter "
-                                       "syntax: [[\"sg_ai_model\", \"contains\", \"flux\"]]. "
-                                       "An array is an implicit AND (probe 004); for OR use one "
-                                       "group: {\"logical_operator\": \"or\", \"conditions\": "
-                                       "[...]} (probe 030).\n\nThe panel shows the whole query "
-                                       "this adds up to."}),
+                            "tooltip": "Extra conditions in Flow PT's filter syntax, added to the "
+                                       "fields above with AND, for example "
+                                       "[[\"sg_ai_model\", \"contains\", \"flux\"]]. For OR, use "
+                                       "one group: {\"logical_operator\": \"or\", \"conditions\": "
+                                       "[...]}. Leave it empty to let the fields above decide."}),
                 # LAST, appended after the multiline box it has no business sitting under, because
                 # widgets_values is positional and a widget added above an existing one displaces
                 # every value in every graph already saved. A row in the wrong place is cosmetic;
@@ -148,12 +138,11 @@ class FPTLoadVersion:
                 # before the widget existed loads, and such a graph asks for one image.
                 "frame_count": ("INT", {"default": 1, "min": 0, "max": media.MAX_FRAMES,
                                 "advanced": True,
-                                "tooltip": "How many frames to read as one batch, starting at "
-                                           "`frame`. 1 is a single image; 0 is all of them, to the "
-                                           "end of the sequence or the movie. A sequence or a movie can "
-                                           "give more; a still cannot. Large batches are refused by "
-                                           "size, not by count — the error says what fits at this "
-                                           "resolution."}),
+                                "tooltip": "How many frames to read as one batch, starting at the "
+                                           "frame above. 1 is a single image, and 0 is all frames "
+                                           "to the end of the sequence or the movie. A batch too "
+                                           "large to hold is refused, and the error says how many "
+                                           "fit."}),
             },
             "hidden": {"unique_id": "UNIQUE_ID"},
         }
@@ -200,16 +189,16 @@ class FPTLoadVersion:
         try:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
-            raise ValueError(f"filters is not valid JSON: {e}")
+            raise ValueError(f"Extra filters is not valid JSON. {e}")
         # Both shapes, because Flow PT takes both under different Content-Types (probe 030). An
         # array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
         # only way to express `or`, nested up to 265 groups deep.
         if isinstance(v, dict):
             return _as_rest_filter(v)
         if not isinstance(v, list):
-            raise ValueError('SG Filters must be an array of conditions, e.g. '
-                             '[["sg_status_list", "in", ["apr"]]], or a group object '
-                             '{"logical_operator": "or", "conditions": [...]}')
+            raise ValueError('Extra filters must be an array of conditions, for example '
+                             '[["sg_status_list", "in", ["apr"]]], or one group: '
+                             '{"logical_operator": "or", "conditions": [...]}.')
         return v
 
     @classmethod
@@ -221,8 +210,8 @@ class FPTLoadVersion:
         codes, unknown = site.resolve_statuses(project_id, _as_list(statuses))
         if unknown:
             allowed = ", ".join(l for l, _ in site.statuses(project_id))
-            return 0, "", (f"no status called {', '.join(repr(u) for u in unknown)} on this project. "
-                           f"It allows: {allowed}")
+            return 0, "", (f"No status called {', '.join(unknown)} on this project. Use one of: "
+                           f"{allowed}.")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
                             newest_by, p.get("code_regex", ""), cls._filters(filters),
                             where=site.unset(link) or "")
@@ -261,8 +250,8 @@ class FPTLoadVersion:
                 near = site.find_versions(project_id, lt, target, task_id)[:8]
                 labels = {c: l for l, c in site.statuses(project_id)}   # 'pndvs' means nothing
                 listing = "\n  ".join(f"{c}  [{labels.get(st, st)}]" for c, st, _ in near)
-                raise ValueError(why + (f"\nwhat is there:\n  {listing}" if near
-                                        else "\nthere are no Versions there at all"))
+                raise ValueError(why + (f"\nVersions on this link:\n  {listing}" if near
+                                        else "\nThere are no Versions on this link."))
             why = f"{code} ({why})"
 
         fpt = site.client()
@@ -270,15 +259,14 @@ class FPTLoadVersion:
         available = media.sources(v)
         if not available:
             raise ValueError(
-                f"Version {vid} ({v.get('code')}) has no media this node can read: its published "
-                f"files carry no path this machine has a root for, and its path fields point at "
-                f"nothing here.")
+                f"Version {vid} ({v.get('code')}) has no media this node can read. Check that the "
+                f"storage holding its files is mounted on this machine.")
 
         key = available[0][0] if source in (AUTO, UNSET) else source.split(" — ")[0].strip()
         if key not in [k for k, _ in available]:
             # The labels, not the keys: a PublishedFile that has been renamed or re-typed no longer
             # matches the saved value, and the listing is what tells you which.
-            raise ValueError(f"Version {vid} cannot deliver {key!r}; it has:\n  "
+            raise ValueError(f"Version {vid} has no {key} to read. Pick one of these instead:\n  "
                              + "\n  ".join(label for _, label in available))
 
         # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
@@ -298,7 +286,7 @@ class FPTLoadVersion:
         got = f"{len(frames)} frames from {at}" if len(frames) > 1 else f"frame {at}"
         # A batch that came back short is a fact about the media, said out loud rather than left for
         # the graph downstream to discover as a wrong frame count.
-        short = f" (asked for {frame_count})" if len(frames) < int(frame_count) else ""
-        print(f"[Flow PT] loaded Version {vid}: {why}; source={key}; {got}{short}"
-              + (f"; colour space declared {colour} — recorded, not applied" if colour else ""))
+        short = f", short of the {frame_count} asked for" if len(frames) < int(frame_count) else ""
+        print(f"[Flow PT] Loaded Version {vid}: {why}. Source {key}, {got}{short}."
+              + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
         return (torch.from_numpy(a), vid, v.get("code") or "", colour)

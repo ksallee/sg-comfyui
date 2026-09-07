@@ -157,7 +157,8 @@ def version(fpt, version_id):
     """
     r = fpt.get(f"/entity/versions/{int(version_id)}", params={"fields": ",".join(FIELDS)})
     if not r.ok:
-        raise FPTError(f"Version {version_id}: {r.status_code} {r.text[:200]}")
+        raise FPTError(f"Could not read Version {version_id} from Flow PT. Check that it still "
+                       f"exists, then run again. Flow PT answered {r.status_code}. {r.text[:200]}")
     d = r.json()["data"]
     return {**d.get("attributes", {}), "id": d["id"],
             "published_files": published_files(fpt, version_id)}
@@ -185,7 +186,9 @@ def describe(fpt, version_id, statuses=(), colors=None, icons=None):
     r = fpt.get(f"/entity/versions/{int(version_id)}",
                 params={"fields": ",".join(SUMMARY_FIELDS + RELATED_FIELDS)})
     if not r.ok:
-        return {"code": f"Version {version_id}", "error": f"{r.status_code}"}
+        return {"code": f"Version {version_id}",
+                "error": f"Could not read this Version from Flow PT. Check that it still exists. "
+                         f"Flow PT answered {r.status_code}."}
     d = r.json()["data"]
     a, rel = d.get("attributes", {}), d.get("relationships", {})
     code = a.get("sg_status_list")
@@ -296,7 +299,9 @@ def load(v, key, frame=1):
     pf = pf_of(v, key)
     if pf:
         if not pf["path"]:
-            raise FPTError(f'PublishedFile {pf["id"]} has no path on this platform ({LOCAL_PATH})')
+            raise FPTError(f'Published File {pf["id"]} has no path this machine can open. Pick '
+                           f'another source, or set this platform\'s path on the storage in Flow '
+                           f'PT. The empty field is {LOCAL_PATH}.')
         return _at_frame(pf["path"], frame)
     if key == "frames":
         return _at_frame(v.get("sg_path_to_frames"), frame)
@@ -308,7 +313,7 @@ def load(v, key, frame=1):
         return _download(mv["url"]), mv.get("name") or "uploaded"
     if key == "thumbnail":
         return _download(v["image"]), f"{v.get('code') or v['id']}_thumb.jpg"
-    raise FPTError(f"unknown source {key!r}")
+    raise FPTError(f"This Version has no source called {key}. Pick one from the source list.")
 
 
 def _read(path):
@@ -328,9 +333,10 @@ def _at_frame(pattern, frame):
         return _read(path), os.path.basename(path)
     nums = frame_numbers(pattern)
     if not nums:
-        raise FPTError(f"no frames match {pattern!r}")
-    raise FPTError(f"{os.path.basename(pattern)} has no frame {frame}. It runs "
-                   f"{nums[0][0]}-{nums[-1][0]}, {len(nums)} frames.")
+        raise FPTError(f"No files match the frame pattern {pattern}. Check that the sequence is "
+                       f"on this machine, and that the path on the Version is right.")
+    raise FPTError(f"{os.path.basename(pattern)} has no frame {frame}. Pick a frame between "
+                   f"{nums[0][0]} and {nums[-1][0]}. The sequence has {len(nums)} frames.")
 
 
 def _download(url):
@@ -356,24 +362,27 @@ def load_frames(v, key, start=0, count=1):
     if pat:
         nums = frame_numbers(pat)
         if not nums:
-            raise FPTError(f"no frames match {pat!r}")
+            raise FPTError(f"No files match the frame pattern {pat}. Check that the sequence is "
+                           f"on this machine, and that the path on the Version is right.")
         first = nums[0][0] if start <= 0 else start
         at = next((i for i, (n, _) in enumerate(nums) if n == first), None)
         if at is None:
             raise FPTError(
-                f"{os.path.basename(pat)} has no frame {first}. It runs {nums[0][0]}-{nums[-1][0]}, "
-                f"{len(nums)} frames. `frame` is the number in the filename, not a position in the "
-                f"list, and 0 starts at whatever the sequence itself starts at.")
+                f"{os.path.basename(pat)} has no frame {first}. Pick a frame between "
+                f"{nums[0][0]} and {nums[-1][0]}. The sequence has {len(nums)} frames. Frame is "
+                f"the number in the filename, not a position in the list, and 0 means whatever "
+                f"the sequence itself starts at.")
         chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
         # never has to refuse frame_count 500, and a 500-frame one still does.
         return _stack(_stills(chosen), len(chosen),
-                      f"{os.path.basename(pat)} has no frame {first}")
+                      f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.")
     # Not a sequence: one blob, and a movie's frames come out of decoding it. A container carries no
     # frame numbers, so here `start` counts decoded frames from 1 and 0 means the same as 1.
     at = max(start, 1)
     data, filename = load(v, key, at)
-    return _stack(_decode(data, filename, at), count, f"{filename} has no frame {at}")
+    return _stack(_decode(data, filename, at), count,
+                  f"{filename} has no frame {at}. Pick a lower frame number.")
 
 
 def _stills(paths):
@@ -394,7 +403,8 @@ def _decode(data, filename, start=1):
     try:
         import av   # ships with ComfyUI for its video nodes; see DESIGN
     except ImportError:
-        raise FPTError(f"{filename} is not a still and PyAV is not installed to decode it")
+        raise FPTError(f"{filename} is a movie, and decoding one needs PyAV. Install av into the "
+                       f"Python that runs ComfyUI, or pick a still image source.")
     with av.open(io.BytesIO(data)) as container:
         stream = container.streams.video[0]
         for i, got in enumerate(container.decode(stream), start=1):
@@ -417,8 +427,8 @@ def _stack(frames, count, empty):
             w, h = img.size
             w0, h0 = out[0].size
             raise FPTError(
-                f"{name} is {w}×{h} but this batch started {w0}×{h0}: frames of different sizes "
-                f"cannot stack into one IMAGE. Load the runs separately, or resize before the batch.")
+                f"{name} is {w}×{h} but this batch started {w0}×{h0}. Frames of different sizes "
+                f"cannot go into one IMAGE. Load the runs separately, or resize before the batch.")
         out.append(img)
         # `count` 0 is "everything there is". A sequence knows how many that is before it reads
         # anything and arrives here with a real number; a movie does not, so the budget is checked
@@ -439,6 +449,7 @@ def _budget(size, count):
     if need > BATCH_BUDGET:
         fits = max(BATCH_BUDGET // (w * h * 3 * 4), 1)
         raise FPTError(
-            f"{count} frames of {w}×{h} is {need / 2 ** 30:.1f} GiB as one IMAGE batch, past the "
-            f"{BATCH_BUDGET / 2 ** 30:.0f} GiB this node will build. At this resolution "
-            f"frame_count tops out at {fits}; read the rest in a second pass from a later `frame`.")
+            f"{count} frames of {w}×{h} would need {need / 2 ** 30:.1f} GiB as one IMAGE batch. "
+            f"This node builds at most {BATCH_BUDGET / 2 ** 30:.0f} GiB in one go. Set "
+            f"frame_count to {fits} or less at this resolution, and read the rest in a "
+            f"second pass from a later frame.")

@@ -30,7 +30,8 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     project_id = (int(project) if str(project).isdigit() else _pick(site.projects(), project)) \
         or site.default_project()
     if not project_id:
-        raise ValueError("no project: pass --project, or set default_project in profile.local.json")
+        raise ValueError("No project chosen. Pass --project, or set default_project in "
+                         "profile.local.json.")
     p = site.for_project(project_id)
 
     # The label carries its own type — `sh010 (Shot)` — and that wins, exactly as in the node:
@@ -40,7 +41,8 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     link_type = picked_type or p.get("link_type", "Shot")
     target = _pick(site.entities(link_type, project_id, q=picked_name), picked_name) if link else 0
     if link and not target:
-        raise ValueError(f"no {link_type} named {picked_name!r} in project {project_id}")
+        raise ValueError(f"No {link_type} named {picked_name} on project {project_id}. Check the "
+                         f"spelling, and use the name as it appears in Flow PT.")
     task_id = _pick(site.tasks_for(link_type, target), task) if (task and target) else 0
     status_code = next((c for label, c in site.statuses(project_id) if label == status), "")
 
@@ -73,15 +75,22 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
 
 def _cli(argv=None):
     ap = argparse.ArgumentParser(prog="comfyui_fpt.seed", description=__doc__.split("\n")[0])
-    ap.add_argument("path", nargs="+", help="image file(s) to publish, in order")
-    ap.add_argument("--project", default="", help="id or name; omit for the profile default")
-    ap.add_argument("--link", default="", help='"sh010 (Shot)"; a bare name uses the project default type')
+    ap.add_argument("path", nargs="+", help="the image files to publish, in order")
+    ap.add_argument("--project", default="",
+                    help="the project id or name. Leave it out to use default_project.")
+    ap.add_argument("--link", default="",
+                    help='what this belongs to, for example "sh010 (Shot)". A bare name uses '
+                         'the project default type.')
     ap.add_argument("--task", default="")
-    ap.add_argument("--code", default="", help="literal code; omit to follow the show's convention")
-    ap.add_argument("--template", default="", help="override the project's code_template")
+    ap.add_argument("--code", default="",
+                    help="the exact name to use. Leave it out to follow the show's convention.")
+    ap.add_argument("--template", default="", help="a name template to use instead of the "
+                                                   "project's code_template.")
     ap.add_argument("--status", default="")
-    ap.add_argument("--note", default="", help="goes in description; say what this is a stand-in for")
-    ap.add_argument("--output", default="", help="what this stream IS, for {output} in the template")
+    ap.add_argument("--note", default="", help="a note for the Version description. Say what "
+                                               "this file is a stand-in for.")
+    ap.add_argument("--output", default="", help="what this file is, for example depth or matte. "
+                                                 "It fills {output} in the name template.")
     a = ap.parse_args(argv)
     for path in a.path:
         vid, name = seed(path, a.project, a.link, a.task, a.code, a.template, a.status, a.note,

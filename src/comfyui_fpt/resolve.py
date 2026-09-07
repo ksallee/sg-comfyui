@@ -60,12 +60,14 @@ def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statu
                               sort=SORT.get(order, "-id"), filters=combined)
     if not rows:
         if filters:
-            return 0, "", "nothing matches these fields plus the extra filter"
+            return 0, "", ("No Version matches these fields plus the extra filter. "
+                           "Widen the filter, or clear it.")
         where = where or (f"{link_type} {link_id}" if link_id else f"project {project_id}")
-        bits = [b for b in (f"name containing {name_contains!r}" if terms else "",
-                            f"status in {list(statuses)}" if statuses else "",
+        bits = [b for b in (f"a name containing {name_contains}" if terms else "",
+                            f"status {', '.join(str(s) for s in statuses)}" if statuses else "",
                             "a task" if task_id else "") if b]
-        return 0, "", f"nothing on {where}" + (" with " + ", ".join(bits) if bits else "")
+        return 0, "", (f"No Version on {where}" + (" with " + ", ".join(bits) if bits else "")
+                       + ". Pick a different link, or clear some of the fields.")
 
     if order == BY_VERSION and regex:
         from . import naming

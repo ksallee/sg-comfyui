@@ -82,32 +82,26 @@ class FPTPublishVersion:
             # and move instrument.PUBLISH_WIDGETS, web/fpt_entity_picker.js DECLARED and every
             # *.json under example_workflows/ and tools/workflows/ in the same commit.
             "optional": {
-                "images": ("IMAGE", {"tooltip": "Frames out of the graph. Alone they publish frame "
-                                                "1 as the Version's still; tick Create Published "
-                                                "Files to register the sequence itself."}),
+                "images": ("IMAGE", {"tooltip": "The frames out of the graph to publish."}),
                 # An input slot is additive: adding one does not move widgets_values.
-                "video": ("VIDEO", {"tooltip": "A clip out of the graph — LoadVideo, CreateVideo, or "
-                                               "any of the hosted video models. It becomes the "
-                                               "Version's review media, uploaded as the source file "
-                                               "itself where the graph did not change it."}),
+                "video": ("VIDEO", {"tooltip": "The clip out of the graph to publish, from "
+                                               "LoadVideo, CreateVideo or a video model."}),
                 "project": (_labels(site.projects()),
                             {"default": site.project_name(project_id),
                              "tooltip": "Project to publish into."}),
                 "link": (_labels(links),
-                         {"tooltip": "What this Version belongs to. Version.entity accepts many "
-                                     "types, so each option carries its own."}),
+                         {"tooltip": "The Shot, Asset or other entity this Version belongs to."}),
                 "task": (_labels(site.tasks_for(first_type, first_link)),
-                         {"tooltip": "Task on that entity. Often empty — probe 005 found sg_task "
-                                     "filled on 1% of Versions, so it is optional by design."}),
+                         {"tooltip": "Task this Version is for, if there is one."}),
                 "status": (_labels(statuses),
                            {"default": status_label,
-                            "tooltip": "Usable statuses for this project (probe 009)."}),
+                            "tooltip": "Status to set on the new Version."}),
                 # Its height belongs to the JS extension (`textRows`): a `customtext` widget is
                 # built with an options object of its own and copies nothing from this spec.
                 "note": ("STRING", {"multiline": True, "default": "",
-                                    "placeholder": "what a person should know about this version",
-                                    "tooltip": "Human note, written to description. Provenance is "
-                                               "recorded separately and does not belong here."}),
+                                    "placeholder": "What someone should know about this version.",
+                                    "tooltip": "A note for the people who will read this Version, "
+                                               "written to its description."}),
                 # A template in Flow PT's own vocabulary: dotted field paths, the same ones filters
                 # and ?fields use (probe 003), to any depth the server will traverse. A bare token is
                 # the relationship's own name — `{entity}`, `{sg_task}`. `{version:03d}` and `v%04d`
@@ -118,36 +112,35 @@ class FPTPublishVersion:
                 "code_template": ("STRING", {
                     "default": p.get("code_template") or naming.DEFAULT_TEMPLATE,
                     "display_name": "version name",
-                    "tooltip": "The Version's own name. Write it out — {entity}_plate_v{version:03d} "
-                               "— or compose it from the stream with {root_name}_v{version:03d}. "
-                               "Any dotted Flow PT path works; {version:03d} and v%04d both pad."}),
+                    "tooltip": "The name given to the new Version, for example "
+                               "{entity}_plate_v{version:03d}. Use {root_name} to build on the root "
+                               "name, and {version:03d} or v%04d to pad the number."}),
                 # Lineage the graph already proves is added by itself; this is for a source no
                 # upstream Load node can show.
                 "source_versions": ("STRING", {"default": "", "advanced": True,
-                                    "tooltip": "Comma-separated Version ids this was derived from."}),
+                                    "tooltip": "Version ids this was made from, separated by "
+                                               "commas, for example 1042, 1043."}),
                 "attach_workflow": ("BOOLEAN", {"default": True, "advanced": True}),
                 "link_id": ("INT", {"default": 0, "min": 0, "max": MAX_ID, "advanced": True,
-                                    "tooltip": "Overrides `link` when non-zero, for a stale list."}),
+                                    "tooltip": "The id to link this Version to, used instead of the "
+                                               "link picker when it is not 0."}),
                 # The one per-publish question, and it is not about media: is this a deliverable, or
                 # only review? WHICH files follow from what is wired, and whether the house also
                 # keeps the review movie is `register_movie` in the profile.
                 "register_files": ("BOOLEAN",
                                    {"default": _wants_files(p.get("published_files") or {}),
                                     "display_name": "Create Published Files",
-                                    "tooltip": "Register the files themselves, beside the Version. "
-                                               "Frames are copied under the storage root the profile "
-                                               "names and registered as a sequence; a movie is "
-                                               "registered where it is the deliverable, or where "
-                                               "published_files.register_movie says this house "
-                                               "keeps its review media too."}),
+                                    "tooltip": "Publish the files themselves beside the Version, "
+                                               "copied to the storage root this project's profile "
+                                               "names."}),
                 # Declared, never inferred and never applied. A colour transform is the most
                 # consequential pixel change in a comp, and this node does not make images (DESIGN).
                 "colour_space": ("STRING", {
                     "default": (p.get("published_files") or {}).get("colour_space") or "",
                     "advanced": True,
-                    "tooltip": "What these pixels ARE — sRGB, ACEScg, linear. Recorded on the "
-                               "PublishedFile and in the provenance record. Nothing is converted, "
-                               "and nothing is guessed when it is empty."}),
+                    "tooltip": "The colour space these pixels are already in, for example sRGB or "
+                               "ACEScg. It is recorded with the Version, never applied to the "
+                               "pixels."}),
                 # APPENDED, never inserted: everything above this is in saved graphs already.
                 #
                 # recipe 004: `name` is the stream and `code` is one version of it. Empty derives
@@ -157,10 +150,9 @@ class FPTPublishVersion:
                     "default": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
                     "display_name": "root name",
                     "advanced": True,
-                    "tooltip": "The stream this publish belongs to, without a version — "
-                               "e.g. {entity}_matte. It is the PublishedFile's `name` and the "
-                               "folder the files land in, and `version name` can build on it as "
-                               "{root_name}. Advanced because a house sets it once."}),
+                    "tooltip": "The name shared by all versions of this publish, without a version "
+                               "number, for example {entity}_matte. It names the folder the files "
+                               "land in, and version name can build on it with {root_name}."}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -318,20 +310,21 @@ class FPTPublishVersion:
             if pft:
                 body["published_file_type"] = pft
             else:
-                notes.append(f"no PublishedFileType on this site for {kind}; registered without one "
-                             f"— creating one would add it to every project (recipe 004)")
+                notes.append(f"This site has no Published File Type for {kind}, so the file was "
+                             f"registered without one. Creating one would add it to all projects.")
             pf_id, resolved = publish.create_published_file(fpt, project_id, code, name, path, body)
             # The 201 already carries the resolved path, so this reports what the SERVER stored
             # rather than what was sent — the two differ the moment a root is ambiguous (recipe 004).
-            notes.append(f"{what}: {code} -> PublishedFile {pf_id}  "
+            notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
                          f'{resolved.get("local_path_mac") or path}')
         if staged.get("declared_ext") and staged["declared_ext"] != ".png" and staged.get("frames"):
-            notes.append(f'the path template names {staged["declared_ext"]}, but these frames are '
-                         f'.png and are registered as .png — nothing was converted')
+            notes.append(f'These frames were registered as .png. The path template names '
+                         f'{staged["declared_ext"]}, and nothing was converted.')
         if upstream:
-            notes.append(f"{len(upstream)} upstream published file(s) linked")
+            notes.append(f"Linked {len(upstream)} upstream published file(s).")
         elif src_ids:
-            notes.append("ancestors have no published files, so nothing upstream to link")
+            notes.append("The source versions have no published files, so nothing upstream was "
+                         "linked.")
         return notes
 
     RETURN_TYPES = ()
@@ -348,24 +341,23 @@ class FPTPublishVersion:
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         if images is None and video is None:
             raise ValueError(
-                "nothing to publish: wire an IMAGE into `images`, a VIDEO into `video`, or both. "
-                "This node records what the graph made and never makes it.")
+                "Nothing is wired into this node. Connect an image to images, a video to video, or "
+                "both.")
         frames = len(images) if images is not None else 0
         # A sequence cannot BE a Version's media (probe 022) and nothing here is being asked to
         # register it, so frame 1 would go up and the rest would vanish. Refused loudly, and refused
         # before the site is touched at all.
         if video is None and frames > 1 and not register_files:
             raise ValueError(
-                f"{frames} frames on `images` with Create Published Files off: there is nowhere for "
-                f"them to go. A Version's media is single-valued (probe 022), so only frame 1 could "
-                f"be uploaded and the other {frames - 1} would be dropped. Tick Create Published "
-                f"Files to register the sequence, or send the batch through CreateVideo and wire the "
-                f"VIDEO into `video`.")
+                f"Only frame 1 would be published, and the other {frames - 1} frames would be lost. "
+                f"Tick Create Published Files to publish all {frames}, or send the batch through "
+                f"CreateVideo and wire the video into this node.")
         # The picked project decides, then the profile answers for THAT project — two graphs open in
         # one ComfyUI can target two shows that link Versions differently.
         project_id = _id_for(site.projects(), project) or site.default_project()
         if not project_id:
-            raise ValueError("no project: pick one, or set default_project in profile.local.json")
+            raise ValueError("No project is selected. Pick one from the list, or set "
+                             "default_project in profile.local.json.")
         p = site.for_project(project_id)
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
         link, task, status = site.unset(link), site.unset(task), site.unset(status)
@@ -378,7 +370,8 @@ class FPTPublishVersion:
         target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),
                                           picked_name) if link else 0)
         if link and not target:
-            raise ValueError(f"no {link_type} named {picked_name!r} in project {project_id}")
+            raise ValueError(f"No {link_type} named {picked_name} on this project. Pick one from "
+                             f"the list.")
         task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
         status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
 
@@ -502,22 +495,26 @@ class FPTPublishVersion:
                                     task_id, count, note, colour_space, src_ids,
                                     lineage.files_for_nodes(upstream))
 
-        published = [f"{code} -> Version {vid}", f"review media: {media_note}"]
+        published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
         if count > 1:
             skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
             if skipped:
-                published.append("no frame range recorded, this site has no " + ", ".join(skipped))
+                published.append("No frame range was recorded. This site has no "
+                                 + ", ".join(skipped) + ".")
         # Frames wired in that nobody asked to keep are not an error — the clip is the review and
         # carries the same picture — but they are not silent either.
         if images is not None and video is not None and not want_frames:
-            published.append(f"{frames} frames wired but not registered; the clip is the media")
+            published.append(f"The {frames} frames were not published, only the clip. Tick Create "
+                             f"Published Files to publish them too.")
         published += file_notes
         if attach_workflow and wf is None:
-            published.append("no workflow attached: this client sent no EXTRA_PNGINFO")
+            published.append("No workflow was attached. This client did not send one with the run.")
         if missing:
-            published.append("mapped to fields this site does not have: " + ", ".join(missing))
+            published.append("This site has no fields called " + ", ".join(missing)
+                             + ". Check the provenance mapping in profile.local.json.")
         if not typed and not prov_lines:
-            published.append("no provenance fields on this site — run: python -m comfyui_fpt.fields")
+            published.append("This site has no provenance fields yet. Run "
+                             "python -m comfyui_fpt.fields to create them.")
 
         # The panel turns these into links. `site_url` comes off the client rather than the profile
         # because the run already authenticated against it — a second source could disagree. Paths

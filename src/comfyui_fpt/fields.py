@@ -52,7 +52,9 @@ def ensure(fpt, entity_type="Version"):
     """
     r = fpt.get(f"/schema/{entity_type}/fields")
     if not r.ok:
-        raise RuntimeError(f"cannot read {entity_type} schema: {r.status_code} {r.text[:200]}")
+        raise RuntimeError(f"Could not read the {entity_type} fields from Flow PT. Check that the "
+                           f"script key is allowed to read the schema, then run again. Flow PT "
+                           f"answered {r.status_code}. {r.text[:200]}")
     existing = r.json()["data"]
 
     present, created, failed = [], [], []
@@ -79,19 +81,23 @@ def _explain(resp):
         title = err.get("title", "")
         source = err.get("source") or ""
     except Exception:
-        return f"HTTP {resp.status_code}: {resp.text[:160]}"
+        return f"Flow PT answered {resp.status_code}. {resp.text[:160]}"
 
     if "schema_field_create() failed" in title:
-        return (f"{title} — the name is almost certainly held by a TRASHED field. probe 019: deleting "
-                f"a field never frees its name and trashed fields cannot be listed, so this collision "
-                f"is invisible. Rename the field in fields.py (its display name) and re-run.")
+        return (f"The name is almost certainly held by a field in the trash. Rename this field in "
+                f"fields.py, changing its display name, then run again. Deleting a field never "
+                f"frees its name and trashed fields cannot be listed, so the clash is invisible "
+                f"(probe 019). Flow PT said {title}")
     if "Only true or false" in title:
-        return f"{title} — a checkbox needs a default_value property."
+        return f"A checkbox needs a default_value property. Add one in fields.py, then run again. "\
+               f"Flow PT said {title}"
     if "missing required 'properties'" in title:
-        return f"{title} — entity and multi_entity need valid_types (exactly one element)."
+        return f"An entity or multi_entity field needs valid_types with exactly one type in it. "\
+               f"Add it in fields.py, then run again. Flow PT said {title}"
     if "data_type is not valid" in str(source):
-        return f"{title} {source} — this data_type cannot be created over REST (probe 019)."
-    return f"HTTP {resp.status_code}: {title} {source}".strip()
+        return f"This data type cannot be created over the API, so add the field in the Flow PT "\
+               f"web UI instead (probe 019). Flow PT said {title} {source}"
+    return f"Flow PT answered {resp.status_code}. {title} {source}".strip()
 
 
 def report(present, created, failed):
@@ -106,8 +112,8 @@ def report(present, created, failed):
     if not failed:
         lines.append(f"\n{len(present)} already present, {len(created)} created, 0 failed.")
     else:
-        lines.append(f"\n{len(present)} present, {len(created)} created, {len(failed)} FAILED — "
-                     f"the node will fall back to the JSON blob for those.")
+        lines.append(f"\n{len(present)} present, {len(created)} created, {len(failed)} failed. "
+                     f"The facts those fields would hold go into the attached JSON file instead.")
     return "\n".join(lines)
 
 

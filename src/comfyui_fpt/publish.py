@@ -15,7 +15,8 @@ from . import site
 def _ok(r, what, cut=300):
     """The response, or an FPTError naming the step and what the server said."""
     if not r.ok:
-        raise FPTError(f"{what} {r.status_code}: {r.text[:cut]}")
+        raise FPTError(f"Could not {what}. Check the values on the node, then run again. "
+                       f"Flow PT answered {r.status_code}. {r.text[:cut]}")
     return r
 
 
@@ -23,7 +24,7 @@ def create_version(fpt, project_id, code, fields=None):
     """probe 012 — entity links are {type, id}; project is required despite not being schema-mandatory."""
     body = {"project": {"type": "Project", "id": int(project_id)}, "code": code}
     body.update(fields or {})
-    r = _ok(fpt.post("/entity/versions", json=body), "create version")
+    r = _ok(fpt.post("/entity/versions", json=body), "create the Version")
     return r.json()["data"]["id"]
 
 
@@ -35,15 +36,16 @@ def upload(fpt, version_id, payload, filename, field=None):
     label = field or "attachment"
     path = f"/entity/versions/{version_id}/_upload" if field is None \
         else f"/entity/versions/{version_id}/{field}/_upload"
-    b = _ok(fpt.get(path, params={"filename": filename}), f"upload init {label}").json()
+    b = _ok(fpt.get(path, params={"filename": filename}), f"start the {label} upload").json()
 
     put = requests.put(b["links"]["upload"], data=payload, timeout=300)
     if not put.ok:
-        raise FPTError(f"upload put {label} {put.status_code}")
+        raise FPTError(f"Sending the {label} file to storage failed. Check the network "
+                       f"connection, then run again. The upload server answered {put.status_code}.")
 
     # upload_data must be present even though it is empty (probe 013).
     _ok(fpt.post(b["links"]["complete_upload"],
-                 json={"upload_info": b["data"], "upload_data": {}}), f"upload complete {label}")
+                 json={"upload_info": b["data"], "upload_data": {}}), f"finish the {label} upload")
 
 
 def upload_file(fpt, version_id, path, filename, field=None):
@@ -69,7 +71,7 @@ def storages(fpt):
     """
     r = _ok(fpt.get("/entity/local_storages",
                     params={"fields": "code,mac_path,windows_path,linux_path"}),
-            "local storages", cut=200)
+            "read the storage list", cut=200)
     return [{"id": d["id"], **d["attributes"]} for d in r.json().get("data", [])
             if d["attributes"].get("code")]
 
@@ -132,7 +134,7 @@ def create_published_file(fpt, project_id, code, name, local_path, fields=None):
     body = {"project": {"type": "Project", "id": int(project_id)},
             "code": code, "name": name, "path": {"local_path": local_path}}
     body.update(fields or {})
-    r = _ok(fpt.post("/entity/published_files", json=body), "create published file", cut=400)
+    r = _ok(fpt.post("/entity/published_files", json=body), "create the Published File", cut=400)
     d = r.json()["data"]
     return d["id"], d["attributes"].get("path") or {}
 
@@ -142,8 +144,9 @@ def resolve_entity(fpt, entity_type, project_id, name, field="code"):
     r = _ok(fpt.get(site.route(entity_type), params={
         "filter[project.Project.id]": int(project_id),
         f"filter[{field}]": name, "fields": field, "page[size]": 2,
-    }), f"resolve {entity_type}", cut=200)
+    }), f"find the {entity_type}", cut=200)
     data = r.json().get("data", [])
     if not data:
-        raise FPTError(f"no {entity_type} named {name!r} in project {project_id}")
+        raise FPTError(f"No {entity_type} named {name} on project {project_id}. "
+                       f"Check the spelling, or pick another one.")
     return data[0]["id"]

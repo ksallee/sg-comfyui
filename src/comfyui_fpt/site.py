@@ -93,7 +93,7 @@ def profile():
     try:
         return json.loads(PROFILE.read_text())
     except json.JSONDecodeError as e:
-        raise FPTError(f"{PROFILE.name} is not valid JSON: {e}")
+        raise FPTError(f"{PROFILE.name} is not valid JSON. Fix the file, then reload the page. {e}")
 
 
 def default_project():

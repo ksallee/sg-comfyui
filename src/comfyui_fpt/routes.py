@@ -39,7 +39,7 @@ def _int(query, name):
     if not raw:
         return 0
     if not raw.isdigit() or int(raw) > _MAX_ID:
-        raise ValueError(f"{name} must be a whole number in 0..{_MAX_ID}")
+        raise ValueError(f"{name} must be a whole number between 0 and {_MAX_ID}.")
     return int(raw)
 
 
@@ -97,10 +97,11 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
             ext = ".<the clip's own extension>"
             where.append(sequence.pattern(root, mov_t, dict(vals, ext=ext), version_no, ext))
         if not os.path.isdir(root):
-            where.append(f"{root} is NOT mounted — the run will stop")
+            where.append(f"{root} is not mounted. Mount it before you Run.")
         return where
     except Exception as e:
-        return [f"published files asked for, but: {_sentence(e)}"]
+        return [f"Create Published Files is ticked, but the paths could not be worked out. "
+                f"{_sentence(e)}"]
 
 
 def register():
@@ -292,12 +293,14 @@ def register():
             needs = {f.split(".")[0] for f in
                      naming.template_fields(q.get("code_template", "") or naming.DEFAULT_TEMPLATE)
                      + naming.template_fields(root_t or naming.DEFAULT_ROOT_TEMPLATE)}
+            # Name the fields to fill in, never the consequence of leaving them empty.
+            missing = [name for name, filled in
+                       (("link", "entity" not in needs or target), ("task", "task" not in needs or task_id))
+                       if not filled]
             if q.get("link") and not target:
-                alert = f"no {lt} named {picked_name!r} on this project — the run will stop here"
-            elif "entity" in needs and not target:
-                alert = "nothing is linked, so the name has no shot or asset in it"
-            elif "task" in needs and not task_id:
-                alert = "no task picked, so the name has no task in it"
+                alert = f"No {lt} named {picked_name} on this project. Pick one from the list."
+            elif missing:
+                alert = f"Fill in the required fields ({', '.join(missing)})."
             else:
                 alert = ""
             # What is already there, not only what comes next. `versions_on` is the same cached read
@@ -378,13 +381,13 @@ def register():
                 v = values.get(concept)
                 has = v not in (None, "", [])
                 if target is None:
-                    note = "not recorded"
+                    note = "not mapped to a field"
                 elif target == fpt_fields.DESCRIPTION:
                     note = "into the description"
                 elif target in have:
-                    note = "" if has else "nothing in this graph"
+                    note = "" if has else "not in this graph"
                 else:
-                    note = "field missing on this site"
+                    note = "this site has no such field"
                 rows.append({
                     "name": (target[3:] if target.startswith("sg_") else target) if target
                             else fpt_fields.CONCEPT_LABELS[concept],
@@ -407,33 +410,34 @@ def register():
                 _id_for(site.entities(link_type, pid, q=picked_name), picked_name) if link else 0)
             task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
             status_code = next((c for l, c in site.statuses(pid) if l == status), "") if status else ""
-            plain = [("description", w.get("note") or "", "the note below"),
-                     ("sg_status_list", status_code, "" if status_code else "left unset"),
+            plain = [("description", w.get("note") or "", "from the note field"),
+                     ("sg_status_list", status_code, "" if status_code else "no status picked"),
                      (link_field, f"{link_type} {target}" if target else "",
                       "" if target else
-                      (f"no {link_type} named {picked_name!r} here" if link else "not linked")),
+                      (f"no {link_type} named {picked_name} on this project" if link
+                       else "no link picked")),
                      ("sg_task", f"Task {task_id}" if task_id else "",
-                      "" if task_id else "no task")]
+                      "" if task_id else "no task picked")]
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
             # Uploads are not fields, and a copy onto a shared volume is not an upload, so each is
             # its own list of what lands.
-            uploads = ["image  (thumbnail)", "sg_uploaded_movie", "<version name>.provenance.json"]
+            uploads = ["image (the thumbnail)", "sg_uploaded_movie (the review movie)",
+                       "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
             writes = _files_preview(w, prof, pid, link_type, target, task_id)
             # Which row of the truth table this node is on. The frame count and the frame rate are
             # run-time facts, so the panel states the rule and names the path the run will take.
             if _wired(w, "video"):
-                media = "the clip, uploaded as its own file unless the graph re-encoded it"
+                media = "the clip"
                 if _wired(w, "images"):
-                    media += ". The frames can only be Published Files, never media"
+                    media += ". The frames become Published Files."
             elif _wired(w, "images"):
-                media = ("frame 1, as a still. For every frame, tick Create Published Files or "
-                         "wire a VIDEO — a Version holds one piece of media")
+                media = "frame 1, as a still. Tick Create Published Files to publish all frames."
             else:
-                media = "nothing — neither images nor video is wired, so this run will refuse"
+                media = "nothing. Wire an image or a video into this node."
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,

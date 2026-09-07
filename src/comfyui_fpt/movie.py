@@ -67,11 +67,11 @@ def stage(video, folder, stem):
     """
     src = source_file(video)
     if src:
-        return src, f"source file uploaded untouched — {os.path.basename(src)}"
+        return src, f"the source file, uploaded unchanged: {os.path.basename(src)}"
     folder.mkdir(parents=True, exist_ok=True)
     dest = folder / f"{stem}.mp4"
     video.save_to(str(dest))
-    return str(dest), "encoded by ComfyUI — VideoInput.save_to"
+    return str(dest), "encoded by ComfyUI"
 
 
 def poster(path):
@@ -84,13 +84,13 @@ def poster(path):
     try:
         import av   # ships with ComfyUI for its video nodes; see DESIGN
     except ImportError:
-        raise RuntimeError("reading a thumbnail off a movie needs PyAV, which ComfyUI ships; "
-                           "this install has no `av`")
+        raise RuntimeError("Making a thumbnail from a movie needs PyAV. Install av into the "
+                           "Python that runs ComfyUI, then run again.")
     with av.open(path) as container:
         frame = next(container.decode(container.streams.video[0]), None)
     if frame is None:
-        raise RuntimeError(f"{os.path.basename(path)} decoded no frames, so there is no thumbnail "
-                           f"and nothing to review")
+        raise RuntimeError(f"No frames could be decoded from {os.path.basename(path)}, so there "
+                           f"is nothing to review. Check the file plays, or publish another clip.")
     buf = io.BytesIO()
     frame.to_image().convert("RGB").save(buf, format="PNG")
     return buf.getvalue()
