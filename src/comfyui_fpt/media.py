@@ -84,7 +84,7 @@ COLOUR = re.compile(r"^\s*colour space:\s*([^\n(]+)", re.I | re.M)
 # A batch is one float32 RGB tensor, so N frames of W×H cost N·W·H·12 bytes to build and that much
 # again on the way to VRAM. The cap is here rather than in torch because an allocator's answer to
 # "300 frames of 4K" is a stack trace, and this one is a sentence naming the resolution and the
-# count. 4 GiB is ~43 frames of 4K, ~340 of HD: a shot's worth of work at working resolution.
+# count. 4 GiB is 43 frames of 4K, 172 of HD: a shot's worth of work at working resolution.
 BATCH_BUDGET = 4 * 1024 ** 3
 # The widget's own ceiling, so an obvious typo is refused by the editor before anything is read.
 MAX_FRAMES = 512
