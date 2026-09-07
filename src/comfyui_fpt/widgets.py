@@ -44,6 +44,12 @@ PUBLISH_FIELDS = (
           tooltip="Task this Version is for, if there is one."),
     Field("status", "combo", dynamic=True,
           tooltip="Status to set on the new Version."),
+    # Above `code_template` and out of the fold: the stream is what changes between runs when
+    # someone is exploring variations, and the version name usually just builds on it.
+    Field("root_name", "text", label="root name",
+          tooltip="The name shared by all versions of this publish, without a version number, for "
+                  "example {entity}_matte. It names the folder the files land in, and version "
+                  "name can build on it with {root_name}."),
     Field("code_template", "text", label="version name",
           tooltip="The name given to the new Version, for example "
                   "{entity}_plate_v{version:03d}. Use {root_name} to build on the root name, and "
@@ -56,10 +62,6 @@ PUBLISH_FIELDS = (
     Field("note", "multiline", default="",
           placeholder="What someone should know about this version.",
           tooltip="A note for the people who will read this Version, written to its description."),
-    Field("root_name", "text", label="root name", advanced=True,
-          tooltip="The name shared by all versions of this publish, without a version number, for "
-                  "example {entity}_matte. It names the folder the files land in, and version "
-                  "name can build on it with {root_name}."),
     Field("colour_space", "text", advanced=True, default="",
           tooltip="The colour space these pixels are already in, for example sRGB or ACEScg. It is "
                   "recorded with the Version, never applied to the pixels."),
