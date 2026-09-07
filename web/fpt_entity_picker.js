@@ -424,7 +424,7 @@ function loadPickers(nodeType) {
         // What the two frame widgets are asking for, so the frames row says what WILL be read
         // rather than only what exists.
         frame_ask: Number(w("frame")?.value || 0),
-        count_ask: Number(w("frame_count")?.value ?? 1),
+        count_ask: Number(w("frame_count")?.value ?? 0),
         // An escape hatch that is switched on must say so: a pinned id ignores the whole rule.
         // `extra filters` narrows rather than replaces, so it is not an override and says nothing.
         alert: resolved.alert || (resolved.pinned

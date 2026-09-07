@@ -265,8 +265,9 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
       // The frame numbers this source has: `frame` is a number in a filename, and 0 means "wherever
       // the sequence starts", so the range belongs beside the widgets that ask for it.
       if (d.frames) {
-        // `?? 1`, not `|| 1`: 0 is the value that means "all of them", and `||` reads it as unset.
-        const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 1);
+        // `?? 0`, not `|| 0`: 0 is the value that means "all of them", and it is also the
+        // declared default, so an absent widget and an explicit 0 have to read the same.
+        const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 0);
         const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
         let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}.`;
         if (ask && (ask < f.first || ask > f.last)) {

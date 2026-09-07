@@ -55,7 +55,7 @@ PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "st
 # `frame` 0 is "wherever this sequence starts", so a plate numbered from 1001 needs nothing typed.
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
-                 "source": "auto", "pin_version_id": 0, "frame": 0, "frame_count": 1}
+                 "source": "auto", "pin_version_id": 0, "frame": 0, "frame_count": 0}
 
 
 def _stream(descriptor):

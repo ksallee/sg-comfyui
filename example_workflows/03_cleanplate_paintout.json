@@ -1112,11 +1112,11 @@
         "comfyui-fpt sandbox",
         "demo_03_cleanplate (Shot)",
         "(none)",
+        "",
+        "_plate_v",
         "auto",
         0,
         1,
-        "",
-        "_plate_v",
         "version number in the name",
         "",
         0

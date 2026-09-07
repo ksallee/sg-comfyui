@@ -52,11 +52,11 @@
         "(none)",
         "(none)",
         "(none)",
+        "",
+        "depth",
         "auto",
         0,
         1,
-        "",
-        "depth",
         "version number in the name",
         "",
         0

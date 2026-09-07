@@ -825,11 +825,11 @@
         "comfyui-fpt sandbox",
         "demo_02_passes (Shot)",
         "(none)",
+        "",
+        "plate",
         "auto",
         0,
         1,
-        "",
-        "plate",
         "version number in the name",
         "",
         0

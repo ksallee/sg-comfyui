@@ -83,25 +83,28 @@ LOAD_FIELDS = (
     # Optional by design: probe 005 found sg_task set on 1% of Versions.
     Field("task", "combo", dynamic=True,
           tooltip="Narrow the search to one Task on that entity."),
-    Field("source", "combo", dynamic=True,
-          tooltip="Which of the Version's media to read. Auto takes the best it can deliver."),
-    Field("frame", "int", default=0, minimum=0, maximum=1048576,
-          tooltip="The frame to start at, by the number in the filename: 1003 means "
-                  "plate.1003.exr. 0 starts wherever the sequence starts, so a plate running "
-                  "1001-1048 needs no typing. A movie has no frame numbers inside it, so there "
-                  "the count starts at 1."),
-    Field("frame_count", "int", default=1, minimum=0,
-          tooltip="How many frames to read as one batch, starting at the frame above. 1 is a "
-                  "single image, and 0 is all frames to the end of the sequence or the movie. A "
-                  "batch too large to hold is refused, and the error says how many fit."),
     # Text, not ComfyUI's MultiCombo: that widget reserves its slot from the widget spec rather
     # than the DOM, so CSS shrinks the control to 33px inside an 82px gap. The node appends this
     # project's own codes to the tooltip, because Flow PT has no "approved" concept and the codes
     # differ per project (probe 009).
-    Field("statuses", "text", advanced=True, default="",
+    Field("statuses", "text", default="",
           tooltip="The statuses to accept, separated by commas; empty accepts any."),
-    Field("name_contains", "text", advanced=True, default="",
+    Field("name_contains", "text", default="",
           tooltip="Words that must all appear in the Version name, for example depth v0."),
+    Field("source", "combo", dynamic=True,
+          tooltip="Which of the Version's media to read. Auto takes the best it can deliver."),
+    Field("frame", "int", advanced=True, default=0, minimum=0, maximum=1048576,
+          tooltip="The frame to start at, by the number in the filename: 1003 means "
+                  "plate.1003.exr. 0 starts wherever the sequence starts, so a plate running "
+                  "1001-1048 needs no typing. A movie has no frame numbers inside it, so there "
+                  "the count starts at 1."),
+    # 0, so the node reads the whole plate without being told to. Both frame widgets sit in the
+    # fold on the strength of that default: a batch past the size budget is refused with the count
+    # that fits, and the panel names the range before a run.
+    Field("frame_count", "int", advanced=True, default=0, minimum=0,
+          tooltip="How many frames to read as one batch, starting at the frame above. 0 is all "
+                  "frames to the end of the sequence or the movie, and 1 is a single image. A "
+                  "batch too large to hold is refused, and the error says how many fit."),
     Field("newest_by", "combo", advanced=True,
           tooltip="What newest means when several Versions match."),
     # `advanced` is ComfyUI's own fold, used by 246 core nodes. A hand-rolled toggle ends up
