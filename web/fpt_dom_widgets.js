@@ -98,6 +98,8 @@ const CSS = `
 .fpt-ico { flex: none; display: inline-block; background-repeat: no-repeat; }
 .fpt-ico-img { flex: none; height: 11px; width: auto; display: inline-block; }
 .fpt-ico-txt { flex: none; font-size: 9px; opacity: .85; }
+.fpt-pop-busy { flex: none; font-size: 11px; opacity: .7; white-space: nowrap; margin-left: 6px; }
+.fpt-pop-list.is-busy { opacity: .5; transition: opacity .15s; }
 .fpt-tick { width: 8px; flex: none; opacity: 0; }
 .fpt-chip.on .fpt-tick { opacity: 1; }
 `;
@@ -425,11 +427,16 @@ export function searchPicker(node, target, {
   pop.className = `fpt-pop ${NATIVE.pop}`;
   pop.setAttribute("role", "listbox");
   pop.innerHTML = `<div class="fpt-pop-head">${MAGNIFIER}
-      <input class="fpt-pop-input" spellcheck="false" autocomplete="off"></div>
+      <input class="fpt-pop-input" spellcheck="false" autocomplete="off">
+      <span class="fpt-pop-busy" hidden>Searching…</span></div>
     <div class="fpt-pop-list ${NATIVE.viewport}"></div>`;
   const input = pop.querySelector(".fpt-pop-input");
   const list = pop.querySelector(".fpt-pop-list");
+  const busyEl = pop.querySelector(".fpt-pop-busy");
   input.placeholder = placeholder;
+  // Every search runs on the site, so it takes as long as the site takes: the rows already shown
+  // dim and the head says so, rather than the list going blank on each keystroke.
+  const busy = (on) => { busyEl.hidden = !on; list.classList.toggle("is-busy", on); };
 
   let items = [], at = -1, seq = 0, timer, open = false;
 
@@ -492,10 +499,12 @@ export function searchPicker(node, target, {
   const run = () => {
     const mine = ++seq;
     clearTimeout(timer);
+    busy(true);
     timer = setTimeout(async () => {
       const rows = await search(input.value.trim());
       if (mine !== seq || !open) return;   // an older answer must never replace a newer one
       render(rows || []);
+      busy(false);
     }, 180);
   };
 
@@ -516,7 +525,7 @@ export function searchPicker(node, target, {
     place();
     trigger.setAttribute("aria-expanded", "true");
     input.value = "";
-    list.innerHTML = `<div class="fpt-pop-note">searching…</div>`;
+    list.innerHTML = "";
     input.focus();
     run();
     document.addEventListener("pointerdown", onDocDown, true);
