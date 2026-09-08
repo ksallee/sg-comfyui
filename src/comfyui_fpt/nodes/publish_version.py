@@ -121,10 +121,13 @@ class FPTPublishVersion:
         rendered first and handed to the version template as a value, because that template is
         `{root_name}_v{version:03d}` — the stream composed, then versioned.
         """
-        template = (template or naming.DEFAULT_TEMPLATE).strip()
+        # An empty widget means the profile's default, the same rule `_stage` applies to the
+        # folder, so the name and the folder cannot come from two different templates.
+        p = site.for_project(project_id)
+        template = (template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip()
         if not naming.template_fields(template) and "{version" not in naming.normalise_template(template):
             return template, 1       # a literal name, used as-is
-        root_t = (root_template or naming.DEFAULT_ROOT_TEMPLATE).strip()
+        root_t = (root_template or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
         fields = set(naming.template_fields(template)) | set(naming.template_fields(root_t))
         vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
         vals["root_name"] = naming.render(root_t, vals)
