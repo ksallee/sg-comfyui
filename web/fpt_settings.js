@@ -389,8 +389,10 @@ function templateRow(key, kind) {
   const example = async (t) => {
     const d = await call(`/fpt/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
     const isDefault = !dval(key) || t === (defaults.placeholders || {})[key];
-    n.textContent = d.error ? d.error
-      : (d.example ? `Example: ${d.example}${isDefault ? " (the default)" : ""}` : "");
+    // A path is long enough on its own: the two path rows show the bare result.
+    const bare = kind === "sequence" || kind === "movie";
+    n.textContent = d.error ? d.error : !d.example ? ""
+      : bare ? d.example : `Example: ${d.example}${isDefault ? " (the default)" : ""}`;
   };
   i.addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(() => example(i.value), 300); });
   i.addEventListener("change", async () => {
