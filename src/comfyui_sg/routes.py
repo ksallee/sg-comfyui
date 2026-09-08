@@ -521,9 +521,30 @@ def register():
                                        for f in site.cached_published_files(lid) if f.get("path")]
                 except Exception:
                     pass                      # a Version whose files cannot be read still has a link
+            # An empty field on the node means Settings names it, and the panel is where that
+            # shows: the template in force, tagged with where it came from.
+            templates = [{"label": label, "value": value, "source": "Settings"}
+                         for label, own, value in
+                         (("root name", root_t, p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
+                          ("version name", q.get("code_template", ""),
+                           p.get("code_template") or naming.DEFAULT_TEMPLATE))
+                         if not own.strip()]
             return {"code": code, "link": f"{lt} {picked_name}".strip(),
-                    "task": q.get("task", ""), "alert": alert, "latest": latest}
+                    "task": q.get("task", ""), "alert": alert, "latest": latest,
+                    "templates": templates}
         return answer(read, {"code": ""})
+
+    @routes.get("/sg/node_defaults")
+    async def node_defaults(request):
+        """What a publish node copies in from Settings, for the picked project."""
+        q = request.rel_url.query
+
+        def read():
+            from .nodes.publish_version import settings_defaults
+            site.client()
+            pid = _id_for(site.projects(), q.get("project", "")) or site.default_project()
+            return settings_defaults(pid)
+        return answer(read, {})
 
     @routes.post("/sg/preview_publish")
     async def preview_publish(request):

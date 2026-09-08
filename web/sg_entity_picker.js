@@ -270,7 +270,10 @@ function publishPickers(nodeType, nodeData) {
       const missing = (rest.missing_fields || []).length;
       // Which row of the truth table this node is on, in front of the operator rather than in the
       // fold: one run is one Version, and what that Version carries is decided by what is wired.
-      const facts = (rest.media ? [{ label: "media", value: rest.media }] : [])
+      // An empty root name or version name is named by Settings, and this is where the operator
+      // sees what that resolves to.
+      const facts = (d.templates || []).map((t) => ({ label: t.label, value: `${t.value} · ${t.source}` }))
+        .concat(rest.media ? [{ label: "media", value: rest.media }] : [])
         .concat(runFacts(d.latest));
       panel.show({
         ...rest, facts,
@@ -368,6 +371,21 @@ function publishPickers(nodeType, nodeData) {
     // domRow marks every row we add; a button is the one widget litegraph never marks itself, and
     // an injected widget that serializes shifts every declared value after it.
     dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
+    // The Settings values written into the widgets, as a starting point to edit or to bring an
+    // older node up to date. An emptied root name or version name follows Settings again.
+    const copyDefaults = async () => {
+      const d = await get(`/sg/node_defaults?project=${encodeURIComponent(project?.value || "")}`);
+      if (d.error) { panel.show({ error: d.error }); return; }
+      for (const [name, value] of Object.entries(d)) {
+        const widget = w(name);
+        if (!widget) continue;
+        widget.value = widget.options?.values && !widget.options.values.includes(value)
+          ? widget.options.values[0] : value;
+      }
+      relayout();
+      preview();
+    };
+    dontSerialize(this.addWidget("button", "copy Settings defaults here", null, copyDefaults));
     // Who this publishes as is set under Settings, and a change there changes what every picker
     // reads (probe 027), so the node reloads.
     onSession(this, () => loadProject());
