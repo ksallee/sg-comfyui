@@ -150,19 +150,20 @@ SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "output": "roto"
 
 
 def _sample_values(template, extra=None):
-    """Sample values for every field a template asks for, dotted paths by their first segment."""
+    """Values for every field a template asks for: the project's own fields resolved from the
+    site, since the project is known, and sample values for the entity and Task, which are not."""
     from . import naming
     vals = dict(extra or {})
-    for f in naming.template_fields(template):
+    fields = [f for f in naming.template_fields(template) if f not in vals]
+    vals.update(site.resolve_paths([f for f in fields if f.split(".")[0] == "project"],
+                                   site.default_project()))
+    for f in fields:
         if f in vals:
             continue
-        head = f.split(".")[0]
-        if head == "project":
-            vals[f] = site.project_name(site.default_project()) or "Project"
-        elif f.endswith("short_name"):
+        if f.endswith("short_name"):
             vals[f] = "RTO"                 # a Step's short name, the way the sandbox spells Roto
         else:
-            vals[f] = SAMPLE.get(head, "")
+            vals[f] = SAMPLE.get(f.split(".")[0], "")
     return vals
 
 
@@ -179,13 +180,14 @@ def _example(kind, template):
     name = naming.render(name_t, _sample_values(name_t, {"root_name": root_name}), 3)
     if kind == "name":
         return name
+    # Relative to the storage root, which is what a path template is; the Storage row names the root.
     extra = {"root_name": root_name, "version_name": name}
     if kind == "sequence":
         t = template or pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
-        return sequence.pattern("<storage>", t, _sample_values(t, extra), 3, ".png")
+        return sequence.pattern("/", t, _sample_values(t, extra), 3, ".png").lstrip("/")
     if kind == "movie":
         t = template or pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
-        return sequence.pattern("<storage>", t, _sample_values(t, dict(extra, ext=".mov")), 3, ".mov")
+        return sequence.pattern("/", t, _sample_values(t, dict(extra, ext=".mov")), 3, ".mov").lstrip("/")
     return ""
 
 

@@ -403,7 +403,7 @@ function templateRow(key, kind) {
   });
   let shown = null;
   const el = drow(() => {
-    if (!defaults) return;
+    if (!defaults) { i.placeholder = "Loading…"; return; }
     const fallback = (defaults.placeholders || {})[key] || "";
     const inForce = dval(key) || fallback;
     if (document.activeElement !== i) i.value = inForce;
@@ -440,7 +440,7 @@ function selectRow(key, options, onSave = saveDefault) {
   const n = note();
   sel.addEventListener("change", async () => { const d = await onSave(key, sel.value); n.textContent = d.error || ""; });
   const el = drow(() => {
-    if (!defaults) return;
+    if (!defaults) { sel.innerHTML = "<option>Loading…</option>"; return; }
     const opts = options(defaults);
     sel.innerHTML = opts.map((o) => `<option value="${esc(o.value)}">${esc(o.label)}</option>`).join("");
     const cur = String(dval(key));
@@ -484,7 +484,10 @@ const colourRow = () => {
   const i = input("text", "sRGB");
   const n = note();
   i.addEventListener("change", async () => { const d = await saveDefault("published_files.colour_space", i.value.trim()); n.textContent = d.error || ""; });
-  const el = drow(() => { if (document.activeElement !== i) i.value = dval("published_files.colour_space"); });
+  const el = drow(() => {
+    i.placeholder = defaults ? "sRGB" : "Loading…";
+    if (document.activeElement !== i) i.value = dval("published_files.colour_space");
+  });
   el.append(i, n);
   return el;
 };
@@ -524,10 +527,11 @@ app.registerExtension({
       "When a clip is published with its frames, also copy the review movie beside them as a "
       + "Published File."),
     entry("MoviePath", "Movie path", GROUP_PUBLISH, () => templateRow("published_files.movie_path_template", "movie"),
-      "Where a published clip lands under the storage. {version_name} is the Version's name and "
-      + "{ext} the clip's own extension."),
+      "Where a published clip lands, relative to the storage root. {version_name} is the "
+      + "Version's name and {ext} the clip's own extension."),
     entry("SequencePath", "Sequence path", GROUP_PUBLISH, () => templateRow("published_files.path_template", "sequence"),
-      "Where a published image sequence lands under the storage, with %04d for the frame number."),
+      "Where a published image sequence lands, relative to the storage root, with %04d for the "
+      + "frame number."),
     entry("Platform", "Operating system", GROUP_PUBLISH, platformRow,
       "Which of the storage's roots the Version's Path to Frames and Path to Movie are written with. "
       + "A path field holds one absolute path, so it reads on one system. First is this machine's."),
