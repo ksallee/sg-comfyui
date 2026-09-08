@@ -405,67 +405,109 @@ are rebuilt.
 
 ## The next session opens here — written 2026-09-08, night
 
-**State.** PR #75 onto `dev` is open and **not to merge** until Kevin has clicked through Settings
-himself. It carries the sign-in work, the release commits since #56, and now the Settings surface
-below. `sg-groundtruth` has probe 052 merged to `main` at 0.1.3, and **Kevin cuts the PyPI release**;
-until then ComfyUI's venv runs the checkout as an editable install. Issue #76 records the SG rename.
+**State.** Kevin clicked through Settings on his own ComfyUI on 2026-09-08 and granted the merge:
+PR #75 squashed onto `dev`, then `dev` promoted to `main` by PR. `sg-groundtruth` has probe 052 on
+`main` at 0.1.3 and **Kevin cuts the PyPI release**; until then ComfyUI's venv runs the checkout as
+an editable install and a Registry install cannot satisfy `requirements.txt`. Issue #76 records the
+SG rename.
 
-**Settings, then SG, is built and tested headless.** One category in ComfyUI's Settings dialog, ids
-`SG.*`, drawn by `web/fpt_settings.js`, backed by `/fpt/settings`, `/fpt/test`, `/fpt/defaults` and
-`/fpt/preview_template`. Nothing enters ComfyUI's settings store. Groups, in the order the dialog
-sorts them:
+**Settings, then SG.** One category in ComfyUI's Settings dialog, ids `SG.*`, drawn by
+`web/fpt_settings.js`, backed by `/fpt/settings`, `/fpt/test`, `/fpt/defaults` and
+`/fpt/preview_template`. Nothing enters ComfyUI's settings store, which anyone on the port can read;
+the values live in the protected user directory beside the session file. Groups, in the order the
+dialog sorts them, which is alphabetical and is why the names are what they are:
 
 - **Connection**: Site address; Publishing as, with **Test**, which reports the site's own sentence
-  for a wrong key, a refused Publish as login, and a wrong address.
-- **Log In As Yourself**: Log in, the App Session Launcher flow moved off the node.
+  for a wrong key, a refused Publish as login, and a wrong address, each ending with where to fix it.
+- **Log In As Yourself**: Log in, the App Session Launcher flow moved off the node. Log in is the
+  site's own word, the field on the People page being Login.
 - **Script Authentication**: Script name, Application key (write-only), Publish as. Each row says
   where its value comes from: the environment, saved on this ComfyUI, or not set.
 - **SG Defaults**: Project, the one both nodes open on.
-- **SG Publish Defaults**: Version name, Root name, Status, Published Files tick, Storage, Sequence
-  path, Movie path, Review movie, Colour space. They edit `profile.local.json` for that project;
-  each template shows the value in force and its rendered example. Group names are chosen for the
-  dialog's alphabetical sort, which is why the person group says Log In and the defaults say SG.
+- **SG Publish Defaults**: Root name, Version name, Status, Create Published Files, Storage,
+  Operating system, Sequence path, Movie path, Review movie, Path to Frames, Path to Movie, Colour
+  space. They edit `profile.local.json` for that project. Each template shows the value in force
+  and the example it renders, with the project's own fields resolved from the site; a lone storage
+  is shown as chosen; the two booleans are switches drawn in the dialog's colours. Every row says
+  Loading… until the profile has answered.
 
-A 404 from any route means the running ComfyUI predates the pack, and every row says so: routes
-register at import, so a pack update needs a restart, not a reload.
+A 404 from any route means the running ComfyUI predates the pack, and every row says to restart:
+routes register at import, so a pack update needs a restart, not a reload.
 
-`web/fpt_signin.js` and both `addSignIn` calls are gone. The nodes reload their pickers on a
-`fpt:session` window event and say nothing about the connection except the error sentence, which
-names Settings. The Publish node's preview now refuses before rendering a name when nothing is
-connected, so that sentence is the alert rather than a line in the fold.
+**What the nodes do with it.** They reload their pickers on a `fpt:session` window event and say
+nothing about the connection except the error sentence, which names Settings; both previews refuse
+before rendering when nothing is connected, so that sentence is the alert rather than a line in the
+fold. Root name, Version name, Status, Create Published Files and Colour space are widget defaults:
+a node on the canvas keeps its values, a new node takes the defaults after a reload. Storage,
+Operating system, the paths and the four toggles are read at publish time, so every publish uses
+them at once. A graph saved with "(none)" for the project opens on the Settings project, which is
+what lets a template land on the operator's show. An empty root name or version name on a node
+means the Settings default on the naming path and the file path alike; the three example templates
+ship with an empty version name for that reason and keep their own root names, which are the
+demo's streams.
 
-**Measured, in `~/Desktop/sg-settings-screenshots/`**, eleven states from a credential-free copy of
-the checkout and from this one: not connected (dialog and node), site only with Sign in enabled,
-signed in as Kevin (the probe's session token copied in), sign-in expired, script from the
-environment with Test passing, a wrong key, a refused login, a wrong address, and the Defaults group
-after edits. Kevin has **not** yet run the Sign in button from the dialog himself, and the Load
-node's not-connected state was not captured.
+**Also this session.** The profile is read from the protected directory first and the checkout
+root second, so the inspector's file still counts and a Registry install has somewhere to write.
+The pickers say Searching… and dim their rows from the keystroke to the site's answer, and a wheel
+over a picker's list scrolls the list instead of closing it and zooming the canvas. `smoke.py`
+accepts a project resolved from "(none)".
 
 **Decided with Kevin, 2026-09-08.** The short name is **SG** everywhere a short name is needed, the
 full product name otherwise, never "Flow PT" (#76). The default root name carries the pipeline step
-through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, and a sequence lands in a folder
-named for the version beside the movie, `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`,
-so no folder holds frames and a movie together. The file-path defaults are not disabled when Create
-Published Files is off: they are defaults, and a node that ticks it uses them. An empty root name
-or version name on a node means the Settings default, on the naming path and the file path alike,
-and the three example templates ship with an empty version name so they follow Settings while
-keeping their own root names, which are the demo's streams. `sg_path_to_frames`
-and `sg_path_to_movie` each hold one absolute path (probe 021), so the profile picks the operating
-system they are written for, `published_files.path_platform`, from the roots the storage defines,
-and two toggles decide whether each field is written at all. A Windows value takes backslashes after
-the root, reasoned rather than measured. Custom fields on the nodes stay an agent's job
-for the first release; the Defaults group carries what an operator sets by hand. Updating linked
-entities from a publish, a Task's status for instance, is a nice-to-have after release.
+through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, by `short_name` as Toolkit's
+`{Step}` reads it; every token is optional and drops out with its separator. A sequence lands in a
+folder named for the version beside the movie,
+`{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`, so no folder holds both.
+`sg_path_to_frames` and `sg_path_to_movie` each hold one absolute path (probe 021), so the profile
+picks the operating system they are written for from the roots the storage defines, and two
+toggles decide whether each field is written at all; a Windows value takes backslashes after the
+root, reasoned rather than measured. The file-path defaults are not disabled when Create Published
+Files is off: they are defaults. Custom fields on the nodes stay an agent's job for the first
+release. Updating linked entities from a publish, a Task's status for instance, is after release.
 
-**Still to do here:** the fold table (each widget shown, in the fold, or hidden, which the profile's
-`widgets` block already decides), which would be the first content of an SG Load Defaults group;
-per-project defaults for a project other than the one the nodes open on stay a file edit; `instrument.py` and `smoke.py` read no profile-added widgets, which only
-matters once custom fields are built.
+**Measured, in `~/Desktop/sg-settings-screenshots/`:** every Settings state from a credential-free
+copy of the checkout and from this one, signed in as Kevin and expired included, the Load and
+Publish nodes not connected, the defaults after edits, a template loaded with the resolved project
+and the previewed name, new nodes taking changed defaults while a node on the canvas keeps its
+values, the busy state on open and on typing, and the wheel over the list. **Not measured:** a live
+publish since the platform rewrite and the new sequence folder, so `sg_path_to_frames` in the other
+notation and the `{version_name}/` folder are reasoned from the code; and the deliverable half has
+still never run from a template.
+
+## Before the first release
+
+In the order they block each other.
+
+1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. Until then no install outside this machine works.
+2. **Decide #76 before anything ships.** The node class keys `FPTLoadVersion` and
+   `FPTPublishVersion` are written into every saved workflow, so renaming them to `SGLoadVersion`
+   and `SGPublishVersion` is possible now and never again. Display names, the repo, the Registry
+   name and the directory name can change later at the cost of a chip.
+3. **One live publish from `00_example` with Create Published Files ticked**, on this machine: the
+   `{version_name}/` folder, the movie beside it, the path fields in the chosen notation, and the
+   deliverable half run from a template for the first time.
+4. **`/track-workflow` against a real graph**, never done, and its three new questions (colour
+   space, register files, the OCIO offer) still unbuilt.
+5. **README, last.** The install path is Settings now, not `.env.local`; say which steps of the
+   set-up are optional on a plain site, since the defaults carry a Shot-linked show without the
+   inspector; screenshots as template thumbnails (`<name>.jpg` beside each `<name>.json`).
+6. **`/setup`** is mostly Settings now. What remains of it is the colour-management question;
+   decide whether it stays a slash command or becomes a line in the README.
+7. `pyproject.toml` needs `PublisherId` and `Icon`; the plate licensing line wants writing down;
+   54 merged remote branches want sweeping (the command is under "Branching").
+
+**Still to do, not blocking:** the fold table (each widget shown, in the fold, or hidden, which the
+profile's `widgets` block already decides), the first content of an SG Load Defaults group;
+per-project defaults for a project other than the one the nodes open on stay a file edit;
+`instrument.py` and `smoke.py` read no profile-added widgets, which only matters once custom fields
+are built; the panel's fine-print line saying who the Version will be created by, Kevin's call.
 
 **How to test UI here.** `uv run --with playwright --python 3.11 python tools/qa_node.py --start
 --node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Pass
 `--repo <copy>` for a checkout without `.env.local`, and `--keep` to leave the instance for more
-drives on the same `--port`. Not the live browser tool; Kevin can see that session and it is slower.
+drives on the same `--port`. A session file written into the instance's
+`user/__comfyui_flow_production_tracking/` gives the signed-in and expired states. Not the live
+browser tool; Kevin can see that session and it is slower.
 
 ## Three things the next session opened with — written 2026-09-08, morning
 
