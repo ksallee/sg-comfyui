@@ -480,6 +480,7 @@ can add a text field".
 | ~~Should `frame_count` default to 0 or stay 1?~~ | **closed 2026-09-07 — 0.** See below |
 | ~~`sg_groundtruth` is not installable, so a Registry install cannot run~~ | **closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI, `_deps.py` and `SG_GROUNDTRUTH_PATH` are gone, and `requirements.txt` — the file ComfyUI-Manager installs — names it. The corpus checkout is still wanted to *set up*: `inspect_site.py` is not in the wheel |
 | `pyproject.toml` has no `PublisherId` or `Icon` | Kevin |
+| **Node names.** Kevin, 2026-09-08: "Flow PT for searching nodes is not great, SG is faster to search in the UI. SG Load, SG Publish is great, but other names like repo name etc need to change as well." Needs research first; DESIGN.md "Names" settled the current ones and would be reopened | research, then Kevin |
 
 ### `frame_count`'s default — closed 2026-09-07: 0, "all of it"
 

@@ -42,7 +42,14 @@ export function addSignIn(node, onChange) {
   styleOnce("fpt-signin", CSS);
   const root = document.createElement("div");
   root.className = "fpt-signin";
-  const { relayout } = domRow(node, "fpt_signin", { control: root });
+  const { widget, relayout } = domRow(node, "fpt_signin", { control: root });
+  // The first row on the node: who you are publishing as is read before any field is filled in,
+  // and a row after the readout is one nobody scrolls to.
+  const at = node.widgets.indexOf(widget);
+  if (at > 0) {
+    node.widgets.splice(at, 1);
+    node.widgets.unshift(widget);
+  }
 
   let status = null;
   let polling = 0;
