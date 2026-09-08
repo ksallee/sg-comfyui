@@ -509,13 +509,16 @@ export function searchPicker(node, target, {
   };
 
   const onDocDown = (e) => { if (!pop.contains(e.target) && !field.contains(e.target)) close(); };
+  // A wheel over the list scrolls the list and goes no further: the canvas under it would zoom.
+  // A wheel anywhere else closes the popup, since it is about to be scrolled out from under.
+  const onWheel = (e) => { if (pop.contains(e.target)) e.stopPropagation(); else close(); };
   const close = () => {
     if (!open) return;
     open = false;
     pop.remove();
     trigger.setAttribute("aria-expanded", "false");
     document.removeEventListener("pointerdown", onDocDown, true);
-    window.removeEventListener("wheel", close, true);
+    window.removeEventListener("wheel", onWheel, true);
     window.removeEventListener("resize", close);
   };
   const show = () => {
@@ -529,7 +532,7 @@ export function searchPicker(node, target, {
     input.focus();
     run();
     document.addEventListener("pointerdown", onDocDown, true);
-    window.addEventListener("wheel", close, true);
+    window.addEventListener("wheel", onWheel, true);
     window.addEventListener("resize", close);
   };
 
