@@ -51,6 +51,9 @@ for (const [nodeId, values] of Object.entries(want)) {
   for (const [name, expected] of Object.entries(values)) {
     const w = n.widgets.find((x) => x.name === name);
     const got = w ? w.value : undefined;
+    // A project saved as "(none)" is no choice, and the picker resolves it to the project under
+    // Settings on load (fpt_entity_picker.selectProject). That is a resolution, not a shift.
+    if (name === "project" && expected === "(none)" && got && got !== "(none)") continue;
     if (String(got) !== String(expected)) bad.push({widget: name, expected, got});
   }
   out.push({node: `${n.type}#${nodeId}`, checked: Object.keys(values).length, bad});
