@@ -120,7 +120,8 @@ def save_profile(data):
 def set_default(project_id, key, value):
     """Write one profile value for a project, `key` dotted into nested blocks.
 
-    An empty value removes the key, so the site-wide value shows through again. `default_project`
+    An empty value removes the key, so the site-wide value shows through again; False is kept,
+    because a toggle whose default is on has to be able to say no. `default_project`
     is site-wide by nature and is written at the top whatever project is open.
     """
     data = profile()
@@ -132,7 +133,7 @@ def set_default(project_id, key, value):
         parts = key.split(".")
         for part in parts[:-1]:
             block = block.setdefault(part, {})
-        if value in ("", None, False):
+        if value in ("", None):
             block.pop(parts[-1], None)
         else:
             block[parts[-1]] = value

@@ -77,15 +77,15 @@ def write_frames(images, stem):
     return out
 
 
-def root_for(storages, code=""):
-    """(id, root) for the LocalStorage the profile names, on the platform this client runs on.
+# A LocalStorage row defines one root per platform (recipe 004), under these keys.
+PLATFORM_KEY = {"mac": "mac_path", "linux": "linux_path", "windows": "windows_path"}
+THIS_PLATFORM = {"darwin": "mac", "win32": "windows"}.get(sys.platform, "linux")
 
-    recipe 004 — a root is per platform and a row may define only one, so `local_path_windows` and
-    `local_path_linux` read back null where the row leaves them unset. Chosen by code, never by
-    position: one root is not a choice, several are, and taking the first would put a show's frames
-    on whichever storage the site happens to list first.
-    """
-    key = {"darwin": "mac_path", "win32": "windows_path"}.get(sys.platform, "linux_path")
+
+def storage_row(storages, code=""):
+    """The LocalStorage the profile names. Chosen by code, never by position: one root is not a
+    choice, several are, and taking the first would put a show's frames on whichever storage the
+    site happens to list first."""
     have = ", ".join(sorted(s["code"] for s in storages)) or "none"
     if not code and len(storages) != 1:
         raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
@@ -96,7 +96,47 @@ def root_for(storages, code=""):
     if not rows:
         raise RuntimeError(f"No storage called {code} on this site. Set published_files.storage "
                            f"in profile.local.json to one of these: {have}.")
-    row = rows[0]
+    return rows[0]
+
+
+def platforms_of(row):
+    """The platforms this storage defines a root for, in the order mac, linux, windows."""
+    return [p for p, k in PLATFORM_KEY.items() if (row or {}).get(k)]
+
+
+def platform_for(row, chosen=""):
+    """The platform the Version's path fields are written for: the profile's choice, else this
+    machine's where the storage defines it, else the first one it does."""
+    have = platforms_of(row)
+    if chosen in have:
+        return chosen
+    return THIS_PLATFORM if THIS_PLATFORM in have else (have[0] if have else THIS_PLATFORM)
+
+
+def on_platform(path, local_root, row, platform):
+    """`path`, written under this machine's root, as the same file under `platform`'s root.
+
+    `sg_path_to_frames` holds one absolute path and cannot resolve on two platforms (probe 021),
+    so a studio picks the one it is written for. A Windows root takes backslashes after it, which
+    is reasoned from how Flow PT spells `windows_path` and not measured against a Windows client.
+    """
+    if platform == THIS_PLATFORM or not path.startswith(local_root):
+        return path
+    root = ((row or {}).get(PLATFORM_KEY.get(platform, "")) or "").rstrip("/").rstrip("\\")
+    if not root:
+        return path
+    rel = path[len(local_root):]
+    return root + (rel.replace("/", "\\") if platform == "windows" else rel)
+
+
+def root_for(storages, code=""):
+    """(id, root) for the LocalStorage the profile names, on the platform this client runs on.
+
+    recipe 004 — a root is per platform and a row may define only one, so `local_path_windows` and
+    `local_path_linux` read back null where the row leaves them unset.
+    """
+    key = PLATFORM_KEY[THIS_PLATFORM]
+    row = storage_row(storages, code)
     root = (row.get(key) or "").rstrip("/")
     if not root:
         raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "

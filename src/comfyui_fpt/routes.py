@@ -139,9 +139,10 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
 
 # The profile keys Settings may write, by their dotted path. Anything else stays a file edit.
 DEFAULT_KEYS = ("default_project", "code_template", "root_name", "status",
-                "published_files.default", "published_files.storage",
+                "published_files.default", "published_files.storage", "published_files.path_platform",
                 "published_files.path_template", "published_files.movie_path_template",
-                "published_files.register_movie", "published_files.colour_space")
+                "published_files.register_movie", "published_files.path_to_frames",
+                "published_files.path_to_movie", "published_files.colour_space")
 
 # What a template example is rendered on: one Shot, one Task, one output, version 3.
 SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "output": "roto",
@@ -197,7 +198,8 @@ def _defaults():
     pf = p.get("published_files") or {}
     try:
         from . import publish
-        storages = [s["code"] for s in publish.storages(site.client())]
+        storages = [{"code": s["code"], **{k: s.get(v) or "" for k, v in sequence.PLATFORM_KEY.items()}}
+                    for s in publish.storages(site.client())]
     except Exception:
         storages = []
     values = {
@@ -210,6 +212,9 @@ def _defaults():
         "published_files.path_template": pf.get("path_template") or "",
         "published_files.movie_path_template": pf.get("movie_path_template") or "",
         "published_files.register_movie": bool(pf.get("register_movie")),
+        "published_files.path_platform": pf.get("path_platform") or "",
+        "published_files.path_to_frames": bool(pf.get("path_to_frames", True)),
+        "published_files.path_to_movie": bool(pf.get("path_to_movie", True)),
         "published_files.colour_space": pf.get("colour_space") or "",
     }
     placeholders = {
@@ -221,6 +226,7 @@ def _defaults():
     return {"values": values, "placeholders": placeholders,
             "projects": [{"label": n, "id": i} for n, i in site.projects()],
             "storages": storages,
+            "this_platform": sequence.THIS_PLATFORM,
             "statuses": [{"label": l, "code": c} for l, c in site.statuses(pid)],
             "path": str(site.profile_path())}
 

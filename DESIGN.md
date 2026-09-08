@@ -975,7 +975,10 @@ script name and the login. The key and the token never leave the server on any r
 for the project the nodes open on: the Version name and root name templates, the status, and the
 `published_files` block. There is no second store. Each template row shows the value in force, the
 default when the profile has none, beside the example it renders on sample values by the node's own
-renderer; typing the default back in clears the profile key. The profile itself now lives in the protected directory
+renderer; typing the default back in clears the profile key. The Version's `sg_path_to_frames` and
+`sg_path_to_movie` each hold one absolute path (probe 021), so the profile also picks the operating
+system they are written for, from the roots the storage defines, and whether each is written at all;
+the files themselves always go under this machine's root. The profile itself now lives in the protected directory
 when one exists there, and at the checkout root otherwise, so the inspector's file is read as long
 as it is the only one and a Registry install, which has no checkout, still has somewhere to write.
 Adding a field of the operator's choosing is not in Settings for the first release: it is a

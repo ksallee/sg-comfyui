@@ -165,8 +165,14 @@ class FPTPublishVersion:
         if not (want_frames or want_movie):
             return None
         pf = p.get("published_files") or {}
-        storage_id, root = sequence.root_for(publish.storages(fpt), pf.get("storage", ""))
+        storages = publish.storages(fpt)
+        storage_id, root = sequence.root_for(storages, pf.get("storage", ""))
         sequence.check_root(root)
+        # The Version's path fields hold one absolute path each, written for the platform the
+        # profile picks; the files themselves are written under this machine's root.
+        row = sequence.storage_row(storages, pf.get("storage", ""))
+        platform = sequence.platform_for(row, pf.get("path_platform", ""))
+        field_path = lambda path: sequence.on_platform(path, root, row, platform)
         seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
         mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
         # The stream is RENDERED from its own template, never derived by subtracting a version token
@@ -199,6 +205,8 @@ class FPTPublishVersion:
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
             out["frames_name"] = name
+            if pf.get("path_to_frames", True):
+                out["frames_field"] = field_path(pattern)
         if want_movie:
             # The clip's real extension, because a deliverable is never transformed: a `.mov` off
             # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
@@ -207,6 +215,8 @@ class FPTPublishVersion:
             out["media"] = sequence.copy_one(media_path, dest)
             out["media_code"] = os.path.basename(dest)
             out["media_name"] = name
+            if pf.get("path_to_movie", True):
+                out["media_field"] = field_path(out["media"])
         return out
 
     @staticmethod
@@ -416,9 +426,10 @@ class FPTPublishVersion:
             fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
         # probe 022's verdict: the `%04d` pattern belongs in sg_path_to_frames, with a transcoded
         # movie uploaded for the player. These are tier 2 in probe 021, which is what the Load node
-        # reads to pull frames back.
-        for field, value in (("sg_path_to_frames", (staged or {}).get("frames_pattern")),
-                             ("sg_path_to_movie", (staged or {}).get("media"))):
+        # reads to pull frames back. Each is written for the platform the profile picks, and only
+        # when the profile wants the field at all (_stage).
+        for field, value in (("sg_path_to_frames", (staged or {}).get("frames_field")),
+                             ("sg_path_to_movie", (staged or {}).get("media_field"))):
             if value and field in schema:
                 fields[field] = value
 

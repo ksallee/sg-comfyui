@@ -451,11 +451,31 @@ function selectRow(key, options, onSave = saveDefault) {
 const projectRow = () => selectRow("default_project", (d) =>
   [{ label: "(none)", value: 0 }].concat((d.projects || []).map((p) => ({ label: p.label, value: p.id }))));
 const storageRow = () => selectRow("published_files.storage", (d) => {
-  const found = (d.storages || []).map((c) => ({ label: c, value: c }));
+  const found = (d.storages || []).map((s) => ({ label: s.code, value: s.code }));
   if (found.length === 1) return found;          // the only root there is: shown, not asked
   if (!found.length) return [{ label: "(no Local File Storage on the site)", value: "" }];
   return [{ label: "(pick one)", value: "" }].concat(found);
 });
+/** The storage row the picker names, or the only one. */
+const pickedStorage = (d) => {
+  const code = String(dval("published_files.storage"));
+  const rows = d.storages || [];
+  return rows.find((s) => s.code === code) || (rows.length === 1 ? rows[0] : null);
+};
+
+const PLATFORM = { mac: "Mac", linux: "Linux", windows: "Windows" };
+
+/** The platforms the picked storage defines a root for, first the machine's own, so the unset
+ *  value shows what the publish will do. */
+const platformRow = () => selectRow("published_files.path_platform", (d) => {
+  const row = pickedStorage(d) || {};
+  const have = Object.keys(PLATFORM).filter((p) => row[p]);
+  if (!have.length) return [{ label: "(the storage defines no path)", value: "" }];
+  const mine = have.includes(d.this_platform) ? d.this_platform : have[0];
+  return have.map((p) => ({ label: `${PLATFORM[p]} (${row[p]})`, value: p }))
+    .sort((a, b) => (a.value === mine ? -1 : b.value === mine ? 1 : 0));
+});
+
 const statusRow = () => selectRow("status", (d) =>
   [{ label: "(the site's default)", value: "" }].concat((d.statuses || []).map((s) => ({ label: `${s.label} (${s.code})`, value: s.code }))));
 const colourRow = () => {
@@ -492,6 +512,12 @@ app.registerExtension({
     entry("ColourSpace", "Colour space", GROUP_PUBLISH, colourRow,
       "The colour space new publishes declare, for example sRGB or ACEScg. Recorded with the "
       + "files, never applied to the pixels."),
+    entry("PathToMovie", "Path to Movie", GROUP_PUBLISH, () => toggleRow("published_files.path_to_movie"),
+      "Fill the Version's Path to Movie field with the published clip's path, written for the "
+      + "operating system chosen above."),
+    entry("PathToFrames", "Path to Frames", GROUP_PUBLISH, () => toggleRow("published_files.path_to_frames"),
+      "Fill the Version's Path to Frames field with the frame pattern, written for the operating "
+      + "system chosen above, so people on that system open the frames in place."),
     entry("ReviewMovie", "Review movie", GROUP_PUBLISH, () => toggleRow("published_files.register_movie"),
       "When a clip is published with its frames, also copy the review movie beside them as a "
       + "Published File."),
@@ -500,6 +526,9 @@ app.registerExtension({
       + "{ext} the clip's own extension."),
     entry("SequencePath", "Sequence path", GROUP_PUBLISH, () => templateRow("published_files.path_template", "sequence"),
       "Where a published image sequence lands under the storage, with %04d for the frame number."),
+    entry("Platform", "Operating system", GROUP_PUBLISH, platformRow,
+      "Which of the storage's roots the Version's Path to Frames and Path to Movie are written with. "
+      + "A path field holds one absolute path, so it reads on one system. First is this machine's."),
     entry("Storage", "Storage", GROUP_PUBLISH, storageRow,
       "The Local File Storage the files are copied under, from Site Preferences > File Management "
       + "in Flow Production Tracking."),
