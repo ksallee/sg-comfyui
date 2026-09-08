@@ -1,18 +1,18 @@
 {
   "id": "sg-00-example",
-  "last_node_id": 7,
-  "last_link_id": 4,
+  "last_node_id": 13,
+  "last_link_id": 8,
   "nodes": [
     {
       "id": 1,
       "type": "MarkdownNote",
       "pos": [
-        -640,
+        -1120,
         0
       ],
       "size": [
         440,
-        340
+        560
       ],
       "flags": {},
       "order": 0,
@@ -21,14 +21,14 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## SG — start here\n\nTwo halves. Run one at a time.\n\n**Publish.** Run it as it is: the test card appears in the Preview on the right and nothing is sent\nanywhere. To create a Version, pick a **project** and a **link** on the Publish node and Run again.\nThe panel names the Version before you press anything. Ctrl-B mutes a node if you want it out of\nthe way.\n\n**Load.** Pick the same project and link on the Load node, then Run. It reads back the Version you\njust made and shows it below.\n\nNo model and no download. **Create Published Files** is off, so nothing is written to disk; turn it\non once your profile names a storage."
+        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twelve frames go in, and **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: all twelve frames\ncome back. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
       ]
     },
     {
       "id": 2,
       "type": "EmptyImage",
       "pos": [
-        -160,
+        -640,
         0
       ],
       "size": [
@@ -61,7 +61,7 @@
       "id": 3,
       "type": "TextOverlay",
       "pos": [
-        -160,
+        -640,
         230
       ],
       "size": [
@@ -91,7 +91,7 @@
       ],
       "properties": {},
       "widgets_values": [
-        "SG\nconnection test",
+        "SG\nstill test",
         9.0,
         "#F2F4F8",
         "top",
@@ -103,7 +103,7 @@
       "id": 4,
       "type": "SGPublishVersion",
       "pos": [
-        220,
+        -280,
         0
       ],
       "size": [
@@ -132,10 +132,10 @@
         "(none)",
         "(none)",
         "(none)",
-        "{entity}_example",
+        "{entity}_example_still",
         "",
         false,
-        "Connection test from the Flow Production Tracking example workflow.",
+        "Still from the SG example workflow.",
         "",
         "",
         0,
@@ -146,8 +146,8 @@
       "id": 5,
       "type": "SGLoadVersion",
       "pos": [
-        -640,
-        700
+        600,
+        0
       ],
       "size": [
         430,
@@ -191,7 +191,7 @@
         "(none)",
         "(none)",
         "",
-        "example",
+        "example_still",
         "auto",
         0,
         0,
@@ -204,8 +204,8 @@
       "id": 6,
       "type": "PreviewImage",
       "pos": [
-        -160,
-        700
+        1080,
+        0
       ],
       "size": [
         330,
@@ -228,7 +228,7 @@
       "id": 7,
       "type": "PreviewImage",
       "pos": [
-        700,
+        200,
         0
       ],
       "size": [
@@ -243,6 +243,230 @@
           "name": "images",
           "type": "IMAGE",
           "link": 4
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 8,
+      "type": "EmptyImage",
+      "pos": [
+        -640,
+        880
+      ],
+      "size": [
+        300,
+        180
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            5
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        768,
+        768,
+        12,
+        2634044
+      ]
+    },
+    {
+      "id": 9,
+      "type": "TextOverlay",
+      "pos": [
+        -640,
+        1110
+      ],
+      "size": [
+        300,
+        260
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            6,
+            7
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "SG\nsequence test",
+        9.0,
+        "#F2F4F8",
+        "top",
+        "center",
+        true
+      ]
+    },
+    {
+      "id": 10,
+      "type": "SGPublishVersion",
+      "pos": [
+        -280,
+        880
+      ],
+      "size": [
+        430,
+        620
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 6
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "(none)",
+        "{entity}_example_sequence",
+        "",
+        true,
+        "Twelve-frame sequence from the SG example workflow, written to the storage.",
+        "",
+        "",
+        0,
+        true
+      ]
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        200,
+        880
+      ],
+      "size": [
+        330,
+        340
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 7
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 12,
+      "type": "SGLoadVersion",
+      "pos": [
+        600,
+        880
+      ],
+      "size": [
+        430,
+        640
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "colour_space",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 3
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "",
+        "example_sequence",
+        "auto",
+        0,
+        0,
+        "version number in the name",
+        "",
+        0
+      ]
+    },
+    {
+      "id": 13,
+      "type": "PreviewImage",
+      "pos": [
+        1080,
+        880
+      ],
+      "size": [
+        330,
+        340
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
         }
       ],
       "outputs": [],
@@ -279,6 +503,38 @@
       3,
       0,
       7,
+      0,
+      "IMAGE"
+    ],
+    [
+      5,
+      8,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      6,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      7,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      8,
+      12,
+      0,
+      13,
       0,
       "IMAGE"
     ]

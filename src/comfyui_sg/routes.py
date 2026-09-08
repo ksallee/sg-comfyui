@@ -639,6 +639,8 @@ def register():
                 media = "the clip"
                 if _wired(w, "images"):
                     media += ". The frames become Published Files."
+            elif _wired(w, "images") and w.get("register_files"):
+                media = "frame 1, as a still. Every frame becomes a Published File."
             elif _wired(w, "images"):
                 media = "frame 1, as a still. Tick Create Published Files to publish all frames."
             else:
