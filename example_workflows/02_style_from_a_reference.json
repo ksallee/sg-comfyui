@@ -602,7 +602,7 @@
         "(none)",
         "(none)",
         "{entity}_fusion",
-        "{root_name}_v{version:03d}",
+        "",
         false,
         "Scene restyled from a reference, both pulled from Flow PT.",
         "sRGB",

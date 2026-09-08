@@ -446,7 +446,10 @@ full product name otherwise, never "Flow PT" (#76). The default root name carrie
 through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, and a sequence lands in a folder
 named for the version beside the movie, `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`,
 so no folder holds frames and a movie together. The file-path defaults are not disabled when Create
-Published Files is off: they are defaults, and a node that ticks it uses them. `sg_path_to_frames`
+Published Files is off: they are defaults, and a node that ticks it uses them. An empty root name
+or version name on a node means the Settings default, on the naming path and the file path alike,
+and the three example templates ship with an empty version name so they follow Settings while
+keeping their own root names, which are the demo's streams. `sg_path_to_frames`
 and `sg_path_to_movie` each hold one absolute path (probe 021), so the profile picks the operating
 system they are written for, `published_files.path_platform`, from the roots the storage defines,
 and two toggles decide whether each field is written at all. A Windows value takes backslashes after

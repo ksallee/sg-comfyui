@@ -133,7 +133,7 @@
         "(none)",
         "(none)",
         "{entity}_example",
-        "{root_name}_v{version:03d}",
+        "",
         false,
         "Connection test from the Flow PT example workflow.",
         "",
