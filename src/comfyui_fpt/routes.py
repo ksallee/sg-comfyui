@@ -158,6 +158,8 @@ def _sample_values(template, extra=None):
         head = f.split(".")[0]
         if head == "project":
             vals[f] = site.project_name(site.default_project()) or "Project"
+        elif f.endswith("short_name"):
+            vals[f] = "RTO"                 # a Step's short name, the way the sandbox spells Roto
         else:
             vals[f] = SAMPLE.get(head, "")
     return vals

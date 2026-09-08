@@ -442,7 +442,11 @@ after edits. Kevin has **not** yet run the Sign in button from the dialog himsel
 node's not-connected state was not captured.
 
 **Decided with Kevin, 2026-09-08.** The short name is **SG** everywhere a short name is needed, the
-full product name otherwise, never "Flow PT" (#76). Custom fields on the nodes stay an agent's job
+full product name otherwise, never "Flow PT" (#76). The default root name carries the pipeline step
+through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, and a sequence lands in a folder
+named for the version beside the movie, `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`,
+so no folder holds frames and a movie together. The file-path defaults are not disabled when Create
+Published Files is off: they are defaults, and a node that ticks it uses them. Custom fields on the nodes stay an agent's job
 for the first release; the Defaults group carries what an operator sets by hand. Updating linked
 entities from a publish, a Task's status for instance, is a nice-to-have after release.
 

@@ -23,7 +23,10 @@ LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a precedin
 DEFAULT_TEMPLATE = "{root_name}_v{version:03d}"
 # recipe 004: `name` is the stream and `code` is one version of it. The versioned name is composed
 # from this template, never derived by stripping a version token back out of one.
-DEFAULT_ROOT_TEMPLATE = "{entity}"
+# The pipeline step through the Task, by `short_name` as Toolkit's own {Step} key reads it: steps
+# are the studio's fixed vocabulary where Task names are free text. A Version with no Task renders
+# the entity alone, because an empty token drops out with its separator (render).
+DEFAULT_ROOT_TEMPLATE = "{entity}_{sg_task.Task.step.Step.short_name}"
 
 
 def next_number(existing_numbers):

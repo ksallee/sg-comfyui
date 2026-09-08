@@ -30,8 +30,10 @@ SEQ = media.SEQ
 # Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
 # not. Neither repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
 # themselves, so a path refers to them rather than spelling them a second time and disagreeing.
-DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}"
-DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/v{version:03d}/{version_name}{ext}"
+# A sequence is many files and gets a folder of its own, named for the version; the movie is one
+# file and sits beside that folder in the stream's folder, so no folder holds both.
+DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}"
+DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
 DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # profiles in the wild name this one
 
 # What to ask for, in preference order, against the types the site already has. Never created: a

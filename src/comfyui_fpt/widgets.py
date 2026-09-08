@@ -49,7 +49,8 @@ PUBLISH_FIELDS = (
     Field("root_name", "text", label="root name",
           tooltip="The name shared by all versions of this publish, without a version number, for "
                   "example {entity}_matte. It names the folder the files land in, and version "
-                  "name can build on it with {root_name}."),
+                  "name can build on it with {root_name}. A token with no value drops out with "
+                  "its separator."),
     Field("code_template", "text", label="version name",
           tooltip="The name given to the new Version, for example "
                   "{entity}_plate_v{version:03d}. Use {root_name} to build on the root name, and "

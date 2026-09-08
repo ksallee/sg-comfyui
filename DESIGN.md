@@ -364,8 +364,13 @@ out loud:
 
     root name     {entity}_matte              the STREAM.  PublishedFile.name, and the folder
     version name  {root_name}_v{version:03d}  one version of it.  Version.code
-    sequence      {entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}
-    movie         {entity}/{root_name}/v{version:03d}/{version_name}{ext}
+
+The shipped root name is `{entity}_{sg_task.Task.step.Step.short_name}`: the pipeline step through
+the Task, by `short_name` as Toolkit's `{Step}` key reads it, because steps are a studio's fixed
+vocabulary where Task names are free text. Every token is optional: one with no value drops out with
+its separator, so the same template reads `sh010_RTO` on a Task and `sh010` on a bare Version.
+    sequence      {entity}/{root_name}/{version_name}/{version_name}.%04d{ext}
+    movie         {entity}/{root_name}/{version_name}{ext}
 
 Three publish nodes on one Task read `{entity}_depth`, `{entity}_normal`, `{entity}_alpha` on their
 faces. That is the same distinction `output` used to make invisibly.
@@ -373,14 +378,15 @@ faces. That is the same distinction `output` used to make invisibly.
 **Composed, never subtracted.** recipe 004 says `name` is the stream and `code` is one version of it,
 and the old code derived the stream by stripping the version token back out of a template. That broke
 the moment a path template merely *referred* to a name: stripping the version from
-`{entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}` hands back the whole filename, frame
+`{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` hands back the whole filename, frame
 number and all. Rendering `{root_name}` from its own template cannot fail that way, because there is
 nothing to strip.
 
 **The path stopped rewriting the name.** It used to spell the entire naming scheme a second time —
 `{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png` — so the two
 could disagree. Now it refers to `{root_name}` and `{version_name}`, and a sequence gets a folder
-because it is many files while a movie does not because it is one. Two templates, each sayable in a
+named for the version because it is many files, while a movie sits beside that folder because it is
+one, so no folder holds frames and a movie together. Two templates, each sayable in a
 sentence, where there was one plus an implicit `single()` that stripped the frame token out to invent
 the movie's path.
 

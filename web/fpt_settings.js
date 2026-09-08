@@ -22,6 +22,13 @@ const CSS = `
 .fpt-set .fpt-text.fpt-bad { color: #e06c55; }
 .fpt-set .fpt-note { font-size: 12px; opacity: .7; overflow-wrap: anywhere; }
 .fpt-set button.p-button { white-space: nowrap; padding: 4px 10px; font-size: 13px; }
+.fpt-switch { position: relative; flex: none; width: 40px; height: 22px; border-radius: 11px;
+              background: var(--p-toggleswitch-background, #4a4e55); transition: background .15s; }
+.fpt-switch.on { background: var(--p-toggleswitch-checked-background, #2b7fd6); }
+.fpt-switch i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+                background: var(--p-toggleswitch-handle-background, #fff); transition: left .15s; }
+.fpt-switch.on i { left: 21px; }
+.fpt-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 `;
 
 const POLL_MS = 2000;               // the interval the site's own flow uses
@@ -404,16 +411,22 @@ function templateRow(key, kind) {
   return el;
 }
 
-function checkRow(key, label) {
-  const i = document.createElement("input");
-  i.type = "checkbox";
-  i.style.cssText = "width:18px;height:18px;margin:0";
-  const t = text();
-  t.textContent = label;
+/** A boolean, drawn as a switch like the dialog's own. The frontend's switch is a Vue component
+ *  with no reusable markup, so this is the same shape in the same colours. */
+function toggleRow(key) {
+  const box = document.createElement("label");
+  box.className = "fpt-switch";
+  box.innerHTML = '<input type="checkbox" role="switch"><i></i>';
+  const i = box.querySelector("input");
   const n = note();
-  i.addEventListener("change", async () => { const d = await saveDefault(key, i.checked); n.textContent = d.error || ""; });
-  const el = drow(() => { i.checked = !!dval(key); });
-  el.append(line(i, t), n);
+  const paint = () => box.classList.toggle("on", i.checked);
+  i.addEventListener("change", async () => {
+    paint();
+    const d = await saveDefault(key, i.checked);
+    n.textContent = d.error || "";
+  });
+  const el = drow(() => { i.checked = !!dval(key); paint(); });
+  el.append(line(box), n);
   return el;
 }
 
@@ -437,8 +450,12 @@ function selectRow(key, options, onSave = saveDefault) {
 
 const projectRow = () => selectRow("default_project", (d) =>
   [{ label: "(none)", value: 0 }].concat((d.projects || []).map((p) => ({ label: p.label, value: p.id }))));
-const storageRow = () => selectRow("published_files.storage", (d) =>
-  [{ label: "(the only one, or pick one)", value: "" }].concat((d.storages || []).map((c) => ({ label: c, value: c }))));
+const storageRow = () => selectRow("published_files.storage", (d) => {
+  const found = (d.storages || []).map((c) => ({ label: c, value: c }));
+  if (found.length === 1) return found;          // the only root there is: shown, not asked
+  if (!found.length) return [{ label: "(no Local File Storage on the site)", value: "" }];
+  return [{ label: "(pick one)", value: "" }].concat(found);
+});
 const statusRow = () => selectRow("status", (d) =>
   [{ label: "(the site's default)", value: "" }].concat((d.statuses || []).map((s) => ({ label: `${s.label} (${s.code})`, value: s.code }))));
 const colourRow = () => {
@@ -475,10 +492,9 @@ app.registerExtension({
     entry("ColourSpace", "Colour space", GROUP_PUBLISH, colourRow,
       "The colour space new publishes declare, for example sRGB or ACEScg. Recorded with the "
       + "files, never applied to the pixels."),
-    entry("ReviewMovie", "Review movie", GROUP_PUBLISH, () => checkRow("published_files.register_movie",
-      "Also keep the review movie under the storage"),
-      "When a clip is published with its frames, copy the review movie beside them as a Published "
-      + "File too."),
+    entry("ReviewMovie", "Review movie", GROUP_PUBLISH, () => toggleRow("published_files.register_movie"),
+      "When a clip is published with its frames, also copy the review movie beside them as a "
+      + "Published File."),
     entry("MoviePath", "Movie path", GROUP_PUBLISH, () => templateRow("published_files.movie_path_template", "movie"),
       "Where a published clip lands under the storage. {version_name} is the Version's name and "
       + "{ext} the clip's own extension."),
@@ -486,19 +502,20 @@ app.registerExtension({
       "Where a published image sequence lands under the storage, with %04d for the frame number."),
     entry("Storage", "Storage", GROUP_PUBLISH, storageRow,
       "The Local File Storage the files are copied under, from Site Preferences > File Management "
-      + "in Flow Production Tracking. A site with one needs no choice."),
-    entry("PublishedFiles", "Published Files", GROUP_PUBLISH, () => checkRow("published_files.default",
-      "Create Published Files on a new Publish node"),
+      + "in Flow Production Tracking."),
+    entry("CreatePublishedFiles", "Create Published Files", GROUP_PUBLISH, () => toggleRow("published_files.default"),
       "Whether a new Publish node registers the files beside the Version. The tick on the node "
-      + "still decides per graph."),
+      + "still decides per graph, and the rows below apply whenever it is ticked."),
     entry("Status", "Status", GROUP_PUBLISH, statusRow,
       "The status a new Version gets. The site fills its own default when none is chosen."),
-    entry("RootName", "Root name", GROUP_PUBLISH, () => templateRow("root_name", "root"),
-      "The Version name without its version number, for example sh010_roto. The file paths and "
-      + "the Published File's Name are built on it."),
     entry("VersionName", "Version name", GROUP_PUBLISH, () => templateRow("code_template", "name"),
       "How a new Version is named. {root_name} is the root name and {version:03d} the padded "
-      + "number."),
+      + "number. Any Version field works as a token, dotted paths included, and an empty one "
+      + "drops out."),
+    entry("RootName", "Root name", GROUP_PUBLISH, () => templateRow("root_name", "root"),
+      "The Version name without its version number, for example sh010_RTO. The file paths and "
+      + "the Published File's Name are built on it. A token with no value drops out with its "
+      + "separator, so a Version with no Task keeps the entity alone."),
     entry("Project", "Project", GROUP_DEFAULTS, projectRow,
       "The project both nodes open on. The publish defaults below are for it."),
     entry("PublishAs", "Publish as", GROUP_SCRIPT, loginRow,
