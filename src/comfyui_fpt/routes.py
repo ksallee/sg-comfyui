@@ -9,7 +9,7 @@ import json
 import os
 import re
 
-from . import resolve, site
+from . import credentials, resolve, site
 
 # Flow PT answers an error as a JSON:API envelope whose useful half is one `detail` sentence.
 _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
@@ -18,12 +18,19 @@ _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _MAX_ID = 2 ** 31 - 1
 
 
+# The token endpoint's refusal of a session the site no longer holds (probe 052). It is the one
+# error whose fix is a click on this node rather than a value on it.
+_SESSION_DEAD = "Can't authenticate session token"
+
+
 def _sentence(e):
     """What went wrong, in the site's own words rather than its transport's.
 
     One truncated sentence, never a traceback: this is read in the editor and by an artist.
     """
     text = str(e)
+    if _SESSION_DEAD in text:
+        return "Your Flow Production Tracking sign-in has expired. Click Sign in on the node."
     m = _DETAIL.search(text)
     if not m:
         return text[:200]
@@ -141,6 +148,31 @@ def register():
     def pairs(fn):
         """`items` built from (label, id) pairs."""
         return items(lambda: [{"label": l, "id": i} for l, i in fn()])
+
+    @routes.get("/fpt/session")
+    async def session(request):
+        """Who this ComfyUI talks to Flow PT as, and whether the site still agrees."""
+        return answer(credentials.status, {"how": "none", "alive": False})
+
+    @routes.post("/fpt/login")
+    async def login(request):
+        """Start a sign-in: the site issues an approval page for the person's browser."""
+        body = await request.json()
+        return answer(lambda: credentials.begin(body.get("site", "")), {})
+
+    @routes.get("/fpt/login")
+    async def login_poll(request):
+        """Has the person approved yet. `approved` has already written the session."""
+        rid = request.rel_url.query.get("request_id", "")
+        return answer(lambda: credentials.finish(rid), {"state": "gone"})
+
+    @routes.post("/fpt/logout")
+    async def logout(request):
+        def out():
+            credentials.clear_session()
+            site.forget_all()
+            return {"how": "none"}
+        return answer(out, {})
 
     @routes.get("/fpt/projects")
     async def projects(request):

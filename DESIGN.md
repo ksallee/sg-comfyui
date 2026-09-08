@@ -25,7 +25,8 @@ Requirements this imposes:
 
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
     src/comfyui_fpt/
-      site.py        .env.local, profile.local.json, a connected client
+      credentials.py who the nodes publish as: the signed-in person, else the script key
+      site.py        profile.local.json, a connected client, the cached lookups
       publish.py     create Version, three-step upload, attach, register PublishedFile
       sequence.py    frames on disk: written to ComfyUI's output, copied under a LocalStorage root
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
@@ -915,6 +916,42 @@ sampler, steps, cfg all live in its node widget values. `EXTRA_PNGINFO` carries 
 what gets attached as a file. `UNIQUE_ID` identifies this node instance.
 
 Nothing else needs to be asked of the user; the graph already knows.
+
+## Who the nodes publish as
+
+A person, signed in through the App Session Launcher, or a script key from the environment. The
+person wins when both are present.
+
+**The person.** The operator clicks Sign in on either node and types the site address once. The
+server asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the
+node opens it in a new tab, where the operator is already logged into Flow PT through Autodesk
+Identity, and they click approve. The site hands back a session token, which spends at the token
+endpoint as `grant_type=session_token` and mints a bearer for that `HumanUser`. Every Version is then
+created by the person, and Flow PT's Artist field is them, with no script key, no password and no
+impersonation. `credentials.py` owns this; `sg_groundtruth.launcher` speaks the protocol.
+
+**The script.** `FPT_API_SITE_URL`, `FPT_API_SCRIPT_NAME` and `FPT_API_API_KEY` from the launch
+environment, or from `.env.local` in a checkout. A farm has no browser and a developer has a
+checkout; nobody else needs this. `sudo_as_login` stays on this path only, for the attribution a
+script cannot otherwise give.
+
+**Where the session lives.** `user/__comfyui_flow_production_tracking/session.local.json`, mode 600.
+ComfyUI serves a `__` directory over no HTTP route (`folder_paths.get_system_user_directory`, v0.3.76
+and later), it sits outside `custom_nodes/` so a Manager update leaves it alone, and it follows
+`--user-directory`, so the Desktop app keeps it too. Outside ComfyUI the same file sits beside
+`.env.local`, under the same gitignore rule. ComfyUI's settings store and `/userdata` were rejected:
+both answer to anyone who can reach the port. A node widget was rejected: `widgets_values` is saved
+into every workflow and every PNG.
+
+**How long it lasts.** The site's `User Session Expiry` preference, one day on the probed site, from
+the last use. Minting a bearer counts as use, so a ComfyUI that publishes or even opens a graph with
+these nodes once a day never asks again. Left idle past the window the token dies, the token
+endpoint refuses it, and the row on the node says so and offers Sign in. Nothing renews on a timer:
+the site's preference is the administrator's decision and a clock would defeat it.
+
+**One session per ComfyUI.** The `comfy-user` header is a plain string any client may send, so a
+per-user file would separate users in name only. A shared ComfyUI where two people publish under
+their own names needs a real login in front of it, and that is out of scope here.
 
 ## Distribution
 

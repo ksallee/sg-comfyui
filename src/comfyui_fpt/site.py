@@ -1,7 +1,7 @@
-"""Credentials, the site profile, and the cached live lookups the node's pickers read.
+"""The site profile and the cached live lookups the node's pickers read.
 
-Credentials are loaded from .env.local into a mapping handed straight to the client, never into
-os.environ: ComfyUI is a long-lived process shared with every other installed custom node, and
+Who the client is comes from `credentials`: the signed-in person, else the script key. Nothing here
+writes os.environ: ComfyUI is a long-lived process shared with every other installed custom node, and
 anything in its environment is readable by all of them. Values are never logged; an error names the
 missing key, never its value.
 
@@ -19,8 +19,9 @@ from pathlib import Path
 
 import requests
 
-from sg_groundtruth.client import FPT, FPTError
-from sg_groundtruth.env import load as load_env
+from sg_groundtruth.client import FPTError
+
+from . import credentials
 
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE = ROOT / "profile.local.json"
@@ -40,8 +41,8 @@ _cache = {}
 
 
 def client():
-    """A connected client. Credentials travel as an argument and are never put in os.environ."""
-    return FPT.from_env(load_env(ROOT))
+    """A connected client, as the signed-in person or as the script (credentials.client)."""
+    return credentials.client()
 
 
 def route(entity_type):
@@ -146,6 +147,12 @@ def forget(*prefixes):
     """
     for key in [k for k in _cache if k and k[0] in prefixes]:
         _cache.pop(key, None)
+
+
+def forget_all():
+    """Drop every cached lookup. Who is signed in decides what the site returns (probe 027), so a
+    sign-in or sign-out invalidates all of it at once."""
+    _cache.clear()
 
 
 def warm():

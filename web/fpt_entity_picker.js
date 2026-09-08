@@ -7,6 +7,7 @@
  */
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./fpt_panel.js";
+import { addSignIn } from "./fpt_signin.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
          restoreDeclaredWidgets, restoreValue, textRows } from "./fpt_dom_widgets.js";
 
@@ -363,6 +364,8 @@ function publishPickers(nodeType, nodeData) {
     // domRow marks every row we add; a button is the one widget litegraph never marks itself, and
     // an injected widget that serializes shifts every declared value after it.
     dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
+    // Who this publishes as. A sign-in changes what every picker reads (probe 027), so it reloads.
+    addSignIn(this, loadProject);
     loadProject();
   };
 }
@@ -518,6 +521,7 @@ function loadPickers(nodeType) {
     });
 
     dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
+    addSignIn(this, loadProject);
     loadProject();
   };
 }

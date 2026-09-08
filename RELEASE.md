@@ -405,31 +405,30 @@ are rebuilt.
 
 ## Three things the next session opens with — written 2026-09-08
 
-### 1. Credentials cannot ship the way they are, and how they should is NOT settled
+### 1. Credentials: decided and built on 2026-09-08, sign in as a person
 
-**This is a release blocker, and the section below is a starting point rather than an answer. More
-research is needed and there is very likely a better mechanism than the two considered here.**
+`.env.local` inside the pack could not ship: ComfyUI Manager replaces `custom_nodes/<pack>/` on
+update and the keys with it. It no longer has to. The nodes carry a Sign in row, the operator approves
+a request in the browser where they are already logged into Flow PT, and the session token the site
+returns is kept in ComfyUI's protected `user/__comfyui_flow_production_tracking/` directory. See
+DESIGN.md "Who the nodes publish as" for the design and sg-groundtruth probe 052 for every measured
+fact behind it. A script key from the launch environment is the farm path and the fallback.
 
-What is certain: `.env.local` inside the pack cannot be distributed. Installed from the Registry the
-pack lives in `custom_nodes/comfyui-flow-production-tracking/`, which ComfyUI Manager **replaces on
-update**, so every user silently loses their site URL, script name and key the first time they
-upgrade, and lands on empty pickers with no idea why.
+Proven end to end on 2026-09-08: Version 31952 (`sh010_example_v003`) published from the editor with
+`created_by` and `user` both the person, HumanUser 253, not the script.
 
-What was measured on 2026-09-08:
+What the research settled, so it is not re-derived:
 
-- ComfyUI's settings panel renders a `password` type, alongside `text`, `combo`, `boolean`, `number`,
-  `slider`, `url` and `image`. An extension can register one with `app.ui.settings.addSetting`.
-- Settings persist in `user/default/comfy.settings.json`, which is outside `custom_nodes/` and
-  therefore survives an update.
-- Settings are also served unauthenticated: `GET /settings` returns 200 and the whole store. The
-  `password` type masks the input in the UI and protects the value not at all. On a workstation that
-  is acceptable; on a shared or farm ComfyUI anyone who can reach the port can read the script key.
+- ComfyUI has no secret store and no server auth. `GET /settings` and `/userdata` answer anyone on
+  the port. The one protected place is a `__`-prefixed user directory (v0.3.76+), added for packs to
+  keep keys out of HTTP; ComfyUI-Manager moved its own config there.
+- Comfy-Org's API nodes keep their key in the browser and send it per request; community packs use
+  an env var or a file in the pack. Nobody uses the OS keychain.
+- The session lives for the site's `User Session Expiry` window from the last use, and minting a
+  bearer is a use, recorded at most once every five minutes. One day on the sandbox.
 
-A first sketch, explicitly not decided: settings as the discoverable default for a workstation, real
-environment variables taking precedence for farms, `.env.local` demoted to a development convenience
-in a checkout. Before building any of it, find out what other packs that need credentials actually
-do, whether ComfyUI has or plans a secret store, whether the settings route can be scoped, and what
-happens on a multi-user install. `/setup` is the thing that would write whichever answer wins.
+Still open: a headless run has no browser, so a farm still needs a script key, and `/setup` should
+say which of the two applies. Kevin has not yet tried the button flow himself from a fresh session.
 
 ### 2. Artist attribution: decided, not built
 
@@ -437,7 +436,9 @@ happens on a multi-user install. `/setup` is the thing that would write whicheve
 Version this pack has ever published is authored by `comfyui-fpt 1.0` rather than by a person
 (sg-groundtruth `findings/entity_types/Version`).
 
-Decided by Kevin: impersonate by default, fall back rather than fail.
+Decided by Kevin: impersonate by default, fall back rather than fail. **Narrowed 2026-09-08:** with
+the Sign in row, a workstation publishes as the person outright and none of this applies there. The
+three steps below are the script-key path, a farm or a checkout.
 
 1. `FPT.from_env(env, sudo_as_login=<login>)` — needs sg-groundtruth **0.1.2**, released 2026-09-08.
    Sets `created_by` and `user` to the person.
@@ -471,7 +472,7 @@ can add a text field".
 |---|---|
 | Plate specs above (Plate A, Plate B) | Kevin — blocks `/demo-setup` and the template rebuild |
 | Release date: the node contract lands before release, so Monday is at risk | Kevin |
-| **How credentials ship.** `.env.local` in the pack is destroyed by a Manager update. Needs research, not a decision yet | Kevin, after research |
+| ~~How credentials ship~~ | **closed 2026-09-08.** Sign in as a person through the App Session Launcher, session token in ComfyUI's protected user directory, script key from the environment for farms. DESIGN.md "Who the nodes publish as" |
 | Artist attribution is decided and unbuilt: impersonate, fall back to the `user` field, then the script | built next |
 | `data_type -> widget` so adding a Flow PT field of any type is one line | built next |
 | Plate licensing: is "generated by a permissive model" the written answer? | Kevin |
