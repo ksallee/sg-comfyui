@@ -101,8 +101,12 @@ function projectPicker(node, widget, state, onPick) {
  * node to the default project.
  */
 async function selectProject(widget, state, picked) {
-  state.projects = (await get("/fpt/projects")).items || [];
-  const chosen = picked ?? widget.value;
+  const d = await get("/fpt/projects");
+  state.projects = d.items || [];
+  let chosen = picked ?? widget.value;
+  // "(none)" in a saved graph is no choice, and no choice means the project under Settings, the
+  // same one a fresh node opens on. A template therefore lands on the operator's show.
+  if (!bare(chosen)) chosen = (state.projects.find((x) => x.id === d.default) || {}).label || chosen;
   state.projectId = (state.projects.find((x) => x.label === chosen) || {}).id || 0;
   setOptions(widget, state.projects.map((x) => x.label), chosen);
 }

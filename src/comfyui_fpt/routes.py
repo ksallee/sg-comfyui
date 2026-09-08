@@ -328,10 +328,12 @@ def register():
 
     @routes.get("/fpt/projects")
     async def projects(request):
-        """label and id as everywhere else, plus what a picker row draws: code and thumbnail."""
-        return items(lambda: [
-            {"label": p["name"], "id": p["id"], "code": p["code"], "image": p["image"]}
-            for p in site.project_cards()])
+        """label and id as everywhere else, plus what a picker row draws: code and thumbnail, and
+        the project a graph that picked none opens on."""
+        return answer(lambda: {
+            "items": [{"label": p["name"], "id": p["id"], "code": p["code"], "image": p["image"]}
+                      for p in site.project_cards()],
+            "default": site.default_project()}, {"items": []})
 
     @routes.get("/fpt/link_types")
     async def link_types(request):
