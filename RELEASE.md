@@ -79,7 +79,7 @@ So the demos have published *review media* end to end and never a *deliverable*,
 
 Still untested end to end, and each of these is a real gap rather than a nicety:
 
-- **PublishedFiles for 02-07.**
+- ~~**PublishedFiles for 02-07.**~~ — those demos are archived; the path itself is proven above.
 - **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
 - ~~**`FPTLoadVersion`, the round trip**~~ — **closed 2026-09-07.** `00_example` runs it, and 02
   chains a load into a publish three times over with the lineage checked each time.
@@ -479,6 +479,23 @@ at v001 while `concept` advanced, rather than both grabbing the newest thing on 
 Still unproven, and not by omission: `register_files` is off in every shipped template, so the
 deliverable half has still never run from one. Nothing exercises the batch-budget refusal, an
 unmounted storage root, or `register_movie`. One machine, one site, one link, three iterations.
+
+### The deliverable half needs no profile at all — measured 2026-09-07
+
+`register_files` was described here as blocked on configuration. It is not. This site has exactly
+one LocalStorage row (`primary` -> `/Volumes/FPT`, mounted and writable), and `sequence.root_for`
+only demands `published_files.storage` when there are several to choose between. So one row is
+unambiguous and the deliverable path runs with an empty profile.
+
+Proven by running it: Version 31919, three frames at 768 copied to
+`/Volumes/FPT/sh010/sh010_deliverable/v001/`, registered as PublishedFile 6900 with the `%04d`
+pattern, type `Rendered Image`, colour `sRGB`, and the Version's own media left as frame 1.
+
+Open, and it is a product decision rather than a gap: the shipped templates all carry
+`register_files` off, on the reasoning that a first run must not copy onto a shared volume nobody
+was asked about. That reasoning holds for `00_example` and is arguable for the rest, since
+registering the files is half of what this pack does and most people will never tick a box they
+have not been told about.
 
 ## Facts worth not re-deriving
 
