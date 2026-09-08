@@ -1004,29 +1004,41 @@ Two ways in, and they are not the same thing:
     [tool.comfy].DisplayName      Flow Production Tracking
     repo, custom_nodes directory  sg-comfyui
     CATEGORY                      Flow Production Tracking
+    Settings category             SG
     node titles                   SG Publish, SG Load
+    NODE_CLASS_MAPPINGS keys      SGPublishVersion, SGLoadVersion   permanent
     Python package                comfyui_sg
+    routes                        /sg/*
+    protected user directory      __sg_comfyui
 
-The long form goes in the slots that are searched — a TD looks for the product, not an abbreviation, and
-half of them still search "shotgrid", which belongs in the registry keywords and the README where it can
-be changed later. Node titles stay short because they render on the node body. The Python package stays
-`comfyui_sg`: it is internal, every import is relative, and `python -m comfyui_sg.fields` has to be
-typable.
+SG is the short name everywhere a short name is needed, the full product name everywhere else, and
+"Flow PT" nowhere. SG is what people type into the node search and it lands instantly; the full name
+is slow to type and half the audience still searches "shotgrid". The full name stays in the slots a
+Registry search reads — `DisplayName`, the description and the keywords, which also carry "shotgrid"
+— and those can be changed later.
 
-`Publish`/`Load` is both vocabularies at once — `tk-multi-publish2`/`tk-multi-loader2` on the Flow Production Tracking
-side, and on the ComfyUI side `Load` is what a node is called when it is where the pixels come from.
-`Fetch` was neither.
+The `custom_nodes` directory name is shown verbatim on two chips: the Templates browser labels a
+pack's collection with it (`title: e` in the frontend bundle) and the node's footer badge is
+`python_module` split on `.`, the same string. Neither reads `DisplayName`, and the only override is a
+frontend i18n key (`templateWorkflows.category.<name>`) that ships with the frontend and not with a
+pack. So the directory name is the product's chip, and `sg-comfyui` rather than `comfyui-sg`: in a
+sidebar of `comfyui-*` packs it sorts under S and the chip reads SG first.
 
-`NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
-anyone outside this repo saves a graph: `SGPublishVersion`, `SGLoadVersion`.
+`NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the
+moment anyone outside this repo saves a graph. Nothing had shipped when they became `SGPublishVersion`
+and `SGLoadVersion`, so the old keys were renamed outright rather than kept as deprecated aliases,
+and the shipped graphs moved in the same commit.
 
-The cost of the long form is paid twice in the editor, and it is accepted rather than unnoticed: the
-Templates browser labels a pack's collection with the `custom_nodes` directory name verbatim
-(`title: e` in the frontend bundle) and the node's footer badge is `python_module` split on `.` —
-the same string. Neither reads `DisplayName`, and the only override is a frontend i18n key
-(`templateWorkflows.category.<name>`) that ships with the frontend and not with a pack. Registry
-names allow no spaces, so a short label was reachable only by renaming the repo, which trades a
-searched slot for a cosmetic one. `sg-comfyui` on two chips is the price.
+The internals followed — package, routes, web files, the protected directory — so no surface says
+`fpt`. The Python package is internal, every import is relative, and `python -m comfyui_sg.fields`
+has to be typable.
+
+Operator sentences use the full name or SG. Before a status code they say "The site answered", which
+names the thing that answered without naming the product a third time.
+
+`Publish`/`Load` is both vocabularies at once — `tk-multi-publish2`/`tk-multi-loader2` on the
+Flow Production Tracking side, and on the ComfyUI side `Load` is what a node is called when it is
+where the pixels come from. `Fetch` was neither.
 
 ### The dependency problem
 

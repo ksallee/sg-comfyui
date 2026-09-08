@@ -12,10 +12,12 @@ studio's conventions are hardcoded.
 ## What it needs
 
 - **ComfyUI**, and Python 3.11.
-- **A Flow Production Tracking site and a script key.** Auth is `client_credentials`: a Script Name and its Application
-  Key, made in the Flow Production Tracking web UI under Admin > Scripts. The script needs to read Projects, Versions,
-  Tasks and whatever entities you link to, to create Versions and upload media, and — for the one-off
-  field setup — to create fields on Version.
+- **A Flow Production Tracking site you can log into.** On a workstation the nodes publish as you:
+  click Log in under Settings, then SG, and approve the request in your browser. A render farm, a
+  machine nobody signs in on, and the command-line tools below take a script key instead: a Script
+  Name and its Application Key, made under Admin > Scripts. That script needs to read Projects,
+  Versions, Tasks and whatever entities you link to, to create Versions and upload media, and — for
+  the one-off field setup — to create fields on Version.
 - **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
   names it, and ComfyUI-Manager installs that file. Nothing to clone to *run* the nodes.
 - **A checkout of `sg-groundtruth` beside this one, to *set up*.** Step 1 below measures your site with
@@ -39,19 +41,26 @@ login to publish as. **Test** proves the connection before the first Run. The sa
 publish defaults: the project the nodes open on, Version name, root name, status, and where
 Published Files land.
 
-A checkout can carry the script key in `.env.local` instead, for the command-line tools below:
-
 `<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
 launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
 imports, the site never answers.
+
+What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a Manager
+update leaves it alone. The command-line tools below do not read Settings; a checkout carries a script
+key for them in `.env.local`:
 
 ```sh
 cp .env.local.example .env.local                    # then fill in the three keys
 ```
 
 `.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
-value. What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a
-Manager update leaves it alone.
+value.
+
+**Colour management is opt-in.** The shipped templates use core nodes only, so anyone can open them,
+and core ComfyUI has no colour management at all. A colour-managed pipeline installs the
+[ComfyUI-OCIO](https://github.com/SlavaSexton/ComfyUI-OCIO) pack, sets `OPENCV_IO_ENABLE_OPENEXR=1`
+in the environment that launches ComfyUI, and has ffmpeg on the path. `/setup` asks that question
+and walks the rest of a first run.
 
 ## Set up, in this order
 
@@ -81,8 +90,9 @@ use, says where a Version would come out of it and where one could go in, and wr
 copy. It never overwrites the original.
 
 Then restart ComfyUI and open the instrumented workflow. Two nodes appear under the category **Flow
-Production Tracking**. If `http://127.0.0.1:8188/sg/projects` lists your shows, the credentials, the
-client and the profile are all working.
+Production Tracking**, and typing **SG** into the node search finds both. If
+`http://127.0.0.1:8188/sg/projects` lists your shows, the credentials, the client and the profile
+are all working.
 
 Restarting is only for installing or upgrading the pack. A later edit to `profile.local.json` reaches
 the editor on a **browser refresh**: `INPUT_TYPES` is re-evaluated on every `/object_info` request.
@@ -265,8 +275,9 @@ Both gitignored, both yours to edit:
 
 ## Driving it with an agent
 
-Two slash commands, in `.claude/commands/`. They are the interface, not a shortcut around one:
+Three slash commands, in `.claude/commands/`. They are the interface, not a shortcut around one:
 
+    /setup               walk a first run: connection, profile, colour management, the example
     /inspect-site        measure a project and write the profile
     /track-workflow      add tracking to a workflow you already use
 
@@ -297,8 +308,8 @@ lets the agent read back only its own answer.
 
 ## Not ready yet
 
-- **`sg_groundtruth` is not installable.** A sibling checkout is required. Until that is resolved a
-  Comfy Registry install would not run, so this is not on the Registry.
+- **Not on the Registry yet.** `requirements.txt` installs everything a Registry install needs, but
+  the pack has not been published there.
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
 - **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to
