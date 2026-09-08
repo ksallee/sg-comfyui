@@ -25,7 +25,8 @@ Requirements this imposes:
 
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
     src/comfyui_fpt/
-      site.py        .env.local, profile.local.json, a connected client
+      credentials.py who the nodes publish as: the signed-in person, else the script key
+      site.py        profile.local.json, a connected client, the cached lookups
       publish.py     create Version, three-step upload, attach, register PublishedFile
       sequence.py    frames on disk: written to ComfyUI's output, copied under a LocalStorage root
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
@@ -35,8 +36,8 @@ Requirements this imposes:
 Site access goes through `sg_groundtruth`, the sibling corpus repo's client. This repo holds node code only.
 
 The root `__init__.py` is not optional and not decoration: ComfyUI imports `custom_nodes/<dir>/__init__.py`
-directly (`nodes.py:2263`) and a `src/` layout is invisible to it. Any module importing `sg_groundtruth` must
-import `_deps` first — import order inside the package decides whether the path is set up yet.
+directly (`nodes.py:2263`) and a `src/` layout is invisible to it. `sg_groundtruth` is an ordinary installed
+dependency, so any module may import it in any order.
 
 ### Two paths
 
@@ -89,6 +90,66 @@ because they hardcode one studio's conventions, or expose every field and become
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
 
+### Rules for putting these nodes in a graph you already use
+
+Learned by building the example workflows and then using them. They are guidance for an operator,
+and they are also what `/track-workflow` should do on its own, because an agent adding a Publish
+node to somebody's graph faces exactly these choices.
+
+- **A Preview before the Publish.** A graph whose only way to show you anything is to publish has
+  the shape backwards: looking is constant, publishing is occasional. Tap the same image into a
+  `PreviewImage` beside the Publish node. `/track-workflow` should add one when it adds a tap.
+- **Muting is how you iterate.** Ctrl-B on the Publish node runs the graph and sends nothing. Say so
+  where someone will read it, because the alternative is deleting and re-adding the node.
+- **One root name per stream, and it changes between runs.** Two ideas explored in one session are
+  two streams, not two versions of one. This is why `root name` is not in the fold.
+- **Lineage comes from the wiring, not from typing.** A Load node upstream of a Publish node is what
+  fills `sg_ai_generated_from`. Anyone reaching for `source versions` on a graph that already loads
+  its input is doing work the node has already done.
+- **`Create Published Files` is the other half.** Off means review media only. A house that hands
+  files to the next department wants it on, and it needs a storage the machine can see.
+
+### Prefilling a node from what the operator is already doing
+
+Open. Today a fresh Publish node knows the project from the profile and nothing else, so every field
+is typed. The site knows more than that: who the script key is acting as, which Tasks are assigned to
+them, which entities they have touched most recently, and what the codes on those entities look like.
+An agent setting the pack up — or the node itself — could propose a link, a task and a root name from
+that and be right most of the time.
+
+The pieces exist. `site.resolve_paths` already walks Flow PT's own field paths, `naming` already
+infers a convention from real codes, and the profile is already the place per-site answers live.
+What is missing is the read of recent activity and a decision about how a proposal is shown, since a
+guessed value that looks typed is worse than an empty field.
+
+### Which fields a house wants in front of it
+
+`src/comfyui_fpt/widgets.py` declares each widget's `advanced` flag, and that is a default rather
+than a rule. A profile may move any field either way:
+
+    "widgets": {
+      "load":    {"advanced": ["task", "statuses", "name_contains"], "normal": ["frame"]},
+      "publish": {"normal": ["colour_space"]}
+    }
+
+Per project like everything else here. A field named in neither list keeps what the table declares,
+so a profile only says what it disagrees with. The order never changes — `widgets_values` is
+positional and folding is presentation — so this is safe to edit at any time, including after
+release, and it is the one place a site is expected to differ about the node's shape.
+
+### One key is about the machine, not the site
+
+`batch_budget_gib` is the ceiling on a single IMAGE batch, and it sits at the top level of the
+profile rather than under a project, because how much memory a machine has is a fact about that
+machine. It is also why the profile is gitignored: a studio's workstation and its render node do not
+share an answer.
+
+A batch is one float32 RGB tensor, so a frame costs `w × h × 12` bytes. At the 4 GiB fallback that is
+172 frames of HD but only 43 of UHD — short of a normal shot at 4K, which is why a workstation should
+raise it. The Load node reads the whole sequence by default (`frame_count` 0), so this is on the
+ordinary path and not a backstop: the panel names the overrun before the Run, and the run refuses
+with the count that fits.
+
 The schema cache says what *exists*. The profile says what is *practiced* and what to expose.
 Different lifetimes: the cache refreshes when the schema changes, the profile is inference plus
 operator edits layered on top.
@@ -133,52 +194,128 @@ deterministic, offline, and costs no tokens.
 
 ## Nodes (v0)
 
-- `Flow PT Publish Version` — image in, Version created, media uploaded, provenance attached. Inputs are built from
-  the site profile: link target and exposed fields are resolved, not hardcoded.
+- `Flow PT Publish Version` — an image or a video in, Version created, media uploaded, provenance attached.
+  Inputs are built from the site profile: link target and exposed fields are resolved, not hardcoded.
 - `Flow PT Load Version` — a Version's media back into the graph, and the link recorded
 
 `av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
-video nodes. Imported lazily on both sides of the movie branch, decoding a frame in `media.py` and encoding a
-batch in `movie.py`, so an install without it still loads every node and fails only when someone actually
-asks for a movie frame or publishes a batch. Nothing shells out to ffmpeg.
+video nodes. Imported lazily wherever a frame has to be decoded — `media.py` reading a Version's movie back,
+`movie.py` taking a poster frame off the clip it is about to upload — so an install without it still loads
+every node and fails only when someone asks for a movie frame. Nothing here encodes any more and nothing
+shells out to ffmpeg: `VideoInput.save_to()` is ComfyUI's own encoder and owns that side.
 
-## Output is always a movie
+## The node records; ComfyUI makes the media
 
-A run is one Version. One frame publishes as it always did; more than one becomes ONE Version carrying an
-h264 movie, uploaded to `sg_uploaded_movie`, with frame 1 also going to `image` so there is a thumbnail
-before the transcode lands.
+A run is one Version. What that Version carries is decided by what is wired into the node, not by a combo
+asking the operator to state again what the graph already states:
 
-The rule comes from probe 022: a Version's media is single-valued, so a sequence cannot BE media. The node
-used to loop, and a two-second camera move produced 33 Versions and 33 one-frame transcodes while the real
-`.mp4` the graph wrote never reached the site.
+    images    video    the Version's media       what a tick registers as files
+    —         wired    that video                the movie
+    wired     —        frame 1, as a still       the frames
+    wired     wired    the video                 the frames, plus the movie where the house keeps it
+    —         —        nothing to publish — the run refuses, loudly
 
-`sg_first_frame`, `sg_last_frame`, `frame_count` and `frame_range` are ours, and are written where the site
-has them. `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are the transcoder's and are never
-written: probe 022 measured `_mp4` still serving a transcode of a replaced file while status read 1, and
-writing them ourselves manufactures that same desync in any player that trusts them.
+ComfyUI has had a first-class `VIDEO` since its video nodes landed, and this node ignored it. A video graph
+had to go `VIDEO → GetVideoComponents → IMAGE →` our own hardcoded `libx264`/`yuv420p` encode: a file that
+already existed on disk was decoded to float32 and re-encoded at a rate we had to guess, with no crf, no
+audio and no colour properties. Over 120 classes on a stock install emit `VIDEO` — `LoadVideo`,
+`CreateVideo`, `SaveVideo`, and every hosted model from Kling to Veo to Sora to Runway to Wan — so most of
+the video work a studio does was running through the one part of this repo that made pixels.
 
-**The frame rate is stated, never assumed.** The node's own `fps` widget wins; at 0 the graph is asked — any
-node with an `fps` or `frame_rate` widget, the branch first and the whole graph second, because a movie node
-is usually a sibling of the publish node rather than an ancestor — and two conflicting rates leave the graph
-treated as silent. Only then does 24 apply, and the panel names which of the three answered, before the run
-and after it. A supervisor reading timing off the player can tell a measured rate from a default one.
+**Review media is derived and may be transcoded; a deliverable file is never transformed.** That was already
+the rule for frames — PNG in, PNG registered, a template claiming `.exr` overruled — and it is structural
+now rather than a habit. `movie.encode` is gone. Where a `VIDEO` is a file on disk, that file is what goes
+up, byte for byte. Where it is not — `CreateVideo` assembling a batch, a hosted model answering with frames —
+`VideoInput.save_to()` writes it, which is ComfyUI's own encoder and knows what ours never did: sRGB is
+BT.709, HDR is BT.2020/HLG, HDR PQ is BT.2020/PQ, the bit depth is the clip's, and the audio comes with it.
+
+`sg_first_frame`, `sg_last_frame`, `frame_count` and `frame_range` are still ours, written where the site
+has them. `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are still the transcoder's and
+still never written: probe 022 measured `_mp4` serving a transcode of a replaced file while status read 1,
+and writing them ourselves manufactures that desync in any player that trusts them.
 
 Image sequences stay supported as *input*: the Load node's `frames` tier is untouched.
+
+### The file on disk is the file only when nothing has happened to it
+
+`VideoFromFile.get_stream_source()` hands back the source path — and hands back the *whole* source path
+even where the graph trimmed or cropped the clip, because `as_trimmed` and `as_cropped` return a new
+`VideoFromFile` over that same file with a window recorded beside it. Uploading the source on the strength
+of the class alone would file a ten-second plate as the two-second selection a supervisor asked for, and
+would do it silently, which is corpus 028's failure mode exactly.
+
+So the test is not the class, it is whether the object and the file are the same video: same duration and
+same dimensions as a plain `VideoFromFile` over that path. Both are container metadata reads, neither
+decodes, and a clip that fails is encoded rather than copied. Which of the two happened is on the panel,
+because it is the thing an operator wants to read back.
+
+A `VIDEO` whose source is a `BytesIO` has no file to preserve and takes the encode path. Nothing is lost:
+there was never a file to leave untouched.
+
+### `fps` and `published_files` are answers the graph already gave
+
+The node's own `fps` widget existed because a batch of frames carries no rate and an invented 24 must not
+read as a measured one. A `VIDEO` carries its rate, `CreateVideo` is where a person sets one, and a rate
+read off the media beats a rate inferred from a sibling node. The widget goes, and with it the walk that
+guessed for it and the three-source sentence that explained the guess.
+
+`published_files` was a four-way combo — `(none)`, `frames`, `movie`, `frames and movie` — because the node
+could not tell a sequence from the frames of a movie: one IMAGE batch, two intentions. Two inputs tell them
+apart by themselves. Frames arrive as `images`, a movie arrives as `video`, the combo's four rows are the
+truth table's four rows, and the operator decides by wiring rather than by agreeing with a menu afterwards.
+
+What is left is one genuinely per-publish question, and it is not about media at all: **is this a
+deliverable, or only review?** `register_files` — "Create Published Files" — is that question and nothing
+else.
+
+### `register_movie` is the house's, `register_files` is the publish's
+
+Whether a studio *also* keeps the review movie as a `PublishedFile` beside the sequence is a convention, not
+something anyone decides twice a day, so it sits in the profile with `storage`, `path_template` and
+`colour_space`:
+
+    "published_files": {
+      "storage":        "primary",
+      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":   "sRGB",
+      "register_movie": false
+    }
+
+The two compose in one place. `register_files` off registers nothing. On, it registers the frames wherever
+`images` is wired, and the movie where `video` is wired and either the house keeps it or there are no frames
+— a movie published on its own IS the deliverable, and a tick that registered nothing would be a silent
+no-op.
+
+### The impossible ask is a run-time error, not a greyed-out box
+
+`images` alone, more than one frame, `register_files` off. The frames cannot be the media, because a
+Version's media is single-valued (probe 022), and they are not being registered as files, so the only
+container left is frame 1 and the other twenty-three are dropped. The node refuses, naming the count and the
+two ways out: tick the box, or send the batch through `CreateVideo` and wire the `VIDEO`.
+
+The frontend must not pre-empt this by disabling the checkbox. A batch size does not exist until execution —
+it is a tensor the graph has not produced yet — so the browser could only guess, and a box greyed out on a
+guess is worse than an error that knows.
+
+### The widget window closes at release
+
+`widgets_values` is positional, so removing `fps` and `published_files` and adding `register_files` shifts
+every value below them in every saved graph. That is normally forbidden here, and it is done once, now, on
+purpose: at 0.1.0 with an empty `PublisherId` and nothing published, the only graphs in the world carrying
+these widgets are the ones in this repo, and they move in the same commit. After the first Registry release
+the rule is the old one — append, never insert, never remove.
 
 ## The frames are files, not media
 
 The other half of probe 022's verdict. A movie is what a supervisor reviews; the frames are what the next
 department opens, and a Version cannot hold them — media is single-valued and Attachments are storage rather
 than review. So the frames are a `PublishedFile`, and asking for them changes nothing about the Version: one
-run is still one Version carrying one movie.
+run is still one Version carrying one piece of review media.
 
-    movie output      one Version, media uploaded. No PublishedFile — the operator may ask for one
-    image sequence    one Version carrying the movie for review, PLUS a PublishedFile per file
-    single image      unchanged
-
-`published_files` on the node says which, because the node cannot tell the two apart: an IMAGE batch is a
-sequence of frames whether the deliverable is the sequence or the movie made from it, and guessing would
-either litter a share with frames nobody asked for or silently drop the ones somebody did.
+    video wired            one Version, the movie uploaded. A PublishedFile where the house keeps one
+    images wired           one Version carrying frame 1 for review, PLUS a PublishedFile per frame
+    images and video       the movie for review, the frames as files
+    a single image, no tick  unchanged: PNG to `image` and `sg_uploaded_movie`, no file, no storage root
 
 ### We copy; ComfyUI writes wherever it writes
 
@@ -219,6 +356,52 @@ path:
 
 The version number is the Version's own, so `pf_seq_depth_v001` and `.../v001/` cannot disagree.
 
+### Two names, composed, and a path that refers to them
+
+`output` is gone. It was a text field whose entire effect was to fill `{output}` in a template hidden
+in the advanced fold — you typed a word and could not see what it did. Everything it did is now said
+out loud:
+
+    root name     {entity}_matte              the STREAM.  PublishedFile.name, and the folder
+    version name  {root_name}_v{version:03d}  one version of it.  Version.code
+
+The shipped root name is `{entity}_{sg_task.Task.step.Step.short_name}`: the pipeline step through
+the Task, by `short_name` as Toolkit's `{Step}` key reads it, because steps are a studio's fixed
+vocabulary where Task names are free text. Every token is optional: one with no value drops out with
+its separator, so the same template reads `sh010_RTO` on a Task and `sh010` on a bare Version.
+    sequence      {entity}/{root_name}/{version_name}/{version_name}.%04d{ext}
+    movie         {entity}/{root_name}/{version_name}{ext}
+
+Three publish nodes on one Task read `{entity}_depth`, `{entity}_normal`, `{entity}_alpha` on their
+faces. That is the same distinction `output` used to make invisibly.
+
+**Composed, never subtracted.** recipe 004 says `name` is the stream and `code` is one version of it,
+and the old code derived the stream by stripping the version token back out of a template. That broke
+the moment a path template merely *referred* to a name: stripping the version from
+`{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` hands back the whole filename, frame
+number and all. Rendering `{root_name}` from its own template cannot fail that way, because there is
+nothing to strip.
+
+**The path stopped rewriting the name.** It used to spell the entire naming scheme a second time —
+`{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png` — so the two
+could disagree. Now it refers to `{root_name}` and `{version_name}`, and a sequence gets a folder
+named for the version because it is many files, while a movie sits beside that folder because it is
+one, so no folder holds frames and a movie together. Two templates, each sayable in a
+sentence, where there was one plus an implicit `single()` that stripped the frame token out to invent
+the movie's path.
+
+**Tokens are Flow PT's own syntax, to any depth.** `{entity.Shot.code}` still works, and so does
+`{sg_task.Task.entity.Shot.code}` — the server does the traversal and answers under the literal
+dotted key (probe 003), so the client hands over everything after the hop it already holds an id for
+rather than parsing the chain itself. A **bare** token is that link's own name, the way Flow PT
+returns one in a relationship dict: `{entity}` is the Shot's code, `{sg_task}` the Task's `content`
+(never its code — entity_types/Task).
+
+**An empty token is reported, not swallowed.** `_clean` collapses the `//` an unresolved token
+leaves, which is right for the path and wrong as the only response: probe 016 has a dotted read
+returning 200 with the key silently absent. So the staging step names every token that came back
+blank, on the same principle as corpus 028 — a path that rendered proves as little as a 200 does.
+
 ### Colour space is recorded, never converted
 
 A colour transform is the most consequential pixel change in a comp, and this project does not make images. So
@@ -249,6 +432,65 @@ default applies.
 `path_cache` null after a REST create, so a filter on it misses every row published this way
 (`entity_types/PublishedFile`). It is a plain text field, it takes a write, and the client already knows the
 answer.
+
+### Where someone else wrote the files, we register them
+
+`write_frames` is the one place this node makes a picture, and what it makes is an 8-bit PNG. That is the
+honest answer for an `IMAGE` batch, which is a tensor and has no file. It is the wrong answer the moment a
+colour-managed graph is in play, where `OCIO Write` has already written 32-bit EXR in a known space: writing
+8-bit PNGs of scene-linear data under a truthful `colour_space` label would be worse than refusing.
+
+So a third input, `files`, and the rule the other two already follow — `images` and `video` are the review
+side and may be derived; `files` is the deliverable side and is never touched:
+
+    images  wired    review media, plus PNGs written from the tensor when the box is ticked
+    video   wired    review media; a file on disk is uploaded untouched
+    files   wired    the deliverable, registered where it already lies. No PNG is written at all
+
+**It is a socket, not a widget**, so this lands without moving `widgets_values`. `OCIOWrite` declares
+`RETURN_TYPES = ("STRING",)` and `RETURN_NAMES = ("path",)` alongside `OUTPUT_NODE = True`, so the path is
+already on a wire and nobody has to type one. Adding an input slot is additive; adding a widget is not.
+
+**What comes down that wire is one concrete path, not a pattern.** `OCIOWrite` returns the written file for
+a still and for a movie, and `paths[0]` — the *first frame* — for a sequence: `<folder>/<name>.0086.exr`,
+four-digit, re-based to its own `start_number`. Everything here speaks the other notation (`media.SEQ`:
+`%04d`, `####`, `@@@@`), so the first job is `sequence.discover(first)` — same folder, same stem, same
+extension, digits in the frame slot and nothing else — giving back the pattern, the frames and the real
+range. Anchored on all four, because a loose glob in a render folder collects the neighbours.
+
+**The folder holds more than pictures.** `write_sidecar` defaults on, so `<name>.json` sits beside the
+frames, and a sequence carrying audio gets a `.wav` as well. Only the pictures are registered. The sidecar
+is named in the description, because an artist who cannot find a tag needs to know the file is there, and it
+gets no PublishedFile of its own: this site has no type for it, and a type is never created — a
+PublishedFileType has no `project`, so minting one adds it to every show on the site (recipe 004), which is
+probe 019's rule again.
+
+**The copy becomes conditional.** "We copy; ComfyUI writes wherever it writes" was written when the frames
+always began in ComfyUI's output directory. An operator who points `output_folder` straight at the storage
+root has already put the file where the site can resolve it, and copying it beside itself would duplicate a
+4K EXR sequence for nothing. So: already under the root, register in place; anywhere else, copy as before.
+`sequence.relative` answers `path_cache` either way.
+
+**Colour space stops being a claim.** `colour_space` is a widget the operator types precisely because this
+node cannot know what a tensor is. It *can* know what an EXR is: `output_colorspace` is a value on the
+`OCIO Write` that made the file, sitting in the graph this node already reads whole for provenance
+(`provenance.extract`). Where the wire leads back to a Write we can identify, that value wins and the panel
+says where it came from; the widget stays for everything else, and for when identification fails. Two
+sources for one field is worth it because one of them is measured and the other is a promise — but they are
+never blended, and the record always names which it was. Nothing is converted either way.
+
+**`register_files` does not gate it.** A tick that registered nothing would be a silent no-op, which is the
+same argument that already registers a clip published on its own: someone who wired a Write's output into a
+publish node has said what this is. `files` wired means registered.
+
+**The residual risk is `partial_execution_targets`, and it is not closed.** Both nodes are `OUTPUT_NODE`s,
+and ComfyUI's front end can send a list naming which output nodes to run — every output node not in it is
+dropped before execution starts. A selective run can therefore execute this node while `OCIO Write` never
+fires, leaving `files` pointing at whatever was on disk from last time. A missing file refuses loudly. A
+*stale* one cannot be refused: a cached Write that legitimately did not re-run returns the same path with
+the same mtime, so treating that as an error would break the normal case. The panel reports the path, the
+frame count and the mtime of what it registered, and the operator sees the date. Closing it properly needs
+a probe of what the front end actually sends on a selective run. That probe does not exist.
 
 ## Media comes back the same way it went out
 
@@ -291,6 +533,23 @@ A sequence that comes back one frame at a time is not an input to a video graph,
 **batch of N frames** — a sequence off disk, or a movie decoded. `frame` is the first frame of the range and
 kept that meaning; `frame_count` beside it says how many.
 
+`frame` is a frame **number**, the one in the filename and the one Flow PT shows. It was a *position* in the
+sorted list, and only in the batch path: `_at_frame` substituted the number into the pattern while
+`load_frames` — which is what the node actually calls — indexed. On a 1001-based plate that made `frame` 1003
+hand back frame 1008, the last one, silently clamped. Both read the numbers off the filenames now
+(`media.frame_numbers`), a frame the sequence does not have is refused with the range it does have, and the
+one thing this repo cannot do is return a different frame than the one asked for.
+
+The numbers come off **disk**, not from `sg_first_frame`/`sg_last_frame`. Those are a claim a publisher made
+once and nothing keeps them true; the filenames are the sequence.
+
+`frame` **0** is "whatever this source starts at", which is the answer nearly every time — a plate that runs
+1001-1048 needs nothing typed. That is also why the range is on the panel beside the source: a number you
+must know before you can type it, and could previously learn only by typing a wrong one, is not a widget an
+artist can use. `frame_count` **0** is every frame to the end. A movie carries no numbering inside it, so
+there `frame` counts decoded frames from 1 and 0 means the same as 1, and the panel says nothing rather than
+inventing a range.
+
 `frame_count` defaults to **1**, which is exactly what the node always returned. A batch is opted into, never
 handed over: a graph saved before the widget existed asks for one image and must keep getting one. The widget
 is also *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
@@ -301,7 +560,9 @@ not.
 The batch has to be bounded, because 300 frames of 4K is 27.8 GiB of float32 and an allocator's answer to
 that is a stack trace. So the ceiling is a **size**, not a count: `media.BATCH_BUDGET` is 4 GiB, checked
 against the real resolution after the first frame is read, and the refusal names the resolution, the total,
-and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. A short
+and how many frames do fit at it. `MAX_FRAMES` (512) is only the widget's own guard against a typo. With
+`frame_count` 0 there is no count to check up front, so a sequence — which knows its length from the glob
+before it reads anything — still gets the one check, and a movie gets it against what has accumulated. A short
 read comes back short and says so — padding a batch to the number asked for would be this node inventing
 frames — and frames whose size changes mid-sequence are refused by filename rather than by two shapes in a
 torch traceback, because they cannot stack and no resize belongs here.
@@ -586,7 +847,8 @@ correctly out of scope.
 
 Before the sink rule learned that frames assembled into another medium end an image stream too
 (`instrument._is_sink`) the number was 57%. That one fix moved 124 workflows, nearly all of them
-video. Those frames now publish as one Version carrying one movie — see "Output is always a movie".
+video. Those graphs end in a `VIDEO`, which is now what the publish node takes — see "The node records;
+ComfyUI makes the media".
 
 ### Subgraphs
 
@@ -661,6 +923,68 @@ what gets attached as a file. `UNIQUE_ID` identifies this node instance.
 
 Nothing else needs to be asked of the user; the graph already knows.
 
+## Who the nodes publish as
+
+A person, signed in through the App Session Launcher, or a script key from the environment. The
+person wins when both are present.
+
+**One surface: Settings, then SG.** The site address, Log in, the script authentication and the publish
+defaults are rows in ComfyUI's own Settings dialog, drawn by the pack rather than by ComfyUI's form
+controls, so nothing entered there reaches ComfyUI's settings store. Each row posts to the pack's own
+routes and saves on change. The node shows nothing about the connection except the error sentence
+that names Settings: who a ComfyUI publishes as is one fact per ComfyUI, and a row on every node was
+the wrong place for it.
+
+**The person.** The operator enters the site address under Settings and clicks Log in. The server
+asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the dialog
+opens it in a new tab, where the operator is already logged into Flow PT through Autodesk Identity,
+and they click approve. The site hands back a session token, which spends at the token
+endpoint as `grant_type=session_token` and mints a bearer for that `HumanUser`. Every Version is then
+created by the person, and Flow PT's Artist field is them, with no script key, no password and no
+impersonation. `credentials.py` owns this; `sg_groundtruth.launcher` speaks the protocol.
+
+**The script.** A script name and application key entered under Settings, else `FPT_API_SITE_URL`,
+`FPT_API_SCRIPT_NAME` and `FPT_API_API_KEY` from the launch environment or from `.env.local` in a
+checkout. A farm has no browser, and a machine nobody signs in on wants the same. Publish as, a login
+from the People page, makes the script act as that person (`sudo_as_login`, probe 027); the site's
+refusal, when the person cannot be impersonated, is read from Test under Settings rather than on the
+first Run.
+
+**Where they live.** `user/__comfyui_flow_production_tracking/session.local.json` and
+`settings.local.json` beside it, mode 600.
+ComfyUI serves a `__` directory over no HTTP route (`folder_paths.get_system_user_directory`, v0.3.76
+and later), it sits outside `custom_nodes/` so a Manager update leaves it alone, and it follows
+`--user-directory`, so the Desktop app keeps it too. Outside ComfyUI the same file sits beside
+`.env.local`, under the same gitignore rule. ComfyUI's settings store and `/userdata` were rejected:
+both answer to anyone who can reach the port. A node widget was rejected: `widgets_values` is saved
+into every workflow and every PNG.
+
+**How long it lasts.** The site's `User Session Expiry` preference, one day on the probed site, from
+the last use. Minting a bearer counts as use, so a ComfyUI that publishes or even opens a graph with
+these nodes once a day never asks again. Left idle past the window the token dies, the token
+endpoint refuses it, and Settings says so and offers Log in. Nothing renews on a timer:
+the site's preference is the administrator's decision and a clock would defeat it.
+
+**One session per ComfyUI.** The `comfy-user` header is a plain string any client may send, so a
+per-user file would separate users in name only. A shared ComfyUI where two people publish under
+their own names needs a real login in front of it, and that is out of scope here. The pack's own
+routes are as open as ComfyUI's: anyone on the port can write a key or sign out, and can read the
+script name and the login. The key and the token never leave the server on any route.
+
+**The publish defaults are the profile.** The Defaults rows under Settings edit `profile.local.json`
+for the project the nodes open on: the Version name and root name templates, the status, and the
+`published_files` block. There is no second store. Each template row shows the value in force, the
+default when the profile has none, beside the example it renders on sample values by the node's own
+renderer; typing the default back in clears the profile key. The Version's `sg_path_to_frames` and
+`sg_path_to_movie` each hold one absolute path (probe 021), so the profile also picks the operating
+system they are written for, from the roots the storage defines, and whether each is written at all;
+the files themselves always go under this machine's root. The profile itself now lives in the protected directory
+when one exists there, and at the checkout root otherwise, so the inspector's file is read as long
+as it is the only one and a Registry install, which has no checkout, still has somewhere to write.
+Adding a field of the operator's choosing is not in Settings for the first release: it is a
+`Field(...)` line an agent adds, and the append-only rule under "widgets_values is positional"
+governs it.
+
 ## Distribution
 
 Two ways in, and they are not the same thing:
@@ -696,16 +1020,31 @@ side, and on the ComfyUI side `Load` is what a node is called when it is where t
 `NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
 anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
 
+The cost of the long form is paid twice in the editor, and it is accepted rather than unnoticed: the
+Templates browser labels a pack's collection with the `custom_nodes` directory name verbatim
+(`title: e` in the frontend bundle) and the node's footer badge is `python_module` split on `.` —
+the same string. Neither reads `DisplayName`, and the only override is a frontend i18n key
+(`templateWorkflows.category.<name>`) that ships with the frontend and not with a pack. Registry
+names allow no spaces, so a short label was reachable only by renaming the repo, which trades a
+searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chips is the price.
+
 ### The dependency problem
 
-`_deps.py` resolves `sg_groundtruth` from a sibling checkout. That works here and is **not distributable** — a
-registry install gets this repo and nothing else, and `sg-groundtruth` is private.
+**Closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI and this repo depends on it normally, in
+`requirements.txt` (what ComfyUI-Manager installs) and in `pyproject.toml` (what the Registry reads).
+`_deps.py`, which put a sibling checkout on `sys.path`, is gone, and with it `SG_GROUNDTRUTH_PATH`.
 
-Three ways out, in order of preference:
+Until then a registry install got this repo and nothing else, and `sg-groundtruth` was private. Three ways
+out were weighed, and the first was **chosen** (2026-09-04) and is now done:
 
-1. Publish the *client* half of `sg-groundtruth` to PyPI as a slim package and depend on it normally. The corpus
-   stays private; only the client ships.
-2. Vendor the client into this repo. It is about sixty lines. Cheap, but it forks.
-3. Declare a git dependency. Fragile, and impossible while the repo is private.
+1. **Publish the *client* half of `sg-groundtruth` to PyPI as a slim package** and depend on it normally. The
+   corpus stays private; only the client ships.
+2. Vendor the client into this repo. Rejected: it forks, and a client fix would have to land twice.
+3. Declare a git dependency. Rejected: fragile, and impossible while the repo is private.
 
-Decide before publishing, not after — `[project].name` on the Registry is immutable.
+The surface is small enough that the choice was never about effort — 99 lines across two files, `FPT` and
+`FPTError` from `client.py` and `load` from `env.py`, with `mcp.py`, `naming.py` and `schema.py` unused and
+nothing reaching the corpus. `env.ROOT` resolving to site-packages once installed is a non-issue, and this
+is the case now: `site.py` passes this repo's own root to `load`.
+
+Decided before publishing, not after — `[project].name` on the Registry is immutable.

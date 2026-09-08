@@ -1,13 +1,15 @@
-# ComfyUI already ships both. They are listed anyway: ComfyUI-Manager installs this file, and the
-# setup CLIs (`python -m comfyui_fpt.fields`, `.seed`) are often run with a plain system python that
-# has neither.
+# ComfyUI-Manager installs this file, so this is what actually gets installed for a node-pack user.
+#
+# sg-groundtruth is the corpus repo's client half (DESIGN: "The dependency problem"). Pinned to a
+# floor, not a version: it is a small client and this repo is the only consumer. 0.1.3 is the first
+# with FPT.from_session and the launcher module the Sign in button needs.
+sg-groundtruth>=0.1.3
+
+# ComfyUI already ships both. They are listed anyway: the setup CLIs (`python -m comfyui_fpt.fields`,
+# `.seed`) are often run with a plain system python that has neither.
 requests
 Pillow
 
 # Deliberately absent:
 #   torch, numpy    ComfyUI's own, and a custom node that pins either can break the whole install.
 #   av              only the movie branch imports it, lazily, and ComfyUI ships it (DESIGN: Nodes).
-#   sg_groundtruth  not on PyPI. Whether to publish the client half is an open decision — see
-#                   DESIGN.md, "The dependency problem" — so until it is made, this repo expects a
-#                   sibling checkout of `sg-groundtruth` beside its own directory, or the path in
-#                   SG_GROUNDTRUTH_PATH. Listing it here would make ComfyUI-Manager fail the install.

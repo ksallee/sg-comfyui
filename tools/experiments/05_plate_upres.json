@@ -614,7 +614,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## 05 \u2014 Plate upres, both paths\n\nTake the 480p generated section back up to plate resolution without it looking AI-smeared.\nGenerative work happens at model resolution; delivery does not.\n\n**esrgan** \u2014 RealESRGAN_x4plus, fixed 4x, then a lanczos fit to 1920x1080. Deterministic: same\ninput, same pixels, no invented detail. This is the one a comp supervisor signs off.\n\n**seedvr2** \u2014 resize to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step\n(denoise 1, cfg 1, euler/simple). It *does* invent detail \u2014 that is the point when the source is\nsoft, and the reason it needs a look before it ships.\n\nModels: `seedvr2_3b_int8_convrot.safetensors` (3.22 GB, diffusion_models) and\n`seedvr2_ema_vae_fp16.safetensors` (0.47 GB, vae), both Apache-2.0;\n`RealESRGAN_x4plus.safetensors` (0.06 GB, upscale_models), BSD-3.\n\nDerived from the core templates `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_image`\n(Comfy-Org/workflow_templates, MIT), with the SeedVR2 subgraph expanded to plain nodes so the\nsampler is visible to provenance.\n\nDeliberately **not** SUPIR: `utility_image_upscale_supir` is a nicer restorer and its weights are\nnon-commercial, so it cannot ship in a studio delivery."
+        "## 05 — Plate upres, both paths\n\nTake the 480p generated section back up to plate resolution without it looking AI-smeared.\nGenerative work happens at model resolution; delivery does not.\n\n**esrgan** — RealESRGAN_x4plus, fixed 4x, then a lanczos fit to 1920x1080. Deterministic: same\ninput, same pixels, no invented detail. This is the one a comp supervisor signs off.\n\n**seedvr2** — resize to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step\n(denoise 1, cfg 1, euler/simple). It *does* invent detail — that is the point when the source is\nsoft, and the reason it needs a look before it ships.\n\nModels: `seedvr2_3b_int8_convrot.safetensors` (3.22 GB, diffusion_models) and\n`seedvr2_ema_vae_fp16.safetensors` (0.47 GB, vae), both Apache-2.0;\n`RealESRGAN_x4plus.safetensors` (0.06 GB, upscale_models), BSD-3.\n\nDerived from the core templates `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_image`\n(Comfy-Org/workflow_templates, MIT), with the SeedVR2 subgraph expanded to plain nodes so the\nsampler is visible to provenance.\n\nDeliberately **not** SUPIR: `utility_image_upscale_supir` is a nicer restorer and its weights are\nnon-commercial, so it cannot ship in a studio delivery."
       ],
       "title": "Note"
     },
@@ -637,6 +637,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 20
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -648,17 +653,16 @@
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
-        "esrgan",
-        0.0,
-        "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail \u2014 same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
-        "{entity.code}_{output}_v{version:03d}",
+        "{entity}_esrgan",
+        "{entity}_esrgan_v{version:03d}",
+        false,
+        "Deterministic upres: RealESRGAN_x4plus at a fixed 4x, then a lanczos fit to 1920x1080. No hallucinated detail — same input, same pixels. This is the delivery-res plate a comp supervisor can sign off without a look.",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 esrgan"
+      "title": "Flow PT Publish — esrgan"
     },
     {
       "id": 18,
@@ -679,6 +683,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 21
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -690,17 +699,16 @@
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
-        "seedvr2",
-        0.0,
+        "{entity}_seedvr2",
+        "{entity}_seedvr2_v{version:03d}",
+        false,
         "Restorative upres: resized to 1920x1080, then SeedVR2 3B int8 restores at that resolution in one step. It invents detail where the source is soft, which is the point and the reason it needs a look before it ships.",
-        "{entity.code}_{output}_v{version:03d}",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 seedvr2"
+      "title": "Flow PT Publish — seedvr2"
     },
     {
       "id": 19,
@@ -746,14 +754,14 @@
         "(none)",
         "Approved",
         "gen480",
-        "version number in the name",
-        0,
         "auto",
+        0,
         1,
+        "version number in the name",
         "",
-        1
+        0
       ],
-      "title": "Flow PT Load \u2014 the 480p section"
+      "title": "Flow PT Load — the 480p section"
     }
   ],
   "links": [

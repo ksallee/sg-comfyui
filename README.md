@@ -16,28 +16,42 @@ studio's conventions are hardcoded.
   Key, made in the Flow PT web UI under Admin > Scripts. The script needs to read Projects, Versions,
   Tasks and whatever entities you link to, to create Versions and upload media, and — for the one-off
   field setup — to create fields on Version.
-- **A checkout of `sg-groundtruth` beside this one.** That is the API client and the corpus of probe
-  findings the code cites. It is **private and not on PyPI**, so today there is no way to install this
-  without access to it. Whether to publish the client half is an open decision (DESIGN.md, "The
-  dependency problem"); until it is made, a Registry install of this repo alone would not run. This is
-  the single thing standing between here and a normal install.
+- **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
+  names it, and ComfyUI-Manager installs that file. Nothing to clone to *run* the nodes.
+- **A checkout of `sg-groundtruth` beside this one, to *set up*.** Step 1 below measures your site with
+  `../sg-groundtruth/inspect_site.py`, and that inspector is in the corpus repo, not in the PyPI
+  package. Without it there is no `profile.local.json`, and no picker has anything to read.
 
 ## Install
 
 ```sh
 cd ComfyUI/custom_nodes
 git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
-git clone <sg-groundtruth>            # beside it, not inside it
 cd comfyui-flow-production-tracking
-cp .env.local.example .env.local      # then fill in the three keys
+<comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
 ```
 
-`sg-groundtruth` is looked for in the directory *containing* this repo — so cloning into
-`custom_nodes/` puts it at `custom_nodes/sg-groundtruth`, which works. To keep it elsewhere, export
-`SG_GROUNDTRUTH_PATH=/path/to/sg-groundtruth` in the environment ComfyUI is launched from.
+Then restart ComfyUI, open **Settings, then SG**, enter the site address and click **Log in**.
+Approve the request in the browser tab that opens, where you are already logged into Flow
+Production Tracking, and every Version you publish is created by you. A render farm, or a machine
+nobody signs in on, takes a script name and application key in the same place, with an optional
+login to publish as. **Test** proves the connection before the first Run. The same dialog holds the
+publish defaults: the project the nodes open on, Version name, root name, status, and where
+Published Files land.
+
+A checkout can carry the script key in `.env.local` instead, for the command-line tools below:
+
+`<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
+launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
+imports, the site never answers.
+
+```sh
+cp .env.local.example .env.local                    # then fill in the three keys
+```
 
 `.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
-value.
+value. What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a
+Manager update leaves it alone.
 
 ## Set up, in this order
 
@@ -94,19 +108,35 @@ this one. Same three keys either way.
 
 ## The two nodes
 
-**Flow PT Publish Version** — an IMAGE in, a Version out: created, media uploaded, provenance
-attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a project, what the
-Version hangs off, optionally a Task and a status, and what the stream *is* (`depth`, `normals`,
-`mask`). The project, link, Task and status lists are your site's real ones, read live. `code = auto`
-numbers per link, so two graphs chain without anyone copying an id.
+**Flow PT Publish Version** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
+provenance attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a
+project, what the Version hangs off, optionally a Task and a status, and what the stream *is*
+(`depth`, `normals`, `mask`). The project, link, Task and status lists are your site's real ones,
+read live. `code = auto` numbers per link, so two graphs chain without anyone copying an id.
+
+Two inputs, `images` and `video`, and at least one of them wired. What you wire is what the Version
+carries — there is no combo asking you to say it again:
+
+| `images` | `video` | the Version's media | registered as files, when the box is ticked |
+|---|---|---|---|
+| — | wired | that clip | the clip |
+| wired | — | frame 1, as a still | the frames |
+| wired | wired | the clip | the frames, and the clip where your profile keeps it |
+| — | — | the run refuses, and says so | — |
+
+**The clip is never re-encoded when it does not have to be.** A `VIDEO` off `LoadVideo` — or any
+node that hands you a file — goes up as that file, byte for byte, at its own extension. Anything
+else (a `CreateVideo` assembling a batch, a hosted model answering with frames) is written by
+ComfyUI's own `VideoInput.save_to()`, which carries the colour space, the bit depth and the audio.
+The panel says which of the two happened. There is no `fps` widget: a `VIDEO` states its own rate,
+and `CreateVideo` is where you set one.
+
+An IMAGE batch of more than one frame is not media — a Version's media is single-valued (probe 022) —
+so with **Create Published Files** off the run refuses rather than uploading frame 1 and dropping the
+rest. Tick the box to register the sequence, or send the batch through `CreateVideo`.
 
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
-
-`published_files` decides whether the frames themselves are kept. A batch always publishes as one
-Version carrying one movie for review; ask for `frames` as well and the node copies the sequence to
-`<storage root>/<path template>` and registers a `PublishedFile` for it, linked to that Version. The
-default is `(none)` — a movie publish and a single image are untouched.
 
 **Flow PT Load Version** — a Version's media back into the graph, and the link recorded. The inputs
 are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
@@ -120,10 +150,17 @@ rendered sequence and the mp4 are told apart at a glance. A file whose path is o
 has not mounted is not offered at all.
 
 `frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
-loaded clip a real input to a video graph. It defaults to `1`, the single image the node always
-returned, so nothing already saved changes. The ceiling is a size rather than a count: past 4 GiB of
-float32 the node refuses and says how many frames fit at that resolution, instead of running out of
-VRAM. Frames of differing resolution cannot stack and are refused by name.
+loaded clip a real input to a video graph.
+
+`frame` is the frame **number**, the one in the filename: `1003` means `plate.1003.exr`, not the 1003rd
+file. Leave it at **0** and it starts wherever the sequence starts, which is what a 1001-based plate
+wants and why it usually needs no typing at all; the panel shows the range the source actually has, so
+you are not guessing. Ask for a frame that is not there and it is refused, naming the range — it will
+never quietly hand back a different frame. `frame_count` **0** reads to the end; it defaults to `1`,
+the single image the node always returned, so nothing already saved changes. The ceiling is a size
+rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
+resolution, instead of running out of VRAM. Frames of differing resolution cannot stack and are
+refused by name.
 
 `colour_space` comes back as a fourth output and on the panel when the publisher declared one. Read
 back, never applied — nothing here converts, and a Version that declared nothing says nothing.
@@ -175,6 +212,12 @@ node. See DESIGN.md, "Where each piece lands is the operator's, not ours".
 are a `PublishedFile` instead, and a PublishedFile's path has to sit under one of your site's
 LocalStorage roots — the server refuses anything else.
 
+**Create Published Files** on the node is one question and it is not about media: is this publish a
+deliverable, or only review? What gets registered follows from what is wired — the frames where
+`images` is, the clip where `video` is. Whether your house *also* keeps the review clip as a file
+beside a sequence is a convention rather than a per-publish call, so it is `register_movie` in the
+profile below; a clip published on its own is the deliverable and is registered either way.
+
 **Nothing has to change about where ComfyUI writes.** The frames land in ComfyUI's own output
 directory as usual, and the node *copies* them into place under the root. The copy is what a failed
 publish is recovered from, so the originals are never moved.
@@ -182,9 +225,10 @@ publish is recovered from, so the originals are never moved.
 Two profile keys per project, beside every other per-show decision:
 
     "published_files": {
-      "storage":       "primary",
-      "path_template": "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
-      "colour_space":  "sRGB"
+      "storage":        "primary",
+      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "colour_space":   "sRGB",
+      "register_movie": false
     }
 
 `storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
@@ -194,6 +238,9 @@ template — Flow PT's dotted field paths and Python's format spec — with two 
   numbers, so in a *path* template the printf form always means the frame.
 - The extension follows the files, not the template. The node writes PNG, so a template ending
   `.exr` registers `.png` and says so. Nothing is transcoded.
+
+`register_movie` says whether the review clip is registered as a file too, beside the frames. It is
+false by default: most shows deliver the sequence and review the clip.
 
 `colour_space` is recorded and never applied: it goes in the PublishedFile's description and in the
 provenance record, and the node's own `colour_space` widget overrides the profile per output. This

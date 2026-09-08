@@ -11,3 +11,7 @@ profile.local.json
 
 # agent worktrees
 .claude/worktrees/
+uv.lock
+
+# JetBrains project files. Kevin's local IDE setup, swept in by a `git add -A`.
+.idea/

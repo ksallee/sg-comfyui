@@ -451,9 +451,9 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## 07 \u2014 Retime / fill dropped frames\n\n24 fps in, 48 fps out, with FILM synthesising every second frame. Non-generative: no sampler, no\nseed, no prompt \u2014 the model interpolates the plate it was given.\n\n**Model:** `film_net_fp16.safetensors` (0.06 GB) in `ComfyUI/models/frame_interpolation/`, from\n[Comfy-Org/frame_interpolation](https://huggingface.co/Comfy-Org/frame_interpolation). FILM is\nGoogle Research's frame-interpolation, Apache-2.0. RIFE also loads here and is smaller, but\nupstream Practical-RIFE disclaims its pretrained weights, so FILM is the one to demo.\n\nCore nodes only (`comfy_extras/nodes_frame_interpolation.py`). Do not install\nComfyUI-Frame-Interpolation \u2014 it pulls in `cupy-wheel`.\n\nThe Flow PT Version is published from **one synthesised in-between frame**: the publish path makes\none Version per frame, so tapping all 23 would make 23 Versions. The conformed clip itself is\nSaveVideo's output on disk."
+        "## 07 — Retime / fill dropped frames\n\n24 fps in, 48 fps out, with FILM synthesising every second frame. Non-generative: no sampler, no\nseed, no prompt — the model interpolates the plate it was given.\n\n**Model:** `film_net_fp16.safetensors` (0.06 GB) in `ComfyUI/models/frame_interpolation/`, from\n[Comfy-Org/frame_interpolation](https://huggingface.co/Comfy-Org/frame_interpolation). FILM is\nGoogle Research's frame-interpolation, Apache-2.0. RIFE also loads here and is smaller, but\nupstream Practical-RIFE disclaims its pretrained weights, so FILM is the one to demo.\n\nCore nodes only (`comfy_extras/nodes_frame_interpolation.py`). Do not install\nComfyUI-Frame-Interpolation — it pulls in `cupy-wheel`.\n\nThe Flow PT Version is published from **one synthesised in-between frame**: the publish path makes\none Version per frame, so tapping all 23 would make 23 Versions. The conformed clip itself is\nSaveVideo's output on disk."
       ],
-      "title": "Retime \u2014 what this is"
+      "title": "Retime — what this is"
     },
     {
       "id": 12,
@@ -474,6 +474,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 13
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -485,17 +490,16 @@
         "demo_07_retime (Shot)",
         "(none)",
         "Pending Review",
-        "retime",
-        0.0,
+        "{entity}_retime",
+        "{entity}_retime_v{version:03d}",
+        false,
         "Retimed 24 -> 48 fps with FILM. This Version is one synthesised in-between frame; the conformed clip is SaveVideo's output. Nothing here was sampled: no seed, no prompt.",
-        "{entity.code}_{output}_v{version:03d}",
+        "",
         "31754",
-        true,
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 retime"
+      "title": "Flow PT Publish — retime"
     }
   ],
   "links": [

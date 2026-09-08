@@ -312,6 +312,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 10
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -323,15 +328,14 @@
         "(none)",
         "(none)",
         "(none)",
-        "beauty",
-        0,
+        "{entity}_beauty",
+        "{entity}_beauty_v{version:03d}",
+        false,
         "generated here, published straight to Flow PT",
-        "{entity.code}_{output}_v{version:03d}",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
       "title": "Flow PT Publish Version"
     }

@@ -74,10 +74,9 @@ The original `LoadImage` is left in the graph, unwired, at the bottom of the "St
 that is `/track-workflow`'s convention, so it is visible what was swapped and trivial to put back.
 
 **The template's `SaveAnimatedWEBP` is gone**, and not for tidiness. It carries `fps` 6 against
-`CreateVideo`'s 16, and the publish node reads the rate off the graph when its own `fps` widget is 0
-— two different rates and the graph is treated as silent, so the movie would have been stamped 24 by
-default while the frames were encoded at 16. That desync is exactly probe 022's signature. One
-`fps` in the graph, one rate on the Version.
+`CreateVideo`'s 16, and two savers at two rates is two answers to a question a clip should answer by
+itself. The publish node reads the rate off the clip it is handed, so `CreateVideo`'s 16 is what
+lands on the Version — one `fps` in the graph, one rate on the Version.
 
 ## Models — zero new download
 
@@ -115,26 +114,25 @@ exists before the TD asks it.
 ## One Version, one movie
 
 A Version's media is single-valued (probe 022), so a sequence cannot *be* media. The publish node
-therefore takes the whole `IMAGE` batch, encodes it to h264 with PyAV, and creates **one** Version:
-the movie goes to `sg_uploaded_movie`, frame 1 also goes to `image` so there is a thumbnail before
-the transcode lands, and `sg_first_frame`/`sg_last_frame`/`frame_count`/`frame_range` record the
-range. An earlier run of this same graph produced 33 Versions and 33 one-frame transcodes; that is
-gone.
+therefore takes the clip, not the batch, and creates **one** Version: the clip goes to
+`sg_uploaded_movie`, its first frame goes to `image` so there is a thumbnail before the transcode
+lands, and `sg_first_frame`/`sg_last_frame`/`frame_count`/`frame_range` record the range. An earlier
+run of this same graph produced 33 Versions and 33 one-frame transcodes; that is gone.
 
-**The frame rate is stated, never assumed.** The node's own `fps` widget is 0 here, which means "do
-not decide on this node" — the graph is asked instead, and the panel names which node answered:
+**The frame rate is measured, never assumed.** `CreateVideo`'s VIDEO output is wired into the publish
+node's `video`, and the rate is read off the clip rather than off a widget or a sibling node:
 
-    33 frames as one movie — 16 fps, from CreateVideo node 58
+    review media: 33 frames at 16 fps — encoded by ComfyUI — VideoInput.save_to
 
 Read back off the Version, `sg_uploaded_movie_frame_rate` is `16.0`. The seeded plate on the same
 Shot reads `25.0`, which is what Flow PT stamps on a still it transcoded — so the two are
 distinguishable on the site, which is the whole point of not writing the transcoder's fields
 ourselves.
 
-Publishing the sequence *as* a sequence is now solved: the frames are registered as PublishedFiles
-under a LocalStorage root, alongside the Version carrying the movie for review. This run predates
-that and publishes the movie only, which for a previs board is the right deliverable anyway — set
-`published_files` on the publish node to keep the frames too.
+Publishing the sequence *as* a sequence is a separate question: the frames are registered as
+PublishedFiles under a LocalStorage root, alongside the Version carrying the clip for review. This
+graph publishes the clip only, which for a previs board is the right deliverable anyway — wire the
+IMAGE batch into `images` as well and tick **Create Published Files** to keep the frames too.
 
 ## Flow PT, as run
 
@@ -184,7 +182,7 @@ plate into Flow PT before it can read it back out.
 tools/qa_node.py --start --port 8956 --repo <this checkout>
 ```
 
-Then open `demo/06_camera_move.json`. Three things worth knowing:
+Then open `example_workflows/06_camera_move.json`. Three things worth knowing:
 
 - `--base-directory` relocates **models** as well as `custom_nodes`, `input`, `output`, `temp` and
   `user` (`folder_paths.py:15`), contrary to the docstring in `tools/qa_node.py`. An isolated

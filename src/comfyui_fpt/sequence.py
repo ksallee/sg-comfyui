@@ -1,18 +1,16 @@
 """Frames on disk, and the path under a LocalStorage root that Flow PT can resolve.
 
-A Version's media is single-valued (probe 022), so the frames themselves cannot BE the media: they are
-a PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots —
-anything else is refused with 400 code 104 (recipe 004).
+A Version's media is single-valued (probe 022), so frames cannot be the media: they are a
+PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots —
+anything else is 400 code 104 (recipe 004).
 
-Nothing here asks ComfyUI to write anywhere in particular. The frames land in ComfyUI's own output
-directory and are **copied** into place under the root. Copy, never move: the run stays where the
-artist expects it, a publish that fails half way leaves something to re-publish from, and a second
-attempt costs a copy rather than a re-render.
+Frames land in ComfyUI's own output directory and are **copied** into place under the root. Copy,
+never move: the run stays where the artist expects it, a publish that fails half way leaves
+something to re-publish from, and a second attempt costs a copy rather than a re-render.
 
-The format is whatever was written. Bit depth and colour space are the first things a comp supervisor
-checks, so nothing here transcodes and nothing here infers: a PNG is registered as a PNG, and the
-colour space is recorded exactly as the operator declared it (DESIGN: never build a feature that makes
-images — a colour transform is the most consequential one there is).
+Nothing here transcodes and nothing here infers. A PNG is registered as a PNG, and the colour space
+is recorded exactly as the operator declared it (DESIGN: a colour transform is the most
+consequential pixel change there is, and this project does not make images).
 """
 import os
 import re
@@ -28,14 +26,15 @@ from . import media, movie, naming
 # The frame token, wherever the operator put it. `media.SEQ` already knows printf, Shake `#` and `@`
 # (docs/quirks), so a path template speaks the same notation `sg_path_to_frames` does.
 SEQ = media.SEQ
-# `{version}` plus whatever literal introduces it — `_v`, `.v`, `-`. Removing it from the TEMPLATE
-# rather than from the rendered string is what makes `name` unambiguous: `sbx_0020_depth_v020` has
-# two runs of digits and only the template knows which one is the version (recipe 004: `name` is the
-# stream, `code` is one version of it).
-VERSION_TOKEN = re.compile(r"[._\-]?v?\{version[^{}]*\}", re.I)
 
-DEFAULT_PATH_TEMPLATE = ("{entity.code}/{output}/v{version:03d}/"
-                         "{entity.code}_{output}_v{version:03d}.%04d.png")
+# Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
+# not. Neither repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
+# themselves, so a path refers to them rather than spelling them a second time and disagreeing.
+# A sequence is many files and gets a folder of its own, named for the version; the movie is one
+# file and sits beside that folder in the stream's folder, so no folder holds both.
+DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}"
+DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
+DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # profiles in the wild name this one
 
 # What to ask for, in preference order, against the types the site already has. Never created: a
 # PublishedFileType has no `project`, so creating one adds it to every show on the site (recipe 004),
@@ -56,68 +55,108 @@ def output_dir():
         return Path(tempfile.gettempdir())
 
 
+def folder(stem):
+    """One folder per publish, under ComfyUI's output. The movie lands beside its own frames."""
+    return output_dir() / stem
+
+
 def write_frames(images, stem):
-    """The batch as a PNG sequence in ComfyUI's output directory. One folder per publish.
+    """The batch as a PNG sequence in ComfyUI's output directory, one folder per publish.
 
     PNG because that is what Pillow can write from an IMAGE tensor without inventing anything. The
-    extension the site records follows these files; it is never taken from the path template, which
+    extension the site records follows these files and is never taken from the path template, which
     would let a template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
     """
-    folder = output_dir() / stem
-    folder.mkdir(parents=True, exist_ok=True)
+    into = folder(stem)
+    into.mkdir(parents=True, exist_ok=True)
     out = []
     for i, frame in enumerate(images, start=1):
-        p = folder / f"{stem}.{i:04d}.png"
+        p = into / f"{stem}.{i:04d}.png"
         Image.fromarray(movie.to_u8(frame)).save(p, format="PNG")
         out.append(p)
     return out
 
 
-def write_bytes(payload, stem, suffix):
-    """The encoded movie beside its frames, so the file registered is the file uploaded."""
-    folder = output_dir() / stem
-    folder.mkdir(parents=True, exist_ok=True)
-    p = folder / f"{stem}{suffix}"
-    p.write_bytes(payload)
-    return p
+# A LocalStorage row defines one root per platform (recipe 004), under these keys.
+PLATFORM_KEY = {"mac": "mac_path", "linux": "linux_path", "windows": "windows_path"}
+THIS_PLATFORM = {"darwin": "mac", "win32": "windows"}.get(sys.platform, "linux")
+
+
+def storage_row(storages, code=""):
+    """The LocalStorage the profile names. Chosen by code, never by position: one root is not a
+    choice, several are, and taking the first would put a show's frames on whichever storage the
+    site happens to list first."""
+    have = ", ".join(sorted(s["code"] for s in storages)) or "none"
+    if not code and len(storages) != 1:
+        raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
+                           f"site has {len(storages)} storages to choose from. Set it to one of "
+                           f"these: {have}.")
+    rows = [s for s in storages
+            if not code or s["code"].strip().lower() == code.strip().lower()]
+    if not rows:
+        raise RuntimeError(f"No storage called {code} on this site. Set published_files.storage "
+                           f"in profile.local.json to one of these: {have}.")
+    return rows[0]
+
+
+def platforms_of(row):
+    """The platforms this storage defines a root for, in the order mac, linux, windows."""
+    return [p for p, k in PLATFORM_KEY.items() if (row or {}).get(k)]
+
+
+def platform_for(row, chosen=""):
+    """The platform the Version's path fields are written for: the profile's choice, else this
+    machine's where the storage defines it, else the first one it does."""
+    have = platforms_of(row)
+    if chosen in have:
+        return chosen
+    return THIS_PLATFORM if THIS_PLATFORM in have else (have[0] if have else THIS_PLATFORM)
+
+
+def on_platform(path, local_root, row, platform):
+    """`path`, written under this machine's root, as the same file under `platform`'s root.
+
+    `sg_path_to_frames` holds one absolute path and cannot resolve on two platforms (probe 021),
+    so a studio picks the one it is written for. A Windows root takes backslashes after it, which
+    is reasoned from how Flow PT spells `windows_path` and not measured against a Windows client.
+    """
+    if platform == THIS_PLATFORM or not path.startswith(local_root):
+        return path
+    root = ((row or {}).get(PLATFORM_KEY.get(platform, "")) or "").rstrip("/").rstrip("\\")
+    if not root:
+        return path
+    rel = path[len(local_root):]
+    return root + (rel.replace("/", "\\") if platform == "windows" else rel)
 
 
 def root_for(storages, code=""):
     """(id, root) for the LocalStorage the profile names, on the platform this client runs on.
 
-    recipe 004 — a root is per platform and a row may define only one; `local_path_windows` and
-    `local_path_linux` read back null where the row leaves them unset, and that is the storage row's
-    configuration, not something a publish can fix. Chosen by code, never by position.
+    recipe 004 — a root is per platform and a row may define only one, so `local_path_windows` and
+    `local_path_linux` read back null where the row leaves them unset.
     """
-    key = {"darwin": "mac_path", "win32": "windows_path"}.get(sys.platform, "linux_path")
-    have = ", ".join(sorted(s["code"] for s in storages)) or "none"
-    # One root is not a choice; several are, and taking the first would put a show's frames on
-    # whichever storage the site happens to list first. Named in the profile, or unambiguous.
-    if not code and len(storages) != 1:
-        raise RuntimeError(f"published_files.storage is not set in the profile and this site has "
-                           f"{len(storages)} LocalStorage rows ({have})")
-    rows = [s for s in storages
-            if not code or s["code"].strip().lower() == code.strip().lower()]
-    if not rows:
-        raise RuntimeError(f"no LocalStorage called {code!r} on this site (have: {have})")
-    row = rows[0]
+    key = PLATFORM_KEY[THIS_PLATFORM]
+    row = storage_row(storages, code)
     root = (row.get(key) or "").rstrip("/")
     if not root:
-        raise RuntimeError(f"LocalStorage {row['code']!r} has no {key}: this platform has no root "
-                           f"under it, so no path here can resolve")
+        raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "
+                           f"published to it from this machine. Set that path on the storage in "
+                           f"Flow PT, or name another storage in profile.local.json.")
     return row["id"], root
 
 
 def check_root(root):
-    """A root that is not mounted must stop the publish BEFORE the Version exists.
+    """A root that is not mounted or not writable stops the publish before the Version exists.
 
-    Same rule as encoding the movie first (publish_version): a Version left behind pointing at frames
+    Same rule as staging the movie first (publish_version): a Version left behind pointing at frames
     nobody wrote is worse than a run that refused.
     """
     if not os.path.isdir(root):
-        raise RuntimeError(f"storage root {root} is not mounted on this machine")
+        raise RuntimeError(f"The storage root {root} is not mounted on this machine. Mount it, "
+                           f"then run again.")
     if not os.access(root, os.W_OK):
-        raise RuntimeError(f"storage root {root} is not writable by this process")
+        raise RuntimeError(f"The storage root {root} is not writable by ComfyUI. Give it write "
+                           f"access, then run again.")
 
 
 def swap_ext(path, ext):
@@ -128,18 +167,21 @@ def swap_ext(path, ext):
 
 # A path template says two numbers at once and they must not be confused. `{version}` is the publish
 # revision; `%04d` (or `####`, or `@@@@`) is the frame. `naming.normalise_template` reads ANY printf
-# pad as the version — that is right for a code template, where `v%04d` is how a TD spells the
-# revision by habit, and wrong here, where it would render frame 3 as `.0003.` and freeze the
-# sequence to one frame. So the frame token is lifted out before rendering and put back after.
+# pad as the version, which is right for a code template — `v%04d` is how a TD spells the revision by
+# habit — and wrong here, where it would render frame 3 as `.0003.` and freeze the sequence to one
+# frame. So the frame token is lifted out before rendering and put back after.
 #
-# The consequence, and it is the honest one: in a PATH template the printf form is the frame, and the
-# version is `{version:03d}`.
+# The consequence: in a PATH template the printf form is the FRAME, and the version is
+# `{version:03d}`.
 SENTINEL = "\x00"
 
 
 def _protect(template):
-    """(template with the frame token held out, the token). NUL survives `naming.render` untouched:
-    it is not a field, not a separator it squashes, and not one it strips from the ends."""
+    """(template with the frame token held out, the token).
+
+    NUL survives `naming.render` untouched: it is not a field, not a separator render squashes, and
+    not one it strips from the ends.
+    """
     t = template or ""
     m = SEQ.search(t)
     return (t, "") if not m else (t[:m.start()] + SENTINEL + t[m.end():], m.group(0))
@@ -150,29 +192,31 @@ def _clean(path):
 
     A single backslash is refused by two different errors depending on which key holds it, and in a
     `local_path` it fails as an *unknown storage* rather than as a malformed path (recipe 004). An
-    empty segment comes from a template token with no value — `{output}` on a graph with one stream —
-    and `//` in a local_path is not the path the server resolves back.
+    empty segment comes from a template token with no value, and `//` in a local_path is not the
+    path the server resolves back.
     """
     return re.sub(r"(?<!^)/{2,}", "/", str(path).replace("\\", "/"))
 
 
+def _under(root, path):
+    """Whether a rendered path lies inside the storage root."""
+    r, p = os.path.normpath(str(root)), os.path.normpath(str(path))
+    return p == r or p.startswith(r + os.sep)
+
+
 def pattern(root, template, values, version, ext):
-    """The absolute destination path, frame token intact, under the storage root."""
-    held, token = _protect(template or DEFAULT_PATH_TEMPLATE)
-    rel = naming.render(held, values, version).replace(SENTINEL, token)
-    return _clean(swap_ext(f"{root}/{rel}", ext))
+    """The absolute destination path, frame token intact, under the storage root.
 
-
-def stream_name(template, values, ext):
-    """The filename with the version dropped: `name`, the publish stream (recipe 004).
-
-    `code` is one version of a stream and `name` is the stream, so the two differ by exactly the
-    version token — which is why it is removed from the template and not from the rendered string.
+    Field values come from the site, so the result is checked to be inside the root: a path that
+    walks out of it would be written outside the storage the site can resolve.
     """
     held, token = _protect(template or DEFAULT_PATH_TEMPLATE)
-    bare = VERSION_TOKEN.sub("", naming.normalise_template(held))
-    rendered = naming.render(bare, values).replace(SENTINEL, token)
-    return os.path.basename(_clean(swap_ext(rendered, ext)))
+    rel = naming.render(held, values, version).replace(SENTINEL, token)
+    out = _clean(swap_ext(f"{root}/{rel}", ext))
+    if not _under(root, out):
+        raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to sit "
+                           f"under the root, so fix path_template in profile.local.json.")
+    return out
 
 
 def single(path):
@@ -206,9 +250,12 @@ def copy_one(source, dest):
 
 
 def relative(root, path):
-    """What `path_cache` holds. The server fills `path_cache_storage` from the path it resolved but
-    leaves `path_cache` null (entity_types/PublishedFile), so a filter on it misses every row
-    published over REST unless the client writes it — which is exactly what this is."""
+    """What `path_cache` holds.
+
+    The server fills `path_cache_storage` from the path it resolved but leaves `path_cache` null
+    after a REST create (entity_types/PublishedFile), so a filter on it misses every row published
+    this way unless the client writes it.
+    """
     return str(path)[len(str(root)):].lstrip("/")
 
 

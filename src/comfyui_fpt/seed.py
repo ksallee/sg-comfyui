@@ -1,15 +1,14 @@
 """Publish a file that is already on disk as a Version.
 
 Setup path. A chain has to start somewhere: a graph that reads its plate from ComfyUI's `input/`
-cannot be pointed at Flow PT until that plate is *in* Flow PT. So `/track-workflow` offers this
-before it replaces a loader, and the first link stops being a chicken-and-egg.
+cannot be pointed at Flow PT until that plate is *in* Flow PT, so `/track-workflow` offers this
+before it replaces a loader.
 
 Naming, link, task and version-number resolution are the publish node's own — `next_code` is called
 here rather than reimplemented, so a seeded Version follows the show's convention like any other.
 
-It writes no AI fields, and that is the point rather than an omission: a file on disk does not say
-how it was made, so the Version reads as `unrecorded` (media.provenance_state) instead of claiming a
-provenance nobody measured.
+It writes no AI fields by design: a file on disk does not say how it was made, so the Version reads
+as `unrecorded` (media.provenance_state) rather than claiming a provenance nobody measured.
 """
 import argparse
 from pathlib import Path
@@ -19,7 +18,8 @@ from .nodes.publish_version import FPTPublishVersion
 
 
 def _pick(pairs, label):
-    return next((i for l, i in pairs if l == label), 0)
+    """The id whose label matches exactly, or 0."""
+    return next((i for name, i in pairs if name == label), 0)
 
 
 def seed(path, project="", link="", task="", code="", template="", status="", note="", output=""):
@@ -30,7 +30,8 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     project_id = (int(project) if str(project).isdigit() else _pick(site.projects(), project)) \
         or site.default_project()
     if not project_id:
-        raise ValueError("no project: pass --project, or set default_project in profile.local.json")
+        raise ValueError("No project chosen. Pass --project, or set default_project in "
+                         "profile.local.json.")
     p = site.for_project(project_id)
 
     # The label carries its own type — `sh010 (Shot)` — and that wins, exactly as in the node:
@@ -40,9 +41,10 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     link_type = picked_type or p.get("link_type", "Shot")
     target = _pick(site.entities(link_type, project_id, q=picked_name), picked_name) if link else 0
     if link and not target:
-        raise ValueError(f"no {link_type} named {picked_name!r} in project {project_id}")
+        raise ValueError(f"No {link_type} named {picked_name} on project {project_id}. Check the "
+                         f"spelling, and use the name as it appears in Flow PT.")
     task_id = _pick(site.tasks_for(link_type, target), task) if (task and target) else 0
-    status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
+    status_code = next((c for label, c in site.statuses(project_id) if label == status), "")
 
     name = code or FPTPublishVersion.next_code(
         template or p.get("code_template", ""), project_id, link_type, target, task_id,
@@ -66,22 +68,29 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     filename = f"{name}{Path(path).suffix or '.png'}"
     publish.upload(fpt, vid, data, filename, field="image")
     publish.upload(fpt, vid, data, filename, field="sg_uploaded_movie")
-    # Seeding several files in one run re-reads the codes it just wrote, or every one numbers v001.
+    # Seeding several files in one run must re-read the codes it just wrote, or every one numbers v001.
     site.forget("find", "versions_on", "vnums", "paths")
     return vid, name
 
 
 def _cli(argv=None):
     ap = argparse.ArgumentParser(prog="comfyui_fpt.seed", description=__doc__.split("\n")[0])
-    ap.add_argument("path", nargs="+", help="image file(s) to publish, in order")
-    ap.add_argument("--project", default="", help="id or name; omit for the profile default")
-    ap.add_argument("--link", default="", help='"sh010 (Shot)"; a bare name uses the project default type')
+    ap.add_argument("path", nargs="+", help="the image files to publish, in order")
+    ap.add_argument("--project", default="",
+                    help="the project id or name. Leave it out to use default_project.")
+    ap.add_argument("--link", default="",
+                    help='what this belongs to, for example "sh010 (Shot)". A bare name uses '
+                         'the project default type.')
     ap.add_argument("--task", default="")
-    ap.add_argument("--code", default="", help="literal code; omit to follow the show's convention")
-    ap.add_argument("--template", default="", help="override the project's code_template")
+    ap.add_argument("--code", default="",
+                    help="the exact name to use. Leave it out to follow the show's convention.")
+    ap.add_argument("--template", default="", help="a name template to use instead of the "
+                                                   "project's code_template.")
     ap.add_argument("--status", default="")
-    ap.add_argument("--note", default="", help="goes in description; say what this is a stand-in for")
-    ap.add_argument("--output", default="", help="what this stream IS, for {output} in the template")
+    ap.add_argument("--note", default="", help="a note for the Version description. Say what "
+                                               "this file is a stand-in for.")
+    ap.add_argument("--output", default="", help="what this file is, for example depth or matte. "
+                                                 "It fills {output} in the name template.")
     a = ap.parse_args(argv)
     for path in a.path:
         vid, name = seed(path, a.project, a.link, a.task, a.code, a.template, a.status, a.note,

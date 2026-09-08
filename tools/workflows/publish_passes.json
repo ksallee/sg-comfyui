@@ -343,6 +343,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 9
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -354,17 +359,16 @@
         "(none)",
         "(none)",
         "(none)",
-        "depth",
-        0,
+        "{entity}_depth",
+        "{entity}_depth_v{version:03d}",
+        false,
         "MoGe depth pass",
-        "{entity.code}_{output}_v{version:03d}",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 depth"
+      "title": "Flow PT Publish — depth"
     },
     {
       "id": 11,
@@ -385,6 +389,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 10
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -396,17 +405,16 @@
         "(none)",
         "(none)",
         "(none)",
-        "normal_opengl",
-        0,
+        "{entity}_normal_opengl",
+        "{entity}_normal_opengl_v{version:03d}",
+        false,
         "MoGe normals pass",
-        "{entity.code}_{output}_v{version:03d}",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 normals"
+      "title": "Flow PT Publish — normals"
     },
     {
       "id": 12,
@@ -427,6 +435,11 @@
           "name": "images",
           "type": "IMAGE",
           "link": 11
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
         }
       ],
       "outputs": [],
@@ -438,17 +451,16 @@
         "(none)",
         "(none)",
         "(none)",
-        "mask",
-        0,
+        "{entity}_mask",
+        "{entity}_mask_v{version:03d}",
+        false,
         "MoGe mask pass",
-        "{entity.code}_{output}_v{version:03d}",
         "",
-        true,
+        "",
         0,
-        "(none)",
-        ""
+        true
       ],
-      "title": "Flow PT Publish \u2014 mask"
+      "title": "Flow PT Publish — mask"
     }
   ],
   "links": [

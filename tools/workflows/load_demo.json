@@ -54,14 +54,14 @@
         "(none)",
         "",
         "depth",
-        "version number in the name",
-        0,
         "auto",
+        0,
         1,
+        "version number in the name",
         "",
-        1
+        0
       ],
-      "title": "Flow PT Load \u2014 newest depth on this link"
+      "title": "Flow PT Load — newest depth on this link"
     },
     {
       "id": 2,

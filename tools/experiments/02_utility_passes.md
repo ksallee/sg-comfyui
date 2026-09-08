@@ -84,7 +84,7 @@ Two notes on the alpha:
     python3 src/comfyui_fpt/instrument.py 02_base.json \
       --publish 11:0 --publish 21:0 --publish 42:0 --load 4 \
       --project "comfyui-fpt sandbox" --link "demo_02_passes (Shot)" \
-      --out demo/02_utility_passes.json
+      --out example_workflows/02_utility_passes.json
 
 The plate was seeded first, because a graph that reads from disk cannot be pointed at Flow PT until
 what it reads is *in* Flow PT:

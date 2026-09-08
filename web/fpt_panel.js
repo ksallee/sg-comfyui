@@ -1,16 +1,16 @@
-import { iconHtml, domRow, advancedWidget } from "./fpt_dom_widgets.js";
-// A small readout both nodes share: what the node is pointing at, and what it last did.
-//
-// A DOM widget rather than a read-only textarea, because the useful parts here are a status — which
-// Flow PT already gives a colour (probe 010, bg_color is comma-separated RGB) — and a run log that
-// wants to be distinguishable at a glance.
-//
-// TWO rows, not one. The readout's job is to answer, before every Run, "which Version, and is this
-// valid" — so the name, its status and the state pill are always on screen. Anything a widget three
-// rows higher already says, and anything an operator reads while CONFIGURING rather than before a
-// run, goes in the second row, which carries `options.advanced` and therefore lives inside
-// ComfyUI's own "Show advanced inputs" fold. A <details> of ours would be a second fold beside the
-// editor's, in the same node, remembering its own state — one fold per node is the whole point.
+/* The readout both nodes carry: which Version they are pointing at, and what the last run did.
+ *
+ * A DOM widget rather than a read-only textarea, because the useful parts are a status — which Flow
+ * PT gives a colour and an icon (probe 010) — and a run log that has to be readable at a glance.
+ *
+ * TWO rows. The name, its status and the state pill are always on screen, because the readout's job
+ * is to answer "which Version, and is this valid" before every Run. Anything a widget three rows
+ * higher already says, and anything read while CONFIGURING rather than before a run, goes in the
+ * second row, which carries `options.advanced` and so lives inside ComfyUI's own "Show advanced
+ * inputs" fold — one fold per node, the editor's own.
+ */
+import { iconHtml, domRow, advancedWidget, styleOnce, esc, rgbParts, rgbCss }
+  from "./fpt_dom_widgets.js";
 
 const CSS = `
 /* box-sizing and a full-width block: the DOM widget's container is sized by the node, and without
@@ -20,49 +20,47 @@ const CSS = `
              overflow: hidden; display: flex; flex-direction: column;
              box-sizing: border-box; width: 100%; height: 100%; }
 .fpt-panel * { box-sizing: border-box; }
-/* The panel does not collapse. Folding it meant measuring the content mid-transition, which was the
-   root of three separate sizing bugs; the box simply sizes to what it holds. */
-/* The name, its status and the state are three siblings here, so a narrow node wraps BETWEEN them.
-   space-between rather than a margin on the last: when they wrap they line up under the name
-   instead of hugging the far edge on a line of their own. */
+/* The name, its status and the state are three siblings, so a narrow node wraps BETWEEN them.
+   space-between rather than a margin on the last: wrapped, they line up under the name instead of
+   hugging the far edge on a line of their own. */
 .fpt-head { display: flex; align-items: center; gap: 6px; padding: 4px 8px; flex-wrap: wrap;
             justify-content: space-between;
             background: #2b2f35; border-bottom: 1px solid #35393f; user-select: none; }
-/* Its own flex row, wrapping between the lead and the name: as one text run a long name broke
-   "Version Name" across two lines and the label read as part of the answer. Flex 0 1 auto, never 1:
-   a title that grows to the full width pushes the status and the state onto a line of their own
-   even when both would have fitted beside it. */
+/* Its own flex row, wrapping between the lead and the name, so a long name does not break "Version
+   Name" across two lines. Flex 0 1 auto, never 1: a title that grows to the full width pushes the
+   status and the state onto a line of their own even when both would have fitted beside it. */
 .fpt-title { font-weight: 600; color: #e8ebee; flex: 0 1 auto; min-width: 0;
              display: flex; align-items: baseline; flex-wrap: wrap; gap: 2px 6px; }
 .fpt-lead { color: #7f868f; font-weight: 400; white-space: nowrap; }
 .fpt-icon { width: 11px; height: 11px; vertical-align: -1px; margin-right: 3px; }
 .fpt-pill { padding: 1px 7px; border-radius: 9px; font-size: 10px; font-weight: 600;
             white-space: nowrap; }
-/* A two-column grid, so every label gets exactly the width the LONGEST one needs and the values all
-   line up. A fixed label width cannot work here: negative_prompt is ~100px at this size and a 62px
-   box let it run underneath its own value. */
-/* fit-content, not max-content: labels take the width they need but never more than 45% of the box,
-   so a narrow node still leaves the values somewhere to go. max-content stayed at 146px whatever the
-   node width, which on a 260px node was 61% of it. */
+/* A two-column grid, so every label gets exactly the width the longest one needs and the values
+   line up. fit-content, not max-content: a label never takes more than 45% of the box, so a narrow
+   node still leaves the values somewhere to go. */
 .fpt-body { padding: 6px 8px; display: grid; gap: 4px 8px; min-width: 0;
             grid-template-columns: fit-content(45%) minmax(0, 1fr); align-items: baseline; }
-/* With everything but the name behind the fold the body is usually empty, and its padding read as a
-   second, blank line under the answer. */
+/* With everything but the name behind the fold the body is usually empty, and its padding would
+   read as a second, blank line under the answer. */
 .fpt-body:empty { display: none; }
 /* The row wrapper stays in the markup but hands its children to the grid. */
 .fpt-row { display: contents; }
+/* A candidate is one line: what it is called, then what state it is in. */
+.fpt-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.fpt-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
+  color: #b9c0c8; white-space: nowrap; }
 .fpt-body > .fpt-sec, .fpt-body > .fpt-why, .fpt-body > .fpt-filter,
 .fpt-body > .fpt-dim, .fpt-body > .fpt-err, .fpt-body > .fpt-ok, .fpt-body > .fpt-alert,
 .fpt-body > .fpt-full, .fpt-body > .fpt-v:only-child { grid-column: 1 / -1; }
-/* Wrap rather than nowrap: once the column is capped a long name has to fold, and folding loses
-   nothing where truncating would. */
 /* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
    a width so a site's own field names still widen the column. The two boxes are two widgets and so
-   two grids — only one grid across both would line them up exactly — but with the same floor they
-   agree wherever the fold holds nothing longer, instead of sitting six characters apart. */
+   two grids; the shared floor is what keeps them from sitting six characters apart. */
 .fpt-k { color: #7f868f; overflow-wrap: anywhere; min-width: 10ch; }
 .fpt-v { color: #cfd3d8; overflow-wrap: anywhere; min-width: 0; }
 .fpt-why { color: #7f868f; font-style: italic; }
+/* A published Version and the files it wrote are the two things an operator opens next. */
+.fpt-a { color: #7fb2e5; text-decoration: none; cursor: pointer; overflow-wrap: anywhere; }
+.fpt-a:hover { text-decoration: underline; }
 /* Not grey: this one says the name above it is not the name a Run would write. */
 .fpt-alert { color: #e0b155; }
 .fpt-sec { color: #7f868f; text-transform: uppercase; letter-spacing: .06em; font-size: 9px;
@@ -78,8 +76,7 @@ const CSS = `
 /* Status and state travel together, so a narrow node drops both to the next line rather than
    stranding "valid" under a pill that stayed up. */
 .fpt-mark { display: inline-flex; align-items: center; gap: 6px; flex: none; }
-/* .fpt-panel sets display:flex, which beats the UA rule for [hidden]. Said again so an empty fold
-   is gone rather than an empty box. */
+/* .fpt-panel sets display:flex, which beats the UA rule for [hidden]. */
 .fpt-panel[hidden] { display: none; }
 .fpt-state { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap;
   font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #8b939c; }
@@ -87,57 +84,42 @@ const CSS = `
 .fpt-panel.is-loading { opacity: .72; }
 `;
 
-/* Three states, because "nothing showing" reads the same as "still asking". The panel already
-   branched three ways internally — error, resolved nothing, resolved something — this only makes
-   that visible, and adds the one it could not know: a request still in flight. */
+/* Three states, because "nothing showing" reads the same as "still asking". */
 const STATE = {
   loading: ["#8b939c", "loading"],
   ok:      ["#7fc98b", "valid"],
   warn:    ["#e0b155", "check this"],
 };
 
-let injected = false;
 const PROVENANCE = {
   generated: "AI generated",
   derived: "derived from a Version, generator not recorded",
   unrecorded: "no generation record",
 };
 
-function ensureCss() {
-  if (injected) return;
-  injected = true;
-  const el = document.createElement("style");
-  el.textContent = CSS;
-  document.head.appendChild(el);
-}
+/** A destination this panel will link to. Everything else is drawn as plain text, so a path or a
+ *  URL that came off the site cannot carry a `javascript:` scheme into an href. */
+const linkable = (u) => /^(?:https?|file):/i.test(String(u ?? "").replace(/[\t\n\r]/g, "").trim());
 
-// Flow PT gives "179,179,179". Pick readable text for it rather than guessing a fixed pair.
-// A real icon where Flow PT has one that can be drawn; the colour badge otherwise. probe 010 found
-// 23 of 25 icons here are sprite-addressed with no locatable sprite, so the badge is the main path.
-function badge(status) {
-  // Same renderer as the chips, so a status looks the same wherever it is drawn (recipe 010).
-  return iconHtml(status.icon, status.rgb) + pill(esc(status.label), status.rgb);
-}
+/** A status the way Flow PT draws it: its icon, then its label on its own colour (recipe 010). */
+const badge = (status) => iconHtml(status.icon, status.rgb) + pill(esc(status.label), status.rgb);
 
+/** One coloured pill. `label` is already escaped; the text colour is picked for readability against
+ *  the site's own background colour rather than fixed. */
 function pill(label, rgb) {
-  const bg = rgb && /^\d+,\d+,\d+$/.test(rgb) ? `rgb(${rgb})` : "#3a4048";
-  let fg = "#e8ebee";
-  if (rgb && /^\d+,\d+,\d+$/.test(rgb)) {
-    const [r, g, b] = rgb.split(",").map(Number);
-    fg = (0.299 * r + 0.587 * g + 0.114 * b) > 150 ? "#1b1d21" : "#e8ebee";
-  }
-  return `<span class="fpt-pill" style="background:${bg};color:${fg}">${label}</span>`;
+  const parts = rgbParts(rgb);
+  const fg = parts && (0.299 * parts[0] + 0.587 * parts[1] + 0.114 * parts[2]) > 150
+    ? "#1b1d21" : "#e8ebee";
+  return `<span class="fpt-pill" style="background:${rgbCss(rgb, "#3a4048")};color:${fg}">` +
+    `${label}</span>`;
 }
 
-// The query in Flow PT's own language, so it can be read, copied, and pasted into `filters`.
-
-// What the run would record, so a publish is not a leap of faith. Fields the site does not have are
-// shown struck through rather than hidden: knowing a value was computed and dropped is the point.
+/** What the run would record, field by field. A field the site does not have is struck through
+ *  rather than hidden, and a field with no value is dimmed rather than dropped: an absent seed on a
+ *  graph with no sampler is worth knowing before you publish. */
 function writesBlock(d) {
   const f = d && d.fields;
   if (!f || !f.length) return "";
-  // Everything, including what will be left empty and why. A field with no value is dimmed, not
-  // hidden: an absent seed on a graph with no sampler is worth knowing before you publish.
   const row = (x) => {
     const dead = !x.present;
     const empty = !x.value;
@@ -146,34 +128,34 @@ function writesBlock(d) {
       dead ? " fpt-gone" : empty ? " fpt-dim" : ""}">${
       esc(x.value || x.note || "—")}</span></div>`;
   };
-  // No fold of its own any more: the whole block already sits behind the editor's advanced fold, and
-  // two nested folds meant two clicks to see a list the operator opened the fold to read.
-  return `<div class="fpt-sec">metadata captured</div>` + f.map(row).join("") +
-    ((d.uploads || []).length
-      // fpt-full, not a .fpt-row with one child: `>` reads the DOM tree, so a lone .fpt-v inside a
-      // display:contents row never matched the span rule and two filenames sat side by side across
-      // the label and value columns.
-      ? `<div class="fpt-sec">uploads</div>` + d.uploads.map((u) =>
-          `<div class="fpt-full fpt-dim">${esc(u)}</div>`).join("") : "") +
+  // fpt-full, not a .fpt-row with one child: the grid rule reads the DOM tree, so a lone .fpt-v
+  // inside a display:contents row does not match it and two filenames sit side by side.
+  const list = (head, items) => ((items || []).length
+    ? `<div class="fpt-sec">${head}</div>` + items.map((u) =>
+        `<div class="fpt-full fpt-dim">${esc(u)}</div>`).join("") : "");
+  // The heading names what the rows ARE: this panel says what a Run WOULD do, never what was done.
+  return `<div class="fpt-sec">fields that will populate</div>` + f.map(row).join("") +
+    list("uploads", d.uploads) +
+    // Copies onto a shared volume are not uploads, and are the ones worth reading twice.
+    list("copied to", d.writes) +
     ((d.missing_fields || []).length
-      ? `<div class="fpt-why">${d.missing_fields.length} provenance field(s) missing on this site` +
-        ` — run: python -m comfyui_fpt.fields</div>` : "");
+      ? `<div class="fpt-why">${d.missing_fields.length} field(s) below are missing from this ` +
+        `site. Run python -m comfyui_fpt.fields to add them.</div>` : "");
 }
 
+/** The Versions this publish would say it came from. The reason goes under the name, not beside it:
+ *  side by side, a narrow node squeezes the code into one character per line. */
 function sourcesBlock(d) {
-  const s2 = d && d.sources;
-  if (!s2 || !s2.length) return "";
-  // The reason goes under the name, not beside it: side by side, a narrow node squeezed the code
-  // into one character per line.
-  return `<div class="fpt-sec">from</div>` + s2.map((x) =>
+  const rows = d && d.sources;
+  if (!rows || !rows.length) return "";
+  return `<div class="fpt-sec">from</div>` + rows.map((x) =>
     `<div class="fpt-full fpt-v">${esc(x.code || ("Version " + x.id))}</div>` +
     (x.why ? `<div class="fpt-why">${esc(x.why)}</div>` : "")).join("");
 }
 
-const esc = (s) => String(s ?? "").replace(/[&<>]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;" }[c]));
-
+/** Add the readout to a node. `onLayout` runs after every redraw that changes the node's height. */
 export function addPanel(node, title = "Flow PT", onLayout = null) {
-  ensureCss();
+  styleOnce("fpt-panel", CSS);
   const root = document.createElement("div");
   root.className = "fpt-panel";
   root.innerHTML = `<div class="fpt-head"><span class="fpt-title">${esc(title)}</span>
@@ -188,12 +170,9 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   more.innerHTML = `<div class="fpt-body"></div>`;
   const stateEl = root.querySelector(".fpt-state");
   const badgeEl = root.querySelector(".fpt-badge");
-  // There is no LGraphBadge here any more. It was meant to mark a troubled node where the editor
-  // already trains a person to look, and on Nodes 2.0 — the only canvas these nodes support — it
-  // drew nothing: usePartitionedBadges reads the `badges` array captured when VueNodeData was
-  // built, then renders it from index 1, so a badge pushed after the first resolve answered was in
-  // node.badges and on no screen (frontend 1.51.9, measured). The state pill is the mechanism that
-  // works.
+  // The state pill is the only mechanism that works here: an LGraphBadge is read off the `badges`
+  // array captured when VueNodeData was built and rendered from index 1, so a badge pushed after
+  // the first resolve is in node.badges and on no screen (frontend 1.51.9).
   const setState = (kind) => {
     const [color, word] = STATE[kind] || STATE.warn;
     stateEl.innerHTML = `<i style="background:${color}"></i>${word}`;
@@ -202,12 +181,8 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
   const body = root.querySelector(".fpt-body");
   const detail = more.querySelector(".fpt-body");
 
-  // Both rows span the node's widget grid.
-  //
-  // No convergence loop any more. It existed because the panel had to guess its own height before
-  // the frontend's layout pass — "expanding measured 674px of content that settles at 449, because
-  // every label wraps while the box is still 14px wide". fitNode measures the node's rendered DOM
-  // instead of predicting it, so one pass after the browser has laid out is the answer.
+  // Both rows span the node's widget grid. fitNode measures the node's rendered DOM, so one pass
+  // after the browser has laid out is the answer and nothing predicts a height.
   const { widget, relayout: fit } = domRow(node, "fpt_panel", { control: root });
   advancedWidget(domRow(node, "fpt_panel_detail", { control: more }).widget);
   const relayout = () => { fit(); onLayout?.(); };
@@ -221,31 +196,30 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
 
   return {
     widget,
-    /** The editable filter, below the readout. `onEdit` receives the raw text. */
-    /** What the node is pointing at. */
-    /** A request is in flight. Called before the await, so the readout below is visibly stale
-     *  rather than silently stale. */
+    /** A request is in flight. Called before the await, so the readout is visibly stale rather than
+     *  silently stale. */
     loading() {
       setState("loading");
     },
-    /** `d.state` ("ok" | "warn" | "loading") overrides the guess, because a caller knows things the
-     *  readout cannot: a provenance field mapped to a name this site does not have still resolves a
-     *  Version, so `id` alone read as valid while the publish would silently drop a value.
+    /** Draw one answer.
      *
-     *  `d.echo` is `[{label, value}]` the node's own widgets already answer. It goes in the fold
-     *  with `link` and `task`, and `d.facts` — what only the site knows about this Version — does
-     *  not. */
+     *  `d.state` ("ok" | "warn" | "loading") overrides the guess made from `d.error` and `d.id`,
+     *  because a caller knows things the readout cannot: a provenance field mapped to a name this
+     *  site does not have still resolves a Version. `d.facts` is what only the site knows about
+     *  this Version; nothing the node's own widgets already answer belongs in it. */
     show(d) {
       const t = root.querySelector(".fpt-title");
       setState((d && d.state) || (d && d.error ? "warn" : (d && d.id) ? "ok" : "warn"));
-      // The head carries the whole answer, so it is rebuilt on every path, empty ones included.
-      const plain = (rows) => rows.map(([k, v]) =>
+      const plain = (rows) => rows.map(([k, v, href]) =>
         `<div class="fpt-row"><span class="fpt-k">${esc(k)}</span>
-          <span class="fpt-v">${esc(v)}</span></div>`).join("");
+          <span class="fpt-v">${linkable(href)
+            ? `<a class="fpt-a" href="${esc(href)}" target="_blank" rel="noreferrer">${esc(v)}</a>`
+            : esc(v)}</span></div>`).join("");
       const fold = (html) => {
         detail.innerHTML = html;
         more.hidden = !html;   // an empty box inside the fold is worse than no row at all
       };
+      // The head carries the whole answer, so it is rebuilt on every path, empty ones included.
       if (d && d.error) {
         t.innerHTML = esc(title);
         badgeEl.innerHTML = "";
@@ -259,55 +233,75 @@ export function addPanel(node, title = "Flow PT", onLayout = null) {
         badgeEl.innerHTML = "";
         const near = (d && d.candidates) || [];
         // Why nothing resolved, and what IS there, stay in front of the operator: that is the state
-        // pill's explanation, not fine print.
+        // pill's explanation, not fine print. One full-width row per candidate, name then status —
+        // the icon identifies the status (recipe 010) and a column of coloured pills would compete
+        // with the names, which are what is being read.
         body.innerHTML =
-          `<div class="fpt-dim">${esc((d && d.why) || "nothing resolved yet")}</div>` +
+          `<div class="fpt-dim">${esc((d && d.why) || "No Version matches these fields yet.")}</div>` +
           (near.length
-            ? `<div class="fpt-sec">what is there</div>` + near.map((v) =>
-                `<div class="fpt-row"><span class="fpt-v" style="flex:1">${esc(v.code)}</span>
-                 ${v.status && v.status.label ? badge(v.status) : ""}</div>`).join("")
+            ? `<div class="fpt-sec">versions on this link</div>` + near.map((v) =>
+                `<div class="fpt-full fpt-cand">${esc(v.code)}` +
+                (v.status && v.status.label
+                  ? `<span class="fpt-cand-st">${iconHtml(v.status.icon, v.status.rgb)}` +
+                    `${esc(v.status.label)}</span>` : "") + `</div>`).join("")
             : "");
         fold("");
         relayout();
         return;
       }
-      // Say what the name IS. On the publish node it is the Version about to be created, and an
-      // unlabelled string in a header does not tell you that.
-      // The name is the answer. It was the same size as its own label, which buried the one thing
-      // worth checking before a run.
+      // Say what the name IS, and say it larger than its own label: on the publish node it is the
+      // Version about to be created, and it is the one thing worth checking before a run.
       t.innerHTML = `<span class="fpt-lead">Version Name</span>` +
         `<span class="fpt-code">${esc(d.code)}</span>`;
       badgeEl.innerHTML = d.status && d.status.label ? badge(d.status) : "";
       const rows = [];
-      // What only the site knows about this Version. "unrecorded" never reads as "not AI" — it says
-      // only that this Version does not carry a record of how it was made, which is all the data
-      // supports.
+      let over = "";
+      // "unrecorded" never reads as "not AI": it says only that this Version carries no record of
+      // how it was made, which is all the data supports.
       if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
-      // What will actually be read, and what it claims to be. Both are in front of the operator
-      // rather than in the fold: `source` is a combo holding a key, so the type, the filename and
-      // the frame count only exist here, and a colour space is the thing an artist about to comp
-      // must see before the pixels reach a node that assumes sRGB. Said, never applied — this
-      // project does not convert.
+      // What will actually be read, and what it claims to be. `source` is a combo holding a key, so
+      // the type, the filename and the frame count exist only here, and a colour space is what an
+      // artist about to comp must see before the pixels reach a node that assumes sRGB.
       if (d.source_label) rows.push(["source", d.source_label]);
-      if (d.colour_space) rows.push(["colour space", `${d.colour_space} — declared, not converted`]);
-      for (const f of d.facts || []) rows.push([f.label, f.value]);
+      // The frame numbers this source has: `frame` is a number in a filename, and 0 means "wherever
+      // the sequence starts", so the range belongs beside the widgets that ask for it.
+      if (d.frames) {
+        // `?? 0`, not `|| 0`: 0 is the value that means "all of them", and it is also the
+        // declared default, so an absent widget and an explicit 0 have to read the same.
+        const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 0);
+        const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
+        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}.`;
+        if (ask && (ask < f.first || ask > f.last)) {
+          note += ` Frame ${ask} is not in the sequence. Pick one between ${f.first} and ${f.last}.`;
+        } else {
+          const at = ask || f.first;
+          const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
+          note += got === 1 ? ` Reads frame ${at}.` : ` Reads ${got} frames from ${at}.`;
+          // Said before the Run, not after it: one batch is a single tensor, and a plate too big
+          // to hold is a refusal the operator can avoid by setting frame_count or raising the
+          // budget. The same numbers the run would use.
+          if (d.batch && got > d.batch.fits) {
+            over = `${got} frames of ${d.batch.width}×${d.batch.height} will not fit in one batch. `
+              + `Set frame count to ${d.batch.fits} or less, or raise batch_budget_gib in `
+              + `profile.local.json above ${d.batch.gib} GiB.`;
+          }
+        }
+        rows.push(["frames", note]);
+      }
+      if (d.colour_space) rows.push(
+        ["colour space", `${d.colour_space}. Declared on the file, not converted.`]);
+      for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
-      // The one line that never folds: what is wrong with the name directly above it. A template
-      // renders what it can and drops the rest, so a collapsed `v004` and a finished
-      // `sbx_0020_depth_v008` look equally settled — and the name is the whole readout now.
-      body.innerHTML = (d.alert ? `<div class="fpt-alert">${esc(d.alert)}</div>` : "") + plain(rows);
-      // `link` and `task` are the node's own combos read back. So is everything in `d.echo`. `why`
-      // is the reasoning behind a name the operator can already see, and the writes block is the
-      // nine concepts that are the same every publish — all of it configuration-time reading.
-      const echoed = [];
-      if (d.link) echoed.push(["link", d.link]);
-      if (d.task) echoed.push(["task", d.task]);
-      for (const f of d.echo || []) echoed.push([f.label, f.value]);
-      fold(plain(echoed) + (d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
+      // The one line that never folds: what is wrong with the name directly above it.
+      const alert = d.alert || over;
+      body.innerHTML = (alert ? `<div class="fpt-alert">${esc(alert)}</div>` : "") + plain(rows);
+      // The fold takes the reasoning behind a name the operator can already see, and the concepts
+      // that are the same every publish: configuration-time reading, not pre-Run reading.
+      fold((d.why ? `<div class="fpt-why">${esc(d.why)}</div>` : "") +
         sourcesBlock(d) + writesBlock(d));
       relayout();
     },
-    /** What the node last did. Appended under the description, not instead of it. */
+    /** What the node last did. Appended under the readout, not instead of it. */
     log(lines, ok = true) {
       const cls = ok ? "fpt-ok" : "fpt-err";
       body.insertAdjacentHTML("beforeend",

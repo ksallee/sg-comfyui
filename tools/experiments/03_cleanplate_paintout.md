@@ -37,7 +37,8 @@ It is a clean plate you would put up for review, not one you would ship without 
   than seventeen independent ones.
 - The fill is composited back through a feathered matte, so **the model owns the hole and the plate
   owns every other pixel**.
-- A batch is **one Version carrying one movie**, at the rate the graph states.
+- The clip `CreateVideo` already assembles is what the Version carries — wired straight into
+  the publish node's `video`, uploaded rather than re-encoded, at the rate it states itself.
 - The output Version records what made it: model, prompt, seed, sampler, steps, CFG, the workflow
   JSON, **and `sg_ai_generated_from` pointing back at the plate Version the graph read**.
 - The graph never names a Version id. `Flow PT Load Version` resolves *the newest plate on this
@@ -114,7 +115,7 @@ Read back off the site:
 
     code                          demo_03_cleanplate_cleanplate_v002
     sg_uploaded_movie             demo_03_cleanplate_cleanplate_v002.mp4
-    sg_uploaded_movie_frame_rate  16.0            (the rate the node encoded)
+    sg_uploaded_movie_frame_rate  16.0            (the rate the clip states)
     frame_range / frame_count     1-17 / 17
     sg_ai_generator               ComfyUI (unknown client)
     sg_ai_model                   wan2.1_vace_1.3B_fp16 | umt5_xxl_fp16 | wan_2.1_vae | sam3.1_multiplex_fp16
@@ -211,6 +212,6 @@ CausVid before assuming 14B is a free upgrade.
     PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
       --project 1180 --link "demo_03_cleanplate (Shot)" --output plate
 
-Then open `demo/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
+Then open `example_workflows/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
 the machine with other work: SAM3 over 17 frames, 20 VACE steps at 832×480 (about 45 s/step), the
 composite, and one publish.
