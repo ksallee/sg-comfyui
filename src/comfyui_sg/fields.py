@@ -1,6 +1,6 @@
 """Typed provenance fields on Version: the list, the idempotent create, and where each concept lands.
 
-Setup path for `ensure` — run once per site by the operator (`python -m comfyui_fpt.fields`); the
+Setup path for `ensure` — run once per site by the operator (`python -m comfyui_sg.fields`); the
 node only reads the result. The routing half (`concepts`, `targets`, `route`) runs on the publish
 path and consults nothing but its arguments.
 
@@ -44,17 +44,17 @@ def names():
     return {display: programmatic_name(display) for display, _, _ in FIELDS}
 
 
-def ensure(fpt, entity_type="Version"):
+def ensure(sg, entity_type="Version"):
     """Create whatever is missing. Returns (present, created, failed) for the caller to report.
 
     probe 019 — reading /schema first is mandatory, not an optimisation: POSTing a display name that
     already exists does NOT error, it silently creates <name>_1 and every later run adds another.
     """
-    r = fpt.get(f"/schema/{entity_type}/fields")
+    r = sg.get(f"/schema/{entity_type}/fields")
     if not r.ok:
-        raise RuntimeError(f"Could not read the {entity_type} fields from Flow PT. Check that the "
-                           f"script key is allowed to read the schema, then run again. Flow PT "
-                           f"answered {r.status_code}. {r.text[:200]}")
+        raise RuntimeError(f"Could not read the {entity_type} fields from Flow Production Tracking. "
+                           f"Check that the script key is allowed to read the schema, then run again. "
+                           f"The site answered {r.status_code}. {r.text[:200]}")
     existing = r.json()["data"]
 
     present, created, failed = [], [], []
@@ -65,7 +65,7 @@ def ensure(fpt, entity_type="Version"):
             continue
         props = [{"property_name": "name", "value": display}]
         props += [{"property_name": k, "value": v} for k, v in extra.items()]
-        resp = fpt.post(f"/schema/{entity_type}/fields",
+        resp = sg.post(f"/schema/{entity_type}/fields",
                         json={"data_type": data_type, "properties": props})
         if resp.ok:
             created.append((display, resp.json().get("links", {}).get("self", "").rsplit("/", 1)[-1]))
@@ -81,23 +81,23 @@ def _explain(resp):
         title = err.get("title", "")
         source = err.get("source") or ""
     except Exception:
-        return f"Flow PT answered {resp.status_code}. {resp.text[:160]}"
+        return f"The site answered {resp.status_code}. {resp.text[:160]}"
 
     if "schema_field_create() failed" in title:
         return (f"The name is almost certainly held by a field in the trash. Rename this field in "
                 f"fields.py, changing its display name, then run again. Deleting a field never "
                 f"frees its name and trashed fields cannot be listed, so the clash is invisible "
-                f"(probe 019). Flow PT said {title}")
+                f"(probe 019). The site said {title}")
     if "Only true or false" in title:
         return f"A checkbox needs a default_value property. Add one in fields.py, then run again. "\
-               f"Flow PT said {title}"
+               f"The site said {title}"
     if "missing required 'properties'" in title:
         return f"An entity or multi_entity field needs valid_types with exactly one type in it. "\
-               f"Add it in fields.py, then run again. Flow PT said {title}"
+               f"Add it in fields.py, then run again. The site said {title}"
     if "data_type is not valid" in str(source):
-        return f"This data type cannot be created over the API, so add the field in the Flow PT "\
-               f"web UI instead (probe 019). Flow PT said {title} {source}"
-    return f"Flow PT answered {resp.status_code}. {title} {source}".strip()
+        return f"This data type cannot be created over the API, so add the field in the "\
+               f"Flow Production Tracking web UI instead (probe 019). The site said {title} {source}"
+    return f"The site answered {resp.status_code}. {title} {source}".strip()
 
 
 def report(present, created, failed):
@@ -117,19 +117,19 @@ def report(present, created, failed):
     return "\n".join(lines)
 
 
-def schema_names(fpt, entity_type="Version"):
+def schema_names(sg, entity_type="Version"):
     """Every field this site has on the type. probe 002 — the expensive call, so one per publish.
 
     Unreadable schema is an empty set, which reads as "write nothing optional": a publish that cannot
     see the schema must not guess a field into a 400.
     """
-    r = fpt.get(f"/schema/{entity_type}/fields")
+    r = sg.get(f"/schema/{entity_type}/fields")
     return set(r.json()["data"]) if r.ok else set()
 
 
-def available(fpt, entity_type="Version"):
+def available(sg, entity_type="Version"):
     """Which provenance fields actually exist on this site right now."""
-    return set(names().values()) & schema_names(fpt, entity_type)
+    return set(names().values()) & schema_names(sg, entity_type)
 
 
 # What the graph knows, named as concepts rather than as fields. The operator decides where each one
@@ -155,7 +155,7 @@ def targets(mapping=None, mode="fields"):
     """{concept: target} — the operator's decision, resolved once and read by everyone.
 
     Target is a Version field, DESCRIPTION, or None for "do not record this". Shared with
-    /fpt/preview_publish so the panel shows where a value will actually land, not where this file
+    /sg/preview_publish so the panel shows where a value will actually land, not where this file
     would have put it.
     """
     mapping = mapping or {}

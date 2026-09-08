@@ -2,7 +2,7 @@
 
 The rule is what an artist would say out loud — *the newest approved depth on this shot* — so it is
 an entity, optionally a Task on it, words that must appear in the name, and any of a set of statuses,
-each part optional and each one narrowing. Nothing here invents vocabulary Flow PT does not have:
+each part optional and each one narrowing. Nothing here invents vocabulary SG does not have:
 "approved" is one status code among the ones that project allows (probe 009).
 
 Ordering is a choice because "newest" is ambiguous — a re-published v002 is newer by id but older by
@@ -23,7 +23,7 @@ def _terms(name_contains):
 
 
 def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=()):
-    """The Flow PT filter these widget values add up to."""
+    """The SG filter these widget values add up to."""
     return site.version_filters(project_id, link_type, link_id, task_id,
                                 _terms(name_contains), statuses)
 

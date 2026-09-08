@@ -27,14 +27,14 @@ const fitAll = async () => {
 const type = async (inp, text, ms = 45) => {            // faster than a human, slow enough to read
   for (const ch of text) { inp.value += ch; inp.dispatchEvent(new Event("input", {bubbles:true})); await pause(ms); }
 };
-const ctl = (label) => [...document.querySelectorAll(".fpt-dom")]
-  .find(d => (d.querySelector(".fpt-lab")?.textContent || "").trim().toLowerCase() === label);
+const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
+  .find(d => (d.querySelector(".sg-lab")?.textContent || "").trim().toLowerCase() === label);
 // Pick the row that actually says `want`, never rows[0]: the list is fetched per keystroke and the
 // unfiltered set is on screen until the filtered one lands, so position is a race and text is not.
 const pick = async (label, term, want) => {
   const c = ctl(label); if (!c) return seen.push(`${label}: no control`);
   c.querySelector("button")?.click(); await pause(1200);
-  const inp = document.querySelector(".fpt-pop-input");
+  const inp = document.querySelector(".sg-pop-input");
   if (inp && term) { await type(inp, term); }
   let rows = [], hit = null;
   for (let i = 0; i < 25; i++) {                       // wait for the row we asked for to appear
@@ -47,7 +47,7 @@ const pick = async (label, term, want) => {
   (hit || rows[0])?.click(); await pause(1100);
 };
 
-// 1. somebody's existing workflow, with no Flow PT in it at all
+// 1. somebody's existing workflow, with no SG in it at all
 app.graph.clear(); await pause(400);
 const load = LiteGraph.createNode("LoadImage");   load.pos = [80, 200];  app.graph.add(load);
 const prev = LiteGraph.createNode("PreviewImage"); prev.pos = [560, 200]; app.graph.add(prev);
@@ -58,14 +58,14 @@ seen.push("existing graph: " + app.graph.nodes.map(n => n.type).join(" -> "));
 
 // 2. add ours to it — WIDE, so what it is being added TO stays on screen. Zooming here would show
 // a node connected to something the viewer never saw.
-const pub = LiteGraph.createNode("FPTPublishVersion"); pub.pos = [560, 520]; app.graph.add(pub);
+const pub = LiteGraph.createNode("SGPublishVersion"); pub.pos = [560, 520]; app.graph.add(pub);
 app.canvas.setDirty(true, true); await pause(1600);
 await fitAll(); await pause(1400);
 
 // 3. one wire is the whole integration — still wide, so the wire is the thing you watch
 load.connect(0, pub, 0);
 app.canvas.setDirty(true, true); await pause(2400);
-seen.push("connected LoadImage.IMAGE -> FPTPublishVersion.images");
+seen.push("connected LoadImage.IMAGE -> SGPublishVersion.images");
 
 // 4. only NOW go in, to fill it in
 await frame(pub, 0.85);
@@ -87,7 +87,7 @@ for (let i = 0; i < 90; i++) {
   if (/-> Version \d+/.test(document.body.innerText)) break;   // the node's own run log
 }
 await pause(4000);
-seen.push("anchors: " + [...document.querySelectorAll("a.fpt-a")]
+seen.push("anchors: " + [...document.querySelectorAll("a.sg-a")]
   .map(a => `${a.textContent.trim().slice(0,40)} -> ${a.href.slice(0,58)}`).join("  |  "));
 await pause(2000);
 return { steps: seen };

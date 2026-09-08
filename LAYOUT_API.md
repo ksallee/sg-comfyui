@@ -1,4 +1,4 @@
-# `web/fpt_dom_widgets.js` — the layout API
+# `web/sg_dom_widgets.js` — the layout API
 
 Nodes 2.0 only. Every control here is one `label | control` row in the node's **own** widget grid, so
 a picker is indistinguishable from the native `task` combo beside it. Nothing draws on the classic
@@ -7,13 +7,13 @@ canvas; `requireVueNodes` says so on the node instead.
 ## How a row lands in the node's grid
 
 The Vue node wraps each widget in `flex flex-col *:flex-1 col-span-2`, itself one item of the row's
-`grid-cols-subgrid`. The stylesheet turns that wrapper into a subgrid and makes `.fpt-dom`
+`grid-cols-subgrid`. The stylesheet turns that wrapper into a subgrid and makes `.sg-dom`
 `display: contents`, so our label and our control become items of the node's own label and control
 tracks. That is why the columns line up — not because a width was guessed.
 
 Consequences you have to respect:
 
-- `.fpt-dom` has **no box**. Never measure it; measure `.fpt-ctl`, which is what `getMinHeight` does.
+- `.sg-dom` has **no box**. Never measure it; measure `.sg-ctl`, which is what `getMinHeight` does.
 - The wrapper is `align-items: start`, so a control is content height and the slack pools at the
   bottom of the node.
 
@@ -118,7 +118,7 @@ sets `node.size` to that.
 full-width button that opens Settings, suffixes the node title, and answers `false`. It never flips
 the setting: that changes the operator's whole editor.
 
-## `web/fpt_panel.js`
+## `web/sg_panel.js`
 
 `addPanel(node, title, onLayout)` adds **two** rows, and the second carries `advancedWidget`.
 
@@ -134,7 +134,7 @@ them is noise where the name is supposed to be the signal. `d.facts` is what onl
 about this Version and stays in front of them.
 
 `d.alert` is the exception that never folds: one amber line saying the name above it is **not** the
-name a Run would write. `/fpt/preview_code` answers it — a template renders what it can and drops
+name a Run would write. `/sg/preview_code` answers it — a template renders what it can and drops
 the rest, so a collapsed `v004` and a finished `sbx_0020_depth_v008` look equally settled.
 
 `show(d)` honours an explicit `d.state` of `"ok" | "warn" | "loading"`, which overrides the guess
@@ -146,7 +146,7 @@ Both readout boxes are separate widgets and therefore separate grids: their labe
 floored to the same 9ch so they roughly agree, but only one grid across both would line them up
 exactly, and a DOM widget cannot span two rows of the node's own grid.
 
-## `/fpt/projects`
+## `/sg/projects`
 
 Items now carry `code` and `image` beside `label` and `id`. `image` is a presigned S3 URL, re-signed
 on every read and good for about 900s (`field_types/image`); a thumbnail still transcoding is

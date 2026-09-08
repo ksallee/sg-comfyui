@@ -89,7 +89,7 @@ LOAD_FIELDS = (
           tooltip="Narrow the search to one Task on that entity."),
     # Text, not ComfyUI's MultiCombo: that widget reserves its slot from the widget spec rather
     # than the DOM, so CSS shrinks the control to 33px inside an 82px gap. The node appends this
-    # project's own codes to the tooltip, because Flow PT has no "approved" concept and the codes
+    # project's own codes to the tooltip, because SG has no "approved" concept and the codes
     # differ per project (probe 009).
     Field("statuses", "text", default="",
           tooltip="The statuses to accept, separated by commas; empty accepts any."),
@@ -114,7 +114,7 @@ LOAD_FIELDS = (
     # `advanced` is ComfyUI's own fold, used by 246 core nodes. A hand-rolled toggle ends up
     # appended at the bottom, nowhere near the widget it controls, and cannot be moved next to it.
     Field("filters", "multiline", label="extra filters", advanced=True, default="",
-          tooltip="Extra conditions in Flow PT's filter syntax, added to the fields above with "
+          tooltip="Extra conditions in Flow Production Tracking's filter syntax, added to the fields above with "
                   "AND, for example [[\"sg_ai_model\", \"contains\", \"flux\"]]. For OR, use one "
                   "group: {\"logical_operator\": \"or\", \"conditions\": [...]}. Leave it empty "
                   "to let the fields above decide."),

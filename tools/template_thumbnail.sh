@@ -8,7 +8,7 @@
 set -e
 NAME="$1"; S="$2"; REPO="$3"
 cat > "$S/drive_$NAME.js" <<JS
-const g = await (await fetch("/api/workflow_templates/comfyui-flow-production-tracking/$NAME.json")).json();
+const g = await (await fetch("/api/workflow_templates/sg-comfyui/$NAME.json")).json();
 await app.loadGraphData(g);
 await wait(3500);
 // The editor's right-hand splitter panel overlays the canvas, so the drawable width stops at its

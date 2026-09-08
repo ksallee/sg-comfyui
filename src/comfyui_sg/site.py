@@ -46,7 +46,7 @@ def client():
 
 
 def route(entity_type):
-    """Flow PT routes are the lowercased plural: Shot -> /entity/shots (recipe 001)."""
+    """SG routes are the lowercased plural: Shot -> /entity/shots (recipe 001)."""
     return f"/entity/{entity_type.lower()}s"
 
 
@@ -214,10 +214,10 @@ def warm():
                 links(pid)
         except Exception:
             pass
-    threading.Thread(target=run, name="fpt-warm", daemon=True).start()
+    threading.Thread(target=run, name="sg-warm", daemon=True).start()
 
 
-# A project row is drawn the way Flow PT draws one: thumbnail, name, code. `code` is a second unique
+# A project row is drawn the way SG draws one: thumbnail, name, code. `code` is a second unique
 # text field, set on a minority of shows (entity_types/Project), and `image` is a presigned S3 URL,
 # re-signed on every read and good for ~900s from that read (field_types/image) — longer than TTL, so
 # a cached row's URL is still live and a stale one degrades to a blank tile. This prefix means the
@@ -260,7 +260,7 @@ def project_name(project_id):
     return next((n for n, i in projects() if i == int(project_id or 0)), "")
 
 
-# Flow PT's own convention: the name leads, the type is shown after it as context. Putting the type
+# SG's own convention: the name leads, the type is shown after it as context. Putting the type
 # first would mean typing a name no longer jumps to it in a combo.
 def label_for(name, entity_type):
     return f"{name} ({entity_type})"
@@ -271,7 +271,7 @@ def link_types(project_id, limit=100):
 
     `Version.entity` accepts 15 types site-wide (Asset, Shot, Sequence, Level, MocapTake, Reel,
     ShootDay, Delivery, Launch, Camera, Slate, SourceClip and three CustomEntity slots), so a single
-    link type was never Flow PT's model — one show hangs Versions off Shots, another off Assets, and
+    link type was never SG's model — one show hangs Versions off Shots, another off Assets, and
     plenty use several at once. Searching all 15 is slow and mostly empty, so this asks what the show
     does and searches that. `link_types` in the profile overrides it.
     """
@@ -381,7 +381,7 @@ def entities(entity_type, project_id, q="", field="code", limit=200, sort="code"
         return []
 
     def fetch():
-        # Multi-word search the way the Flow PT UI does it: `foo bar` matches names containing BOTH,
+        # Multi-word search the way the SG UI does it: `foo bar` matches names containing BOTH,
         # and only the name is searched — the type is shown, never matched (probe 017: filters AND).
         filters = [_is("project", "Project", project_id)]
         filters += [[field, "contains", term] for term in (q or "").split()]
@@ -420,7 +420,7 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
 
 
 def version_filters(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=()):
-    """The Flow PT filter the pickers add up to — the API's own language, not a private format.
+    """The SG filter the pickers add up to — the API's own language, not a private format.
 
     Returned so it can be shown and copied: a power user or an agent that needs something the widgets
     cannot express edits this array and hands it straight back (DESIGN: data-driven, with an eject
@@ -497,7 +497,7 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
 def status_lookup(project_id):
     """{typed: code} accepting either what the UI shows or what the API stores.
 
-    'Approved', 'approved' and 'apr' all mean the same thing, and an operator reading the Flow PT web
+    'Approved', 'approved' and 'apr' all mean the same thing, and an operator reading the SG web
     UI has only ever seen the first. Codes are what the API wants (probe 009), so both are accepted
     and neither is guessed at.
     """
@@ -626,7 +626,7 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
 
     The prefix names which entity to read — `entity` the thing the Version hangs off, `task` its Task,
     `project` the show — and the last segment is the field. A middle segment is the entity type, which
-    Flow PT's own dotted syntax carries (probe 003) and which is ignorable here because the id already
+    SG's own dotted syntax carries (probe 003) and which is ignorable here because the id already
     says what is being read.
     """
     out = dict(extra or {})
@@ -642,7 +642,7 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
                else None)
         if not who:
             continue
-        # A BARE token is that link's own name, the way Flow PT hands one back in a relationship
+        # A BARE token is that link's own name, the way SG hands one back in a relationship
         # dict; which field that is depends on the type (NAME_FIELD).
         #
         # A DOTTED token is handed to the server verbatim, minus the hops we already hold an id for:

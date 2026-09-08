@@ -1,6 +1,6 @@
 """The template language for Version codes and PublishedFile paths, and version numbering.
 
-A template is written in Flow PT's own vocabulary: dotted field paths to any depth
+A template is written in SG's own vocabulary: dotted field paths to any depth
 (`{entity.Shot.code}`), Python's whole format spec (`{version:03d}`), `[optional blocks]` that
 vanish when their fields are empty, and printf padding (`v%04d`) as a synonym for a version spec.
 
@@ -94,7 +94,7 @@ class _Paths(string.Formatter):
         try:
             return format(value, spec)
         except (TypeError, ValueError):
-            # Flow PT returns numbers as strings often enough that a numeric spec on text coerces
+            # SG returns numbers as strings often enough that a numeric spec on text coerces
             # rather than refuses.
             coerce = int if spec[-1:] in ("d", "b", "o", "x", "X") else (
                 float if spec[-1:] in ("e", "E", "f", "F", "g", "G", "%") else None)

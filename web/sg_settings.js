@@ -7,28 +7,28 @@
  * tooltips carry the full product name, so a search for "Flow" lands here as well.
  */
 import { app } from "../../scripts/app.js";
-import { styleOnce, esc } from "./fpt_dom_widgets.js";
+import { styleOnce, esc } from "./sg_dom_widgets.js";
 
 // The sidebar entry. The full name truncates there, and SG is what the issue settled on for every
 // short surface: the full product name or SG, nothing in between.
 const CATEGORY = "SG";
 
 const CSS = `
-.fpt-set { display: flex; flex-direction: column; gap: 4px; width: 24rem; max-width: 100%; }
-.fpt-set .fpt-line { display: flex; align-items: center; gap: 8px; }
-.fpt-set input.p-inputtext, .fpt-set select.p-inputtext { width: 100% !important; flex: 1 1 auto; min-width: 0; }
-.fpt-set .fpt-text { flex: 1 1 auto; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
-.fpt-set .fpt-text.fpt-off { color: #e0b155; }
-.fpt-set .fpt-text.fpt-bad { color: #e06c55; }
-.fpt-set .fpt-note { font-size: 12px; opacity: .7; overflow-wrap: anywhere; }
-.fpt-set button.p-button { white-space: nowrap; padding: 4px 10px; font-size: 13px; }
-.fpt-switch { position: relative; flex: none; width: 40px; height: 22px; border-radius: 11px;
+.sg-set { display: flex; flex-direction: column; gap: 4px; width: 24rem; max-width: 100%; }
+.sg-set .sg-line { display: flex; align-items: center; gap: 8px; }
+.sg-set input.p-inputtext, .sg-set select.p-inputtext { width: 100% !important; flex: 1 1 auto; min-width: 0; }
+.sg-set .sg-text { flex: 1 1 auto; min-width: 0; font-size: 13px; overflow-wrap: anywhere; }
+.sg-set .sg-text.sg-off { color: #e0b155; }
+.sg-set .sg-text.sg-bad { color: #e06c55; }
+.sg-set .sg-note { font-size: 12px; opacity: .7; overflow-wrap: anywhere; }
+.sg-set button.p-button { white-space: nowrap; padding: 4px 10px; font-size: 13px; }
+.sg-switch { position: relative; flex: none; width: 40px; height: 22px; border-radius: 11px;
               background: var(--p-toggleswitch-background, #4a4e55); transition: background .15s; }
-.fpt-switch.on { background: var(--p-toggleswitch-checked-background, #2b7fd6); }
-.fpt-switch i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
+.sg-switch.on { background: var(--p-toggleswitch-checked-background, #2b7fd6); }
+.sg-switch i { position: absolute; top: 3px; left: 3px; width: 16px; height: 16px; border-radius: 50%;
                 background: var(--p-toggleswitch-handle-background, #fff); transition: left .15s; }
-.fpt-switch.on i { left: 21px; }
-.fpt-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
+.sg-switch.on i { left: 21px; }
+.sg-switch input { position: absolute; inset: 0; width: 100%; height: 100%; margin: 0; opacity: 0; cursor: pointer; }
 `;
 
 const POLL_MS = 2000;               // the interval the site's own flow uses
@@ -56,7 +56,7 @@ async function call(url, body) {
 
 const RESTART = "Restart ComfyUI, then reload this page: the running server predates this version of the pack.";
 
-// The last /fpt/session answer, shared by every row in the dialog, and the rows that draw it.
+// The last /sg/session answer, shared by every row in the dialog, and the rows that draw it.
 let status = null;
 const rows = new Set();
 
@@ -70,16 +70,16 @@ function redraw() {
 let loading = null;   // one request however many rows ask at once
 
 function load() {
-  loading = loading || call("/fpt/session").then((d) => { status = d; loading = null; redraw(); });
+  loading = loading || call("/sg/session").then((d) => { status = d; loading = null; redraw(); });
   return loading;
 }
 
 /** Tell every node on the canvas that who it publishes as has changed (probe 027: the site
  *  answers differently for a different caller). */
-const announce = () => window.dispatchEvent(new CustomEvent("fpt:session"));
+const announce = () => window.dispatchEvent(new CustomEvent("sg:session"));
 
 async function save(changes) {
-  const d = await call("/fpt/settings", changes);
+  const d = await call("/sg/settings", changes);
   if (!d.error) status = d;
   redraw();
   announce();
@@ -89,10 +89,10 @@ async function save(changes) {
 /** Run `fn` on a node whenever the sign-in or the script key changes, for as long as the node
  *  lives. */
 export function onSession(node, fn) {
-  window.addEventListener("fpt:session", fn);
+  window.addEventListener("sg:session", fn);
   const onRemoved = node.onRemoved;
   node.onRemoved = function () {
-    window.removeEventListener("fpt:session", fn);
+    window.removeEventListener("sg:session", fn);
     return onRemoved?.apply(this, arguments);
   };
 }
@@ -100,9 +100,9 @@ export function onSession(node, fn) {
 /** A row's root, with its draw function registered. `draw` runs now, from whatever is known, and
  *  again on every redraw. */
 function row(draw) {
-  styleOnce("fpt-settings", CSS);
+  styleOnce("sg-settings", CSS);
   const el = document.createElement("div");
-  el.className = "fpt-set";
+  el.className = "sg-set";
   draw.el = el;
   rows.add(draw);
   draw();
@@ -130,20 +130,20 @@ function button(label) {
 
 function line(...children) {
   const d = document.createElement("div");
-  d.className = "fpt-line";
+  d.className = "sg-line";
   d.append(...children);
   return d;
 }
 
 function text(cls = "") {
   const s = document.createElement("span");
-  s.className = `fpt-text ${cls}`.trim();
+  s.className = `sg-text ${cls}`.trim();
   return s;
 }
 
 function note() {
   const s = document.createElement("div");
-  s.className = "fpt-note";
+  s.className = "sg-note";
   return s;
 }
 
@@ -240,7 +240,7 @@ function signInRow() {
     // Opened on the click, before any await, so the browser treats it as the operator's own tab
     // rather than a pop-up; the address is filled in once the site has issued it.
     const tab = window.open("", "_blank");
-    const d = await call("/fpt/login", { site: (status && status.site) || "" });
+    const d = await call("/sg/login", { site: (status && status.site) || "" });
     if (!d.url) {
       tab && tab.close();
       n.textContent = d.error || "The site did not issue a login page. Check the site address, then try again.";
@@ -252,7 +252,7 @@ function signInRow() {
     const started = Date.now();
     while (mine === polling && Date.now() - started < GIVE_UP_MS) {
       await new Promise((r) => setTimeout(r, POLL_MS));
-      const p = await call(`/fpt/login?request_id=${encodeURIComponent(d.request_id)}`);
+      const p = await call(`/sg/login?request_id=${encodeURIComponent(d.request_id)}`);
       if (p.state === "approved") {
         n.textContent = "";
         await load();
@@ -269,7 +269,7 @@ function signInRow() {
 
   const signOut = async () => {
     polling++;
-    await call("/fpt/logout", {});
+    await call("/sg/logout", {});
     n.textContent = "";
     await load();
     announce();
@@ -279,7 +279,7 @@ function signInRow() {
 
   const el = row(() => {
     const s = status || {};
-    who.className = "fpt-text";
+    who.className = "sg-text";
     if (!status) {
       who.textContent = "Checking…";
       btn.disabled = true;
@@ -290,7 +290,7 @@ function signInRow() {
       btn.textContent = "Log out";
     } else if (s.how === "person") {
       who.textContent = "Your login has expired. Log in again.";
-      who.classList.add("fpt-off");
+      who.classList.add("sg-off");
       btn.textContent = "Log in";
     } else {
       who.textContent = "Not logged in. Approve one request in your browser and the nodes publish as you.";
@@ -315,9 +315,9 @@ function connectionRow() {
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     n.textContent = "Asking the site…";
-    const d = await call("/fpt/test", {});
+    const d = await call("/sg/test", {});
     n.textContent = d.ok ? `Connected as ${d.who}.` : (d.error || "The site did not answer.");
-    n.classList.toggle("fpt-bad", !d.ok);
+    n.classList.toggle("sg-bad", !d.ok);
     btn.disabled = false;
   });
   let shown = "";
@@ -325,8 +325,8 @@ function connectionRow() {
     const s = status || {};
     // A test result describes one state of the settings; the next change makes it stale.
     const key = JSON.stringify([s.how, s.site, s.script_name, s.has_key, s.login]);
-    if (key !== shown) { n.textContent = ""; n.classList.remove("fpt-bad"); shown = key; }
-    who.className = "fpt-text";
+    if (key !== shown) { n.textContent = ""; n.classList.remove("sg-bad"); shown = key; }
+    who.className = "sg-text";
     if (!status) {
       who.textContent = "Checking…";
       btn.disabled = true;
@@ -337,14 +337,14 @@ function connectionRow() {
       who.textContent = `Publishing as ${s.who}.`;
     } else if (s.how === "person") {
       who.textContent = "Your login has expired. Log in again below, or log out to use the script.";
-      who.classList.add("fpt-off");
+      who.classList.add("sg-off");
     } else if (s.how === "script") {
       who.textContent = `Publishing as script ${s.script_name}` +
         (s.login ? `, as ${s.login}.` : ".") +
         (s.script_source === "environment" ? " The key comes from the launch environment." : "");
     } else {
       who.textContent = "Not connected. Log in, or enter a script name and application key.";
-      who.classList.add("fpt-off");
+      who.classList.add("sg-off");
     }
     btn.disabled = s.how === "none" || (s.how === "person" && !s.alive);
   });
@@ -354,18 +354,18 @@ function connectionRow() {
 
 // ---- Publish defaults: the profile, edited for the project the nodes open on ------------------
 
-let defaults = null;      // the last /fpt/defaults answer
+let defaults = null;      // the last /sg/defaults answer
 let loadingDefaults = null;
 
 function loadDefaults() {
-  loadingDefaults = loadingDefaults || call("/fpt/defaults").then((d) => {
+  loadingDefaults = loadingDefaults || call("/sg/defaults").then((d) => {
     defaults = d; loadingDefaults = null; redraw();
   });
   return loadingDefaults;
 }
 
 async function saveDefault(key, value) {
-  const d = await call("/fpt/defaults", { key, value });
+  const d = await call("/sg/defaults", { key, value });
   if (!d.error) defaults = d;
   redraw();
   announce();
@@ -387,7 +387,7 @@ function templateRow(key, kind) {
   const n = note();
   let typing;
   const example = async (t) => {
-    const d = await call(`/fpt/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
+    const d = await call(`/sg/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
     const isDefault = !dval(key) || t === (defaults.placeholders || {})[key];
     // A path is long enough on its own: the two path rows show the bare result.
     const bare = kind === "sequence" || kind === "movie";
@@ -417,7 +417,7 @@ function templateRow(key, kind) {
  *  with no reusable markup, so this is the same shape in the same colours. */
 function toggleRow(key) {
   const box = document.createElement("label");
-  box.className = "fpt-switch";
+  box.className = "sg-switch";
   box.innerHTML = '<input type="checkbox" role="switch"><i></i>';
   const i = box.querySelector("input");
   const n = note();
@@ -510,7 +510,7 @@ const GROUP_DEFAULTS = "SG Defaults";
 const GROUP_PUBLISH = "SG Publish Defaults";
 
 app.registerExtension({
-  name: "comfyui-flow-production-tracking.settings",
+  name: "sg-comfyui.settings",
   settings: [
     // Defaults, last row first. They edit the profile for the project the nodes open on; a graph
     // can still override the templates and the tick on the node itself.

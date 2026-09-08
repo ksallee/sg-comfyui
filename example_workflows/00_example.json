@@ -1,5 +1,5 @@
 {
-  "id": "fpt-00-example",
+  "id": "sg-00-example",
   "last_node_id": 7,
   "last_link_id": 4,
   "nodes": [
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Flow PT — start here\n\nTwo halves. Run one at a time.\n\n**Publish.** Run it as it is: the test card appears in the Preview on the right and nothing is sent\nanywhere. To create a Version, pick a **project** and a **link** on the Publish node and Run again.\nThe panel names the Version before you press anything. Ctrl-B mutes a node if you want it out of\nthe way.\n\n**Load.** Pick the same project and link on the Load node, then Run. It reads back the Version you\njust made and shows it below.\n\nNo model and no download. **Create Published Files** is off, so nothing is written to disk; turn it\non once your profile names a storage."
+        "## SG — start here\n\nTwo halves. Run one at a time.\n\n**Publish.** Run it as it is: the test card appears in the Preview on the right and nothing is sent\nanywhere. To create a Version, pick a **project** and a **link** on the Publish node and Run again.\nThe panel names the Version before you press anything. Ctrl-B mutes a node if you want it out of\nthe way.\n\n**Load.** Pick the same project and link on the Load node, then Run. It reads back the Version you\njust made and shows it below.\n\nNo model and no download. **Create Published Files** is off, so nothing is written to disk; turn it\non once your profile names a storage."
       ]
     },
     {
@@ -101,7 +101,7 @@
     },
     {
       "id": 4,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         220,
         0
@@ -135,7 +135,7 @@
         "{entity}_example",
         "",
         false,
-        "Connection test from the Flow PT example workflow.",
+        "Connection test from the Flow Production Tracking example workflow.",
         "",
         "",
         0,
@@ -144,7 +144,7 @@
     },
     {
       "id": 5,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -640,
         700

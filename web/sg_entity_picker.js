@@ -6,10 +6,10 @@
  * box worse than none.
  */
 import { app } from "../../scripts/app.js";
-import { addPanel } from "./fpt_panel.js";
-import { onSession } from "./fpt_settings.js";
+import { addPanel } from "./sg_panel.js";
+import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets, restoreValue, textRows } from "./fpt_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -85,7 +85,7 @@ function projectPicker(node, widget, state, onPick) {
     placeholder: "search projects",
     empty: "No project matches those words.",
     search: async (q) => {
-      state.projects = (await get("/fpt/projects")).items || [];
+      state.projects = (await get("/sg/projects")).items || [];
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
       const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
       return state.projects.filter((x) => terms.every((t) => hay(x).includes(t))).map(projectCard);
@@ -101,7 +101,7 @@ function projectPicker(node, widget, state, onPick) {
  * node to the default project.
  */
 async function selectProject(widget, state, picked) {
-  const d = await get("/fpt/projects");
+  const d = await get("/sg/projects");
   state.projects = d.items || [];
   let chosen = picked ?? widget.value;
   // "(none)" in a saved graph is no choice, and no choice means the project under Settings, the
@@ -128,7 +128,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
     placeholder: "search links",
     empty,
     search: async (q) => {
-      const d = await get(`/fpt/entities?project_id=${state.projectId}` +
+      const d = await get(`/sg/entities?project_id=${state.projectId}` +
         `&q=${encodeURIComponent(q)}${narrow()}`);
       for (const x of d.items || []) state.linkIds[x.label] = x.id;
       return (d.items || []).map((x) => ({
@@ -142,23 +142,23 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
 /** Every link on the project, into the hidden combo. Hidden, it still holds the value, so its
  *  options must stay legal for a saved graph whose link this project does not have. */
 async function loadLinkOptions(widget, state, narrow = "") {
-  const d = await get(`/fpt/entities?project_id=${state.projectId}${narrow}`);
+  const d = await get(`/sg/entities?project_id=${state.projectId}${narrow}`);
   state.linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
   setOptions(widget, d.items.map((x) => x.label));
 }
 
 /** The tasks on one link, into the `task` combo. */
 async function loadTaskOptions(widget, type, id) {
-  const d = await get(`/fpt/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`);
+  const d = await get(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`);
   if (widget) setOptions(widget, d.items.map((x) => x.label));
 }
 
 app.registerExtension({
-  name: "fpt.pickers",
+  name: "sg.pickers",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name === "FPTLoadVersion") return loadPickers(nodeType);
-    if (nodeData.name === "FPTPublishVersion") return publishPickers(nodeType, nodeData);
+    if (nodeData.name === "SGLoadVersion") return loadPickers(nodeType);
+    if (nodeData.name === "SGPublishVersion") return publishPickers(nodeType, nodeData);
   },
 });
 
@@ -208,7 +208,7 @@ function publishPickers(nodeType, nodeData) {
 
     const state = { projectId: 0, projects: [], linkIds: {} };
     let statusMeta = {};
-    let linkType = "Shot";   // per project, from /fpt/profile; never assumed (probe 005)
+    let linkType = "Shot";   // per project, from /sg/profile; never assumed (probe 005)
     // A picked label carries its own type; `linkType` is only the fallback for one that does not.
     const typeOf = (label) => typeFromLabel(label) || linkType;
 
@@ -216,8 +216,8 @@ function publishPickers(nodeType, nodeData) {
 
     textRows(w("note"), 5);   // prose, not a name
 
-    const panel = addPanel(this, "Flow PT Publish", relayout);
-    // The status the operator picked, drawn the way Flow PT draws it (probe 010).
+    const panel = addPanel(this, "SG Publish", relayout);
+    // The status the operator picked, drawn the way SG draws it (probe 010).
     const statusOf = (label) => statusMeta[bare(label)] || null;
 
     // Every preview is numbered and only the newest may write: there are two round trips per
@@ -245,7 +245,7 @@ function publishPickers(nodeType, nodeData) {
         code_template: w("code_template")?.value || "",
         root_name: w("root_name")?.value || "",
       });
-      const d = await get(`/fpt/preview_code?${q}`);
+      const d = await get(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
       panel.clearLog();
       if (!d.code) {
@@ -256,7 +256,7 @@ function publishPickers(nodeType, nodeData) {
       let extra = {};
       try {
         const { output } = await app.graphToPrompt();
-        const r = await fetch("/fpt/preview_publish", {
+        const r = await fetch("/sg/preview_publish", {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ prompt: output, node_id: String(node.id) }),
         });
@@ -345,10 +345,10 @@ function publishPickers(nodeType, nodeData) {
     const loadProject = async (picked) => {
       await selectProject(project, state, picked);
       // Per project, because one show hangs Versions off Shots and the next off Assets.
-      const prof = await get(`/fpt/profile?project_id=${state.projectId}`);
+      const prof = await get(`/sg/profile?project_id=${state.projectId}`);
       linkType = prof.link_type || "Shot";
       if (status) {
-        const s = await get(`/fpt/statuses?project_id=${state.projectId}`);
+        const s = await get(`/sg/statuses?project_id=${state.projectId}`);
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
         setOptions(status, s.items.map((x) => x.label));
       }
@@ -411,16 +411,16 @@ function loadPickers(nodeType) {
     const statusChips = statuses && chipSelect(this, statuses, {
       label: "statuses",
       empty: "This project has no statuses.",
-      load: async () => (await get(`/fpt/statuses?project_id=${state.projectId}`)).items || [],
+      load: async () => (await get(`/sg/statuses?project_id=${state.projectId}`)).items || [],
     });
 
-    const panel = addPanel(this, "Flow PT Load", relayout);
+    const panel = addPanel(this, "SG Load", relayout);
 
     // Every resolve is numbered, and only the newest may write: two requests are in flight whenever
     // a widget is changed twice quickly, they can come back in either order, and the panel would
     // otherwise flicker through stale states before settling.
     let resolving = 0;
-    // The last answer from /fpt/resolve, kept so the frame widgets can redraw the readout without
+    // The last answer from /sg/resolve, kept so the frame widgets can redraw the readout without
     // asking the site again: the range came off disk once, and which slice of it to take is
     // arithmetic.
     let resolved = null;
@@ -463,7 +463,7 @@ function loadPickers(nodeType) {
         if (t) q.append("statuses", t);
       }
       panel.loading();
-      const d = await get(`/fpt/resolve?${q}`);
+      const d = await get(`/sg/resolve?${q}`);
       if (mine !== resolving) return;      // superseded while we waited
       const pinned = Number(val("pin_version_id") || 0);
       resolved = { ...d, pinned };
@@ -497,7 +497,7 @@ function loadPickers(nodeType) {
     const loadProject = async (picked) => {
       await selectProject(project, state, picked);
       if (linkTypeW) {
-        const t = await get(`/fpt/link_types?project_id=${state.projectId}`);
+        const t = await get(`/sg/link_types?project_id=${state.projectId}`);
         const vals = t.items.map((x) => x.label);
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;

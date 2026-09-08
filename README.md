@@ -12,8 +12,8 @@ studio's conventions are hardcoded.
 ## What it needs
 
 - **ComfyUI**, and Python 3.11.
-- **A Flow PT site and a script key.** Auth is `client_credentials`: a Script Name and its Application
-  Key, made in the Flow PT web UI under Admin > Scripts. The script needs to read Projects, Versions,
+- **A Flow Production Tracking site and a script key.** Auth is `client_credentials`: a Script Name and its Application
+  Key, made in the Flow Production Tracking web UI under Admin > Scripts. The script needs to read Projects, Versions,
   Tasks and whatever entities you link to, to create Versions and upload media, and — for the one-off
   field setup — to create fields on Version.
 - **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
@@ -26,8 +26,8 @@ studio's conventions are hardcoded.
 
 ```sh
 cd ComfyUI/custom_nodes
-git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
-cd comfyui-flow-production-tracking
+git clone git@github.com:ksallee/sg-comfyui.git
+cd sg-comfyui
 <comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
 ```
 
@@ -66,11 +66,11 @@ particular the link field, which is the one it most often gets wrong.
 **2. Create the provenance fields.** Once per site:
 
 ```sh
-PYTHONPATH=src python -m comfyui_fpt.fields
+PYTHONPATH=src python -m comfyui_sg.fields
 ```
 
 It reads the schema first and creates only what is missing, so re-running is safe. (Python prints a
-`RuntimeWarning` about `comfyui_fpt.fields` already being in `sys.modules`; it is cosmetic.)
+`RuntimeWarning` about `comfyui_sg.fields` already being in `sys.modules`; it is cosmetic.)
 
 Field names are permanent — deleting a field frees the field but never its name, and trashed fields
 cannot be listed, so a name spent here is spent site-wide forever (probe 019). Pointing the profile's
@@ -81,7 +81,7 @@ use, says where a Version would come out of it and where one could go in, and wr
 copy. It never overwrites the original.
 
 Then restart ComfyUI and open the instrumented workflow. Two nodes appear under the category **Flow
-Production Tracking**. If `http://127.0.0.1:8188/fpt/projects` lists your shows, the credentials, the
+Production Tracking**. If `http://127.0.0.1:8188/sg/projects` lists your shows, the credentials, the
 client and the profile are all working.
 
 Restarting is only for installing or upgrading the pack. A later edit to `profile.local.json` reaches
@@ -93,22 +93,22 @@ Everything runs from the repo root.
 
 | command | needs |
 |---|---|
-| `python src/comfyui_fpt/instrument.py <wf.json>` | nothing — no site, no profile, no torch |
-| `PYTHONPATH=src python -m comfyui_fpt.fields` | `.env.local` |
-| `PYTHONPATH=src python -m comfyui_fpt.seed <file> ...` | `.env.local`, `profile.local.json` |
+| `python src/comfyui_sg/instrument.py <wf.json>` | nothing — no site, no profile, no torch |
+| `PYTHONPATH=src python -m comfyui_sg.fields` | `.env.local` |
+| `PYTHONPATH=src python -m comfyui_sg.seed <file> ...` | `.env.local`, `profile.local.json` |
 | `python ../sg-groundtruth/inspect_site.py --project <id> --out profile.local.json` | `../sg-groundtruth/.env.local` |
 
-`PYTHONPATH=src` is required for every `-m comfyui_fpt.*`: the package lives under `src/` and nothing
+`PYTHONPATH=src` is required for every `-m comfyui_sg.*`: the package lives under `src/` and nothing
 installs it. `instrument.py` is deliberately run as a file instead — `-m` would import the package
 `__init__`, which imports the nodes and therefore torch, and a graph should be analysable on a machine
-that has neither torch nor a route to Flow PT.
+that has neither torch nor a route to Flow Production Tracking.
 
 The inspector reads credentials from **its own** `.env.local`, in the `sg-groundtruth` checkout, not
 this one. Same three keys either way.
 
 ## The two nodes
 
-**Flow PT Publish Version** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
+**SG Publish** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
 provenance attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a
 project, what the Version hangs off, optionally a Task and a status, and what the stream *is*
 (`depth`, `normals`, `mask`). The project, link, Task and status lists are your site's real ones,
@@ -138,7 +138,7 @@ rest. Tick the box to register the sequence, or send the batch through `CreateVi
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
 
-**Flow PT Load Version** — a Version's media back into the graph, and the link recorded. The inputs
+**SG Load** — a Version's media back into the graph, and the link recorded. The inputs
 are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
@@ -232,7 +232,7 @@ Two profile keys per project, beside every other per-show decision:
     }
 
 `storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
-template — Flow PT's dotted field paths and Python's format spec — with two rules of its own:
+template — Flow Production Tracking's dotted field paths and Python's format spec — with two rules of its own:
 
 - `{version}` is the publish revision; `%04d` (or `####`, or `@@@@`) is the frame. They are different
   numbers, so in a *path* template the printf form always means the frame.
@@ -279,7 +279,7 @@ returned:
 
 ```sh
 pip install playwright && playwright install chromium     # once
-tools/qa_node.py --start --node FPTLoadVersion --drive drive.js --shot out.png
+tools/qa_node.py --start --node SGLoadVersion --drive drive.js --shot out.png
 ```
 
 `--start` launches an instance of its own: its own port, and its own `--base-directory`, which

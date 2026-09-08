@@ -1,5 +1,5 @@
 ---
-description: Add Flow PT tracking to a ComfyUI workflow the operator already uses
+description: Add Flow Production Tracking tracking to a ComfyUI workflow the operator already uses
 ---
 
 Workflow: $ARGUMENTS
@@ -7,7 +7,7 @@ Workflow: $ARGUMENTS
 Their graph already works. You are adding tracking to it, not redesigning it. The script does the
 graph surgery; you ask the questions and explain the result.
 
-1. `python src/comfyui_fpt/instrument.py <workflow.json>` — analysis only, writes nothing. Run from
+1. `python src/comfyui_sg/instrument.py <workflow.json>` — analysis only, writes nothing. Run from
    the repo root; this one needs no `PYTHONPATH`, no credentials and no profile (see the last
    paragraph for why).
 2. Read the two lists back in plain language:
@@ -29,17 +29,17 @@ graph surgery; you ask the questions and explain the result.
      uses, `sh010 (Shot)` or `charA (Asset)` — a bare name still works but falls back to the
      project's default type, which may not be the one meant. Read `profile.local.json`; if the project has
      no block yet, that is `/inspect-site`'s job first.
-   - Should any loader read from Flow PT? If something upstream already publishes there, point it
+   - Should any loader read from Flow Production Tracking? If something upstream already publishes there, point it
      at that. If nothing does — the ordinary case for the first graph in a chain — offer to put the
-     file the loader *already reads* into Flow PT first, and then replace it. Do not skip the
+     file the loader *already reads* into Flow Production Tracking first, and then replace it. Do not skip the
      loaders just because nothing has published yet; that is the chicken-and-egg, and step 4b is the
      way out of it.
    - Which Task, if any. `{task}` is the pipeline step the Version hangs off and is the operator's
      call; `{output}` is what the stream is. They are different, and three passes may share one Task.
 4b. **If they said yes to seeding an input**, ask the same questions once more for it — project,
    link, Task, and what the stream IS (`--output plate`, not the file's name) — then
-   `PYTHONPATH=src python -m comfyui_fpt.seed <file> --project P --link "sh010 (Shot)" --output plate --note "..."`.
-   `PYTHONPATH=src` and the repo root are required for every `-m comfyui_fpt.*`: the package lives
+   `PYTHONPATH=src python -m comfyui_sg.seed <file> --project P --link "sh010 (Shot)" --output plate --note "..."`.
+   `PYTHONPATH=src` and the repo root are required for every `-m comfyui_sg.*`: the package lives
    under `src/` and nothing installs it. This one also needs `.env.local` and `profile.local.json`.
    The file is whatever `LoadImage` names, relative to ComfyUI's `input/`. Print the Version code it
    produced and use that when you wire the Load node.
@@ -75,4 +75,4 @@ the rule is structural — an IMAGE link into a sink — not a list of node name
 
 Run it as a file, not `-m`: `-m` imports the package `__init__`, which imports the nodes and therefore
 torch. As a file the analyser needs no client, no site and no torch, so a graph can be analysed on a
-machine that cannot reach Flow PT at all.
+machine that cannot reach Flow Production Tracking at all.

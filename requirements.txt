@@ -5,7 +5,7 @@
 # with FPT.from_session and the launcher module the Sign in button needs.
 sg-groundtruth>=0.1.3
 
-# ComfyUI already ships both. They are listed anyway: the setup CLIs (`python -m comfyui_fpt.fields`,
+# ComfyUI already ships both. They are listed anyway: the setup CLIs (`python -m comfyui_sg.fields`,
 # `.seed`) are often run with a plain system python that has neither.
 requests
 Pillow

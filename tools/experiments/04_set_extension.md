@@ -6,7 +6,7 @@
 ## What it demonstrates
 
 Extend the frame, publish the extended plate. A shot is delivered wider and taller than it was
-photographed, and Flow PT records that the delivered frame is not the photographed one: which model
+photographed, and Flow Production Tracking records that the delivered frame is not the photographed one: which model
 built the new territory, on which prompt and seed, and — through `sg_ai_generated_from` — which
 Version the untouched pixels came from.
 
@@ -23,13 +23,13 @@ both are traceable from the one Version — this one names its source, and its s
 Derived from the ComfyUI core template `video_wan_vace_outpainting` (Comfy-Org/workflow_templates,
 MIT), on its **1.3B** path. Core nodes only; no third-party packs.
 
-    Flow PT Load Version ──► ImagePadForOutpaint ──┬─► WanVaceToVideo (control_video)
+    SG Load ──► ImagePadForOutpaint ──┬─► WanVaceToVideo (control_video)
                                                    └─► MASK ─► MaskToImage ─► RepeatImageBatch
                                                               ─► ImageToMask ─► (control_masks)
     UNETLoader (VACE 1.3B) ─► LoraLoader (CausVid) ─► ModelSamplingSD3 ─► KSampler
                                                    └─► CLIPTextEncode ×2 ─► WanVaceToVideo
     KSampler ─► TrimVideoLatent ─► VAEDecode ─┬─► SaveImage
-                                              └─► Flow PT Publish Version
+                                              └─► SG Publish
 
 `ImagePadForOutpaint` does the reframe and hands back the mask of what it added; that mask *is* the
 region the model is allowed to build. VACE takes the padded plate as control video and the mask as
@@ -82,10 +82,10 @@ and the delivered Version's `sg_ai_generated_from` names the clean plate, whose 
 `extension` precisely so the input rule cannot match it.
 
 Standing alone, as built here, the upstream is a seeded Version — the photographed frame put into
-Flow PT by `comfyui_fpt.seed`, which carries no generation record, because a file on disk does not
+Flow Production Tracking by `comfyui_sg.seed`, which carries no generation record, because a file on disk does not
 say how it was made.
 
-## Flow PT
+## Flow Production Tracking
 
 Project 1180 (`comfyui-fpt sandbox`), Shot `demo_04_setext` (id 7643).
 
@@ -113,8 +113,8 @@ One frame at 704x384, 3 steps: 36 seconds on an M-series Mac, model load exclude
 
 ### A graph written by `instrument.py` needs `widgets_values_named`
 
-`FPTPublishVersion` remaps its own saved values in `onConfigure` (fpt_entity_picker.js, "The node
-maps its own saved values"). `FPTLoadVersion` has no such stopgap: it gets the shared
+`SGPublishVersion` remaps its own saved values in `onConfigure` (sg_entity_picker.js, "The node
+maps its own saved values"). `SGLoadVersion` has no such stopgap: it gets the shared
 `restoreDeclaredWidgets`, whose positional fallback counts the three DOM pickers because
 `addDOMWidget` never copies `serialize` onto the widget. So the ten declared values are walked
 across thirteen slots, `newest_by` receives `frame`, `pin_version_id` receives `filters`, and the
@@ -129,7 +129,7 @@ anything `instrument.py` writes have the same problem and the same fix.
 
 ## Running it
 
-    PYTHONPATH=src python -m comfyui_fpt.seed ComfyUI/input/fpt_plate_setext.png \
+    PYTHONPATH=src python -m comfyui_sg.seed ComfyUI/input/fpt_plate_setext.png \
         --project 1180 --link "demo_04_setext (Shot)" --output plate
 
 then open `example_workflows/04_set_extension.json` in ComfyUI and run it.

@@ -1,5 +1,5 @@
 ---
-description: Measure one Flow PT project and write the profile every picker reads
+description: Measure one Flow Production Tracking project and write the profile every picker reads
 ---
 
 Project: $ARGUMENTS
@@ -60,7 +60,7 @@ inspector where nothing reads it.
 
 Then, in order:
 
-    PYTHONPATH=src python -m comfyui_fpt.fields     create the nine provenance fields on Version
+    PYTHONPATH=src python -m comfyui_sg.fields     create the nine provenance fields on Version
     /track-workflow <workflow.json>                 put the nodes into a graph
 
 ## Keys the profile carries that the inspector never writes

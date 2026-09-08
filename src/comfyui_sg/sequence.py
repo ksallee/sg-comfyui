@@ -1,4 +1,4 @@
-"""Frames on disk, and the path under a LocalStorage root that Flow PT can resolve.
+"""Frames on disk, and the path under a LocalStorage root that SG can resolve.
 
 A Version's media is single-valued (probe 022), so frames cannot be the media: they are a
 PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots —
@@ -118,7 +118,7 @@ def on_platform(path, local_root, row, platform):
 
     `sg_path_to_frames` holds one absolute path and cannot resolve on two platforms (probe 021),
     so a studio picks the one it is written for. A Windows root takes backslashes after it, which
-    is reasoned from how Flow PT spells `windows_path` and not measured against a Windows client.
+    is reasoned from how SG spells `windows_path` and not measured against a Windows client.
     """
     if platform == THIS_PLATFORM or not path.startswith(local_root):
         return path
@@ -141,7 +141,7 @@ def root_for(storages, code=""):
     if not root:
         raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "
                            f"published to it from this machine. Set that path on the storage in "
-                           f"Flow PT, or name another storage in profile.local.json.")
+                           f"Flow Production Tracking, or name another storage in profile.local.json.")
     return row["id"], root
 
 

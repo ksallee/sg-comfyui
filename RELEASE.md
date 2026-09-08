@@ -81,7 +81,7 @@ Still untested end to end, and each of these is a real gap rather than a nicety:
 
 - ~~**PublishedFiles for 02-07.**~~ — those demos are archived; the path itself is proven above.
 - **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
-- ~~**`FPTLoadVersion`, the round trip**~~ — **closed 2026-09-07.** `00_example` runs it, and 02
+- ~~**`SGLoadVersion`, the round trip**~~ — **closed 2026-09-07.** `00_example` runs it, and 02
   chains a load into a publish three times over with the lineage checked each time.
 - **`/track-workflow`** — the actual product feature. Never run against a real graph.
 - ~~A browser-submitted publish~~ — **closed, and the claim was wrong.** `EXTRA_PNGINFO` is not
@@ -106,7 +106,7 @@ Still untested end to end, and each of these is a real gap rather than a nicety:
 
 ## Decisions
 
-### The name stays `comfyui-flow-production-tracking`
+### The name stays `sg-comfyui`
 
 Tried and reverted in this session. The Templates browser labels a collection with the
 `custom_nodes` directory name verbatim (`title: e` in the frontend bundle), and the node's footer
@@ -118,11 +118,11 @@ That trade is wrong: `[project].name` is a searched slot and the chip is a cosme
 naming rules in DESIGN.md "Names" were already settled deliberately. A long label on two chips is
 the accepted price, now written down there so it is not re-litigated.
 
-**There is no repo rename to do.** `origin` stays `comfyui-flow-production-tracking`.
+**There is no repo rename to do.** `origin` stays `sg-comfyui`.
 
 ### The publish node takes two inputs
 
-Today `FPTPublishVersion` takes one `images: IMAGE` and manufactures artifacts from the tensor: a
+Today `SGPublishVersion` takes one `images: IMAGE` and manufactures artifacts from the tensor: a
 batch >1 goes through our own `movie.encode()` (hardcoded libx264/yuv420p, no crf, no audio, no
 colour properties), and a four-way `published_files` combo decides what lands on disk.
 
@@ -412,8 +412,8 @@ an editable install and a Registry install cannot satisfy `requirements.txt`. Is
 SG rename.
 
 **Settings, then SG.** One category in ComfyUI's Settings dialog, ids `SG.*`, drawn by
-`web/fpt_settings.js`, backed by `/fpt/settings`, `/fpt/test`, `/fpt/defaults` and
-`/fpt/preview_template`. Nothing enters ComfyUI's settings store, which anyone on the port can read;
+`web/sg_settings.js`, backed by `/sg/settings`, `/sg/test`, `/sg/defaults` and
+`/sg/preview_template`. Nothing enters ComfyUI's settings store, which anyone on the port can read;
 the values live in the protected user directory beside the session file. Groups, in the order the
 dialog sorts them, which is alphabetical and is why the names are what they are:
 
@@ -434,7 +434,7 @@ dialog sorts them, which is alphabetical and is why the names are what they are:
 A 404 from any route means the running ComfyUI predates the pack, and every row says to restart:
 routes register at import, so a pack update needs a restart, not a reload.
 
-**What the nodes do with it.** They reload their pickers on a `fpt:session` window event and say
+**What the nodes do with it.** They reload their pickers on a `sg:session` window event and say
 nothing about the connection except the error sentence, which names Settings; both previews refuse
 before rendering when nothing is connected, so that sentence is the alert rather than a line in the
 fold. Root name, Version name, Status, Create Published Files and Colour space are widget defaults:
@@ -453,7 +453,7 @@ over a picker's list scrolls the list instead of closing it and zooming the canv
 accepts a project resolved from "(none)".
 
 **Decided with Kevin, 2026-09-08.** The short name is **SG** everywhere a short name is needed, the
-full product name otherwise, never "Flow PT" (#76). The default root name carries the pipeline step
+full product name otherwise, never "Flow Production Tracking" (#76). The default root name carries the pipeline step
 through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, by `short_name` as Toolkit's
 `{Step}` reads it; every token is optional and drops out with its separator. A sequence lands in a
 folder named for the version beside the movie,
@@ -479,8 +479,8 @@ still never run from a template.
 In the order they block each other.
 
 1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. Until then no install outside this machine works.
-2. **Decide #76 before anything ships.** The node class keys `FPTLoadVersion` and
-   `FPTPublishVersion` are written into every saved workflow, so renaming them to `SGLoadVersion`
+2. **Decide #76 before anything ships.** The node class keys `SGLoadVersion` and
+   `SGPublishVersion` are written into every saved workflow, so renaming them to `SGLoadVersion`
    and `SGPublishVersion` is possible now and never again. Display names, the repo, the Registry
    name and the directory name can change later at the cost of a chip. The issue's description
    carries what was already checked: every candidate Registry name is free, `DEPRECATED = True`
@@ -509,7 +509,7 @@ are built; the panel's fine-print line saying who the Version will be created by
 --node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Pass
 `--repo <copy>` for a checkout without `.env.local`, and `--keep` to leave the instance for more
 drives on the same `--port`. A session file written into the instance's
-`user/__comfyui_flow_production_tracking/` gives the signed-in and expired states. Not the live
+`user/__sg_comfyui/` gives the signed-in and expired states. Not the live
 browser tool; Kevin can see that session and it is slower.
 
 ## Three things the next session opened with — written 2026-09-08, morning
@@ -518,8 +518,8 @@ browser tool; Kevin can see that session and it is slower.
 
 `.env.local` inside the pack could not ship: ComfyUI Manager replaces `custom_nodes/<pack>/` on
 update and the keys with it. It no longer has to. The nodes carry a Sign in row, the operator approves
-a request in the browser where they are already logged into Flow PT, and the session token the site
-returns is kept in ComfyUI's protected `user/__comfyui_flow_production_tracking/` directory. See
+a request in the browser where they are already logged into Flow Production Tracking, and the session token the site
+returns is kept in ComfyUI's protected `user/__sg_comfyui/` directory. See
 DESIGN.md "Who the nodes publish as" for the design and sg-groundtruth probe 052 for every measured
 fact behind it. A script key from the launch environment is the farm path and the fallback.
 
@@ -541,7 +541,7 @@ say which of the two applies. Kevin has not yet tried the button flow himself fr
 
 ### 2. Artist attribution: decided, not built
 
-`Version.user` is the field Flow PT shows as **Artist** and it defaults to whoever called, so every
+`Version.user` is the field Flow Production Tracking shows as **Artist** and it defaults to whoever called, so every
 Version this pack has ever published is authored by `comfyui-fpt 1.0` rather than by a person
 (sg-groundtruth `findings/entity_types/Version`).
 
@@ -563,13 +563,13 @@ defaulting to the resolved operator, so a supervisor can publish on someone's be
 
 `widgets.py` made the order and the folding declarative, which is what was asked for at the time. It
 did not make **field types** declarative. Its `kind` vocabulary is ComfyUI's widget set — `text`,
-`multiline`, `int`, `bool`, `combo` — not Flow PT's `data_type` set, so an `entity` field like Artist
+`multiline`, `int`, `bool`, `combo` — not Flow Production Tracking's `data_type` set, so an `entity` field like Artist
 fits none of them and the first instinct was to fudge it as a login string.
 
 What the table needs is `data_type -> widget`: `entity` to a searchable picker, `multi_entity` to a
 multi-picker, `date` to a date input, `list` to a combo built from the schema's own valid values,
 `checkbox` to a boolean, `text`/`float`/`number` to what they already are. Then adding a field is one
-`Field(...)` line naming a Flow PT field, and the widget follows from the schema rather than from a
+`Field(...)` line naming a Flow Production Tracking field, and the widget follows from the schema rather than from a
 guess. The entity picker already exists for `link` and `project`; it is not reusable by name yet.
 
 That is the difference between "an operator with an LLM can add a field" and "an operator with an LLM
@@ -583,7 +583,7 @@ can add a text field".
 | Release date: the node contract lands before release, so Monday is at risk | Kevin |
 | ~~How credentials ship~~ | **closed 2026-09-08.** Sign in as a person through the App Session Launcher, session token in ComfyUI's protected user directory, script key from the environment for farms. DESIGN.md "Who the nodes publish as" |
 | Artist attribution is decided and unbuilt: impersonate, fall back to the `user` field, then the script | built next |
-| `data_type -> widget` so adding a Flow PT field of any type is one line | built next |
+| `data_type -> widget` so adding a Flow Production Tracking field of any type is one line | built next |
 | Plate licensing: is "generated by a permissive model" the written answer? | Kevin |
 | How our node registers files written by `OCIO Write` instead of writing PNGs | **designed** — DESIGN.md, "Where someone else wrote the files, we register them". Kevin to read |
 | ~~Should `frame_count` default to 0 or stay 1?~~ | **closed 2026-09-07 — 0.** See below |
@@ -688,8 +688,8 @@ scene outright — the published image was the style plate with a moon in it. Sh
 which keeps the shot and takes the look. Those two knobs are the whole balance and the note names
 them.
 
-Also settled, and it is a framing rather than an asset: a style reference in a Flow PT shop is
-already a Version — mood boards and look refs live there. So 02 pulling one out of Flow PT is the
+Also settled, and it is a framing rather than an asset: a style reference in a Flow Production Tracking shop is
+already a Version — mood boards and look refs live there. So 02 pulling one out of Flow Production Tracking is the
 real workflow, and only 01 manufacturing a stand-in is artificial. Shipping a reference image in the
 repo does not work anyway: `LoadImage` reads ComfyUI's `input/`, not this package.
 
@@ -703,7 +703,7 @@ repo does not work anyway: `LoadImage` reads ComfyUI's `input/`, not this packag
   "to the end". The panel shows the range beside the source. The numbers come off disk —
   `sg_first_frame`/`sg_last_frame` are a claim nothing keeps true.
 - **A widget's declared default decides what every graph saved *before* that widget existed does.**
-  Measured 2026-09-05: a `FPTLoadVersion` graph holding 10 values instead of 11 loads `frame_count`
+  Measured 2026-09-05: a `SGLoadVersion` graph holding 10 values instead of 11 loads `frame_count`
   at the declared default, not at nothing. So a default is not only about new nodes — it reaches
   backwards. This is the argument that has to be answered before `frame_count`'s default changes.
 - ComfyUI scans five folder names for templates; `example_workflows` is the blessed one
@@ -1104,7 +1104,7 @@ Both were capped at 5 frames on a shared queue. Neither is proven at 48.
 ### Two things the first sh010 publish taught us
 
 **`status: "(none)"` does not mean no status.** It makes the node send no `sg_status_list` at all, so
-Flow PT applies the field's own default and the Version comes back **`rev`, Pending Review**. The node
+Flow Production Tracking applies the field's own default and the Version comes back **`rev`, Pending Review**. The node
 is behaving correctly — the site fills it — but a template that reads `(none)` implies a statusless
 Version and there is no such thing here. Say so in the templates rather than let it surprise someone.
 
@@ -1126,6 +1126,6 @@ plate -> matte -> cleanplate -> retime -> upres. 05 is the sharpest case: it deg
 480p and upresses that, and **the degraded plate — the actual input — exists nowhere on the site**.
 
 The fix is a `00_` seed template that publishes the repo's plates as Versions, after which `01`-`07`
-pull through `FPTLoadVersion` and the chain builds itself, because `provenance.ancestors` already
+pull through `SGLoadVersion` and the chain builds itself, because `provenance.ancestors` already
 walks upstream Load nodes. The overnight run had already reached for this: `demo_05_upres_gen480_v001`
 is the degraded plate as its own Version.

@@ -1,4 +1,4 @@
-"""Flow PT Load Version — a Version's media comes back into the graph, and the link is recorded.
+"""SG Load — a Version's media comes back into the graph, and the link is recorded.
 
 The pixels are half of it. A Version loaded here is remembered as an ancestor (`lineage`), so
 anything published downstream records what it came from without the operator typing an id.
@@ -57,7 +57,7 @@ def _as_list(v):
     return [x.strip() for x in str(v or "").split(",") if x.strip()]
 
 
-class FPTLoadVersion:
+class SGLoadVersion:
     @classmethod
     def INPUT_TYPES(cls):
         project_id = site.default_project()
@@ -116,7 +116,8 @@ class FPTLoadVersion:
     RETURN_NAMES = ("image", "version_id", "code", "colour_space")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
-    DESCRIPTION = "Read a Flow PT Version's media into the graph, recording it as a source."
+    DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "
+                   "as a source.")
 
     @classmethod
     def _context(cls, project, link_type, link, task):
@@ -139,7 +140,7 @@ class FPTLoadVersion:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
             raise ValueError(f"Extra filters is not valid JSON. {e}")
-        # Both shapes, because Flow PT takes both under different Content-Types (probe 030). An
+        # Both shapes, because SG takes both under different Content-Types (probe 030). An
         # array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
         # only way to express `or`, nested up to 265 groups deep.
         if isinstance(v, dict):
@@ -203,8 +204,8 @@ class FPTLoadVersion:
                                         else "\nThere are no Versions on this link."))
             why = f"{code} ({why})"
 
-        fpt = site.client()
-        v = media.version(fpt, vid)
+        sg = site.client()
+        v = media.version(sg, vid)
         available = media.sources(v)
         if not available:
             raise ValueError(
@@ -237,6 +238,6 @@ class FPTLoadVersion:
         # A batch that came back short is a fact about the media, said out loud rather than left for
         # the graph downstream to discover as a wrong frame count.
         short = f", short of the {frame_count} asked for" if len(frames) < int(frame_count) else ""
-        print(f"[Flow PT] Loaded Version {vid}: {why}. Source {key}, {got}{short}."
+        print(f"[SG] Loaded Version {vid}: {why}. Source {key}, {got}{short}."
               + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
         return (torch.from_numpy(a), vid, v.get("code") or "", colour)

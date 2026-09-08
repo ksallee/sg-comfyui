@@ -1027,7 +1027,7 @@
     },
     {
       "id": 101,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1180,
         -260
@@ -1053,7 +1053,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -1069,11 +1069,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — cleanplate"
+      "title": "SG Publish — cleanplate"
     },
     {
       "id": 102,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -1900,
         -80
@@ -1106,7 +1106,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -1121,7 +1121,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load Version"
+      "title": "SG Load"
     },
     {
       "id": 25,

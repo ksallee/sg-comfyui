@@ -620,7 +620,7 @@
     },
     {
       "id": 17,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1500,
         240
@@ -646,7 +646,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -662,11 +662,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — esrgan"
+      "title": "SG Publish — esrgan"
     },
     {
       "id": 18,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         2460,
         760
@@ -692,7 +692,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -708,11 +708,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — seedvr2"
+      "title": "SG Publish — seedvr2"
     },
     {
       "id": 19,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         40,
         360
@@ -746,7 +746,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -761,7 +761,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load — the 480p section"
+      "title": "SG Load — the 480p section"
     }
   ],
   "links": [

@@ -139,7 +139,7 @@ def _frames_on_disk(pattern):
 
 # --- one Version ---------------------------------------------------------------------------------
 
-def published_files(fpt, version_id):
+def published_files(sg, version_id):
     """Every PublishedFile on this Version, flattened to what a picker and a loader need.
 
     recipe 004 — `path` comes back with the LocalStorage join already done, so nothing here reads
@@ -151,7 +151,7 @@ def published_files(fpt, version_id):
     """
     from .site import ARRAY_JSON
     try:
-        r = fpt.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
+        r = sg.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
             "filters": [["version", "is", {"type": "Version", "id": int(version_id)}]],
             "fields": ["path", "description", "published_file_type"], "page": {"size": 200}})
         if not r.ok:
@@ -171,19 +171,20 @@ def published_files(fpt, version_id):
     return out
 
 
-def version(fpt, version_id):
+def version(sg, version_id):
     """One Version's media fields plus its PublishedFiles.
 
     The files are folded in here (the second call probe 021 named) so `sources` and `load` stay pure
     functions of one dict and no caller has to remember to fetch them separately.
     """
-    r = fpt.get(f"/entity/versions/{int(version_id)}", params={"fields": ",".join(FIELDS)})
+    r = sg.get(f"/entity/versions/{int(version_id)}", params={"fields": ",".join(FIELDS)})
     if not r.ok:
-        raise FPTError(f"Could not read Version {version_id} from Flow PT. Check that it still "
-                       f"exists, then run again. Flow PT answered {r.status_code}. {r.text[:200]}")
+        raise FPTError(f"Could not read Version {version_id} from Flow Production Tracking. Check that "
+                       f"it still exists, then run again. The site answered {r.status_code}. "
+                       f"{r.text[:200]}")
     d = r.json()["data"]
     return {**d.get("attributes", {}), "id": d["id"],
-            "published_files": published_files(fpt, version_id)}
+            "published_files": published_files(sg, version_id)}
 
 
 def provenance_state(attrs, sources):
@@ -199,18 +200,18 @@ def provenance_state(attrs, sources):
     return "derived" if sources else "unrecorded"
 
 
-def describe(fpt, version_id, statuses=(), colors=None, icons=None):
+def describe(sg, version_id, statuses=(), colors=None, icons=None):
     """One Version as structured fields, for the editor to render rather than a wall of text.
 
     Absent fields are omitted rather than shown empty: a site with no provenance fields gets a short
     honest summary, not a column of blanks.
     """
-    r = fpt.get(f"/entity/versions/{int(version_id)}",
+    r = sg.get(f"/entity/versions/{int(version_id)}",
                 params={"fields": ",".join(SUMMARY_FIELDS + RELATED_FIELDS)})
     if not r.ok:
         return {"code": f"Version {version_id}",
-                "error": f"Could not read this Version from Flow PT. Check that it still exists. "
-                         f"Flow PT answered {r.status_code}."}
+                "error": f"Could not read this Version from Flow Production Tracking. Check that it "
+                         f"still exists. The site answered {r.status_code}."}
     d = r.json()["data"]
     a, rel = d.get("attributes", {}), d.get("relationships", {})
     code = a.get("sg_status_list")
@@ -363,7 +364,7 @@ def _at_frame(pattern, frame):
 
 def _download(url):
     """probe 021 — the field value IS a presigned S3 URL, so this is an unauthenticated GET.
-    Sending the Flow PT bearer token here would leak it to S3."""
+    Sending the SG bearer token here would leak it to S3."""
     r = requests.get(url, timeout=120)
     r.raise_for_status()
     return r.content
@@ -372,7 +373,7 @@ def _download(url):
 def load_frames(v, key, start=0, count=1, budget=0):
     """`count` PIL images from frame `start`. One item is exactly what a single-frame read returns.
 
-    `start` is the frame NUMBER — the one in the filename and the one Flow PT shows — not a position
+    `start` is the frame NUMBER — the one in the filename and the one SG shows — not a position
     in the list. `start` 0 is the first frame the source actually has, and `count` 0 is every frame
     from there to the end.
 

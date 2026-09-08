@@ -3,7 +3,7 @@
 > Type "the actor" and get a matte — no shapes, no keyframes.
 
 Roto is the biggest fixed cost in comp, and it is the first thing a supervisor judges. This graph
-takes a plate that is already a Version in Flow PT, segments the subject from a text prompt, and
+takes a plate that is already a Version in Flow Production Tracking, segments the subject from a text prompt, and
 publishes the matte back as a Version that records the plate it came from.
 
 Nothing here generates an image. The point is the trail: the published matte carries the model, the
@@ -12,8 +12,8 @@ so six months later "how was this matte made" has an answer.
 
 ## What it demonstrates
 
-- **A chain, not a one-shot.** The graph's input is a Flow PT Version, not a file on disk. Its output
-  is a Flow PT Version whose `sg_ai_generated_from` points at that input. Two graphs like this
+- **A chain, not a one-shot.** The graph's input is a Flow Production Tracking Version, not a file on disk. Its output
+  is a Flow Production Tracking Version whose `sg_ai_generated_from` points at that input. Two graphs like this
   compose without anyone copying an id.
 - **Provenance from the graph, not from the artist.** `sg_ai_generator` and `sg_ai_model` come out of
   the executing prompt object. Nobody typed them.
@@ -29,12 +29,12 @@ CheckpointLoaderSimple ──MODEL──┬────────────�
         └─CLIP→ CLIPTextEncode ─┼─CONDITIONING─┐           │
                   "the actor"   │              │           │
                                 │              ↓           │
-Flow PT Load — plate ──IMAGE────┴────→ SAM3_Detect         │
+SG Load — plate ──IMAGE────┴────→ SAM3_Detect         │
   demo_01_roto_plate_v001                      ↓ masks     │
                                           MaskToImage      │
                                                ↓           │
                         ┌──────────────────────┴────┐      │
-                  PreviewImage            Flow PT Publish   │
+                  PreviewImage            Flow Production Tracking Publish   │
                                                             │
 LoadVideo → GetVideoComponents ──images(24)────→ SAM3_Detect ┘
   demo_01_roto_plate.mp4                             ↓ masks(24)
@@ -44,7 +44,7 @@ LoadVideo → GetVideoComponents ──images(24)────→ SAM3_Detect ┘
 ```
 
 Two branches, one prompt, one model. The upper one is what gets published: the plate Version comes
-out of Flow PT, `SAM3_Detect` answers *which pixels are him* from the words "the actor", and the
+out of Flow Production Tracking, `SAM3_Detect` answers *which pixels are him* from the words "the actor", and the
 matte goes back as a Version. The lower one runs the same prompt across all 24 frames of the clip so
 a supervisor can see the matte hold before approving anything.
 
@@ -136,20 +136,20 @@ The publish node now turns a whole IMAGE batch into **one** Version carrying an 
 *movie* is plainly the better deliverable. This graph still publishes the single-frame branch, for a
 different reason worth stating plainly:
 
-**`Flow PT Load Version` returned exactly one frame when this graph was cut.** It read one image out
+**`SG Load` returned exactly one frame when this graph was cut.** It read one image out
 of a Version — a `frame` widget, no range.
 
 > **Out of date, and this graph wants re-cutting.** The Load node now takes a `frame_count` beside
 > `frame` and returns a batch, and a Version's PublishedFiles are a source it can read a sequence
-> from. Both blockers below are gone: the clip branch can take its frames from Flow PT and publish a
+> from. Both blockers below are gone: the clip branch can take its frames from Flow Production Tracking and publish a
 > matte movie that knows its plate. The reasoning is kept because it is why the graph looks like this. So the clip branch, which gets its frames from `LoadVideo` on disk,
-has no Flow PT Version anywhere upstream of it. Publishing that branch would produce a handsome
+has no Flow Production Tracking Version anywhere upstream of it. Publishing that branch would produce a handsome
 24-frame matte movie with an **empty `sg_ai_generated_from`** — a matte that cannot say which plate
 it came from. In a repo whose entire purpose is the trail, that is the wrong trade: the single frame
 that knows its ancestor beats the movie that does not.
 
 The fix is not in the publish node, it is in the Load node — a Version that can deliver a *sequence*
-into the graph. Until then, a graph whose input genuinely comes from Flow PT is a single-frame graph,
+into the graph. Until then, a graph whose input genuinely comes from Flow Production Tracking is a single-frame graph,
 and that is the honest shape of this demo. Typing the plate id into the publish node's
 `source_versions` would paper over it, and is exactly the id-copying this project exists to remove.
 
@@ -167,7 +167,7 @@ lost, but the queryable field a supervisor would filter on is blank.
 The plate it reads is seeded once, by hand, because a chain has to start somewhere:
 
 ```sh
-PYTHONPATH=src python -m comfyui_fpt.seed <frame1.png> --project 1180 \
+PYTHONPATH=src python -m comfyui_sg.seed <frame1.png> --project 1180 \
   --link "demo_01_roto (Shot)" --output plate --note "..."
 ```
 
@@ -196,9 +196,9 @@ Adapted from the ComfyUI core templates `utility_image_segment_sam3` and `utilit
 of their subgraphs — `instrument.py` does not walk into a ComfyUI subgraph yet, so a graph that hides
 its stream inside one reports nothing to publish.
 
-The Flow PT nodes were added by the repo's own tool, not by hand:
+The Flow Production Tracking nodes were added by the repo's own tool, not by hand:
 
 ```sh
-python src/comfyui_fpt/instrument.py <base>.json --out example_workflows/01_roto_matte.json \
+python src/comfyui_sg/instrument.py <base>.json --out example_workflows/01_roto_matte.json \
   --publish 10:0 --load 3 --project "comfyui-fpt sandbox" --link "demo_01_roto (Shot)"
 ```

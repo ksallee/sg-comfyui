@@ -9,7 +9,7 @@ Needs playwright, which ComfyUI's own venv does not have:
     uv run --with playwright --python 3.11 python tools/smoke.py --port 8999
 
 `--with sg-groundtruth` is worth adding if the interpreter running this does not have it: without it
-the node pack fails to import and every graph reports no FPT node instead of failing.
+the node pack fails to import and every graph reports no SG node instead of failing.
 
 `widgets_values` is positional, and only loading a saved graph in a real ComfyUI shows a value that
 has shifted into the widget next door. That is what this checks and what nothing else can.
@@ -52,7 +52,7 @@ for (const [nodeId, values] of Object.entries(want)) {
     const w = n.widgets.find((x) => x.name === name);
     const got = w ? w.value : undefined;
     // A project saved as "(none)" is no choice, and the picker resolves it to the project under
-    // Settings on load (fpt_entity_picker.selectProject). That is a resolution, not a shift.
+    // Settings on load (sg_entity_picker.selectProject). That is a resolution, not a shift.
     if (name === "project" && expected === "(none)" && got && got !== "(none)") continue;
     if (String(got) !== String(expected)) bad.push({widget: name, expected, got});
   }
@@ -92,7 +92,7 @@ def expected(graph, port):
     want, misaligned = {}, []
     for n in graph.get("nodes", []):
         t = n.get("type", "")
-        if not t.startswith("FPT"):
+        if not t.startswith("SG"):
             continue
         vals = n.get("widgets_values") or []
         names = declared(t, port)
@@ -117,7 +117,7 @@ def check(path, port, workdir):
             print(f"      {m}")
         return True
     if not want:
-        print(f"  {path.name:26s} no FPT node in this graph")
+        print(f"  {path.name:26s} no SG node in this graph")
         return False
 
     drive = workdir / "drive.js"

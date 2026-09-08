@@ -454,7 +454,7 @@
     },
     {
       "id": 23,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         -500,
         660
@@ -480,7 +480,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -496,11 +496,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — matte"
+      "title": "SG Publish — matte"
     },
     {
       "id": 24,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -2100,
         300
@@ -533,7 +533,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -548,7 +548,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load — plate"
+      "title": "SG Load — plate"
     },
     {
       "id": 25,

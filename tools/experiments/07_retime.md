@@ -2,7 +2,7 @@
 
 Retime a plate, or fill the frames the camera dropped, and publish the conformed result as a Version.
 
-    24 fps plate  ->  FILM  ->  48 fps clip on disk + one Version in Flow PT
+    24 fps plate  ->  FILM  ->  48 fps clip on disk + one Version in Flow Production Tracking
 
 TD line: **"24 to 48, or patch the three frames the camera dropped."**
 
@@ -29,7 +29,7 @@ flattened out of its subgraph. Core nodes only — `comfy_extras/nodes_frame_int
            -> FrameInterpolate         film_net_fp16, multiplier 2  -> 23 frames
                 -> CreateVideo (fps x multiplier) -> SaveVideo      the conformed clip, on disk
                 -> ImageFromBatch (index 1, length 1) -> PreviewImage
-                                                     -> Flow PT Publish Version
+                                                     -> SG Publish
 
 The multiplier is one `PrimitiveInt` feeding both the interpolator and the output frame rate
 (`ComfyMathExpression`, `a * b`), so 24 -> 48 cannot drift apart from 2x.
@@ -110,14 +110,14 @@ lying quietly, in a field somebody would later quote.
 
 ## Lineage without a Load node
 
-The plate is seeded into Flow PT first, so the chain starts somewhere:
+The plate is seeded into Flow Production Tracking first, so the chain starts somewhere:
 
-    PYTHONPATH=src python -m comfyui_fpt.seed input/fpt_retime_plate_f001.png \
+    PYTHONPATH=src python -m comfyui_sg.seed input/fpt_retime_plate_f001.png \
       --project 1180 --link "demo_07_retime (Shot)" --output plate --note "..."
 
 The graph then names that Version in the publish node's `source_versions`, and it lands in
 `sg_ai_generated_from`. The **Load node is deliberately absent**: this graph's input is a movie, and
-`Flow PT Load Version` delivers a frame. Wiring it in would have meant retiming a still, which is
+`SG Load` delivers a frame. Wiring it in would have meant retiming a still, which is
 not a retime. `instrument.py` agrees — it reports zero image inputs a Load could replace, because
 `LoadVideo` is not an image loader. The typed id is the documented path for exactly this: "a source
 no upstream Load node can show".
@@ -139,7 +139,7 @@ Versions on the Shot:
 
 | Version | code | how it got there |
 |---|---|---|
-| 31754 | `demo_07_retime_plate_v001` | `comfyui_fpt.seed`, frame 1 of the source clip |
+| 31754 | `demo_07_retime_plate_v001` | `comfyui_sg.seed`, frame 1 of the source clip |
 | 31790 | `demo_07_retime_retime_v001` | the publish node, status Pending Review |
 
 31790 carries, in the three fields the graph could fill:
@@ -163,7 +163,7 @@ interpolator, the batch pick, itself — and not `CreateVideo`, `SaveVideo` or t
 which are downstream or on another branch.
 
 Attachments on the Version: `…_v001.png`, `…_v001.provenance.json`, `…_v001.workflow.json`, plus the
-one-frame `.mp4` and thumbnail Flow PT transcodes for itself because the node uploads to
+one-frame `.mp4` and thumbnail Flow Production Tracking transcodes for itself because the node uploads to
 `sg_uploaded_movie` as well as `image`. That transcode is worth knowing about: a graph that publishes
 a whole retimed sequence gets one Version *and one one-frame movie* per frame. Another reason this
 one taps a single frame.
@@ -211,14 +211,14 @@ produce. It is not an error state and it is not styled as one.
 
 **One thing the panel gets wrong here**: `generated from` reads `nothing in this graph`, but the
 published Version does carry `sg_ai_generated_from: [31754]`. `preview_publish` builds its lineage
-from upstream `FPTLoadVersion` nodes only and never reads the `source_versions` widget, which the
+from upstream `SGLoadVersion` nodes only and never reads the `source_versions` widget, which the
 publish path does read. The panel understates lineage whenever the operator typed the id by hand —
 the one case this graph is in, because its input is a movie.
 
 ## What this ran into
 
 - **The template is a subgraph.** Analysable, but only from the outside; see "Why the graph is flat".
-- **One Version per frame, and one one-frame movie with it.** Flow PT transcodes whatever goes to
+- **One Version per frame, and one one-frame movie with it.** Flow Production Tracking transcodes whatever goes to
   `sg_uploaded_movie`, so a 23-frame publish would leave 23 Versions and 23 one-frame `.mp4`s behind.
   Nothing was published as a batch here; the tap is one frame, deliberately.
 
@@ -227,7 +227,7 @@ the one case this graph is in, because its input is a movie.
   not say 48 fps — they do not say anything about frame rate at all, which is the only thing the
   operation changed. And because the operation is deterministic, there is nothing else interesting to
   record instead: no seed, no prompt, no sampler. Take away the movie and the Version is a picture of
-  a frame that was already nearly there. A single Version carrying the encoded clip, with Flow PT
+  a frame that was already nearly there. A single Version carrying the encoded clip, with Flow Production Tracking
   filling `_frame_rate` from it, is the whole record.
 - **The panel understates hand-typed lineage.** See above: `preview_publish` reads Load nodes, the
   publish path also reads `source_versions`.
@@ -253,9 +253,9 @@ a PNG to seed. The one used here is a 12-frame push-in cropped out of `fpt_plate
 
 Then the ordinary path — seed the plate, check what the analyser sees, open the graph:
 
-    PYTHONPATH=src python -m comfyui_fpt.seed <frame>.png --project 1180 \
+    PYTHONPATH=src python -m comfyui_sg.seed <frame>.png --project 1180 \
       --link "demo_07_retime (Shot)" --output plate --note "..."
-    python src/comfyui_fpt/instrument.py example_workflows/07_retime.json \
+    python src/comfyui_sg/instrument.py example_workflows/07_retime.json \
       --template "{entity.code}_{output}_v{version:03d}"
 
 `source_versions` on the publish node holds the seeded Version id and will need repointing at yours.

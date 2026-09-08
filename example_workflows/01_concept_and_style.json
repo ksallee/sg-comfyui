@@ -1,5 +1,5 @@
 {
-  "id": "fpt-01-plates",
+  "id": "sg-01-plates",
   "last_node_id": 17,
   "last_link_id": 24,
   "nodes": [
@@ -457,7 +457,7 @@
     },
     {
       "id": 13,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1300,
         0
@@ -491,7 +491,7 @@
         "{entity}_concept",
         "",
         false,
-        "Scene concept from the Flow PT example.",
+        "Scene concept from the Flow Production Tracking example.",
         "sRGB",
         "",
         0,
@@ -500,7 +500,7 @@
     },
     {
       "id": 14,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1300,
         680
