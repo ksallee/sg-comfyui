@@ -12,7 +12,7 @@
       ],
       "size": [
         440,
-        600
+        420
       ],
       "flags": {},
       "order": 0,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twenty-four frames of moving grain go in twice: as frames, and as a clip\nfrom Create Video. The clip is the review movie. **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: the frames come\nback as images, and the clip comes out of the video output into Save Video. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
+        "## SG — start here\n\nTwo rows. Run one node at a time.\n\n**Top row, a still.** Run Publish as it is: the card previews, nothing is sent. Pick a project and\na link, Run again: a Version. Then the same project and link on Load, Run: it comes back.\n\n**Bottom row, a sequence.** Twenty-four frames of grain, and a clip from Create Video as the\nreview movie. Create Published Files is on, so the frames land on your storage as a Published File.\nLoad reads them back as images; its video output feeds Save Video.\n\nNo storage on the site: the bottom row stops and says so. No model, no download. Ctrl-B mutes a\nnode."
       ]
     },
     {
