@@ -1,7 +1,7 @@
 {
   "id": "sg-00-example",
-  "last_node_id": 13,
-  "last_link_id": 8,
+  "last_node_id": 15,
+  "last_link_id": 14,
   "nodes": [
     {
       "id": 1,
@@ -12,7 +12,7 @@
       ],
       "size": [
         440,
-        560
+        600
       ],
       "flags": {},
       "order": 0,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twelve frames go in, and **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: all twelve frames\ncome back. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
+        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twenty-four frames of moving grain go in twice: as frames, and as a clip\nfrom Create Video. The clip is the review movie. **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: the frames come\nback. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
       ]
     },
     {
@@ -103,7 +103,7 @@
       "id": 4,
       "type": "SGPublishVersion",
       "pos": [
-        -280,
+        100,
         0
       ],
       "size": [
@@ -228,7 +228,7 @@
       "id": 7,
       "type": "PreviewImage",
       "pos": [
-        200,
+        -280,
         0
       ],
       "size": [
@@ -268,7 +268,7 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            5
+            9
           ],
           "slot_index": 0
         }
@@ -277,7 +277,7 @@
       "widgets_values": [
         768,
         768,
-        12,
+        24,
         2634044
       ]
     },
@@ -286,7 +286,7 @@
       "type": "TextOverlay",
       "pos": [
         -640,
-        1110
+        1280
       ],
       "size": [
         300,
@@ -299,7 +299,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 5
+          "link": 10
         }
       ],
       "outputs": [
@@ -307,8 +307,9 @@
           "name": "IMAGE",
           "type": "IMAGE",
           "links": [
-            6,
-            7
+            11,
+            12,
+            13
           ],
           "slot_index": 0
         }
@@ -327,7 +328,7 @@
       "id": 10,
       "type": "SGPublishVersion",
       "pos": [
-        -280,
+        100,
         880
       ],
       "size": [
@@ -341,12 +342,12 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 6
+          "link": 11
         },
         {
           "name": "video",
           "type": "VIDEO",
-          "link": null
+          "link": 14
         }
       ],
       "outputs": [],
@@ -359,7 +360,7 @@
         "{entity}_example_sequence",
         "",
         true,
-        "Twelve-frame sequence from the SG example workflow, written to the storage.",
+        "Twenty-four frames of grain from the SG example workflow: the frames go to the storage, the clip is the review movie.",
         "",
         "",
         0,
@@ -370,7 +371,7 @@
       "id": 11,
       "type": "PreviewImage",
       "pos": [
-        200,
+        -280,
         880
       ],
       "size": [
@@ -384,7 +385,7 @@
         {
           "name": "images",
           "type": "IMAGE",
-          "link": 7
+          "link": 12
         }
       ],
       "outputs": [],
@@ -471,6 +472,88 @@
       ],
       "outputs": [],
       "properties": {}
+    },
+    {
+      "id": 14,
+      "type": "ImageAddNoise",
+      "pos": [
+        -640,
+        1110
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        7,
+        "fixed",
+        0.35
+      ]
+    },
+    {
+      "id": 15,
+      "type": "CreateVideo",
+      "pos": [
+        -640,
+        1580
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
     }
   ],
   "links": [
@@ -507,15 +590,31 @@
       "IMAGE"
     ],
     [
-      5,
       8,
+      12,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      8,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      14,
       0,
       9,
       0,
       "IMAGE"
     ],
     [
-      6,
+      11,
       9,
       0,
       10,
@@ -523,7 +622,7 @@
       "IMAGE"
     ],
     [
-      7,
+      12,
       9,
       0,
       11,
@@ -531,12 +630,20 @@
       "IMAGE"
     ],
     [
-      8,
-      12,
-      0,
       13,
+      9,
+      0,
+      15,
       0,
       "IMAGE"
+    ],
+    [
+      14,
+      15,
+      0,
+      10,
+      1,
+      "VIDEO"
     ]
   ],
   "groups": [],
