@@ -403,7 +403,43 @@ are rebuilt.
 
 ---
 
-## Three things the next session opens with — written 2026-09-08
+## The next session opens here — written 2026-09-08, end of day
+
+**State.** PR #75 onto `dev` is open and **not to merge**: it carries the sign-in work below plus the
+release commits since #56. `sg-groundtruth` has probe 052 merged to `main` at 0.1.3, and **Kevin cuts
+the PyPI release**; until then ComfyUI's venv runs the checkout as an editable install and
+`requirements.txt` already asks for `>=0.1.3`. ComfyUI is running on 8188 with the new routes,
+signed out, script key in `.env.local`.
+
+**Sign in works, and its surface is wrong.** The App Session Launcher flow runs end to end from the
+node's routes (`/fpt/session`, `/fpt/login`, `/fpt/logout`, `credentials.py`) and Version 31952 was
+published from the editor as the person. But the sign-in row on every node is the wrong surface,
+decided with Kevin:
+
+1. **Move sign-in to ComfyUI's Settings dialog**, one global place: site address, Sign in with the
+   current status, Sign out. `app.ui.settings.addSetting` with a custom-rendered entry; verify that
+   type exists in this frontend first, headless, with `tools/qa_node.py`. Secrets never enter the
+   settings store, which is world-readable on the port; the button hits our routes and the token
+   stays in `user/__comfyui_flow_production_tracking/`. If the entry is too small, a sidebar tab.
+2. **Delete `web/fpt_signin.js` and its two `addSignIn` calls.** The node shows nothing about the
+   connection except an alert when it cannot connect, naming Settings as the fix. Open: one
+   fine-print line in the panel fold saying who the Version will be created by, since sign-in makes
+   the Artist depend on it. Kevin's call.
+3. **Test the no-credentials state**, never done: `qa_node.py --start --repo <copy without .env.local>`.
+   Expected: empty pickers and one alert with the fix in it. Moving Kevin's `.env.local` is refused.
+4. **Per-node field configuration without the LLM**, Kevin's idea and a separate piece: a panel
+   listing the schema's Version fields, each hidden / normal / advanced, required or not, default.
+   It edits `profile.local.json`, the one source of truth `INPUT_TYPES` already reads, and
+   `/inspect-site` stays the proposer. Hiding and folding are safe; a site-specific custom field adds
+   a widget and meets the positional `widgets_values` rule, so that half needs its own design. Builds
+   on point 3 below, `data_type -> widget`.
+5. **Node names**: see the open table. "SG Load", "SG Publish". Research first.
+
+**How to test UI here.** `uv run --with playwright --python 3.11 python tools/qa_node.py --start
+--node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Not
+the live browser tool; Kevin can see that session and it is slower.
+
+## Three things the next session opened with — written 2026-09-08, morning
 
 ### 1. Credentials: decided and built on 2026-09-08, sign in as a person
 
