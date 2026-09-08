@@ -482,7 +482,10 @@ In the order they block each other.
 2. **Decide #76 before anything ships.** The node class keys `FPTLoadVersion` and
    `FPTPublishVersion` are written into every saved workflow, so renaming them to `SGLoadVersion`
    and `SGPublishVersion` is possible now and never again. Display names, the repo, the Registry
-   name and the directory name can change later at the cost of a chip.
+   name and the directory name can change later at the cost of a chip. The issue's description
+   carries what was already checked: every candidate Registry name is free, `DEPRECATED = True`
+   keeps an old class key loading as an alias, and the list of every surface a name appears on.
+   Kevin does this one in a fresh session.
 3. **One live publish from `00_example` with Create Published Files ticked**, on this machine: the
    `{version_name}/` folder, the movie beside it, the path fields in the chosen notation, and the
    deliverable half run from a template for the first time.
