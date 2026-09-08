@@ -417,11 +417,17 @@ sorts them:
 
 - **Connection**: Site address; Publishing as, with **Test**, which reports the site's own sentence
   for a wrong key, a refused Publish as login, and a wrong address.
-- **Defaults**: Project, Version name, Root name, Status, Published Files tick, Storage, Sequence
-  path, Movie path, Review movie, Colour space. They edit `profile.local.json` for the project the
-  nodes open on; each template shows its rendered example.
-- **Publish as yourself**: Sign in, the App Session Launcher flow moved off the node.
-- **Script key**: Script name, Application key (write-only, shows saved or not), Publish as.
+- **Log In As Yourself**: Log in, the App Session Launcher flow moved off the node.
+- **Script Authentication**: Script name, Application key (write-only), Publish as. Each row says
+  where its value comes from: the environment, saved on this ComfyUI, or not set.
+- **SG Defaults**: Project, the one both nodes open on.
+- **SG Publish Defaults**: Version name, Root name, Status, Published Files tick, Storage, Sequence
+  path, Movie path, Review movie, Colour space. They edit `profile.local.json` for that project;
+  each template shows the value in force and its rendered example. Group names are chosen for the
+  dialog's alphabetical sort, which is why the person group says Log In and the defaults say SG.
+
+A 404 from any route means the running ComfyUI predates the pack, and every row says so: routes
+register at import, so a pack update needs a restart, not a reload.
 
 `web/fpt_signin.js` and both `addSignIn` calls are gone. The nodes reload their pickers on a
 `fpt:session` window event and say nothing about the connection except the error sentence, which
@@ -441,8 +447,8 @@ for the first release; the Defaults group carries what an operator sets by hand.
 entities from a publish, a Task's status for instance, is a nice-to-have after release.
 
 **Still to do here:** the fold table (each widget shown, in the fold, or hidden, which the profile's
-`widgets` block already decides); per-project defaults for a project other than the one the nodes
-open on stay a file edit; `instrument.py` and `smoke.py` read no profile-added widgets, which only
+`widgets` block already decides), which would be the first content of an SG Load Defaults group;
+per-project defaults for a project other than the one the nodes open on stay a file edit; `instrument.py` and `smoke.py` read no profile-added widgets, which only
 matters once custom fields are built.
 
 **How to test UI here.** `uv run --with playwright --python 3.11 python tools/qa_node.py --start

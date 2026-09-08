@@ -29,16 +29,25 @@ const GIVE_UP_MS = 6 * 60 * 1000;   // the site forgets an unapproved request af
 
 /** One route, decoded. A failed request answers in a shape the rows can show. */
 async function call(url, body) {
+  let r;
   try {
-    const r = await fetch(url, body === undefined ? {} : {
+    r = await fetch(url, body === undefined ? {} : {
       method: "POST", headers: { "Content-Type": "application/json" },
       body: JSON.stringify(body),
     });
-    return await r.json();
   } catch (e) {
     return { error: `The ComfyUI server did not answer. ${e}` };
   }
+  // Routes register when ComfyUI imports the pack, so a 404 is a server older than this page.
+  if (r.status === 404) return { error: RESTART };
+  try {
+    return await r.json();
+  } catch (e) {
+    return { error: `The ComfyUI server answered ${r.status} instead of JSON. ${RESTART}` };
+  }
 }
+
+const RESTART = "Restart ComfyUI, then reload this page: the running server predates this version of the pack.";
 
 // The last /fpt/session answer, shared by every row in the dialog, and the rows that draw it.
 let status = null;
@@ -148,9 +157,43 @@ function textRow(key, type, placeholder, fill = (s) => s[key] || "") {
 }
 
 const siteRow = () => textRow("site", "url", "https://yourstudio.shotgrid.autodesk.com");
-const scriptNameRow = () => textRow("script_name", "text", "Script Name, from Admin > Scripts",
-  (s) => (s.script_source === "environment" ? "" : s.script_name || ""));
-const loginRow = () => textRow("login", "text", "Login on the People page, often an email");
+
+/** Where the script comes from, in one line under its rows. */
+const scriptSource = (s) => !status ? "" : s.script_source === "environment" ? "From the environment."
+  : s.script_source === "settings" ? "Saved on this ComfyUI." : "Not set.";
+
+function scriptNameRow() {
+  const i = input("text", "Script Name, from Admin > Scripts");
+  const n = note();
+  i.addEventListener("change", async () => {
+    const d = await save({ script_name: i.value.trim() });
+    if (d.error) n.textContent = d.error;
+  });
+  const el = row(() => {
+    const s = status || {};
+    if (document.activeElement !== i) i.value = s.typed_script_name || s.script_name || "";
+    n.textContent = (s.typed_script_name && s.script_source !== "settings")
+      ? "Paste its Application Key below to use it." : scriptSource(s);
+  });
+  el.append(i, n);
+  return el;
+}
+
+function loginRow() {
+  const i = input("text", "Login on the People page, often an email");
+  const n = note();
+  i.addEventListener("change", async () => {
+    const d = await save({ login: i.value.trim() });
+    if (d.error) n.textContent = d.error;
+  });
+  const el = row(() => {
+    const s = status || {};
+    if (document.activeElement !== i) i.value = s.login || "";
+    n.textContent = !status ? "" : s.login ? `The script publishes as ${s.login}.` : "Not set. The script publishes as itself.";
+  });
+  el.append(i, n);
+  return el;
+}
 
 /** The key is written and never read back, so the field only ever shows whether one is held. */
 function keyRow() {
@@ -169,11 +212,10 @@ function keyRow() {
   });
   const el = row(() => {
     const s = status || {};
-    if (s.script_source === "environment") {
-      i.placeholder = "From environment";
-    } else {
-      i.placeholder = s.has_key ? "Saved. Paste another to replace" : "Application Key, from Admin > Scripts";
-    }
+    i.placeholder = s.has_key ? "Paste a key to replace it" : "Application Key, from Admin > Scripts";
+    n.textContent = !status ? "" : s.script_source === "environment" ? "Set, from the environment. A key pasted here is used instead."
+      : s.script_source === "settings" ? "Saved on this ComfyUI. Never shown."
+      : "Not set. Shown once, when the script is made under Admin > Scripts.";
     clear.hidden = !(s.has_key && s.script_source === "settings");
   });
   el.append(line(i, clear), n);
@@ -183,7 +225,7 @@ function keyRow() {
 /** Signed in, or the button that signs in: the App Session Launcher flow (probe 052). */
 function signInRow() {
   const who = text();
-  const btn = button("Sign in");
+  const btn = button("Log in");
   const n = note();
   let polling = 0;
 
@@ -194,11 +236,11 @@ function signInRow() {
     const d = await call("/fpt/login", { site: (status && status.site) || "" });
     if (!d.url) {
       tab && tab.close();
-      n.textContent = d.error || "The site did not issue a sign-in page. Check the site address, then try again.";
+      n.textContent = d.error || "The site did not issue a login page. Check the site address, then try again.";
       return;
     }
     if (tab) tab.location = d.url; else window.open(d.url, "_blank");
-    n.textContent = "Approve the sign-in in the tab that opened, then come back here.";
+    n.textContent = "Approve the login in the tab that opened, then come back here.";
     const mine = ++polling;
     const started = Date.now();
     while (mine === polling && Date.now() - started < GIVE_UP_MS) {
@@ -211,11 +253,11 @@ function signInRow() {
         return;
       }
       if (p.state === "gone") {
-        n.textContent = "That sign-in page has expired. Click Sign in again.";
+        n.textContent = "That login page has expired. Click Log in again.";
         return;
       }
     }
-    if (mine === polling) n.textContent = "Nobody approved the sign-in. Click Sign in to get a new page.";
+    if (mine === polling) n.textContent = "Nobody approved the login. Click Log in to get a new page.";
   };
 
   const signOut = async () => {
@@ -226,25 +268,30 @@ function signInRow() {
     announce();
   };
 
-  btn.addEventListener("click", () => (btn.textContent === "Sign out" ? signOut() : signIn()));
+  btn.addEventListener("click", () => (btn.textContent === "Log out" ? signOut() : signIn()));
 
   const el = row(() => {
     const s = status || {};
     who.className = "fpt-text";
+    if (!status) {
+      who.textContent = "Checking…";
+      btn.disabled = true;
+      return;
+    }
     if (s.how === "person" && s.alive) {
-      who.textContent = `Signed in as ${s.who}. The nodes publish as you.`;
-      btn.textContent = "Sign out";
+      who.textContent = `Logged in as ${s.who}. The nodes publish as you.`;
+      btn.textContent = "Log out";
     } else if (s.how === "person") {
-      who.textContent = "Your sign-in has expired. Sign in again.";
+      who.textContent = "Your login has expired. Log in again.";
       who.classList.add("fpt-off");
-      btn.textContent = "Sign in";
+      btn.textContent = "Log in";
     } else {
-      who.textContent = "Not signed in. Approve one request in your browser and the nodes publish as you.";
-      btn.textContent = "Sign in";
+      who.textContent = "Not logged in. Approve one request in your browser and the nodes publish as you.";
+      btn.textContent = "Log in";
     }
     // The site is needed before a request can be made, so the button waits for it; the note goes
     // the moment the address arrives, and never overwrites a sign-in in progress.
-    const waiting = !s.site && btn.textContent === "Sign in";
+    const waiting = !s.site && btn.textContent === "Log in";
     btn.disabled = waiting;
     if (waiting) n.textContent = "Enter the site address first.";
     else if (n.textContent === "Enter the site address first.") n.textContent = "";
@@ -273,17 +320,23 @@ function connectionRow() {
     const key = JSON.stringify([s.how, s.site, s.script_name, s.has_key, s.login]);
     if (key !== shown) { n.textContent = ""; n.classList.remove("fpt-bad"); shown = key; }
     who.className = "fpt-text";
+    if (!status) {
+      who.textContent = "Checking…";
+      btn.disabled = true;
+      return;
+    }
+    if (s.error) n.textContent = s.error;   // a route that failed, an old server most often
     if (s.how === "person" && s.alive) {
       who.textContent = `Publishing as ${s.who}.`;
     } else if (s.how === "person") {
-      who.textContent = "Your sign-in has expired. Sign in again below, or sign out to use the script key.";
+      who.textContent = "Your login has expired. Log in again below, or log out to use the script.";
       who.classList.add("fpt-off");
     } else if (s.how === "script") {
       who.textContent = `Publishing as script ${s.script_name}` +
         (s.login ? `, as ${s.login}.` : ".") +
         (s.script_source === "environment" ? " The key comes from the launch environment." : "");
     } else {
-      who.textContent = "Not connected. Sign in, or enter a script name and application key.";
+      who.textContent = "Not connected. Log in, or enter a script name and application key.";
       who.classList.add("fpt-off");
     }
     btn.disabled = s.how === "none" || (s.how === "person" && !s.alive);
@@ -328,19 +381,24 @@ function templateRow(key, kind) {
   let typing;
   const example = async (t) => {
     const d = await call(`/fpt/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
-    n.textContent = d.error ? d.error : (d.example ? `Example: ${d.example}` : "");
+    const isDefault = !dval(key) || t === (defaults.placeholders || {})[key];
+    n.textContent = d.error ? d.error
+      : (d.example ? `Example: ${d.example}${isDefault ? " (the default)" : ""}` : "");
   };
   i.addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(() => example(i.value), 300); });
   i.addEventListener("change", async () => {
-    const d = await saveDefault(key, i.value.trim());
-    if (d.error) n.textContent = d.error; else example(i.value.trim());
+    // Typing the default back in is the same as clearing it, so the profile carries no copy of it.
+    const v = i.value.trim();
+    const d = await saveDefault(key, v === (defaults.placeholders || {})[key] ? "" : v);
+    if (d.error) n.textContent = d.error; else example(v || (defaults.placeholders || {})[key]);
   });
   let shown = null;
   const el = drow(() => {
     if (!defaults) return;
-    i.placeholder = (defaults.placeholders || {})[key] || "";
-    if (document.activeElement !== i) i.value = dval(key);
-    if (shown !== dval(key)) { shown = dval(key); example(shown); }
+    const fallback = (defaults.placeholders || {})[key] || "";
+    const inForce = dval(key) || fallback;
+    if (document.activeElement !== i) i.value = inForce;
+    if (shown !== inForce) { shown = inForce; example(inForce); }
   });
   el.append(i, n);
   return el;
@@ -382,7 +440,7 @@ const projectRow = () => selectRow("default_project", (d) =>
 const storageRow = () => selectRow("published_files.storage", (d) =>
   [{ label: "(the only one, or pick one)", value: "" }].concat((d.storages || []).map((c) => ({ label: c, value: c }))));
 const statusRow = () => selectRow("status", (d) =>
-  [{ label: "(the site's default)", value: "" }].concat((d.statuses || []).map((s) => ({ label: s.label, value: s.code }))));
+  [{ label: "(the site's default)", value: "" }].concat((d.statuses || []).map((s) => ({ label: `${s.label} (${s.code})`, value: s.code }))));
 const colourRow = () => {
   const i = input("text", "sRGB");
   const n = note();
@@ -400,48 +458,49 @@ const colourRow = () => {
 const entry = (id, name, group, type, tooltip) =>
   ({ id: `SG.${id}`, name, category: [CATEGORY, group, name], type, tooltip, defaultValue: "" });
 
-// The dialog sorts groups by name and draws a group's rows in reverse registration order, so the
-// group names are chosen to sort Connection, then the person, then the script, and the rows are
-// listed last first.
+// The dialog draws a group's rows in reverse registration order, so the rows are listed last first.
+// Group names sort alphabetically in the dialog, and these are chosen to read top to bottom as
+// Connection, Log In, Script Authentication, then the defaults.
 const GROUP_SITE = "Connection";
-const GROUP_DEFAULTS = "Defaults";
-const GROUP_PERSON = "Publish as yourself";
-const GROUP_SCRIPT = "Script key";
+const GROUP_PERSON = "Log In As Yourself";
+const GROUP_SCRIPT = "Script Authentication";
+const GROUP_DEFAULTS = "SG Defaults";
+const GROUP_PUBLISH = "SG Publish Defaults";
 
 app.registerExtension({
   name: "comfyui-flow-production-tracking.settings",
   settings: [
     // Defaults, last row first. They edit the profile for the project the nodes open on; a graph
     // can still override the templates and the tick on the node itself.
-    entry("ColourSpace", "Colour space", GROUP_DEFAULTS, colourRow,
+    entry("ColourSpace", "Colour space", GROUP_PUBLISH, colourRow,
       "The colour space new publishes declare, for example sRGB or ACEScg. Recorded with the "
       + "files, never applied to the pixels."),
-    entry("ReviewMovie", "Review movie", GROUP_DEFAULTS, () => checkRow("published_files.register_movie",
+    entry("ReviewMovie", "Review movie", GROUP_PUBLISH, () => checkRow("published_files.register_movie",
       "Also keep the review movie under the storage"),
       "When a clip is published with its frames, copy the review movie beside them as a Published "
       + "File too."),
-    entry("MoviePath", "Movie path", GROUP_DEFAULTS, () => templateRow("published_files.movie_path_template", "movie"),
+    entry("MoviePath", "Movie path", GROUP_PUBLISH, () => templateRow("published_files.movie_path_template", "movie"),
       "Where a published clip lands under the storage. {version_name} is the Version's name and "
       + "{ext} the clip's own extension."),
-    entry("SequencePath", "Sequence path", GROUP_DEFAULTS, () => templateRow("published_files.path_template", "sequence"),
+    entry("SequencePath", "Sequence path", GROUP_PUBLISH, () => templateRow("published_files.path_template", "sequence"),
       "Where a published image sequence lands under the storage, with %04d for the frame number."),
-    entry("Storage", "Storage", GROUP_DEFAULTS, storageRow,
+    entry("Storage", "Storage", GROUP_PUBLISH, storageRow,
       "The Local File Storage the files are copied under, from Site Preferences > File Management "
       + "in Flow Production Tracking. A site with one needs no choice."),
-    entry("PublishedFiles", "Published Files", GROUP_DEFAULTS, () => checkRow("published_files.default",
+    entry("PublishedFiles", "Published Files", GROUP_PUBLISH, () => checkRow("published_files.default",
       "Create Published Files on a new Publish node"),
       "Whether a new Publish node registers the files beside the Version. The tick on the node "
       + "still decides per graph."),
-    entry("Status", "Status", GROUP_DEFAULTS, statusRow,
+    entry("Status", "Status", GROUP_PUBLISH, statusRow,
       "The status a new Version gets. The site fills its own default when none is chosen."),
-    entry("RootName", "Root name", GROUP_DEFAULTS, () => templateRow("root_name", "root"),
+    entry("RootName", "Root name", GROUP_PUBLISH, () => templateRow("root_name", "root"),
       "The Version name without its version number, for example sh010_roto. The file paths and "
       + "the Published File's Name are built on it."),
-    entry("VersionName", "Version name", GROUP_DEFAULTS, () => templateRow("code_template", "name"),
+    entry("VersionName", "Version name", GROUP_PUBLISH, () => templateRow("code_template", "name"),
       "How a new Version is named. {root_name} is the root name and {version:03d} the padded "
       + "number."),
     entry("Project", "Project", GROUP_DEFAULTS, projectRow,
-      "The project the nodes open on. The defaults below are for it."),
+      "The project both nodes open on. The publish defaults below are for it."),
     entry("PublishAs", "Publish as", GROUP_SCRIPT, loginRow,
       "The Login of the person the script publishes as, from the Login column on the People page. "
       + "Often their email address. Leave empty to publish as the script itself."),
@@ -451,7 +510,7 @@ app.registerExtension({
     entry("ScriptName", "Script name", GROUP_SCRIPT, scriptNameRow,
       "For a render farm or a machine nobody signs in on. The Script Name from the Scripts page "
       + "under Admin in Flow Production Tracking."),
-    entry("SignIn", "Sign in", GROUP_PERSON, signInRow,
+    entry("LogIn", "Log in", GROUP_PERSON, signInRow,
       "Approve one request in the browser where you are logged into Flow Production Tracking. "
       + "Every Version is then created by you. Wins over the script key while it lasts."),
     entry("Connection", "Publishing as", GROUP_SITE, connectionRow,

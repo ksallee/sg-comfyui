@@ -2,7 +2,7 @@
 
 Two ways in, and a person wins over a machine:
 
-- **A person, signed in through the App Session Launcher** (probe 052). The operator clicks Sign in
+- **A person, signed in through the App Session Launcher** (probe 052). The operator clicks Log in
   under Settings, approves the request in the browser where they are already logged into Flow PT,
   and the session token the site hands back is kept in ComfyUI's protected user directory. Every
   Version is then created by that person, with no script key and no impersonation.
@@ -32,7 +32,7 @@ SESSION_FILE = "session.local.json"
 SETTINGS_FILE = "settings.local.json"
 SETTINGS_KEYS = ("site", "script_name", "api_key", "login")
 
-SETUP = ("Not connected to Flow Production Tracking. Open Settings, then SG, and sign in or "
+SETUP = ("Not connected to Flow Production Tracking. Open Settings, then SG, and log in or "
          "enter a script name and application key.")
 
 # Approval requests this ComfyUI has open, by id. A request nobody approves is forgotten by the
@@ -148,14 +148,16 @@ def client():
 def status():
     """What Settings shows: who the nodes publish as, the site, and whether the site still agrees.
 
-    `alive` costs one call to the site and is what turns a session the site forgot into a Sign in
+    `alive` costs one call to the site and is what turns a session the site forgot into a Log in
     button rather than empty pickers. The script half is reported whether or not it is in use, so
     the dialog can show what it holds; the key itself is never in the answer.
     """
     kind, site, who = how()
     name, key, login, source = script()
     out = {"how": kind, "site": site_url() or site, "who": who, "alive": kind == "script",
-           "script_name": name, "has_key": bool(key), "script_source": source, "login": login}
+           "script_name": name, "has_key": bool(key), "script_source": source, "login": login,
+           # A name typed under Settings before its key arrives, so the dialog can show it.
+           "typed_script_name": settings().get("script_name", "")}
     if kind == "person":
         s = launcher.alive(site, read_session()["session_token"])
         out["alive"] = bool(s) and not s.get("expired")
@@ -172,7 +174,7 @@ def test():
     if not r.ok:
         raise FPTError(f"The site answered {r.status_code}. {r.text[:200]}")
     if kind == "person":
-        return {"ok": True, "who": f"{who}, signed in"}
+        return {"ok": True, "who": f"{who}, logged in"}
     _, _, login, _ = script()
     return {"ok": True, "who": f"script {who}" + (f", publishing as {login}" if login else "")}
 

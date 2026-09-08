@@ -922,14 +922,14 @@ Nothing else needs to be asked of the user; the graph already knows.
 A person, signed in through the App Session Launcher, or a script key from the environment. The
 person wins when both are present.
 
-**One surface: Settings, then SG.** The site address, Sign in, the script key and the publish
+**One surface: Settings, then SG.** The site address, Log in, the script authentication and the publish
 defaults are rows in ComfyUI's own Settings dialog, drawn by the pack rather than by ComfyUI's form
 controls, so nothing entered there reaches ComfyUI's settings store. Each row posts to the pack's own
 routes and saves on change. The node shows nothing about the connection except the error sentence
 that names Settings: who a ComfyUI publishes as is one fact per ComfyUI, and a row on every node was
 the wrong place for it.
 
-**The person.** The operator enters the site address under Settings and clicks Sign in. The server
+**The person.** The operator enters the site address under Settings and clicks Log in. The server
 asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the dialog
 opens it in a new tab, where the operator is already logged into Flow PT through Autodesk Identity,
 and they click approve. The site hands back a session token, which spends at the token
@@ -956,7 +956,7 @@ into every workflow and every PNG.
 **How long it lasts.** The site's `User Session Expiry` preference, one day on the probed site, from
 the last use. Minting a bearer counts as use, so a ComfyUI that publishes or even opens a graph with
 these nodes once a day never asks again. Left idle past the window the token dies, the token
-endpoint refuses it, and Settings says so and offers Sign in. Nothing renews on a timer:
+endpoint refuses it, and Settings says so and offers Log in. Nothing renews on a timer:
 the site's preference is the administrator's decision and a clock would defeat it.
 
 **One session per ComfyUI.** The `comfy-user` header is a plain string any client may send, so a
@@ -967,8 +967,9 @@ script name and the login. The key and the token never leave the server on any r
 
 **The publish defaults are the profile.** The Defaults rows under Settings edit `profile.local.json`
 for the project the nodes open on: the Version name and root name templates, the status, and the
-`published_files` block. There is no second store. Each template row shows the example it renders on
-sample values, by the node's own renderer. The profile itself now lives in the protected directory
+`published_files` block. There is no second store. Each template row shows the value in force, the
+default when the profile has none, beside the example it renders on sample values by the node's own
+renderer; typing the default back in clears the profile key. The profile itself now lives in the protected directory
 when one exists there, and at the checkout root otherwise, so the inspector's file is read as long
 as it is the only one and a Registry install, which has no checkout, still has somewhere to write.
 Adding a field of the operator's choosing is not in Settings for the first release: it is a

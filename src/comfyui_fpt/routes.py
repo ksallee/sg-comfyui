@@ -34,7 +34,7 @@ def _sentence(e):
     """
     text = str(e)
     if _SESSION_DEAD in text:
-        return "Your Flow Production Tracking sign-in has expired. Open Settings, then SG, and sign in again."
+        return "Your Flow Production Tracking login has expired. Open Settings, then SG, and log in again."
     m = _DETAIL.search(text) or _TITLE.search(text)
     if not m:
         # A token request that never reached the API: a wrong address answers with a web page.
