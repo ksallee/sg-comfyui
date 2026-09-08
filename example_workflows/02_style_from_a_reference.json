@@ -1,7 +1,7 @@
 {
   "id": "fpt-02-style",
-  "last_node_id": 17,
-  "last_link_id": 19,
+  "last_node_id": 18,
+  "last_link_id": 21,
   "nodes": [
     {
       "id": 1,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Style from a reference\n\nTwo Versions come out of Flow PT and one goes back in. The **scene** keeps its composition; the\n**style plate** supplies the look, through Flux Redux. Each Load node has a Preview beside it, so\nyou can see what it pulled before anything is fused.\n\n**Run 01 first.** One Run of it publishes both streams this needs — `{entity}_concept` and\n`{entity}_style`. Then pick the same **project** and **link** on both Load nodes here.\n\n**Both sources are recorded.** The published Version's **sg_ai_generated_from** lists *both*\nVersions it was built from, because both Load nodes are upstream in this graph. Nobody types that.\nOpen the result in Flow PT and you can walk back to the scene and the plate it came from.\n\n**denoise** keeps or discards the scene's structure. **strength** on Apply Style Model is how hard\nthe plate pushes. Ctrl-B mutes the Publish node while you are still exploring."
+        "## Style from a reference\n\nTwo Versions come out of Flow PT and one goes back in. The **scene** keeps its composition, the\n**style reference** supplies the look. A Preview sits beside each Load node so you can see what came\nback before anything is fused.\n\n**Both sources are recorded.** The published Version's **sg_ai_generated_from** names *both* Versions\nit was built from, because both Load nodes are upstream. Nobody types that.\n\n**Run 01 first** — one Run of it publishes both streams this needs.\n\nThe reference 01 makes is a **stand-in**. In real use you would point the style Load at a reference\nsomeone already published: mood boards and look refs are Versions in Flow PT like anything else, and\nthat is the whole point of pulling it from there rather than off a disk.\n\n**The two knobs that matter.** `denoise` on KSampler is how much of the scene survives — low keeps\nthe composition, high reinvents it. `strength` on Apply Style Model is how hard the reference pushes.\nRedux is strong: at denoise 0.65 and strength 1.0 the reference simply replaces the scene. Shipped at\n0.45 and 0.60, which keeps the shot and takes the look."
       ]
     },
     {
@@ -186,7 +186,7 @@
       ],
       "properties": {},
       "widgets_values": [
-        "flux1-schnell-fp8.safetensors"
+        "flux1-dev-fp8.safetensors"
       ]
     },
     {
@@ -215,7 +215,7 @@
           "name": "CONDITIONING",
           "type": "CONDITIONING",
           "links": [
-            7
+            20
           ],
           "slot_index": 0
         }
@@ -344,7 +344,7 @@
         {
           "name": "conditioning",
           "type": "CONDITIONING",
-          "link": 7
+          "link": 21
         },
         {
           "name": "style_model",
@@ -370,7 +370,7 @@
       ],
       "properties": {},
       "widgets_values": [
-        1.0,
+        0.6,
         "multiply"
       ]
     },
@@ -497,11 +497,11 @@
       "widgets_values": [
         42,
         "randomize",
-        4,
+        20,
         1.0,
         "euler",
         "simple",
-        0.65
+        0.45
       ]
     },
     {
@@ -658,6 +658,42 @@
       ],
       "outputs": [],
       "properties": {}
+    },
+    {
+      "id": 18,
+      "type": "FluxGuidance",
+      "pos": [
+        620,
+        300
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 17,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            21
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        3.5
+      ]
     }
   ],
   "links": [
@@ -812,6 +848,22 @@
       17,
       0,
       "IMAGE"
+    ],
+    [
+      20,
+      5,
+      0,
+      18,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      21,
+      18,
+      0,
+      9,
+      0,
+      "CONDITIONING"
     ]
   ],
   "groups": [],

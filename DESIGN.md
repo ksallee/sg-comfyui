@@ -89,6 +89,38 @@ because they hardcode one studio's conventions, or expose every field and become
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
 
+### Rules for putting these nodes in a graph you already use
+
+Learned by building the example workflows and then using them. They are guidance for an operator,
+and they are also what `/track-workflow` should do on its own, because an agent adding a Publish
+node to somebody's graph faces exactly these choices.
+
+- **A Preview before the Publish.** A graph whose only way to show you anything is to publish has
+  the shape backwards: looking is constant, publishing is occasional. Tap the same image into a
+  `PreviewImage` beside the Publish node. `/track-workflow` should add one when it adds a tap.
+- **Muting is how you iterate.** Ctrl-B on the Publish node runs the graph and sends nothing. Say so
+  where someone will read it, because the alternative is deleting and re-adding the node.
+- **One root name per stream, and it changes between runs.** Two ideas explored in one session are
+  two streams, not two versions of one. This is why `root name` is not in the fold.
+- **Lineage comes from the wiring, not from typing.** A Load node upstream of a Publish node is what
+  fills `sg_ai_generated_from`. Anyone reaching for `source versions` on a graph that already loads
+  its input is doing work the node has already done.
+- **`Create Published Files` is the other half.** Off means review media only. A house that hands
+  files to the next department wants it on, and it needs a storage the machine can see.
+
+### Prefilling a node from what the operator is already doing
+
+Open. Today a fresh Publish node knows the project from the profile and nothing else, so every field
+is typed. The site knows more than that: who the script key is acting as, which Tasks are assigned to
+them, which entities they have touched most recently, and what the codes on those entities look like.
+An agent setting the pack up — or the node itself — could propose a link, a task and a root name from
+that and be right most of the time.
+
+The pieces exist. `site.resolve_paths` already walks Flow PT's own field paths, `naming` already
+infers a convention from real codes, and the profile is already the place per-site answers live.
+What is missing is the read of recent activity and a decision about how a proposal is shown, since a
+guessed value that looks typed is worse than an empty field.
+
 ### Which fields a house wants in front of it
 
 `src/comfyui_fpt/widgets.py` declares each widget's `advanced` flag, and that is a default rather
