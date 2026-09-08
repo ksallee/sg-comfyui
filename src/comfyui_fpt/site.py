@@ -1,14 +1,14 @@
-"""Site access: credentials, profile, and the live lookups the node's pickers read.
+"""The site profile and the cached live lookups the node's pickers read.
 
-ComfyUI does not load .env.local, so the node does it — into a mapping handed straight to the client,
-never into os.environ. ComfyUI is a long-lived process shared with every other installed custom node,
-and anything in its environment is readable by all of them. Values are never logged either; an error
-names the missing key, never its value.
+Who the client is comes from `credentials`: the signed-in person, else the script key. Nothing here
+writes os.environ: ComfyUI is a long-lived process shared with every other installed custom node, and
+anything in its environment is readable by all of them. Values are never logged; an error names the
+missing key, never its value.
 
-Everything here is setup path: it serves the editor, never the publish path. All of it is cached and
-all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info request (server.py:756)
-— that is every page load and every node search — and a node that cannot reach the site must still
-load, or the operator cannot open a graph that contains it.
+Everything here is setup path — it serves the editor, never the publish path. All of it is cached and
+all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info request
+(server.py:756), which is every page load and every node search, and a node that cannot reach the
+site must still load or the operator cannot open a graph containing it.
 """
 import datetime
 import json
@@ -19,11 +19,12 @@ from pathlib import Path
 
 import requests
 
-from sg_groundtruth.client import FPT, FPTError
-from sg_groundtruth.env import load as load_env
+from sg_groundtruth.client import FPTError
+
+from . import credentials
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE = ROOT / "profile.local.json"
+PROFILE_NAME = "profile.local.json"
 
 # probe 004 — _search rejects application/json with 415 and demands a vendor type.
 ARRAY_JSON = {"Content-Type": "application/vnd+shotgun.api3_array+json"}
@@ -31,37 +32,112 @@ ARRAY_JSON = {"Content-Type": "application/vnd+shotgun.api3_array+json"}
 # no spelling for `or`; api3_hash takes {"logical_operator", "conditions"} and expresses both, nested.
 HASH_JSON = {"Content-Type": "application/vnd+shotgun.api3_hash+json"}
 
-
-def filter_headers(filters):
-    """The Content-Type this filter shape requires (probe 030). The two are not interchangeable."""
-    return HASH_JSON if isinstance(filters, dict) else ARRAY_JSON
-
-# Setup-path data: projects, entities, statuses, schema. It changes when someone edits the site, not
-# while a graph is open, and every one of these lookups happens inside INPUT_TYPES — which ComfyUI
-# re-runs on every /object_info, i.e. every page load and every node search. At 60s a tab opened a
-# minute after the last one paid 4.2s on the largest endpoint in the app and looked hung. The
-# "refresh from site" button exists for when the wait is actually wanted.
+# Setup-path data — projects, entities, statuses, schema — changes when someone edits the site, not
+# while a graph is open. Every lookup here runs inside INPUT_TYPES, which ComfyUI re-runs on every
+# /object_info, so the TTL is long: the largest endpoint in the app costs ~4s cold, and paying that
+# on a page load reads as ComfyUI hanging. The "refresh from site" button forces a read.
 TTL = 600.0
 _cache = {}
 
 
 def client():
-    """A connected client. Credentials travel as an argument and are never put in os.environ."""
-    return FPT.from_env(load_env(ROOT))
+    """A connected client, as the signed-in person or as the script (credentials.client)."""
+    return credentials.client()
+
+
+def route(entity_type):
+    """Flow PT routes are the lowercased plural: Shot -> /entity/shots (recipe 001)."""
+    return f"/entity/{entity_type.lower()}s"
+
+
+def filter_headers(filters):
+    """The Content-Type this filter shape requires (probe 030). The two are not interchangeable."""
+    return HASH_JSON if isinstance(filters, dict) else ARRAY_JSON
+
+
+def _is(field, entity_type, entity_id):
+    """One `is` filter on an entity field.
+
+    probe 017 — an entity field filters on a FULL {type, id} hash; {id} alone and a bare int both 400.
+    """
+    return [field, "is", {"type": entity_type, "id": int(entity_id)}]
+
+
+def _search(entity_type, filters, fields, sort=None, limit=200):
+    """The rows one _search returns, or [] on any error."""
+    body = {"filters": filters, "fields": list(fields), "page": {"size": limit}}
+    if sort:
+        body["sort"] = sort
+    r = client().post(f"{route(entity_type)}/_search", headers=filter_headers(filters), json=body)
+    return r.json()["data"] if r.ok else []
+
+
+def _pairs(rows, field):
+    """(value, id) for rows that have the field filled."""
+    return [(d["attributes"][field], d["id"]) for d in rows if d["attributes"].get(field)]
+
+
+def _coded(rows):
+    """(code, status, id) — the shape every Version picker consumes."""
+    return [(d["attributes"].get("code") or "", d["attributes"].get("sg_status_list") or "", d["id"])
+            for d in rows]
+
+
+def profile_path():
+    """Where the profile is: ComfyUI's protected per-pack directory, else the checkout root.
+
+    The inspector writes to the checkout root, and that file is read as long as it is the only one.
+    A Registry install has no checkout to write to, so Settings writes beside the session file,
+    which a Manager update leaves alone.
+    """
+    for d in (credentials.store_dir(), ROOT):
+        if (d / PROFILE_NAME).is_file():
+            return d / PROFILE_NAME
+    return credentials.store_dir() / PROFILE_NAME
 
 
 def profile():
-    """What this site actually practices. Written by the inspector; hand-editable.
+    """What this site actually practices. Written by the inspector and by Settings; hand-editable.
 
-    Absent until the inspector has run, so every reader must tolerate {} rather than guess a
+    Absent until one of them has run, so every reader must tolerate {} rather than guess a
     convention (DESIGN: site profile).
     """
-    if not PROFILE.is_file():
+    p = profile_path()
+    if not p.is_file():
         return {}
     try:
-        return json.loads(PROFILE.read_text())
+        return json.loads(p.read_text())
     except json.JSONDecodeError as e:
-        raise FPTError(f"{PROFILE.name} is not valid JSON: {e}")
+        raise FPTError(f"{p.name} is not valid JSON. Fix the file, then reload the page. {e}")
+
+
+def save_profile(data):
+    p = profile_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def set_default(project_id, key, value):
+    """Write one profile value for a project, `key` dotted into nested blocks.
+
+    An empty value removes the key, so the site-wide value shows through again; False is kept,
+    because a toggle whose default is on has to be able to say no. `default_project`
+    is site-wide by nature and is written at the top whatever project is open.
+    """
+    data = profile()
+    if key == "default_project":
+        data["default_project"] = int(value or 0)
+    else:
+        block = data.setdefault("projects", {}).setdefault(str(int(project_id)), {}) \
+            if project_id else data
+        parts = key.split(".")
+        for part in parts[:-1]:
+            block = block.setdefault(part, {})
+        if value in ("", None):
+            block.pop(parts[-1], None)
+        else:
+            block[parts[-1]] = value
+    save_profile(data)
 
 
 def default_project():
@@ -74,12 +150,9 @@ def for_project(project_id=None):
     """The profile values in force for one project.
 
     Top-level keys are the site default; a `projects: {"<id>": {...}}` block overrides them per show.
-    DESIGN says the profile is keyed per project because one studio runs shows with different
-    conventions — where every show agrees, the block is simply absent.
-
-    This is why two graphs open in one ComfyUI can publish into two projects that link Versions
-    differently: `link_type` and `link_field` are resolved from the project the operator picked on
-    the node, not from one global setting.
+    This is what lets two graphs open in one ComfyUI publish into two projects that link Versions
+    differently: `link_type` and `link_field` resolve from the project picked on the node, never from
+    one global setting.
     """
     p = profile()
     out = {k: v for k, v in p.items() if k != "projects"}
@@ -90,8 +163,8 @@ def for_project(project_id=None):
 def provenance_map(project_id=None):
     """(mapping, mode) — where this show wants each piece of provenance to land.
 
-    Per project like everything else here: one studio runs shows with different field conventions,
-    and a field one show uses for the seed may mean something else on the next.
+    Per project like everything else here: a field one show uses for the seed may mean something
+    else on the next.
     """
     block = for_project(project_id).get("provenance") or {}
     return dict(block.get("map") or {}), block.get("mode") or "fields"
@@ -112,20 +185,24 @@ def _cached(key, fetch):
 def forget(*prefixes):
     """Drop cached lookups a write just invalidated.
 
-    Without this, three publish nodes in one execution each read the version count from before any of
-    them wrote, and all three propose the same next version.
+    Three publish nodes in one execution must each see what the previous one wrote, or all three read
+    the version count from before any of them wrote and all three propose the same next version.
     """
     for key in [k for k in _cache if k and k[0] in prefixes]:
         _cache.pop(key, None)
 
 
-def warm():
-    """Fill the setup caches in the background at import, off the first page load.
+def forget_all():
+    """Drop every cached lookup. Who is signed in decides what the site returns (probe 027), so a
+    sign-in or sign-out invalidates all of it at once."""
+    _cache.clear()
 
-    Everything here is read on the first /object_info, and doing it then costs ~4s on the largest
-    endpoint in the app — which reads as ComfyUI hanging. Failures are ignored: an unreachable site
-    must still let the editor open (that is what _cached already guarantees), this only decides when
-    the waiting happens.
+
+def warm():
+    """Fill the setup caches in a background thread at import, off the first page load.
+
+    Failures are ignored — _cached already guarantees an unreachable site still lets the editor open.
+    This only decides when the waiting happens.
     """
     def run():
         try:
@@ -140,26 +217,20 @@ def warm():
     threading.Thread(target=run, name="fpt-warm", daemon=True).start()
 
 
-def route(entity_type):
-    """Flow PT routes are the lowercased plural: Shot -> /entity/shots (recipe 001)."""
-    return f"/entity/{entity_type.lower()}s"
-
-
 # A project row is drawn the way Flow PT draws one: thumbnail, name, code. `code` is a second unique
 # text field, set on a minority of shows (entity_types/Project), and `image` is a presigned S3 URL,
-# re-signed on every read and good for ~900s from that read (field_types/image) — TTL above is 600s,
-# so a cached row's URL is still live, and a stale one on a failed refresh degrades to a blank tile.
-# The transient prefix means the thumbnail is still transcoding and would render as a placeholder,
-# so it is dropped rather than shown.
+# re-signed on every read and good for ~900s from that read (field_types/image) — longer than TTL, so
+# a cached row's URL is still live and a stale one degrades to a blank tile. This prefix means the
+# thumbnail is still transcoding and would render as a placeholder, so it is dropped rather than shown.
 PENDING = "/images/status/transient/"
 
 
 def project_cards():
     """{name, id, code, image} for projects worth publishing into.
 
-    probe 018 — do NOT filter on sg_status: it is null on most real projects, this sandbox included, so
-    `sg_status is Active` hides working shows. The checkboxes are the reliable discriminators. Demo
-    projects are excluded because publishing into the shipped demo show is never the intent; set
+    probe 018 — do NOT filter on sg_status: it is null on most real projects, this sandbox included,
+    so `sg_status is Active` hides working shows. The checkboxes are the reliable discriminators.
+    Demo projects are excluded because publishing into the shipped demo show is never the intent; set
     `show_all_projects` in the profile to see everything.
     """
     show_all = bool(profile().get("show_all_projects"))   # site-wide: it is about the picker, not a show
@@ -168,13 +239,8 @@ def project_cards():
         filters = [] if show_all else [["is_template", "is", False],
                                        ["is_demo", "is", False],
                                        ["archived", "is", False]]
-        r = client().post("/entity/projects/_search", headers=ARRAY_JSON,
-                          json={"filters": filters, "fields": ["name", "code", "image"],
-                                "page": {"size": 500}})
-        if not r.ok:
-            return []
         out = []
-        for d in r.json()["data"]:
+        for d in _search("Project", filters, ["name", "code", "image"], limit=500):
             a = d["attributes"]
             if not a.get("name"):
                 continue
@@ -206,8 +272,8 @@ def link_types(project_id, limit=100):
     `Version.entity` accepts 15 types site-wide (Asset, Shot, Sequence, Level, MocapTake, Reel,
     ShootDay, Delivery, Launch, Camera, Slate, SourceClip and three CustomEntity slots), so a single
     link type was never Flow PT's model — one show hangs Versions off Shots, another off Assets, and
-    plenty use several at once. Searching all 15 would be slow and mostly empty, so this asks what the
-    show does and searches that. `link_types` in the profile overrides it.
+    plenty use several at once. Searching all 15 is slow and mostly empty, so this asks what the show
+    does and searches that. `link_types` in the profile overrides it.
     """
     p = for_project(project_id)
     if p.get("link_types"):
@@ -250,24 +316,23 @@ def valid_link_types(project_id=None, field="entity", entity_type="Version"):
     return _cached(("valid_link_types", int(project_id or 0), entity_type, field), fetch)
 
 
-# A readable, selectable "no restriction". An empty string cannot be chosen back once you leave it —
-# a combo shows nothing to click — so the absence of a filter has to be a real option.
+# A combo renders nothing to click for an empty string, so an empty choice cannot be selected back
+# once left. "No restriction" and "no value" are therefore real, visible entries.
 ALL_TYPES = "(all types)"
-# An empty option cannot be chosen back once you leave it — a combo renders nothing to click — so
-# "no value" has to be a real, visible entry. Same reason as ALL_TYPES.
 NO_VALUE = "(none)"
 
-
-def unset(value):
-    """"" for anything that means no value, so callers never test for the label themselves."""
-    return "" if not value or value in (NO_VALUE, ALL_TYPES) else value
 PER_TYPE = 500       # a full list, capped so a pathological show cannot wedge the editor
 
 
+def unset(value):
+    """The empty string for anything meaning no value, so callers never test for the labels."""
+    return "" if not value or value in (NO_VALUE, ALL_TYPES) else value
+
+
 def link_type_choices(project_id):
-    """What to offer in the link_type combo: no restriction, then what this show uses, then the rest
-    the field accepts. A type nothing links to yet still has to be pickable — that is precisely the
-    case when a show is starting."""
+    """What the link_type combo offers: no restriction, what this show uses, then the rest the field
+    accepts. A type nothing links to yet still has to be pickable — that is precisely the case when a
+    show is starting."""
     used = link_types(project_id)
     rest = [t for t in valid_link_types(project_id) if t not in used]
     return [ALL_TYPES] + used + sorted(rest)
@@ -283,11 +348,10 @@ def chosen_types(link_type, project_id):
 def links(project_id, q="", types=None):
     """(label, type, id) — the whole list, for ComfyUI's own dropdown to search.
 
-    Narrowing belongs to `link_type`, not to a second search box: the editor already has a searchable
-    dropdown, and a bespoke one beside it behaves differently (its filter is a plain substring over
-    what is loaded) which is worse than having none. So this returns everything for the chosen type,
-    or for every type the show uses when none is chosen, sorted by name because a browsable list
-    should be predictable.
+    Narrowing belongs to `link_type`, not to a second search box: the editor's dropdown is already
+    searchable, and a bespoke one beside it would filter by plain substring over what is loaded. So
+    this returns everything for the chosen type, or for every type the show uses when none is chosen,
+    sorted by name because a browsable list should be predictable.
     """
     if not project_id:
         return []
@@ -310,63 +374,48 @@ def split_link(label):
 def entities(entity_type, project_id, q="", field="code", limit=200, sort="code"):
     """(name, id) for a link picker, filtered server-side.
 
-    probe 017 — `contains` is real, and an unknown operator 400s rather than passing silently, so a bad
-    filter cannot masquerade as an unfiltered list.
+    probe 017 — `contains` is real, and an unknown operator 400s rather than passing silently, so a
+    bad filter cannot masquerade as an unfiltered list.
     """
     if not entity_type or not project_id:
         return []
 
     def fetch():
-        filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
         # Multi-word search the way the Flow PT UI does it: `foo bar` matches names containing BOTH,
-        # and only the name is searched — the type is shown, never matched (probe 017: filters AND,
-        # and `contains` is real).
+        # and only the name is searched — the type is shown, never matched (probe 017: filters AND).
+        filters = [_is("project", "Project", project_id)]
         filters += [[field, "contains", term] for term in (q or "").split()]
-        r = client().post(f"{route(entity_type)}/_search", headers=ARRAY_JSON,
-                          json={"filters": filters, "fields": [field], "sort": sort,
-                                "page": {"size": limit}})
-        return [] if not r.ok else [(d["attributes"][field], d["id"]) for d in r.json()["data"]
-                                    if d["attributes"].get(field)]
+        return _pairs(_search(entity_type, filters, [field], sort=sort, limit=limit), field)
     return _cached(("entities", entity_type, int(project_id), q, field, limit, sort), fetch)
 
 
 def tasks_for(link_type, link_id, limit=200):
-    """(content, id) for the Tasks hanging off one entity.
-
-    probe 017 — an entity field filters on a FULL {type, id} hash; {id} alone and bare ints both 400.
-    """
+    """(content, id) for the Tasks hanging off one entity."""
     if not link_type or not link_id:
         return []
 
     def fetch():
-        r = client().post("/entity/tasks/_search", headers=ARRAY_JSON,
-                          json={"filters": [["entity", "is", {"type": link_type, "id": int(link_id)}]],
-                                "fields": ["content"], "page": {"size": limit}})
-        return [] if not r.ok else [(d["attributes"]["content"], d["id"]) for d in r.json()["data"]
-                                    if d["attributes"].get("content")]
+        rows = _search("Task", [_is("entity", link_type, link_id)], ["content"], limit=limit)
+        return _pairs(rows, "content")
     return _cached(("tasks", link_type, int(link_id)), fetch)
 
 
 def versions(project_id, link_type="", link_id=0, q="", limit=200):
     """(code, id) for the Versions worth offering, newest first.
 
-    probe 017 — `contains` filters server-side; probe 005 — narrowing by the link entity is the way an
-    operator actually thinks about it ("the plates on this shot"), so it is a filter, not a scroll.
+    probe 005 — narrowing by the link entity is how an operator thinks about it ("the plates on this
+    shot"), so it is a filter rather than a scroll.
     """
     if not project_id:
         return []
 
     def fetch():
-        filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
+        filters = [_is("project", "Project", project_id)]
         if link_type and link_id:
-            filters.append(["entity", "is", {"type": link_type, "id": int(link_id)}])
+            filters.append(_is("entity", link_type, link_id))
         if q:
             filters.append(["code", "contains", q])
-        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
-                          json={"filters": filters, "fields": ["code"], "sort": "-id",
-                                "page": {"size": limit}})
-        return [] if not r.ok else [(d["attributes"]["code"], d["id"]) for d in r.json()["data"]
-                                    if d["attributes"].get("code")]
+        return _pairs(_search("Version", filters, ["code"], sort="-id", limit=limit), "code")
     return _cached(("versions", int(project_id), link_type, int(link_id), q), fetch)
 
 
@@ -377,15 +426,15 @@ def version_filters(project_id, link_type="", link_id=0, task_id=0, terms=(), st
     cannot express edits this array and hands it straight back (DESIGN: data-driven, with an eject
     hatch). Array form, since that is what _search takes (probe 004).
     """
-    filters = [["project", "is", {"type": "Project", "id": int(project_id)}]]
+    filters = [_is("project", "Project", project_id)]
     if link_type and link_id:
-        filters.append(["entity", "is", {"type": link_type, "id": int(link_id)}])
+        filters.append(_is("entity", link_type, link_id))
     if task_id:
-        filters.append(["sg_task", "is", {"type": "Task", "id": int(task_id)}])
+        filters.append(_is("sg_task", "Task", task_id))
     # Same multi-word rule as the pickers: every word must appear (probe 017).
     filters += [["code", "contains", t] for t in terms if t]
-    # `in` takes a plain list for a scalar field, so several statuses are one filter, not a fight
-    # with filter_operator (probe 017).
+    # `in` takes a plain list for a scalar field, so several statuses are one filter rather than a
+    # fight with filter_operator (probe 017).
     if statuses:
         filters.append(["sg_status_list", "in", list(statuses)])
     return filters
@@ -405,14 +454,8 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
         filters = version_filters(project_id, link_type, link_id, task_id, terms, statuses)
 
     def fetch():
-        # An array is the implicit `and`; a dict carries `logical_operator` and needs the other
-        # Content-Type (probe 030).
-        r = client().post("/entity/versions/_search", headers=filter_headers(filters),
-                          json={"filters": filters, "fields": ["code", "sg_status_list"],
-                                "sort": sort, "page": {"size": limit}})
-        return [] if not r.ok else [(d["attributes"].get("code") or "",
-                                     d["attributes"].get("sg_status_list") or "", d["id"])
-                                    for d in r.json()["data"]]
+        return _coded(_search("Version", filters, ["code", "sg_status_list"],
+                              sort=sort, limit=limit))
     key = ("find", json.dumps(filters, sort_keys=True, default=str), sort, limit)
     return _cached(key, fetch)
 
@@ -420,22 +463,11 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
 def versions_on(link_type, link_id, project_id, limit=200, sort="-id"):
     """(code, status, id) for every Version on one entity, newest first.
 
-    probe 017 — an entity field filters on a full {type, id} hash. Status comes back so the caller can
-    ask for the latest APPROVED one without a second round trip.
+    Status comes back so the caller can ask for the latest approved one without a second round trip.
     """
     if not link_type or not link_id:
         return []
-
-    def fetch():
-        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
-                          json={"filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
-                                            ["entity", "is", {"type": link_type, "id": int(link_id)}]],
-                                "fields": ["code", "sg_status_list"], "sort": sort,
-                                "page": {"size": limit}})
-        return [] if not r.ok else [(d["attributes"].get("code") or "",
-                                     d["attributes"].get("sg_status_list") or "", d["id"])
-                                    for d in r.json()["data"]]
-    return _cached(("versions_on", link_type, int(link_id), int(project_id), sort), fetch)
+    return find_versions(project_id, link_type, link_id, sort=sort, limit=limit)
 
 
 def cached_published_files(version_id):
@@ -456,11 +488,9 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
         return []
 
     def fetch():
-        r = client().post("/entity/versions/_search", headers=ARRAY_JSON,
-                          json={"filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
-                                            ["entity", "is", {"type": link_type, "id": int(link_id)}]],
-                                "fields": [field], "page": {"size": limit}})
-        return [] if not r.ok else [d["attributes"].get(field) for d in r.json()["data"]]
+        filters = [_is("project", "Project", project_id), _is("entity", link_type, link_id)]
+        return [d["attributes"].get(field)
+                for d in _search("Version", filters, [field], limit=limit)]
     return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
 
 
@@ -512,10 +542,10 @@ ICON_FIELDS = ("display_type", "image_map_key", "html", "url", "image_data")
 
 
 def _stylesheets():
-    """The web app's own CSS, concatenated. Large (~771KB on the probed site), so cached.
+    """The web app's own CSS, concatenated. ~771KB on the probed site, so cached.
 
-    recipe 010 — the stock icon sheet is not in the REST API at all. `image_map_key` is a CSS class
-    in a stylesheet the site names in its own root page, behind a per-release hash, so both are
+    recipe 010 — the stock icon sheet is not in the REST API at all. `image_map_key` is a CSS class in
+    a stylesheet the site names in its own root page, behind a per-release hash, so both are
     rediscovered rather than hardcoded. Neither fetch carries the Authorization header.
     """
     def fetch():
@@ -596,8 +626,8 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
 
     The prefix names which entity to read — `entity` the thing the Version hangs off, `task` its Task,
     `project` the show — and the last segment is the field. A middle segment is the entity type, which
-    Flow PT's own dotted syntax carries (probe 003) and which we can ignore because the id already
-    tells us what we are reading.
+    Flow PT's own dotted syntax carries (probe 003) and which is ignorable here because the id already
+    says what is being read.
     """
     out = dict(extra or {})
     wanted = {}
@@ -613,13 +643,12 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
         if not who:
             continue
         # A BARE token is that link's own name, the way Flow PT hands one back in a relationship
-        # dict. Which field that is depends on the type: a Task is named by `content`, never `code`
-        # (entity_types/Task).
+        # dict; which field that is depends on the type (NAME_FIELD).
         #
         # A DOTTED token is handed to the server verbatim, minus the hops we already hold an id for:
-        # `sg_task.Task.entity.Shot.code` becomes `entity.Shot.code` asked of that Task. probe 003
-        # measured the answer coming back flat under the literal dotted key, which is why `field` is
-        # both what we ask for and what we read.
+        # `sg_task.Task.entity.Shot.code` becomes `entity.Shot.code` asked of that Task. probe 003 —
+        # the answer comes back flat under the literal dotted key, which is why `field` is both what
+        # is asked for and what is read.
         field = NAME_FIELD.get(who[0], "code") if len(bits) == 1 else (".".join(bits[2:]) or bits[-1])
         wanted.setdefault(who, []).append((p, field))
 
@@ -650,7 +679,7 @@ def status_usage(project_id, days=30, entity_type="Version", field="sg_status_li
         since = (datetime.datetime.now(datetime.timezone.utc)
                  - datetime.timedelta(days=int(days))).strftime("%Y-%m-%dT%H:%M:%SZ")
         r = client().post(f"{route(entity_type)}/_summarize", headers=ARRAY_JSON, json={
-            "filters": [["project", "is", {"type": "Project", "id": int(project_id)}],
+            "filters": [_is("project", "Project", project_id),
                         ["created_at", "greater_than", since]],
             "summary_fields": [{"field": "id", "type": "count"}],
             "grouping": [{"field": field, "type": "exact", "direction": "asc"}]})
@@ -664,8 +693,8 @@ def status_usage(project_id, days=30, entity_type="Version", field="sg_status_li
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 
-    probe 009 — usable is valid_values MINUS hidden_values, read with project_id; valid_values alone is
-    identical at every scope and is not the answer. Labels matter: 'pndvs' means nothing to a user.
+    probe 009 — usable is valid_values MINUS hidden_values, read with project_id; valid_values alone
+    is identical at every scope and is not the answer. Labels matter: 'pndvs' means nothing to a user.
     """
     if not project_id:
         return []

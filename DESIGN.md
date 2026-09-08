@@ -25,7 +25,8 @@ Requirements this imposes:
 
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
     src/comfyui_fpt/
-      site.py        .env.local, profile.local.json, a connected client
+      credentials.py who the nodes publish as: the signed-in person, else the script key
+      site.py        profile.local.json, a connected client, the cached lookups
       publish.py     create Version, three-step upload, attach, register PublishedFile
       sequence.py    frames on disk: written to ComfyUI's output, copied under a LocalStorage root
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
@@ -88,6 +89,66 @@ and no agreement on whether a Version hangs off a Task, a Shot, an Asset or a pl
 because they hardcode one studio's conventions, or expose every field and become unusable.
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
+
+### Rules for putting these nodes in a graph you already use
+
+Learned by building the example workflows and then using them. They are guidance for an operator,
+and they are also what `/track-workflow` should do on its own, because an agent adding a Publish
+node to somebody's graph faces exactly these choices.
+
+- **A Preview before the Publish.** A graph whose only way to show you anything is to publish has
+  the shape backwards: looking is constant, publishing is occasional. Tap the same image into a
+  `PreviewImage` beside the Publish node. `/track-workflow` should add one when it adds a tap.
+- **Muting is how you iterate.** Ctrl-B on the Publish node runs the graph and sends nothing. Say so
+  where someone will read it, because the alternative is deleting and re-adding the node.
+- **One root name per stream, and it changes between runs.** Two ideas explored in one session are
+  two streams, not two versions of one. This is why `root name` is not in the fold.
+- **Lineage comes from the wiring, not from typing.** A Load node upstream of a Publish node is what
+  fills `sg_ai_generated_from`. Anyone reaching for `source versions` on a graph that already loads
+  its input is doing work the node has already done.
+- **`Create Published Files` is the other half.** Off means review media only. A house that hands
+  files to the next department wants it on, and it needs a storage the machine can see.
+
+### Prefilling a node from what the operator is already doing
+
+Open. Today a fresh Publish node knows the project from the profile and nothing else, so every field
+is typed. The site knows more than that: who the script key is acting as, which Tasks are assigned to
+them, which entities they have touched most recently, and what the codes on those entities look like.
+An agent setting the pack up — or the node itself — could propose a link, a task and a root name from
+that and be right most of the time.
+
+The pieces exist. `site.resolve_paths` already walks Flow PT's own field paths, `naming` already
+infers a convention from real codes, and the profile is already the place per-site answers live.
+What is missing is the read of recent activity and a decision about how a proposal is shown, since a
+guessed value that looks typed is worse than an empty field.
+
+### Which fields a house wants in front of it
+
+`src/comfyui_fpt/widgets.py` declares each widget's `advanced` flag, and that is a default rather
+than a rule. A profile may move any field either way:
+
+    "widgets": {
+      "load":    {"advanced": ["task", "statuses", "name_contains"], "normal": ["frame"]},
+      "publish": {"normal": ["colour_space"]}
+    }
+
+Per project like everything else here. A field named in neither list keeps what the table declares,
+so a profile only says what it disagrees with. The order never changes — `widgets_values` is
+positional and folding is presentation — so this is safe to edit at any time, including after
+release, and it is the one place a site is expected to differ about the node's shape.
+
+### One key is about the machine, not the site
+
+`batch_budget_gib` is the ceiling on a single IMAGE batch, and it sits at the top level of the
+profile rather than under a project, because how much memory a machine has is a fact about that
+machine. It is also why the profile is gitignored: a studio's workstation and its render node do not
+share an answer.
+
+A batch is one float32 RGB tensor, so a frame costs `w × h × 12` bytes. At the 4 GiB fallback that is
+172 frames of HD but only 43 of UHD — short of a normal shot at 4K, which is why a workstation should
+raise it. The Load node reads the whole sequence by default (`frame_count` 0), so this is on the
+ordinary path and not a backstop: the panel names the overrun before the Run, and the run refuses
+with the count that fits.
 
 The schema cache says what *exists*. The profile says what is *practiced* and what to expose.
 Different lifetimes: the cache refreshes when the schema changes, the profile is inference plus
@@ -303,8 +364,13 @@ out loud:
 
     root name     {entity}_matte              the STREAM.  PublishedFile.name, and the folder
     version name  {root_name}_v{version:03d}  one version of it.  Version.code
-    sequence      {entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}
-    movie         {entity}/{root_name}/v{version:03d}/{version_name}{ext}
+
+The shipped root name is `{entity}_{sg_task.Task.step.Step.short_name}`: the pipeline step through
+the Task, by `short_name` as Toolkit's `{Step}` key reads it, because steps are a studio's fixed
+vocabulary where Task names are free text. Every token is optional: one with no value drops out with
+its separator, so the same template reads `sh010_RTO` on a Task and `sh010` on a bare Version.
+    sequence      {entity}/{root_name}/{version_name}/{version_name}.%04d{ext}
+    movie         {entity}/{root_name}/{version_name}{ext}
 
 Three publish nodes on one Task read `{entity}_depth`, `{entity}_normal`, `{entity}_alpha` on their
 faces. That is the same distinction `output` used to make invisibly.
@@ -312,14 +378,15 @@ faces. That is the same distinction `output` used to make invisibly.
 **Composed, never subtracted.** recipe 004 says `name` is the stream and `code` is one version of it,
 and the old code derived the stream by stripping the version token back out of a template. That broke
 the moment a path template merely *referred* to a name: stripping the version from
-`{entity}/{root_name}/v{version:03d}/{version_name}.%04d{ext}` hands back the whole filename, frame
+`{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` hands back the whole filename, frame
 number and all. Rendering `{root_name}` from its own template cannot fail that way, because there is
 nothing to strip.
 
 **The path stopped rewriting the name.** It used to spell the entire naming scheme a second time —
 `{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png` — so the two
 could disagree. Now it refers to `{root_name}` and `{version_name}`, and a sequence gets a folder
-because it is many files while a movie does not because it is one. Two templates, each sayable in a
+named for the version because it is many files, while a movie sits beside that folder because it is
+one, so no folder holds frames and a movie together. Two templates, each sayable in a
 sentence, where there was one plus an implicit `single()` that stripped the frame token out to invent
 the movie's path.
 
@@ -855,6 +922,68 @@ sampler, steps, cfg all live in its node widget values. `EXTRA_PNGINFO` carries 
 what gets attached as a file. `UNIQUE_ID` identifies this node instance.
 
 Nothing else needs to be asked of the user; the graph already knows.
+
+## Who the nodes publish as
+
+A person, signed in through the App Session Launcher, or a script key from the environment. The
+person wins when both are present.
+
+**One surface: Settings, then SG.** The site address, Log in, the script authentication and the publish
+defaults are rows in ComfyUI's own Settings dialog, drawn by the pack rather than by ComfyUI's form
+controls, so nothing entered there reaches ComfyUI's settings store. Each row posts to the pack's own
+routes and saves on change. The node shows nothing about the connection except the error sentence
+that names Settings: who a ComfyUI publishes as is one fact per ComfyUI, and a row on every node was
+the wrong place for it.
+
+**The person.** The operator enters the site address under Settings and clicks Log in. The server
+asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the dialog
+opens it in a new tab, where the operator is already logged into Flow PT through Autodesk Identity,
+and they click approve. The site hands back a session token, which spends at the token
+endpoint as `grant_type=session_token` and mints a bearer for that `HumanUser`. Every Version is then
+created by the person, and Flow PT's Artist field is them, with no script key, no password and no
+impersonation. `credentials.py` owns this; `sg_groundtruth.launcher` speaks the protocol.
+
+**The script.** A script name and application key entered under Settings, else `FPT_API_SITE_URL`,
+`FPT_API_SCRIPT_NAME` and `FPT_API_API_KEY` from the launch environment or from `.env.local` in a
+checkout. A farm has no browser, and a machine nobody signs in on wants the same. Publish as, a login
+from the People page, makes the script act as that person (`sudo_as_login`, probe 027); the site's
+refusal, when the person cannot be impersonated, is read from Test under Settings rather than on the
+first Run.
+
+**Where they live.** `user/__comfyui_flow_production_tracking/session.local.json` and
+`settings.local.json` beside it, mode 600.
+ComfyUI serves a `__` directory over no HTTP route (`folder_paths.get_system_user_directory`, v0.3.76
+and later), it sits outside `custom_nodes/` so a Manager update leaves it alone, and it follows
+`--user-directory`, so the Desktop app keeps it too. Outside ComfyUI the same file sits beside
+`.env.local`, under the same gitignore rule. ComfyUI's settings store and `/userdata` were rejected:
+both answer to anyone who can reach the port. A node widget was rejected: `widgets_values` is saved
+into every workflow and every PNG.
+
+**How long it lasts.** The site's `User Session Expiry` preference, one day on the probed site, from
+the last use. Minting a bearer counts as use, so a ComfyUI that publishes or even opens a graph with
+these nodes once a day never asks again. Left idle past the window the token dies, the token
+endpoint refuses it, and Settings says so and offers Log in. Nothing renews on a timer:
+the site's preference is the administrator's decision and a clock would defeat it.
+
+**One session per ComfyUI.** The `comfy-user` header is a plain string any client may send, so a
+per-user file would separate users in name only. A shared ComfyUI where two people publish under
+their own names needs a real login in front of it, and that is out of scope here. The pack's own
+routes are as open as ComfyUI's: anyone on the port can write a key or sign out, and can read the
+script name and the login. The key and the token never leave the server on any route.
+
+**The publish defaults are the profile.** The Defaults rows under Settings edit `profile.local.json`
+for the project the nodes open on: the Version name and root name templates, the status, and the
+`published_files` block. There is no second store. Each template row shows the value in force, the
+default when the profile has none, beside the example it renders on sample values by the node's own
+renderer; typing the default back in clears the profile key. The Version's `sg_path_to_frames` and
+`sg_path_to_movie` each hold one absolute path (probe 021), so the profile also picks the operating
+system they are written for, from the roots the storage defines, and whether each is written at all;
+the files themselves always go under this machine's root. The profile itself now lives in the protected directory
+when one exists there, and at the checkout root otherwise, so the inspector's file is read as long
+as it is the only one and a Registry install, which has no checkout, still has somewhere to write.
+Adding a field of the operator's choosing is not in Settings for the first release: it is a
+`Field(...)` line an agent adds, and the append-only rule under "widgets_values is positional"
+governs it.
 
 ## Distribution
 

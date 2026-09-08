@@ -1,91 +1,45 @@
-"""Version naming conventions: infer one, match it, produce the next.
+"""The template language for Version codes and PublishedFile paths, and version numbering.
 
-Where the version number lives is site-specific. A Toolkit-driven site usually carries a real numeric
-field (`sg_version_number` or similar) and that is authoritative when present. Many sites do not — this
-one has none — and then the version lives inside `code` as a freeform convention that differs per show.
+A template is written in Flow PT's own vocabulary: dotted field paths to any depth
+(`{entity.Shot.code}`), Python's whole format spec (`{version:03d}`), `[optional blocks]` that
+vanish when their fields are empty, and printf padding (`v%04d`) as a synonym for a version spec.
 
-So: use the field if the profile names one, otherwise infer the convention, show it to the operator
-with its coverage, and store it as data. Nothing here is hardcoded either way.
-
-Validated against the reference show, where one pattern covers 99 of 100 codes:
-
-    bunny_030_0090_comp_v002   ->  link=bunny_030_0090  task=comp  version=2
-
-and the code contains its own link entity name in 99 of 100 rows, which is what makes per-link
-numbering possible without a structured field.
+Where the version number lives is site-specific. A site with a real numeric field on Version uses
+`next_number`; a site without one carries the version inside `code` as a convention, matched with
+`next_version`.
 """
 import re
 import string
-from collections import Counter
 
-# Ordered: the first pattern that covers the sample wins. Each must name `version`; `link` and `task`
-# are optional captures, present when the convention encodes them.
-PATTERNS = [
-    # {output} is what a stream IS — depth, normals, mask. A graph with several image outputs needs it,
-    # or every pass collapses onto one name. {task} is the show's pipeline step, a different thing.
-    ("{link}_{task}_{output}_v{version}",
-     r"^(?P<link>.+)_(?P<task>[A-Za-z]+)_(?P<output>[A-Za-z0-9]+)_v(?P<version>\d+)$"),
-    ("{link}_{output}_v{version}", r"^(?P<link>.+)_(?P<output>[A-Za-z0-9]+)_v(?P<version>\d+)$"),
-    ("{link}_{task}_v{version}", r"^(?P<link>.+)_(?P<task>[A-Za-z]+)_v(?P<version>\d+)$"),
-    ("{link}_v{version}",        r"^(?P<link>.+)_v(?P<version>\d+)$"),
-    ("{link}.v{version}",        r"^(?P<link>.+)\.v(?P<version>\d+)$"),
-    ("{link}_{task}.{version}",  r"^(?P<link>.+)_(?P<task>[A-Za-z]+)\.(?P<version>\d+)$"),
-    ("{link}-v{version}",        r"^(?P<link>.+)-v(?P<version>\d+)$"),
-]
+# Any format spec, not just zero-padding: the spec is handed to Python, so a path carrying one is
+# still recognised as a field.
+FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
+# Toolkit spells an optional key with square brackets, and so does a template here:
+# `[_{sg_task.Task.content}]` disappears entirely — separator and all — when the task is not set.
+OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
+FRAME_SUFFIX = r"(?:_\d{2,})?"                # publish_version appends `_01` per frame of a batch
+LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
 
-
-def infer(codes):
-    """(template, regex, matched, total) for the pattern that best fits real codes.
-
-    Returns the best even when coverage is poor — the caller shows the number and lets the operator
-    judge, the same way every other inference in this project works. Coverage is the evidence.
-    """
-    codes = [c for c in codes if isinstance(c, str) and c.strip()]
-    if not codes:
-        return None, None, 0, 0
-    best = max(((t, rx, sum(1 for c in codes if re.match(rx, c))) for t, rx in PATTERNS),
-               key=lambda x: x[2])
-    return best[0], best[1], best[2], len(codes)
-
-
-def version_field_candidates(schema):
-    """Numeric Version fields that could be the version number, for the operator to choose from.
-
-    Proposed, never auto-adopted: `sg_first_frame` is numeric too, and picking wrong would silently
-    misnumber every publish.
-    """
-    return sorted(k for k, v in (schema or {}).items()
-                  if v.get("data_type", {}).get("value") in ("number", "float")
-                  and "version" in k.lower() and "transcoding" not in k.lower())
+DEFAULT_TEMPLATE = "{root_name}_v{version:03d}"
+# recipe 004: `name` is the stream and `code` is one version of it. The versioned name is composed
+# from this template, never derived by stripping a version token back out of one.
+# The pipeline step through the Task, by `short_name` as Toolkit's own {Step} key reads it: steps
+# are the studio's fixed vocabulary where Task names are free text. A Version with no Task renders
+# the entity alone, because an empty token drops out with its separator (render).
+DEFAULT_ROOT_TEMPLATE = "{entity}_{sg_task.Task.step.Step.short_name}"
 
 
 def next_number(existing_numbers):
-    """Next value for a real version-number field. Authoritative when the site has one."""
+    """Next value for a site's own numeric version field, which is authoritative where it exists."""
     ns = [int(n) for n in existing_numbers if isinstance(n, (int, float))]
     return max(ns, default=0) + 1
 
 
-# What each token may contain when a template is turned into a concrete regex.
-TOKEN_RX = {"link": r".+?", "task": r"[A-Za-z][A-Za-z0-9]*", "root_name": r".+?", "version": r"\d+"}
-
-
-def regex_from_template(template, link=""):
-    """A concrete regex for one template, anchoring {link} literally when the link is known.
-
-    Without that anchor a non-greedy {link} swallows part of {output}: `sbx_0020_depth_v001` parsed as
-    link='sbx', output='0020_depth', so numbering for 'depth' never found its own history and every
-    publish produced v001 again — two Versions, one code.
-    """
-    out, i = "", 0
-    for m in re.finditer(r"\{(\w+)\}", template):
-        out += re.escape(template[i:m.start()])
-        name = m.group(1)
-        out += re.escape(link) if (name == "link" and link) else f"(?P<{name}>{TOKEN_RX.get(name, '.+?')})"
-        i = m.end()
-    return "^" + out + re.escape(template[i:]) + "$"
-
-
 def parse(code, regex):
+    """The named groups one convention's regex finds in a code, with `version` as an int.
+
+    `regex` is the profile's `code_regex`, which must name a `version` group.
+    """
     m = re.match(regex, code or "")
     if not m:
         return None
@@ -94,67 +48,16 @@ def parse(code, regex):
     return d
 
 
-def width(regex, codes):
-    """Zero-padding actually in use, so v001 does not become v1 on the next publish."""
-    ns = [re.match(regex, c).group("version") for c in codes if re.match(regex, c)]
-    return Counter(len(n) for n in ns).most_common(1)[0][0] if ns else 3
-
-
-def next_code(template, regex, existing, link="", task="", output=""):
-    """The next code for one link, following the convention the site already uses.
-
-    `existing` is every code already on that link. Numbering is per link AND per output: two shots
-    each have their own v001, and a depth pass does not count a normals pass as history.
-    """
-    # Anchored on this link, so `depth` finds its own history and not another output's.
-    rx = regex_from_template(template, link) if template else regex
-    kept = [c for c in existing
-            if (p := parse(c, rx)) and (not output or p.get("output") == output)]
-    n = max((parse(c, rx)["version"] for c in kept), default=0) + 1
-    w = width(rx, kept) if kept else width(regex, existing)
-    out = template.replace("{version}", str(n).zfill(w))
-    return (out.replace("{link}", link or "").replace("{task}", task or "")
-               .replace("{output}", output or ""))
-
-
-def describe(template, regex, matched, total):
-    pct = (100 * matched // total) if total else 0
-    return f"{template}  ({matched}/{total} of recent codes, {pct}%)"
-
-
-# --- templates in Flow PT's own vocabulary -------------------------------------------------------
-#
-# A code is written the way the site already talks about fields: `{entity.Shot.code}_{output}_v{version:03d}`.
-# Dotted paths are what filters and `?fields` use (probe 003/016), so a TD reading a template sees
-# names they already know instead of a private token language.
-
-# Any format spec, not just zero-padding: the renderer hands it to Python, so what is accepted here
-# has to be everything the mini-language allows, or a path with a spec is never even looked up.
-FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
-# Toolkit spells an optional key with square brackets, so a TD writing a template here writes the
-# same thing: [_{sg_task.Task.content}] disappears entirely when the task is not set, separator and
-# all, rather than leaving a stray underscore.
-OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
-FRAME_SUFFIX = r"(?:_\d{2,})?"   # publish_version appends `_01` per frame of a batch
-LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
-
-DEFAULT_TEMPLATE = "{root_name}_v{version:03d}"
-# The stream, which the versioned name is built FROM rather than derived from by subtraction.
-# recipe 004: `name` is the stream and `code` is one version of it, and composing that way means
-# there is no version token to strip back out — which is what used to go wrong.
-DEFAULT_ROOT_TEMPLATE = "{entity}"
-
-
 def normalise_template(template):
     """Accept `v%04d` beside `{version:04d}` — printf padding is what a TD writes by habit."""
     return LEGACY_VERSION_RE.sub(lambda m: "{version:%sd}" % m.group(1), template or "")
 
 
 def template_fields(template):
-    """The paths a template needs, minus `version`, so a caller knows what to fetch.
+    """The field paths a template needs, minus `version`, so a caller knows what to fetch.
 
-    Optional blocks are included: whether they survive depends on the value, which is why the value
-    has to be looked up first.
+    Optional blocks are included: whether one survives depends on its value, so the value has to be
+    looked up first.
     """
     return [m.group(1) for m in FIELD_RE.finditer(normalise_template(template))
             if m.group(1) != "version"]
@@ -172,27 +75,27 @@ def _drop_unfilled(template, values):
 
 
 class _Paths(string.Formatter):
-    """Python's own formatter, with the whole dotted path used as the key.
+    """Python's own formatter with the whole dotted path used as the key.
 
     `str.format` reads `{a.b}` as attribute access and `{a[b]}` as item access, but a template path
-    like `entity.Shot.code` is one key, not a walk. Overriding get_field is what lets Flow PT's own
-    dotted syntax and Python's format spec coexist — so `{sg_version_number:03d}` pads, `{code:>12}`
-    aligns, and anything the mini-language grows works without being taught here.
+    like `entity.Shot.code` is one key rather than a walk. Overriding `get_field` is what lets Flow
+    PT's dotted syntax and Python's format spec coexist, so `{sg_version_number:03d}` pads and
+    `{code:>12}` aligns without either being taught here.
     """
 
     def get_field(self, name, args, kwargs):
         return kwargs.get(name), name
 
     def format_field(self, value, spec):
-        # An absent path collapses to empty rather than leaving a brace behind, and takes its spec
-        # with it: zero-padding nothing would write "000".
+        # An absent path collapses to empty and takes its spec with it: zero-padding nothing would
+        # write "000".
         if value in (None, ""):
             return ""
         try:
             return format(value, spec)
         except (TypeError, ValueError):
-            # A numeric spec on a value that arrived as text: Flow PT returns numbers as strings
-            # often enough that refusing here would be pedantry.
+            # Flow PT returns numbers as strings often enough that a numeric spec on text coerces
+            # rather than refuses.
             coerce = int if spec[-1:] in ("d", "b", "o", "x", "X") else (
                 float if spec[-1:] in ("e", "E", "f", "F", "g", "G", "%") else None)
             if coerce:
@@ -216,6 +119,11 @@ def render(template, values, version=None):
     return re.sub(r"[_\-.]{2,}", "_", out).strip("_-.")
 
 
+def _all_filled(template, values):
+    return all(values.get(m.group(1)) for m in FIELD_RE.finditer(template)
+               if m.group(1) != "version" and OPTIONAL_RE.search(template))
+
+
 def template_regex(template, values):
     """A matcher for codes this template has produced, with the known values pinned.
 
@@ -223,29 +131,24 @@ def template_regex(template, values):
     own history and nobody else's.
     """
     out, i = "", 0
-    # The matcher has to accept both shapes, since existing codes were written both ways.
+    # Existing codes were written with the optional blocks both kept and dropped, so the matcher has
+    # to accept whichever shape these values produce.
     t = normalise_template(template)
     t = OPTIONAL_RE.sub(lambda m: m.group(1), t) if _all_filled(t, values) else \
         _drop_unfilled(t, values)
     for m in FIELD_RE.finditer(t):
         out += re.escape(t[i:m.start()])
-        path, pad = m.group(1), m.group(2)
+        path = m.group(1)
         if path == "version":
             out += r"(?P<version>\d+)"
         else:
             v = values.get(path)
             out += re.escape(str(v)) if v else r"[^_]*"
         i = m.end()
-    # A batch publishes one Version per frame and appends `_01`, `_02` ... to the rendered code
-    # (publish_version), which no longer matches the convention that produced it. Anchored strictly,
-    # a re-run then counts zero previous versions and mints v001 on top of the run already there.
-    # The suffix is ours, so the matcher has to know about it.
+    # A batch publishes one Version per frame and appends `_01`, `_02` … to the rendered code
+    # (publish_version). The suffix is ours, so the matcher accepts it; anchored strictly, a re-run
+    # would count zero previous versions and mint v001 on top of the run already there.
     return "^" + out + re.escape(t[i:]) + FRAME_SUFFIX + "$"
-
-
-def _all_filled(template, values):
-    return all(values.get(m.group(1)) for m in FIELD_RE.finditer(template)
-               if m.group(1) != "version" and OPTIONAL_RE.search(template))
 
 
 def next_version(codes, template, values):

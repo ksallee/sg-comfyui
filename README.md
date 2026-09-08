@@ -29,15 +29,29 @@ cd ComfyUI/custom_nodes
 git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
 cd comfyui-flow-production-tracking
 <comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
-cp .env.local.example .env.local                    # then fill in the three keys
 ```
+
+Then restart ComfyUI, open **Settings, then SG**, enter the site address and click **Log in**.
+Approve the request in the browser tab that opens, where you are already logged into Flow
+Production Tracking, and every Version you publish is created by you. A render farm, or a machine
+nobody signs in on, takes a script name and application key in the same place, with an optional
+login to publish as. **Test** proves the connection before the first Run. The same dialog holds the
+publish defaults: the project the nodes open on, Version name, root name, status, and where
+Published Files land.
+
+A checkout can carry the script key in `.env.local` instead, for the command-line tools below:
 
 `<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
 launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
 imports, the site never answers.
 
+```sh
+cp .env.local.example .env.local                    # then fill in the three keys
+```
+
 `.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
-value.
+value. What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a
+Manager update leaves it alone.
 
 ## Set up, in this order
 

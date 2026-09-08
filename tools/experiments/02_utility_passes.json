@@ -678,16 +678,16 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "Z from the plate. Depth Anything 3, mono-large. Nothing here was rendered.",
-        "{entity.code}_{output}_v{version:03d}",
-        "",
-        true,
-        0,
+        "{entity}_depth",
+        "{entity}_depth_v{version:03d}",
         false,
+        "Z from the plate. Depth Anything 3, mono-large. Nothing here was rendered.",
         "",
-        "{entity}_depth"
+        "",
+        0,
+        true
       ],
-      "title": "Flow PT Publish \u2014 depth"
+      "title": "Flow PT Publish — depth"
     },
     {
       "id": 52,
@@ -724,16 +724,16 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "N from the plate. MoGe-2 normals, OpenGL orientation.",
-        "{entity.code}_{output}_v{version:03d}",
-        "",
-        true,
-        0,
+        "{entity}_normal_opengl",
+        "{entity}_normal_opengl_v{version:03d}",
         false,
+        "N from the plate. MoGe-2 normals, OpenGL orientation.",
         "",
-        "{entity}_normal_opengl"
+        "",
+        0,
+        true
       ],
-      "title": "Flow PT Publish \u2014 normal_opengl"
+      "title": "Flow PT Publish — normal_opengl"
     },
     {
       "id": 53,
@@ -770,16 +770,16 @@
         "demo_02_passes (Shot)",
         "(none)",
         "Pending Review",
-        "Holdout matte for the figure, cut by SAM3 from a text prompt and joined onto the plate as its alpha.",
-        "{entity.code}_{output}_v{version:03d}",
-        "",
-        true,
-        0,
+        "{entity}_alpha",
+        "{entity}_alpha_v{version:03d}",
         false,
+        "Holdout matte for the figure, cut by SAM3 from a text prompt and joined onto the plate as its alpha.",
         "",
-        "{entity}_alpha"
+        "",
+        0,
+        true
       ],
-      "title": "Flow PT Publish \u2014 alpha"
+      "title": "Flow PT Publish — alpha"
     },
     {
       "id": 54,
@@ -827,14 +827,14 @@
         "(none)",
         "",
         "plate",
-        "version number in the name",
-        0,
         "auto",
         0,
+        1,
+        "version number in the name",
         "",
-        1
+        0
       ],
-      "title": "Flow PT Load \u2014 plate"
+      "title": "Flow PT Load — plate"
     }
   ],
   "links": [
@@ -1009,7 +1009,7 @@
   ],
   "groups": [
     {
-      "title": "depth  \u00b7  Depth Anything 3",
+      "title": "depth  ·  Depth Anything 3",
       "bounding": [
         440,
         -40,
@@ -1021,7 +1021,7 @@
       "flags": {}
     },
     {
-      "title": "normals  \u00b7  MoGe-2, and the same geometry as a mesh",
+      "title": "normals  ·  MoGe-2, and the same geometry as a mesh",
       "bounding": [
         440,
         560,
@@ -1033,7 +1033,7 @@
       "flags": {}
     },
     {
-      "title": "alpha  \u00b7  SAM3 from a text prompt",
+      "title": "alpha  ·  SAM3 from a text prompt",
       "bounding": [
         440,
         1080,

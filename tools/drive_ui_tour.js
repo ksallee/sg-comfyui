@@ -1,43 +1,36 @@
-// A tour of the node's own controls, for the README video. Deliberately slow: this is watched, not
-// asserted on, so every step pauses long enough to read before the next one moves.
+// A tour of the node's own controls, for the README video. The body of an async function, run as
+//   tools/qa_node.py --start --node FPTPublishVersion --drive tools/drive_ui_tour.js --video t.webm
+// Deliberately slow: this is watched, not asserted on, so every step pauses long enough to read.
 const pause = (ms) => wait(ms);
 const seen = [];
 const ctl = (label) => [...document.querySelectorAll(".fpt-dom")]
   .find(d => (d.querySelector(".fpt-lab")?.textContent || "").trim().toLowerCase() === label);
+// Open one picker, type a term a character at a time, and take the first row offered. The timings
+// are per picker because each one is watched for a different length of time.
+const pick = async (label, term, {ms, settle, after}) => {
+  const c = ctl(label);
+  if (!c) return;
+  c.querySelector("button")?.click(); await pause(900);
+  const inp = document.querySelector(".fpt-pop-input");
+  if (inp) {
+    for (const ch of term) { inp.value += ch;
+      inp.dispatchEvent(new Event("input", {bubbles:true})); await pause(ms); }
+    await pause(settle);
+    const rows = document.querySelectorAll('[role="option"]');
+    seen.push(label + " options: " + rows.length + " -> "
+              + (rows[0]?.textContent||"").trim().slice(0,40));
+    rows[0]?.click();
+  }
+  await pause(after);
+};
 
 await pause(1200);
 
 // 1. the project picker: a studio site has hundreds, so it searches rather than scrolls
-const proj = ctl("project");
-if (proj) {
-  proj.querySelector("button")?.click(); await pause(900);
-  const inp = document.querySelector(".fpt-pop-input");
-  if (inp) {
-    for (const ch of "sandbox") { inp.value += ch;
-      inp.dispatchEvent(new Event("input", {bubbles:true})); await pause(130); }
-    await pause(1100);
-    const rows = document.querySelectorAll('[role="option"]');
-    seen.push("project options: " + rows.length + " -> " + (rows[0]?.textContent||"").trim().slice(0,40));
-    rows[0]?.click();
-  }
-  await pause(1400);
-}
+await pick("project", "sandbox", {ms: 130, settle: 1100, after: 1400});
 
 // 2. the link picker: same control, and it now searches the entity type the profile named
-const link = ctl("link");
-if (link) {
-  link.querySelector("button")?.click(); await pause(900);
-  const inp = document.querySelector(".fpt-pop-input");
-  if (inp) {
-    for (const ch of "demo") { inp.value += ch;
-      inp.dispatchEvent(new Event("input", {bubbles:true})); await pause(150); }
-    await pause(1400);
-    const rows = document.querySelectorAll('[role="option"]');
-    seen.push("link options: " + rows.length + " -> " + (rows[0]?.textContent||"").trim().slice(0,40));
-    rows[0]?.click();
-  }
-  await pause(1500);
-}
+await pick("link", "demo", {ms: 150, settle: 1400, after: 1500});
 
 // 3. the one tick that decides whether anything lands on disk
 const files = [...document.querySelectorAll(".fpt-dom")]

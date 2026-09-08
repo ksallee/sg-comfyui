@@ -1,0 +1,847 @@
+{
+  "id": "fpt-01-plates",
+  "last_node_id": 17,
+  "last_link_id": 24,
+  "nodes": [
+    {
+      "id": 1,
+      "type": "MarkdownNote",
+      "pos": [
+        -700,
+        0
+      ],
+      "size": [
+        440,
+        420
+      ],
+      "flags": {},
+      "order": 0,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "## Concept and style plates\n\nOne Run, two Versions: a **scene concept** and a **style plate**. They are two streams on the same\nentity — `{entity}_concept` and `{entity}_style` — which is what **root name** decides.\n\n**02 needs both of these**, so run this first. 02 pulls the newest of each and fuses them.\n\n**Just looking?** Run it. Both images appear in the Previews and nothing is sent anywhere until the\nPublish nodes have a **project** and a **link**. Ctrl-B mutes a node.\n\nEach Version records what made it — **prompt, seed, model, sampler, steps, cfg** — read off the\ngraph, not typed. Change a **seed** and Run again for v002 on the same stream, so variations line up\nas versions of one idea.\n\nFlux dev at 20 steps, 1280x720. **guidance** on the Flux Guidance nodes is how hard the prompt\npulls; cfg stays 1.0 because Flux is guidance-distilled. The style plate is smaller on purpose:\nRedux resizes it to 384 before it ever sees it."
+      ]
+    },
+    {
+      "id": 2,
+      "type": "CheckpointLoaderSimple",
+      "pos": [
+        -200,
+        0
+      ],
+      "size": [
+        350,
+        120
+      ],
+      "flags": {},
+      "order": 1,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "MODEL",
+          "type": "MODEL",
+          "links": [
+            1,
+            2
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "CLIP",
+          "type": "CLIP",
+          "links": [
+            3,
+            4
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "VAE",
+          "type": "VAE",
+          "links": [
+            5,
+            6
+          ],
+          "slot_index": 2
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "flux1-dev-fp8.safetensors"
+      ]
+    },
+    {
+      "id": 3,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        -200,
+        180
+      ],
+      "size": [
+        350,
+        130
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            7
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        1280,
+        720,
+        1
+      ]
+    },
+    {
+      "id": 4,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -200,
+        500
+      ],
+      "size": [
+        350,
+        180
+      ],
+      "flags": {},
+      "order": 3,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 3
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            21,
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "concept art, derelict orbital station interior, wide establishing shot, shafts of volumetric light through a cracked viewport, muted teal and rust palette, painterly, cinematic"
+      ]
+    },
+    {
+      "id": 5,
+      "type": "CLIPTextEncode",
+      "pos": [
+        -200,
+        730
+      ],
+      "size": [
+        350,
+        180
+      ],
+      "flags": {},
+      "order": 4,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "clip",
+          "type": "CLIP",
+          "link": 4
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            22
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "expressive oil painting, thick impasto brushwork, warm amber key light against deep teal shadow, visible canvas weave, loose confident strokes, painterly abstraction"
+      ]
+    },
+    {
+      "id": 6,
+      "type": "ConditioningZeroOut",
+      "pos": [
+        -200,
+        960
+      ],
+      "size": [
+        350,
+        60
+      ],
+      "flags": {},
+      "order": 5,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            12,
+            13
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": []
+    },
+    {
+      "id": 7,
+      "type": "KSampler",
+      "pos": [
+        560,
+        0
+      ],
+      "size": [
+        340,
+        280
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 1
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 23
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 12
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        1001,
+        "randomize",
+        20,
+        1.0,
+        "euler",
+        "simple",
+        1.0
+      ]
+    },
+    {
+      "id": 8,
+      "type": "KSampler",
+      "pos": [
+        560,
+        340
+      ],
+      "size": [
+        340,
+        280
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "model",
+          "type": "MODEL",
+          "link": 2
+        },
+        {
+          "name": "positive",
+          "type": "CONDITIONING",
+          "link": 24
+        },
+        {
+          "name": "negative",
+          "type": "CONDITIONING",
+          "link": 13
+        },
+        {
+          "name": "latent_image",
+          "type": "LATENT",
+          "link": 20
+        }
+      ],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            15
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        2002,
+        "randomize",
+        20,
+        1.0,
+        "euler",
+        "simple",
+        1.0
+      ]
+    },
+    {
+      "id": 9,
+      "type": "VAEDecode",
+      "pos": [
+        940,
+        0
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 14
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 5
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            16,
+            17
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": []
+    },
+    {
+      "id": 10,
+      "type": "VAEDecode",
+      "pos": [
+        940,
+        340
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "samples",
+          "type": "LATENT",
+          "link": 15
+        },
+        {
+          "name": "vae",
+          "type": "VAE",
+          "link": 6
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            18,
+            19
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": []
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        940,
+        110
+      ],
+      "size": [
+        300,
+        200
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 16
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 12,
+      "type": "PreviewImage",
+      "pos": [
+        940,
+        450
+      ],
+      "size": [
+        300,
+        200
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 13,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1300,
+        0
+      ],
+      "size": [
+        430,
+        620
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 17
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "(none)",
+        "{entity}_concept",
+        "",
+        false,
+        "Scene concept from the Flow PT example.",
+        "sRGB",
+        "",
+        0,
+        true
+      ]
+    },
+    {
+      "id": 14,
+      "type": "FPTPublishVersion",
+      "pos": [
+        1300,
+        680
+      ],
+      "size": [
+        430,
+        620
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 19
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": null
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "(none)",
+        "{entity}_style",
+        "",
+        false,
+        "Style plate: the look 02 applies to the scene.",
+        "sRGB",
+        "",
+        0,
+        true
+      ]
+    },
+    {
+      "id": 15,
+      "type": "EmptySD3LatentImage",
+      "pos": [
+        -200,
+        340
+      ],
+      "size": [
+        350,
+        130
+      ],
+      "flags": {},
+      "order": 2,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "LATENT",
+          "type": "LATENT",
+          "links": [
+            20
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        768,
+        432,
+        1
+      ]
+    },
+    {
+      "id": 16,
+      "type": "FluxGuidance",
+      "pos": [
+        180,
+        500
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 6,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 21
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            23
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        3.5
+      ]
+    },
+    {
+      "id": 17,
+      "type": "FluxGuidance",
+      "pos": [
+        180,
+        730
+      ],
+      "size": [
+        300,
+        60
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "conditioning",
+          "type": "CONDITIONING",
+          "link": 22
+        }
+      ],
+      "outputs": [
+        {
+          "name": "CONDITIONING",
+          "type": "CONDITIONING",
+          "links": [
+            24
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        3.5
+      ]
+    }
+  ],
+  "links": [
+    [
+      1,
+      2,
+      0,
+      7,
+      0,
+      "MODEL"
+    ],
+    [
+      2,
+      2,
+      0,
+      8,
+      0,
+      "MODEL"
+    ],
+    [
+      3,
+      2,
+      1,
+      4,
+      0,
+      "CLIP"
+    ],
+    [
+      4,
+      2,
+      1,
+      5,
+      0,
+      "CLIP"
+    ],
+    [
+      5,
+      2,
+      2,
+      9,
+      1,
+      "VAE"
+    ],
+    [
+      6,
+      2,
+      2,
+      10,
+      1,
+      "VAE"
+    ],
+    [
+      7,
+      3,
+      0,
+      7,
+      3,
+      "LATENT"
+    ],
+    [
+      8,
+      3,
+      0,
+      8,
+      3,
+      "LATENT"
+    ],
+    [
+      9,
+      4,
+      0,
+      7,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      10,
+      4,
+      0,
+      6,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      11,
+      5,
+      0,
+      8,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      12,
+      6,
+      0,
+      7,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      13,
+      6,
+      0,
+      8,
+      2,
+      "CONDITIONING"
+    ],
+    [
+      14,
+      7,
+      0,
+      9,
+      0,
+      "LATENT"
+    ],
+    [
+      15,
+      8,
+      0,
+      10,
+      0,
+      "LATENT"
+    ],
+    [
+      16,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      17,
+      9,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      10,
+      0,
+      12,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      10,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      20,
+      15,
+      0,
+      8,
+      3,
+      "LATENT"
+    ],
+    [
+      21,
+      4,
+      0,
+      16,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      22,
+      5,
+      0,
+      17,
+      0,
+      "CONDITIONING"
+    ],
+    [
+      23,
+      16,
+      0,
+      7,
+      1,
+      "CONDITIONING"
+    ],
+    [
+      24,
+      17,
+      0,
+      8,
+      1,
+      "CONDITIONING"
+    ]
+  ],
+  "groups": [],
+  "config": {},
+  "extra": {},
+  "version": 0.4
+}

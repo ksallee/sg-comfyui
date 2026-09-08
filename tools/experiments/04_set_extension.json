@@ -1018,7 +1018,7 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Set extension\n\nThe plate is 512x288. `ImagePadForOutpaint` adds 96px left, 96px right, 32px top and 64px bottom, so the delivered frame is 704x384 \u2014 both divisible by 16, which `WanVaceToVideo` requires.\n\nThe pad node's MASK is the new territory. It goes round through `MaskToImage` \u2192 `RepeatImageBatch` \u2192 `ImageToMask` so it can be repeated to match `length`; at length 1 that is a single frame, and VACE outpaints the still.\n\nChange the pad and you must change Width and Height to match, or `WanVaceToVideo` rescales the plate and the original pixels stop lining up.\n\n1.3B + CausVid LoRA: steps 3, cfg 1.0, shift 8.0."
+        "## Set extension\n\nThe plate is 512x288. `ImagePadForOutpaint` adds 96px left, 96px right, 32px top and 64px bottom, so the delivered frame is 704x384 — both divisible by 16, which `WanVaceToVideo` requires.\n\nThe pad node's MASK is the new territory. It goes round through `MaskToImage` → `RepeatImageBatch` → `ImageToMask` so it can be repeated to match `length`; at length 1 that is a single frame, and VACE outpaints the still.\n\nChange the pad and you must change Width and Height to match, or `WanVaceToVideo` rescales the plate and the original pixels stop lining up.\n\n1.3B + CausVid LoRA: steps 3, cfg 1.0, shift 8.0."
       ],
       "title": "How the extension is framed"
     },
@@ -1057,28 +1057,16 @@
         "demo_04_setext (Shot)",
         "(none)",
         "Pending Review",
-        "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
-        "{entity.code}_{output}_v{version:03d}",
-        "",
-        true,
-        0,
+        "{entity}_extension",
+        "{entity}_extension_v{version:03d}",
         false,
+        "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
         "",
-        "{entity}_extension"
+        "",
+        0,
+        true
       ],
-      "title": "Flow PT Publish \u2014 extension",
-      "widgets_values_named": {
-        "project": "comfyui-fpt sandbox",
-        "link": "demo_04_setext (Shot)",
-        "task": "(none)",
-        "status": "Pending Review",
-        "output_name": "extension",
-        "note": "Set extension for delivery. The plate is padded 96 left, 96 right, 32 top, 64 bottom; the photographed frame is held as conditioning and only the padded region is sampled, by Wan 2.1 VACE 1.3B.",
-        "code_template": "{entity.code}_{output}_v{version:03d}",
-        "source_versions": "",
-        "attach_workflow": true,
-        "link_id": 0
-      }
+      "title": "Flow PT Publish — extension"
     },
     {
       "id": 189,
@@ -1124,26 +1112,14 @@
         "(none)",
         "",
         "plate",
-        "version number in the name",
-        0,
         "auto",
         0,
+        1,
+        "version number in the name",
         "",
-        1
+        0
       ],
-      "title": "Flow PT Load Version \u2014 clean plate",
-      "widgets_values_named": {
-        "project": "comfyui-fpt sandbox",
-        "link": "demo_04_setext (Shot)",
-        "task": "(none)",
-        "statuses": "",
-        "name_contains": "plate",
-        "newest_by": "version number in the name",
-        "pin_version_id": 0,
-        "source": "auto",
-        "frame": 1,
-        "filters": ""
-      }
+      "title": "Flow PT Load Version — clean plate"
     }
   ],
   "links": [

@@ -79,9 +79,10 @@ So the demos have published *review media* end to end and never a *deliverable*,
 
 Still untested end to end, and each of these is a real gap rather than a nicety:
 
-- **PublishedFiles for 02-07.**
+- ~~**PublishedFiles for 02-07.**~~ — those demos are archived; the path itself is proven above.
 - **06 camera move** — the one demo no survey covered at all. `mp_skyline` is its input.
-- **`FPTLoadVersion`, the round trip** — `round_trip.json` exists as a fixture and was not run.
+- ~~**`FPTLoadVersion`, the round trip**~~ — **closed 2026-09-07.** `00_example` runs it, and 02
+  chains a load into a publish three times over with the lineage checked each time.
 - **`/track-workflow`** — the actual product feature. Never run against a real graph.
 - ~~A browser-submitted publish~~ — **closed, and the claim was wrong.** `EXTRA_PNGINFO` is not
   browser-only: two agents attached a real `.workflow.json` from a plain API POST by passing the graph
@@ -402,19 +403,204 @@ are rebuilt.
 
 ---
 
+## The next session opens here — written 2026-09-08, night
+
+**State.** Kevin clicked through Settings on his own ComfyUI on 2026-09-08 and granted the merge:
+PR #75 squashed onto `dev`, then `dev` promoted to `main` by PR. `sg-groundtruth` has probe 052 on
+`main` at 0.1.3 and **Kevin cuts the PyPI release**; until then ComfyUI's venv runs the checkout as
+an editable install and a Registry install cannot satisfy `requirements.txt`. Issue #76 records the
+SG rename.
+
+**Settings, then SG.** One category in ComfyUI's Settings dialog, ids `SG.*`, drawn by
+`web/fpt_settings.js`, backed by `/fpt/settings`, `/fpt/test`, `/fpt/defaults` and
+`/fpt/preview_template`. Nothing enters ComfyUI's settings store, which anyone on the port can read;
+the values live in the protected user directory beside the session file. Groups, in the order the
+dialog sorts them, which is alphabetical and is why the names are what they are:
+
+- **Connection**: Site address; Publishing as, with **Test**, which reports the site's own sentence
+  for a wrong key, a refused Publish as login, and a wrong address, each ending with where to fix it.
+- **Log In As Yourself**: Log in, the App Session Launcher flow moved off the node. Log in is the
+  site's own word, the field on the People page being Login.
+- **Script Authentication**: Script name, Application key (write-only), Publish as. Each row says
+  where its value comes from: the environment, saved on this ComfyUI, or not set.
+- **SG Defaults**: Project, the one both nodes open on.
+- **SG Publish Defaults**: Root name, Version name, Status, Create Published Files, Storage,
+  Operating system, Sequence path, Movie path, Review movie, Path to Frames, Path to Movie, Colour
+  space. They edit `profile.local.json` for that project. Each template shows the value in force
+  and the example it renders, with the project's own fields resolved from the site; a lone storage
+  is shown as chosen; the two booleans are switches drawn in the dialog's colours. Every row says
+  Loading… until the profile has answered.
+
+A 404 from any route means the running ComfyUI predates the pack, and every row says to restart:
+routes register at import, so a pack update needs a restart, not a reload.
+
+**What the nodes do with it.** They reload their pickers on a `fpt:session` window event and say
+nothing about the connection except the error sentence, which names Settings; both previews refuse
+before rendering when nothing is connected, so that sentence is the alert rather than a line in the
+fold. Root name, Version name, Status, Create Published Files and Colour space are widget defaults:
+a node on the canvas keeps its values, a new node takes the defaults after a reload. Storage,
+Operating system, the paths and the four toggles are read at publish time, so every publish uses
+them at once. A graph saved with "(none)" for the project opens on the Settings project, which is
+what lets a template land on the operator's show. An empty root name or version name on a node
+means the Settings default on the naming path and the file path alike; the three example templates
+ship with an empty version name for that reason and keep their own root names, which are the
+demo's streams.
+
+**Also this session.** The profile is read from the protected directory first and the checkout
+root second, so the inspector's file still counts and a Registry install has somewhere to write.
+The pickers say Searching… and dim their rows from the keystroke to the site's answer, and a wheel
+over a picker's list scrolls the list instead of closing it and zooming the canvas. `smoke.py`
+accepts a project resolved from "(none)".
+
+**Decided with Kevin, 2026-09-08.** The short name is **SG** everywhere a short name is needed, the
+full product name otherwise, never "Flow PT" (#76). The default root name carries the pipeline step
+through the Task, `{entity}_{sg_task.Task.step.Step.short_name}`, by `short_name` as Toolkit's
+`{Step}` reads it; every token is optional and drops out with its separator. A sequence lands in a
+folder named for the version beside the movie,
+`{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`, so no folder holds both.
+`sg_path_to_frames` and `sg_path_to_movie` each hold one absolute path (probe 021), so the profile
+picks the operating system they are written for from the roots the storage defines, and two
+toggles decide whether each field is written at all; a Windows value takes backslashes after the
+root, reasoned rather than measured. The file-path defaults are not disabled when Create Published
+Files is off: they are defaults. Custom fields on the nodes stay an agent's job for the first
+release. Updating linked entities from a publish, a Task's status for instance, is after release.
+
+**Measured, in `~/Desktop/sg-settings-screenshots/`:** every Settings state from a credential-free
+copy of the checkout and from this one, signed in as Kevin and expired included, the Load and
+Publish nodes not connected, the defaults after edits, a template loaded with the resolved project
+and the previewed name, new nodes taking changed defaults while a node on the canvas keeps its
+values, the busy state on open and on typing, and the wheel over the list. **Not measured:** a live
+publish since the platform rewrite and the new sequence folder, so `sg_path_to_frames` in the other
+notation and the `{version_name}/` folder are reasoned from the code; and the deliverable half has
+still never run from a template.
+
+## Before the first release
+
+In the order they block each other.
+
+1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. Until then no install outside this machine works.
+2. **Decide #76 before anything ships.** The node class keys `FPTLoadVersion` and
+   `FPTPublishVersion` are written into every saved workflow, so renaming them to `SGLoadVersion`
+   and `SGPublishVersion` is possible now and never again. Display names, the repo, the Registry
+   name and the directory name can change later at the cost of a chip.
+3. **One live publish from `00_example` with Create Published Files ticked**, on this machine: the
+   `{version_name}/` folder, the movie beside it, the path fields in the chosen notation, and the
+   deliverable half run from a template for the first time.
+4. **`/track-workflow` against a real graph**, never done, and its three new questions (colour
+   space, register files, the OCIO offer) still unbuilt.
+5. **README, last.** The install path is Settings now, not `.env.local`; say which steps of the
+   set-up are optional on a plain site, since the defaults carry a Shot-linked show without the
+   inspector; screenshots as template thumbnails (`<name>.jpg` beside each `<name>.json`).
+6. **`/setup`** is mostly Settings now. What remains of it is the colour-management question;
+   decide whether it stays a slash command or becomes a line in the README.
+7. `pyproject.toml` needs `PublisherId` and `Icon`; the plate licensing line wants writing down;
+   54 merged remote branches want sweeping (the command is under "Branching").
+
+**Still to do, not blocking:** the fold table (each widget shown, in the fold, or hidden, which the
+profile's `widgets` block already decides), the first content of an SG Load Defaults group;
+per-project defaults for a project other than the one the nodes open on stay a file edit;
+`instrument.py` and `smoke.py` read no profile-added widgets, which only matters once custom fields
+are built; the panel's fine-print line saying who the Version will be created by, Kevin's call.
+
+**How to test UI here.** `uv run --with playwright --python 3.11 python tools/qa_node.py --start
+--node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Pass
+`--repo <copy>` for a checkout without `.env.local`, and `--keep` to leave the instance for more
+drives on the same `--port`. A session file written into the instance's
+`user/__comfyui_flow_production_tracking/` gives the signed-in and expired states. Not the live
+browser tool; Kevin can see that session and it is slower.
+
+## Three things the next session opened with — written 2026-09-08, morning
+
+### 1. Credentials: decided and built on 2026-09-08, sign in as a person
+
+`.env.local` inside the pack could not ship: ComfyUI Manager replaces `custom_nodes/<pack>/` on
+update and the keys with it. It no longer has to. The nodes carry a Sign in row, the operator approves
+a request in the browser where they are already logged into Flow PT, and the session token the site
+returns is kept in ComfyUI's protected `user/__comfyui_flow_production_tracking/` directory. See
+DESIGN.md "Who the nodes publish as" for the design and sg-groundtruth probe 052 for every measured
+fact behind it. A script key from the launch environment is the farm path and the fallback.
+
+Proven end to end on 2026-09-08: Version 31952 (`sh010_example_v003`) published from the editor with
+`created_by` and `user` both the person, HumanUser 253, not the script.
+
+What the research settled, so it is not re-derived:
+
+- ComfyUI has no secret store and no server auth. `GET /settings` and `/userdata` answer anyone on
+  the port. The one protected place is a `__`-prefixed user directory (v0.3.76+), added for packs to
+  keep keys out of HTTP; ComfyUI-Manager moved its own config there.
+- Comfy-Org's API nodes keep their key in the browser and send it per request; community packs use
+  an env var or a file in the pack. Nobody uses the OS keychain.
+- The session lives for the site's `User Session Expiry` window from the last use, and minting a
+  bearer is a use, recorded at most once every five minutes. One day on the sandbox.
+
+Still open: a headless run has no browser, so a farm still needs a script key, and `/setup` should
+say which of the two applies. Kevin has not yet tried the button flow himself from a fresh session.
+
+### 2. Artist attribution: decided, not built
+
+`Version.user` is the field Flow PT shows as **Artist** and it defaults to whoever called, so every
+Version this pack has ever published is authored by `comfyui-fpt 1.0` rather than by a person
+(sg-groundtruth `findings/entity_types/Version`).
+
+Decided by Kevin: impersonate by default, fall back rather than fail. **Narrowed 2026-09-08:** with
+the Sign in row, a workstation publishes as the person outright and none of this applies there. The
+three steps below are the script-key path, a farm or a checkout.
+
+1. `FPT.from_env(env, sudo_as_login=<login>)` — needs sg-groundtruth **0.1.2**, released 2026-09-08.
+   Sets `created_by` and `user` to the person.
+2. If the token is refused, send `user` explicitly and keep publishing. Refusals arrive at the token
+   endpoint before anything is written and name the reason.
+3. If no login resolves, the script, which is today's behaviour.
+
+The panel says which of the three happened as an ordinary readout row, never an alert: an alert is
+for something that stops a Run and this does not. `artist` becomes an advanced widget, appended last,
+defaulting to the resolved operator, so a supervisor can publish on someone's behalf.
+
+### 3. Adding a field is still not mechanical, and that was the point
+
+`widgets.py` made the order and the folding declarative, which is what was asked for at the time. It
+did not make **field types** declarative. Its `kind` vocabulary is ComfyUI's widget set — `text`,
+`multiline`, `int`, `bool`, `combo` — not Flow PT's `data_type` set, so an `entity` field like Artist
+fits none of them and the first instinct was to fudge it as a login string.
+
+What the table needs is `data_type -> widget`: `entity` to a searchable picker, `multi_entity` to a
+multi-picker, `date` to a date input, `list` to a combo built from the schema's own valid values,
+`checkbox` to a boolean, `text`/`float`/`number` to what they already are. Then adding a field is one
+`Field(...)` line naming a Flow PT field, and the widget follows from the schema rather than from a
+guess. The entity picker already exists for `link` and `project`; it is not reusable by name yet.
+
+That is the difference between "an operator with an LLM can add a field" and "an operator with an LLM
+can add a text field".
+
 ## Open, and who decides
 
 | question | who |
 |---|---|
 | Plate specs above (Plate A, Plate B) | Kevin — blocks `/demo-setup` and the template rebuild |
 | Release date: the node contract lands before release, so Monday is at risk | Kevin |
+| ~~How credentials ship~~ | **closed 2026-09-08.** Sign in as a person through the App Session Launcher, session token in ComfyUI's protected user directory, script key from the environment for farms. DESIGN.md "Who the nodes publish as" |
+| Artist attribution is decided and unbuilt: impersonate, fall back to the `user` field, then the script | built next |
+| `data_type -> widget` so adding a Flow PT field of any type is one line | built next |
 | Plate licensing: is "generated by a permissive model" the written answer? | Kevin |
 | How our node registers files written by `OCIO Write` instead of writing PNGs | **designed** — DESIGN.md, "Where someone else wrote the files, we register them". Kevin to read |
-| Should `frame_count` default to 0 ("the whole clip") like `frame` does, or stay 1? | Kevin — see below |
+| ~~Should `frame_count` default to 0 or stay 1?~~ | **closed 2026-09-07 — 0.** See below |
 | ~~`sg_groundtruth` is not installable, so a Registry install cannot run~~ | **closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI, `_deps.py` and `SG_GROUNDTRUTH_PATH` are gone, and `requirements.txt` — the file ComfyUI-Manager installs — names it. The corpus checkout is still wanted to *set up*: `inspect_site.py` is not in the wheel |
 | `pyproject.toml` has no `PublisherId` or `Icon` | Kevin |
+| **Node names.** Kevin, 2026-09-08: "Flow PT for searching nodes is not great, SG is faster to search in the UI. SG Load, SG Publish is great, but other names like repo name etc need to change as well." Issue #76, research first; DESIGN.md "Names" settled the current ones and would be reopened | research, then Kevin |
+| Updating linked entities from a publish, a Task's status for instance | after release, Kevin |
 
-### `frame_count`'s default — open, Kevin decides
+### `frame_count`'s default — closed 2026-09-07: 0, "all of it"
+
+Decided alongside the widget reorder, because they are one decision. Kevin: statuses and
+name_contains belong in front of the operator, and `frame`/`frame_count` belong in the fold *if the
+default already reads the whole thing*. A widget only earns the fold when leaving it alone is right.
+
+So `frame_count` is 0 and both frame widgets are advanced. The batch-budget argument below still
+stands and is the cost of this: a 100-frame 4K plate is refused out of the box, naming the 43 that
+fit. What makes that acceptable is that the refusal is a sentence with the number in it, and the
+panel states the range before the run rather than after it.
+
+The argument as it stood:
 
 `frame` defaults to **0**, "wherever this source starts". `frame_count` defaults to **1**. Kevin's
 question is the obvious one: why isn't that 0 too, meaning "the whole clip as published"?
@@ -434,6 +620,75 @@ What weakens the case for 1: the panel now shows what will be read *before* a ru
 is silent any more.
 
 It is a one-line change either way (`"default": 0` in `load_version.py`, plus the tooltip).
+
+### "Newest" needs a stream to be newest OF — found 2026-09-07
+
+Running `00_example` for the first time turned this up. A link carries several streams, each
+versioned on its own, and `newest_by` "version number in the name" compares the numbers across all
+of them: on `sh010` it picked `sh010_uidemo_v003` over the `sh010_example_v001` just published,
+because 3 > 1. The two streams have nothing to do with each other.
+
+`name_contains` is what makes it deterministic, which is the argument for it being a main field
+rather than an advanced one — it now is. `00_example` ships with `name_contains` set to the stream
+its own Publish node writes.
+
+Open: whether "newest by version number" should be per stream by default, which would mean parsing
+the stream out of the code and grouping first. Nothing is decided.
+
+### Run three times, not once — 2026-09-07
+
+"Does it even work consistently?" is the right question and one run is not an answer. 01 then 02,
+three times end to end against the sandbox:
+
+    01 published         02 published        02 generated_from
+    sh010_concept_v002   sh010_fusion_v002   [concept_v002, style_v001]
+    sh010_concept_v003   sh010_fusion_v003   [concept_v003, style_v001]
+    sh010_concept_v004   sh010_fusion_v004   [concept_v004, style_v001]
+
+Three things this settles. Version numbers increment per stream. Each 02 read the concept published
+seconds earlier, so `site.forget()` after a publish really does invalidate the cached version list
+and the 600s TTL is not in the way. And the two Load nodes track their own streams: `style` stayed
+at v001 while `concept` advanced, rather than both grabbing the newest thing on the Shot.
+
+Still unproven, and not by omission: `register_files` is off in every shipped template, so the
+deliverable half has still never run from one. Nothing exercises the batch-budget refusal, an
+unmounted storage root, or `register_movie`. One machine, one site, one link, three iterations.
+
+### The deliverable half needs no profile at all — measured 2026-09-07
+
+`register_files` was described here as blocked on configuration. It is not. This site has exactly
+one LocalStorage row (`primary` -> `/Volumes/FPT`, mounted and writable), and `sequence.root_for`
+only demands `published_files.storage` when there are several to choose between. So one row is
+unambiguous and the deliverable path runs with an empty profile.
+
+Proven by running it: Version 31919, three frames at 768 copied to
+`/Volumes/FPT/sh010/sh010_deliverable/v001/`, registered as PublishedFile 6900 with the `%04d`
+pattern, type `Rendered Image`, colour `sRGB`, and the Version's own media left as frame 1.
+
+Open, and it is a product decision rather than a gap: the shipped templates all carry
+`register_files` off, on the reasoning that a first run must not copy onto a shared volume nobody
+was asked about. That reasoning holds for `00_example` and is arguable for the rest, since
+registering the files is half of what this pack does and most people will never tick a box they
+have not been told about.
+
+### The templates are about the nodes, not the pictures — 2026-09-08
+
+Kevin, after a run of image tuning: "The goal is more to showcase the nodes themselves, how to set
+them up in example workflows than anything else."
+
+Recorded because the pull the other way is strong and cost real time. Flux dev at 1280x720 is a
+clear step up from schnell and worth the swap; past that, tuning a fusion is not what these graphs
+are for. LoRA training for a demo was considered and dropped for the same reason.
+
+One thing the tuning did settle: on dev, Redux at `strength` 1.0 with `denoise` 0.65 replaces the
+scene outright — the published image was the style plate with a moon in it. Shipped at 0.45/0.60,
+which keeps the shot and takes the look. Those two knobs are the whole balance and the note names
+them.
+
+Also settled, and it is a framing rather than an asset: a style reference in a Flow PT shop is
+already a Version — mood boards and look refs live there. So 02 pulling one out of Flow PT is the
+real workflow, and only 01 manufacturing a stand-in is artificial. Shipping a reference image in the
+repo does not work anyway: `LoadImage` reads ComfyUI's `input/`, not this package.
 
 ## Facts worth not re-deriving
 

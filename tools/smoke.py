@@ -1,10 +1,5 @@
 #!/usr/bin/env python3
-"""Load every shipped workflow in a real ComfyUI and check it survives the round trip.
-
-Three bugs shipped in one day behind passing assertions, and every one of them needed a saved graph
-to be *loaded* before it showed: widget values displaced by the DOM pickers, a version number that
-collided because a frame suffix hid it from its own convention, and a preview that under-reported
-lineage. Node inspection caught none of them. This does the one thing that did.
+"""Load every shipped workflow in a real ComfyUI and check its widget values survive the round trip.
 
     tools/smoke.py                 # every workflow in tools/workflows/
     tools/smoke.py --port 8999     # somewhere nothing else is running
@@ -16,24 +11,27 @@ Needs playwright, which ComfyUI's own venv does not have:
 `--with sg-groundtruth` is worth adding if the interpreter running this does not have it: without it
 the node pack fails to import and every graph reports no FPT node instead of failing.
 
+`widgets_values` is positional, and only loading a saved graph in a real ComfyUI shows a value that
+has shifted into the widget next door. That is what this checks and what nothing else can.
+
 Exit status is the number of workflows that failed, so it works in a pipeline.
 """
 import argparse
 import json
-import shutil
 import subprocess
 import sys
+import tempfile
+import urllib.request
 from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 
-# Keyed by node id, not node type: publish_passes carries three FPTPublishVersion nodes and keying
-# by type compared the first against the last one's stored values.
-#
-# `filters` is excluded on purpose. It is a live mirror — the node fills it from the site with the
-# filter the other widgets add up to — so the stored value is a starting point, not a thing to
-# restore. Comparing it reports a mismatch every time the mirror works.
+sys.path.insert(0, str(HERE))   # run as a file, so its own directory is not on the path yet
+import qa_node                                                              # noqa: E402
+
+# `filters` is a live mirror — the node fills it from the site with the filter the other widgets add
+# up to — so the stored value is a starting point rather than a thing to restore.
 MIRRORED = {"filters"}
 
 # The only input types ComfyUI draws as a widget. Everything else is a socket and takes no slot in
@@ -53,6 +51,9 @@ for (const [nodeId, values] of Object.entries(want)) {
   for (const [name, expected] of Object.entries(values)) {
     const w = n.widgets.find((x) => x.name === name);
     const got = w ? w.value : undefined;
+    // A project saved as "(none)" is no choice, and the picker resolves it to the project under
+    // Settings on load (fpt_entity_picker.selectProject). That is a resolution, not a shift.
+    if (name === "project" && expected === "(none)" && got && got !== "(none)") continue;
     if (String(got) !== String(expected)) bad.push({widget: name, expected, got});
   }
   out.push({node: `${n.type}#${nodeId}`, checked: Object.keys(values).length, bad});
@@ -67,20 +68,81 @@ def declared(node_type, port):
     Asked of the running server rather than the class: importing the nodes drags in torch, which the
     interpreter holding playwright does not have, and /object_info is the same INPUT_TYPES anyway.
     """
-    import urllib.request
     url = f"http://127.0.0.1:{port}/object_info/{node_type}"
     spec = json.load(urllib.request.urlopen(url, timeout=60))[node_type]["input"]
     names = []
     for section in ("required", "optional"):
         for name, v in (spec.get(section) or {}).items():
             kind = v[0] if v else None
-            # An allowlist, not a list of the socket types we happen to use: `video` arrived as a
-            # VIDEO input and a denylist counted it as a widget, which is exactly the one-slot
-            # displacement this tool exists to catch, reported against every graph at once.
-            # A combo declares its choices in place of a type name, so a list IS a widget.
+            # An allowlist, not a denylist of the socket types we happen to use: a denylist counts a
+            # new socket type as a widget, which is the one-slot displacement this tool exists to
+            # catch, reported against every graph at once. A combo declares its choices in place of
+            # a type name, so a list IS a widget.
             if isinstance(kind, list) or kind in WIDGET_TYPES:
                 names.append(name)
     return names
+
+
+def expected(graph, port):
+    """({node id: {widget: value}}, [misalignment]) read out of a saved graph by position.
+
+    Keyed by node id, not node type: one graph can hold three publish nodes, and keying by type
+    compares the first against the last one's stored values.
+    """
+    want, misaligned = {}, []
+    for n in graph.get("nodes", []):
+        t = n.get("type", "")
+        if not t.startswith("FPT"):
+            continue
+        vals = n.get("widgets_values") or []
+        names = declared(t, port)
+        # A count that no longer matches the class means every value from the divergence on loads
+        # into the wrong widget, which is the failure itself rather than a reason to check nothing.
+        if len(vals) != len(names):
+            misaligned.append(f"{t}#{n.get('id')}: file has {len(vals)} values, class declares"
+                              f" {len(names)} — every value from the divergence on lands in the"
+                              f" wrong widget")
+            continue
+        want[str(n.get("id"))] = {k: v for k, v in zip(names, vals) if k not in MIRRORED}
+    return want, misaligned
+
+
+def check(path, port, workdir):
+    """Load one workflow in the running instance and print how it fared. True where it failed."""
+    graph = json.loads(path.read_text())
+    want, misaligned = expected(graph, port)
+    if misaligned:
+        print(f"  {path.name:26s} FAIL")
+        for m in misaligned:
+            print(f"      {m}")
+        return True
+    if not want:
+        print(f"  {path.name:26s} no FPT node in this graph")
+        return False
+
+    drive = workdir / "drive.js"
+    drive.write_text(DRIVE % (json.dumps(graph), json.dumps(want)))
+    out = subprocess.run([sys.executable, str(HERE / "qa_node.py"),
+                          "--port", str(port), "--drive", str(drive)],
+                         capture_output=True, text=True)
+    try:
+        rows = json.loads(out.stdout)
+    except json.JSONDecodeError:
+        print(f"  {path.name:26s} HARNESS FAILED\n{out.stdout[-400:]}{out.stderr[-400:]}")
+        return True
+    bad = [r for r in rows if r.get("error") or r.get("bad")]
+    if not bad:
+        n = sum(r.get("checked", 0) for r in rows)
+        print(f"  {path.name:26s} ok ({n} widgets over {len(rows)} node(s))")
+        return False
+    print(f"  {path.name:26s} FAIL")
+    for r in bad:
+        for b in r.get("bad", []):
+            print(f"      {r['node']}.{b['widget']}: file has {b['expected']!r},"
+                  f" loaded as {b['got']!r}")
+        if r.get("error"):
+            print(f"      {r['node']}: {r['error']}")
+    return True
 
 
 def main():
@@ -94,77 +156,16 @@ def main():
         print(f"no workflows in {a.dir}")
         return 0
 
-    sys.path.insert(0, str(HERE))
-    import qa_node
-    port = qa_node.free_port(a.port)
-    proc, base = qa_node.start_comfy(port, repo=REPO)
-    if not qa_node.wait_ready(port):
-        print(f"ComfyUI did not come up on {port}")
-        proc.terminate()
-        return 1
-    failed = 0
-    for f in files:
-        graph = json.loads(f.read_text())
-        want, misaligned = {}, []
-        # Read the expected values straight out of the file, by position, using the class's own
-        # declared order — the same mapping the frontend must reproduce on load.
-        for n in graph.get("nodes", []):
-            t = n.get("type", "")
-            if not t.startswith("FPT"):
-                continue
-            vals = n.get("widgets_values") or []
-            names = declared(t, port)
-            # widgets_values is positional. A count that no longer matches the class means every
-            # value from the divergence on loads into the wrong widget — which is one of the three
-            # bugs this tool exists to catch, not a reason to check nothing.
-            if len(vals) != len(names):
-                misaligned.append(f"{t}#{n.get('id')}: file has {len(vals)} values, class declares"
-                                  f" {len(names)} — every value from the divergence on lands in the"
-                                  f" wrong widget")
-                continue
-            pairs = {k: v for k, v in zip(names, vals) if k not in MIRRORED}
-            want[str(n.get("id"))] = pairs
-        if misaligned:
-            failed += 1
-            print(f"  {f.name:26s} FAIL")
-            for m in misaligned:
-                print(f"      {m}")
-            continue
-        if not want:
-            print(f"  {f.name:26s} no FPT node in this graph")
-            continue
-
-        drive = DRIVE % (json.dumps(graph), json.dumps(want))
-        tmp = Path("/tmp/smoke_drive.js")
-        tmp.write_text(drive)
-        out = subprocess.run([sys.executable, str(HERE / "qa_node.py"),
-                              "--port", str(port), "--drive", str(tmp)],
-                             capture_output=True, text=True)
-        try:
-            rows = json.loads(out.stdout)
-        except Exception:
-            print(f"  {f.name:26s} HARNESS FAILED\n{out.stdout[-400:]}{out.stderr[-400:]}")
-            failed += 1
-            continue
-        bad = [r for r in rows if r.get("error") or r.get("bad")]
-        if bad:
-            failed += 1
-            print(f"  {f.name:26s} FAIL")
-            for r in bad:
-                for b in r.get("bad", []):
-                    print(f"      {r['node']}.{b['widget']}: file has {b['expected']!r},"
-                          f" loaded as {b['got']!r}")
-                if r.get("error"):
-                    print(f"      {r['node']}: {r['error']}")
-        else:
-            n = sum(r.get("checked", 0) for r in rows)
-            print(f"  {f.name:26s} ok ({n} widgets over {len(rows)} node(s))")
-    proc.terminate()
     try:
-        proc.wait(timeout=15)
-    except Exception:
-        proc.kill()
-    shutil.rmtree(base, ignore_errors=True)
+        proc, base, port = qa_node.launch(a.port, repo=REPO)
+    except RuntimeError as e:
+        print(e)
+        return 1
+    try:
+        with tempfile.TemporaryDirectory(prefix="smoke-") as tmp:
+            failed = sum(check(f, port, Path(tmp)) for f in files)
+    finally:
+        qa_node.stop_comfy(proc, base)
     return failed
 
 
