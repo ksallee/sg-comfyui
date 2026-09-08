@@ -1,7 +1,7 @@
 {
   "id": "fpt-02-style",
-  "last_node_id": 15,
-  "last_link_id": 17,
+  "last_node_id": 17,
+  "last_link_id": 19,
   "nodes": [
     {
       "id": 1,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Style from a reference\n\nTwo Versions come out of Flow PT and one goes back in. The **scene** keeps its composition; the\n**style reference** supplies the look, through Flux Redux.\n\n**Both are recorded.** The published Version's **sg_ai_generated_from** lists *both* Versions it was\nbuilt from, because both Load nodes are upstream in this graph. Nobody types that. Open the result\nin Flow PT and you can see the scene and the reference it came from.\n\nRun **01** twice first, changing the **root name** between runs — say `{entity}_concept` and\n`{entity}_style` — so there are two streams to pull from. That is what root name is for.\n\n**denoise** keeps or discards the scene's structure. **strength** on Apply Style Model is how hard\nthe reference pushes."
+        "## Style from a reference\n\nTwo Versions come out of Flow PT and one goes back in. The **scene** keeps its composition; the\n**style reference** supplies the look, through Flux Redux. Each Load node has a Preview beside it,\nso you can see what it pulled before anything is fused.\n\n**Both are recorded.** The published Version's **sg_ai_generated_from** lists *both* Versions it was\nbuilt from, because both Load nodes are upstream in this graph. Nobody types that. Open the result\nin Flow PT and you can walk back to the scene and the reference it came from.\n\nRun **01** twice first, changing the **root name** between runs — say `{entity}_concept` and\n`{entity}_style` — so there are two streams to pull from. That is what root name is for.\n\n**denoise** keeps or discards the scene's structure. **strength** on Apply Style Model is how hard\nthe reference pushes. Ctrl-B mutes the Publish node while you are still exploring."
       ]
     },
     {
@@ -44,7 +44,8 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            1
+            1,
+            18
           ],
           "slot_index": 0
         },
@@ -102,7 +103,8 @@
           "name": "image",
           "type": "IMAGE",
           "links": [
-            2
+            2,
+            19
           ],
           "slot_index": 0
         },
@@ -144,7 +146,7 @@
       "id": 4,
       "type": "CheckpointLoaderSimple",
       "pos": [
-        290,
+        620,
         0
       ],
       "size": [
@@ -191,7 +193,7 @@
       "id": 5,
       "type": "CLIPTextEncode",
       "pos": [
-        290,
+        620,
         180
       ],
       "size": [
@@ -227,7 +229,7 @@
       "id": 6,
       "type": "StyleModelLoader",
       "pos": [
-        290,
+        620,
         410
       ],
       "size": [
@@ -257,7 +259,7 @@
       "id": 7,
       "type": "CLIPVisionLoader",
       "pos": [
-        290,
+        620,
         540
       ],
       "size": [
@@ -287,7 +289,7 @@
       "id": 8,
       "type": "CLIPVisionEncode",
       "pos": [
-        290,
+        620,
         670
       ],
       "size": [
@@ -328,7 +330,7 @@
       "id": 9,
       "type": "StyleModelApply",
       "pos": [
-        290,
+        620,
         830
       ],
       "size": [
@@ -376,7 +378,7 @@
       "id": 10,
       "type": "ConditioningZeroOut",
       "pos": [
-        290,
+        620,
         1040
       ],
       "size": [
@@ -410,7 +412,7 @@
       "id": 11,
       "type": "VAEEncode",
       "pos": [
-        290,
+        620,
         1150
       ],
       "size": [
@@ -449,7 +451,7 @@
       "id": 12,
       "type": "KSampler",
       "pos": [
-        700,
+        1030,
         0
       ],
       "size": [
@@ -506,7 +508,7 @@
       "id": 13,
       "type": "VAEDecode",
       "pos": [
-        700,
+        1030,
         330
       ],
       "size": [
@@ -546,7 +548,7 @@
       "id": 14,
       "type": "PreviewImage",
       "pos": [
-        700,
+        1030,
         440
       ],
       "size": [
@@ -570,7 +572,7 @@
       "id": 15,
       "type": "FPTPublishVersion",
       "pos": [
-        1100,
+        1430,
         0
       ],
       "size": [
@@ -608,6 +610,54 @@
         0,
         true
       ]
+    },
+    {
+      "id": 16,
+      "type": "PreviewImage",
+      "pos": [
+        270,
+        0
+      ],
+      "size": [
+        300,
+        320
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 18
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 17,
+      "type": "PreviewImage",
+      "pos": [
+        270,
+        700
+      ],
+      "size": [
+        300,
+        320
+      ],
+      "flags": {},
+      "order": 16,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 19
+        }
+      ],
+      "outputs": [],
+      "properties": {}
     }
   ],
   "links": [
@@ -744,6 +794,22 @@
       13,
       0,
       15,
+      0,
+      "IMAGE"
+    ],
+    [
+      18,
+      2,
+      0,
+      16,
+      0,
+      "IMAGE"
+    ],
+    [
+      19,
+      3,
+      0,
+      17,
       0,
       "IMAGE"
     ]
