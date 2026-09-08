@@ -83,6 +83,8 @@ class FPTLoadVersion:
                     "newest_by": resolve.ORDERS,
                 },
                 overrides={
+                    **widgets.folding(widgets.LOAD_FIELDS,
+                                      (site.for_project(project_id).get("widgets") or {}).get("load")),
                     "source": {"default": AUTO},
                     "newest_by": {"default": resolve.BY_VERSION},
                     "pin_version_id": {"max": MAX_ID},

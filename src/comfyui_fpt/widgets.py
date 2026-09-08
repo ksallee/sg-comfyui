@@ -156,8 +156,29 @@ def spec(f, choices=(), override=None):
     if f.default is not None:
         options["default"] = f.default
     options.update(override or {})
+    # An override may put a field back in the normal set, and ComfyUI reads the key's presence
+    # rather than its value, so a False has to be removed instead of written.
+    if options.get("advanced") is False:
+        options.pop("advanced")
     kind = list(choices or f.choices) if f.kind == "combo" else KINDS[f.kind]
     return (kind, options)
+
+
+def folding(fields, block):
+    """Per-field `advanced` overrides from a profile block naming `normal` and `advanced` fields.
+
+    Which fields a house wants in front of it is a house decision, not this file's, so the split
+    below is a default rather than a rule. A name in neither list keeps the declared setting.
+    """
+    normal = set((block or {}).get("normal") or ())
+    advanced = set((block or {}).get("advanced") or ())
+    out = {}
+    for f in fields:
+        if f.name in advanced:
+            out[f.name] = {"advanced": True}
+        elif f.name in normal:
+            out[f.name] = {"advanced": False}
+    return out
 
 
 def declare(fields, choices=None, overrides=None):

@@ -89,6 +89,21 @@ because they hardcode one studio's conventions, or expose every field and become
 
 Instead the operator's agent inspects their site and writes a profile the node consumes.
 
+### Which fields a house wants in front of it
+
+`src/comfyui_fpt/widgets.py` declares each widget's `advanced` flag, and that is a default rather
+than a rule. A profile may move any field either way:
+
+    "widgets": {
+      "load":    {"advanced": ["task", "statuses", "name_contains"], "normal": ["frame"]},
+      "publish": {"normal": ["colour_space"]}
+    }
+
+Per project like everything else here. A field named in neither list keeps what the table declares,
+so a profile only says what it disagrees with. The order never changes — `widgets_values` is
+positional and folding is presentation — so this is safe to edit at any time, including after
+release, and it is the one place a site is expected to differ about the node's shape.
+
 ### One key is about the machine, not the site
 
 `batch_budget_gib` is the ceiling on a single IMAGE batch, and it sits at the top level of the

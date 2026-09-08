@@ -88,6 +88,10 @@ class FPTPublishVersion:
                         "status": _labels(statuses),
                     },
                     overrides={
+                        # A house decides which fields it wants in front of it; the table's own
+                        # `advanced` flags are only the default (DESIGN: site profile).
+                        **widgets.folding(widgets.PUBLISH_FIELDS,
+                                          (p.get("widgets") or {}).get("publish")),
                         "project": {"default": site.project_name(project_id)},
                         "status": {"default": status_label},
                         "code_template": {"default": p.get("code_template")
