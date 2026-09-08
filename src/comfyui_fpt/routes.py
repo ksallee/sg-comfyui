@@ -11,15 +11,19 @@ import re
 
 from . import credentials, resolve, site
 
-# Flow PT answers an error as a JSON:API envelope whose useful half is one `detail` sentence.
+# Flow PT answers an error as a JSON:API envelope whose useful half is one `detail` sentence, or
+# `title` where `detail` is null, which is what a refused impersonation carries (probe 027).
 _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
+_TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
+# The client's own line for a refused token request: `auth[ as 'x'] <status>: <body>`.
+_AUTH = re.compile(r"^auth\b[^:]*?(\d{3}): ", re.S)
 
 # The widest id any query param may carry.
 _MAX_ID = 2 ** 31 - 1
 
 
 # The token endpoint's refusal of a session the site no longer holds (probe 052). It is the one
-# error whose fix is a click on this node rather than a value on it.
+# error whose fix is a click under Settings rather than a value on the node.
 _SESSION_DEAD = "Can't authenticate session token"
 
 
@@ -30,14 +34,24 @@ def _sentence(e):
     """
     text = str(e)
     if _SESSION_DEAD in text:
-        return "Your Flow Production Tracking sign-in has expired. Click Sign in on the node."
-    m = _DETAIL.search(text)
+        return "Your Flow Production Tracking sign-in has expired. Open Settings, then SG, and sign in again."
+    m = _DETAIL.search(text) or _TITLE.search(text)
     if not m:
+        # A token request that never reached the API: a wrong address answers with a web page.
+        auth = _AUTH.match(text)
+        if auth and '"errors"' not in text:
+            return (f"The site answered {auth.group(1)} instead of signing in. Check the site "
+                    f"address, then the script name and key, under Settings, then SG.")
         return text[:200]
     try:
-        return json.loads(f'"{m.group(1)}"')[:200]   # the capture is still JSON-escaped
+        out = json.loads(f'"{m.group(1)}"')[:200]   # the capture is still JSON-escaped
     except ValueError:
-        return m.group(1)[:200]
+        out = m.group(1)[:200]
+    if "'sudo'" in out:
+        out = f"{out.rstrip('.')}. Check Publish as under Settings, then SG."
+    elif "authenticate script" in out:
+        out = f"{out.rstrip('.')}. Check the script name and key under Settings, then SG."
+    return out
 
 
 def _int(query, name):
@@ -123,6 +137,92 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
                 f"{_sentence(e)}"]
 
 
+# The profile keys Settings may write, by their dotted path. Anything else stays a file edit.
+DEFAULT_KEYS = ("default_project", "code_template", "root_name", "status",
+                "published_files.default", "published_files.storage",
+                "published_files.path_template", "published_files.movie_path_template",
+                "published_files.register_movie", "published_files.colour_space")
+
+# What a template example is rendered on: one Shot, one Task, one output, version 3.
+SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "output": "roto",
+          "step": "Roto", "ext": ".png"}
+
+
+def _sample_values(template, extra=None):
+    """Sample values for every field a template asks for, dotted paths by their first segment."""
+    from . import naming
+    vals = dict(extra or {})
+    for f in naming.template_fields(template):
+        if f in vals:
+            continue
+        head = f.split(".")[0]
+        if head == "project":
+            vals[f] = site.project_name(site.default_project()) or "Project"
+        else:
+            vals[f] = SAMPLE.get(head, "")
+    return vals
+
+
+def _example(kind, template):
+    """`kind` is name, root, sequence or movie."""
+    from . import naming, sequence
+    p = site.for_project(site.default_project())
+    pf = p.get("published_files") or {}
+    root_t = (template if kind == "root" else p.get("root_name")) or naming.DEFAULT_ROOT_TEMPLATE
+    root_name = naming.render(root_t, _sample_values(root_t), 3)
+    if kind == "root":
+        return root_name
+    name_t = (template if kind == "name" else p.get("code_template")) or naming.DEFAULT_TEMPLATE
+    name = naming.render(name_t, _sample_values(name_t, {"root_name": root_name}), 3)
+    if kind == "name":
+        return name
+    extra = {"root_name": root_name, "version_name": name}
+    if kind == "sequence":
+        t = template or pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
+        return sequence.pattern("<storage>", t, _sample_values(t, extra), 3, ".png")
+    if kind == "movie":
+        t = template or pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
+        return sequence.pattern("<storage>", t, _sample_values(t, dict(extra, ext=".mov")), 3, ".mov")
+    return ""
+
+
+def _defaults():
+    """What Settings shows: the effective values for the project the nodes open on, plus the
+    choices the site offers for the pickers. Storages and statuses fail soft to empty lists."""
+    from . import naming, sequence
+    pid = site.default_project()
+    p = site.for_project(pid)
+    pf = p.get("published_files") or {}
+    try:
+        from . import publish
+        storages = [s["code"] for s in publish.storages(site.client())]
+    except Exception:
+        storages = []
+    values = {
+        "default_project": pid,
+        "code_template": p.get("code_template") or "",
+        "root_name": p.get("root_name") or "",
+        "status": p.get("status") or "",
+        "published_files.default": bool(pf.get("default")) and pf.get("default") != site.NO_VALUE,
+        "published_files.storage": pf.get("storage") or "",
+        "published_files.path_template": pf.get("path_template") or "",
+        "published_files.movie_path_template": pf.get("movie_path_template") or "",
+        "published_files.register_movie": bool(pf.get("register_movie")),
+        "published_files.colour_space": pf.get("colour_space") or "",
+    }
+    placeholders = {
+        "code_template": naming.DEFAULT_TEMPLATE,
+        "root_name": naming.DEFAULT_ROOT_TEMPLATE,
+        "published_files.path_template": sequence.DEFAULT_SEQUENCE_TEMPLATE,
+        "published_files.movie_path_template": sequence.DEFAULT_MOVIE_TEMPLATE,
+    }
+    return {"values": values, "placeholders": placeholders,
+            "projects": [{"label": n, "id": i} for n, i in site.projects()],
+            "storages": storages,
+            "statuses": [{"label": l, "code": c} for l, c in site.statuses(pid)],
+            "path": str(site.profile_path())}
+
+
 def register():
     try:
         from server import PromptServer  # only exists inside a running ComfyUI
@@ -153,6 +253,48 @@ def register():
     async def session(request):
         """Who this ComfyUI talks to Flow PT as, and whether the site still agrees."""
         return answer(credentials.status, {"how": "none", "alive": False})
+
+    @routes.post("/fpt/settings")
+    async def save_settings(request):
+        """The Settings dialog wrote a value. The key is written, never echoed."""
+        body = await request.json()
+
+        def out():
+            credentials.save_settings(body if isinstance(body, dict) else {})
+            site.forget_all()
+            return credentials.status()
+        return answer(out, {"how": "none", "alive": False})
+
+    @routes.post("/fpt/test")
+    async def test(request):
+        """One round trip as whoever the nodes would publish as, so a wrong key or a refused login
+        is read in Settings rather than on the first Run."""
+        return answer(credentials.test, {"ok": False})
+
+    @routes.get("/fpt/defaults")
+    async def defaults(request):
+        """The publish defaults Settings edits, for the project the nodes open on."""
+        return answer(_defaults, {"values": {}, "projects": []})
+
+    @routes.post("/fpt/defaults")
+    async def save_default(request):
+        """One profile value from Settings: {key, value}, dotted keys into nested blocks."""
+        body = await request.json()
+
+        def out():
+            key = str(body.get("key") or "")
+            if key not in DEFAULT_KEYS:
+                raise ValueError(f"{key} is not a setting.")
+            site.set_default(site.default_project(), key, body.get("value"))
+            return _defaults()
+        return answer(out, {"values": {}, "projects": []})
+
+    @routes.get("/fpt/preview_template")
+    async def preview_template(request):
+        """A template rendered on sample values, so a setting shows what it produces."""
+        q = request.rel_url.query
+        return answer(lambda: {"example": _example(q.get("kind", ""), q.get("template", ""))},
+                      {"example": ""})
 
     @routes.post("/fpt/login")
     async def login(request):
@@ -251,6 +393,7 @@ def register():
         def read():
             from . import media
             from .nodes.load_version import FPTLoadVersion
+            site.client()     # nothing resolves until someone is connected: the sentence names Settings
             pin = _int(q, "pin_version_id")
             typed = [t.strip() for x in q.getall("statuses", [])
                      for t in x.split(",") if t.strip()]
@@ -324,6 +467,7 @@ def register():
         def read():
             from . import naming
             from .nodes.publish_version import FPTPublishVersion as PV
+            site.client()     # nothing to preview until someone is connected: the sentence names Settings
             project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
             p = site.for_project(project_id)
             picked_type, picked_name = site.split_link(q.get("link", ""))

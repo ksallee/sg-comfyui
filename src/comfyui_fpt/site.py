@@ -24,7 +24,7 @@ from sg_groundtruth.client import FPTError
 from . import credentials
 
 ROOT = Path(__file__).resolve().parents[2]
-PROFILE = ROOT / "profile.local.json"
+PROFILE_NAME = "profile.local.json"
 
 # probe 004 — _search rejects application/json with 415 and demands a vendor type.
 ARRAY_JSON = {"Content-Type": "application/vnd+shotgun.api3_array+json"}
@@ -83,18 +83,60 @@ def _coded(rows):
             for d in rows]
 
 
-def profile():
-    """What this site actually practices. Written by the inspector; hand-editable.
+def profile_path():
+    """Where the profile is: ComfyUI's protected per-pack directory, else the checkout root.
 
-    Absent until the inspector has run, so every reader must tolerate {} rather than guess a
+    The inspector writes to the checkout root, and that file is read as long as it is the only one.
+    A Registry install has no checkout to write to, so Settings writes beside the session file,
+    which a Manager update leaves alone.
+    """
+    for d in (credentials.store_dir(), ROOT):
+        if (d / PROFILE_NAME).is_file():
+            return d / PROFILE_NAME
+    return credentials.store_dir() / PROFILE_NAME
+
+
+def profile():
+    """What this site actually practices. Written by the inspector and by Settings; hand-editable.
+
+    Absent until one of them has run, so every reader must tolerate {} rather than guess a
     convention (DESIGN: site profile).
     """
-    if not PROFILE.is_file():
+    p = profile_path()
+    if not p.is_file():
         return {}
     try:
-        return json.loads(PROFILE.read_text())
+        return json.loads(p.read_text())
     except json.JSONDecodeError as e:
-        raise FPTError(f"{PROFILE.name} is not valid JSON. Fix the file, then reload the page. {e}")
+        raise FPTError(f"{p.name} is not valid JSON. Fix the file, then reload the page. {e}")
+
+
+def save_profile(data):
+    p = profile_path()
+    p.parent.mkdir(parents=True, exist_ok=True)
+    p.write_text(json.dumps(data, indent=2) + "\n")
+
+
+def set_default(project_id, key, value):
+    """Write one profile value for a project, `key` dotted into nested blocks.
+
+    An empty value removes the key, so the site-wide value shows through again. `default_project`
+    is site-wide by nature and is written at the top whatever project is open.
+    """
+    data = profile()
+    if key == "default_project":
+        data["default_project"] = int(value or 0)
+    else:
+        block = data.setdefault("projects", {}).setdefault(str(int(project_id)), {}) \
+            if project_id else data
+        parts = key.split(".")
+        for part in parts[:-1]:
+            block = block.setdefault(part, {})
+        if value in ("", None, False):
+            block.pop(parts[-1], None)
+        else:
+            block[parts[-1]] = value
+    save_profile(data)
 
 
 def default_project():

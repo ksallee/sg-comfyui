@@ -922,20 +922,30 @@ Nothing else needs to be asked of the user; the graph already knows.
 A person, signed in through the App Session Launcher, or a script key from the environment. The
 person wins when both are present.
 
-**The person.** The operator clicks Sign in on either node and types the site address once. The
-server asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the
-node opens it in a new tab, where the operator is already logged into Flow PT through Autodesk
-Identity, and they click approve. The site hands back a session token, which spends at the token
+**One surface: Settings, then SG.** The site address, Sign in, the script key and the publish
+defaults are rows in ComfyUI's own Settings dialog, drawn by the pack rather than by ComfyUI's form
+controls, so nothing entered there reaches ComfyUI's settings store. Each row posts to the pack's own
+routes and saves on change. The node shows nothing about the connection except the error sentence
+that names Settings: who a ComfyUI publishes as is one fact per ComfyUI, and a row on every node was
+the wrong place for it.
+
+**The person.** The operator enters the site address under Settings and clicks Sign in. The server
+asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the dialog
+opens it in a new tab, where the operator is already logged into Flow PT through Autodesk Identity,
+and they click approve. The site hands back a session token, which spends at the token
 endpoint as `grant_type=session_token` and mints a bearer for that `HumanUser`. Every Version is then
 created by the person, and Flow PT's Artist field is them, with no script key, no password and no
 impersonation. `credentials.py` owns this; `sg_groundtruth.launcher` speaks the protocol.
 
-**The script.** `FPT_API_SITE_URL`, `FPT_API_SCRIPT_NAME` and `FPT_API_API_KEY` from the launch
-environment, or from `.env.local` in a checkout. A farm has no browser and a developer has a
-checkout; nobody else needs this. `sudo_as_login` stays on this path only, for the attribution a
-script cannot otherwise give.
+**The script.** A script name and application key entered under Settings, else `FPT_API_SITE_URL`,
+`FPT_API_SCRIPT_NAME` and `FPT_API_API_KEY` from the launch environment or from `.env.local` in a
+checkout. A farm has no browser, and a machine nobody signs in on wants the same. Publish as, a login
+from the People page, makes the script act as that person (`sudo_as_login`, probe 027); the site's
+refusal, when the person cannot be impersonated, is read from Test under Settings rather than on the
+first Run.
 
-**Where the session lives.** `user/__comfyui_flow_production_tracking/session.local.json`, mode 600.
+**Where they live.** `user/__comfyui_flow_production_tracking/session.local.json` and
+`settings.local.json` beside it, mode 600.
 ComfyUI serves a `__` directory over no HTTP route (`folder_paths.get_system_user_directory`, v0.3.76
 and later), it sits outside `custom_nodes/` so a Manager update leaves it alone, and it follows
 `--user-directory`, so the Desktop app keeps it too. Outside ComfyUI the same file sits beside
@@ -946,12 +956,24 @@ into every workflow and every PNG.
 **How long it lasts.** The site's `User Session Expiry` preference, one day on the probed site, from
 the last use. Minting a bearer counts as use, so a ComfyUI that publishes or even opens a graph with
 these nodes once a day never asks again. Left idle past the window the token dies, the token
-endpoint refuses it, and the row on the node says so and offers Sign in. Nothing renews on a timer:
+endpoint refuses it, and Settings says so and offers Sign in. Nothing renews on a timer:
 the site's preference is the administrator's decision and a clock would defeat it.
 
 **One session per ComfyUI.** The `comfy-user` header is a plain string any client may send, so a
 per-user file would separate users in name only. A shared ComfyUI where two people publish under
-their own names needs a real login in front of it, and that is out of scope here.
+their own names needs a real login in front of it, and that is out of scope here. The pack's own
+routes are as open as ComfyUI's: anyone on the port can write a key or sign out, and can read the
+script name and the login. The key and the token never leave the server on any route.
+
+**The publish defaults are the profile.** The Defaults rows under Settings edit `profile.local.json`
+for the project the nodes open on: the Version name and root name templates, the status, and the
+`published_files` block. There is no second store. Each template row shows the example it renders on
+sample values, by the node's own renderer. The profile itself now lives in the protected directory
+when one exists there, and at the checkout root otherwise, so the inspector's file is read as long
+as it is the only one and a Registry install, which has no checkout, still has somewhere to write.
+Adding a field of the operator's choosing is not in Settings for the first release: it is a
+`Field(...)` line an agent adds, and the append-only rule under "widgets_values is positional"
+governs it.
 
 ## Distribution
 

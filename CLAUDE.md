@@ -43,7 +43,10 @@ Operation is `README.md`. The recurring jobs are slash commands: `/inspect-site`
 
 ## Secrets
 
-`.env.local`, gitignored, never printed or logged. Auth is `client_credentials`: script name + key.
+Settings, then SG, in the editor: a person signs in through the App Session Launcher, or a script
+name and key are entered there. Both land in ComfyUI's protected user directory, never in its
+settings store, which anyone on the port can read. `.env.local`, gitignored, is the checkout and
+farm path. Never printed or logged.
 
 ## ComfyUI
 

@@ -403,41 +403,52 @@ are rebuilt.
 
 ---
 
-## The next session opens here — written 2026-09-08, end of day
+## The next session opens here — written 2026-09-08, night
 
-**State.** PR #75 onto `dev` is open and **not to merge**: it carries the sign-in work below plus the
-release commits since #56. `sg-groundtruth` has probe 052 merged to `main` at 0.1.3, and **Kevin cuts
-the PyPI release**; until then ComfyUI's venv runs the checkout as an editable install and
-`requirements.txt` already asks for `>=0.1.3`. ComfyUI is running on 8188 with the new routes,
-signed out, script key in `.env.local`.
+**State.** PR #75 onto `dev` is open and **not to merge** until Kevin has clicked through Settings
+himself. It carries the sign-in work, the release commits since #56, and now the Settings surface
+below. `sg-groundtruth` has probe 052 merged to `main` at 0.1.3, and **Kevin cuts the PyPI release**;
+until then ComfyUI's venv runs the checkout as an editable install. Issue #76 records the SG rename.
 
-**Sign in works, and its surface is wrong.** The App Session Launcher flow runs end to end from the
-node's routes (`/fpt/session`, `/fpt/login`, `/fpt/logout`, `credentials.py`) and Version 31952 was
-published from the editor as the person. But the sign-in row on every node is the wrong surface,
-decided with Kevin:
+**Settings, then SG, is built and tested headless.** One category in ComfyUI's Settings dialog, ids
+`SG.*`, drawn by `web/fpt_settings.js`, backed by `/fpt/settings`, `/fpt/test`, `/fpt/defaults` and
+`/fpt/preview_template`. Nothing enters ComfyUI's settings store. Groups, in the order the dialog
+sorts them:
 
-1. **Move sign-in to ComfyUI's Settings dialog**, one global place: site address, Sign in with the
-   current status, Sign out. `app.ui.settings.addSetting` with a custom-rendered entry; verify that
-   type exists in this frontend first, headless, with `tools/qa_node.py`. Secrets never enter the
-   settings store, which is world-readable on the port; the button hits our routes and the token
-   stays in `user/__comfyui_flow_production_tracking/`. If the entry is too small, a sidebar tab.
-2. **Delete `web/fpt_signin.js` and its two `addSignIn` calls.** The node shows nothing about the
-   connection except an alert when it cannot connect, naming Settings as the fix. Open: one
-   fine-print line in the panel fold saying who the Version will be created by, since sign-in makes
-   the Artist depend on it. Kevin's call.
-3. **Test the no-credentials state**, never done: `qa_node.py --start --repo <copy without .env.local>`.
-   Expected: empty pickers and one alert with the fix in it. Moving Kevin's `.env.local` is refused.
-4. **Per-node field configuration without the LLM**, Kevin's idea and a separate piece: a panel
-   listing the schema's Version fields, each hidden / normal / advanced, required or not, default.
-   It edits `profile.local.json`, the one source of truth `INPUT_TYPES` already reads, and
-   `/inspect-site` stays the proposer. Hiding and folding are safe; a site-specific custom field adds
-   a widget and meets the positional `widgets_values` rule, so that half needs its own design. Builds
-   on point 3 below, `data_type -> widget`.
-5. **Node names**: see the open table. "SG Load", "SG Publish". Research first.
+- **Connection**: Site address; Publishing as, with **Test**, which reports the site's own sentence
+  for a wrong key, a refused Publish as login, and a wrong address.
+- **Defaults**: Project, Version name, Root name, Status, Published Files tick, Storage, Sequence
+  path, Movie path, Review movie, Colour space. They edit `profile.local.json` for the project the
+  nodes open on; each template shows its rendered example.
+- **Publish as yourself**: Sign in, the App Session Launcher flow moved off the node.
+- **Script key**: Script name, Application key (write-only, shows saved or not), Publish as.
+
+`web/fpt_signin.js` and both `addSignIn` calls are gone. The nodes reload their pickers on a
+`fpt:session` window event and say nothing about the connection except the error sentence, which
+names Settings. The Publish node's preview now refuses before rendering a name when nothing is
+connected, so that sentence is the alert rather than a line in the fold.
+
+**Measured, in `~/Desktop/sg-settings-screenshots/`**, eleven states from a credential-free copy of
+the checkout and from this one: not connected (dialog and node), site only with Sign in enabled,
+signed in as Kevin (the probe's session token copied in), sign-in expired, script from the
+environment with Test passing, a wrong key, a refused login, a wrong address, and the Defaults group
+after edits. Kevin has **not** yet run the Sign in button from the dialog himself, and the Load
+node's not-connected state was not captured.
+
+**Decided with Kevin, 2026-09-08.** The short name is **SG** everywhere a short name is needed, the
+full product name otherwise, never "Flow PT" (#76). Custom fields on the nodes stay an agent's job
+for the first release; the Defaults group carries what an operator sets by hand. Updating linked
+entities from a publish, a Task's status for instance, is a nice-to-have after release.
+
+**Still to do here:** the fold table (each widget shown, in the fold, or hidden, which the profile's
+`widgets` block already decides); per-project defaults for a project other than the one the nodes
+open on stay a file edit; `instrument.py` and `smoke.py` read no profile-added widgets, which only
+matters once custom fields are built.
 
 **How to test UI here.** `uv run --with playwright --python 3.11 python tools/qa_node.py --start
---node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Not
-the live browser tool; Kevin can see that session and it is slower.
+--node <type> --drive <file.js>`: an isolated ComfyUI, headless, prints what the drive returns. Pass
+`--repo <copy>` for a checkout without `.env.local`, and `--keep` to leave the instance for more
+drives on the same `--port`. Not the live browser tool; Kevin can see that session and it is slower.
 
 ## Three things the next session opened with — written 2026-09-08, morning
 
@@ -516,7 +527,8 @@ can add a text field".
 | ~~Should `frame_count` default to 0 or stay 1?~~ | **closed 2026-09-07 — 0.** See below |
 | ~~`sg_groundtruth` is not installable, so a Registry install cannot run~~ | **closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI, `_deps.py` and `SG_GROUNDTRUTH_PATH` are gone, and `requirements.txt` — the file ComfyUI-Manager installs — names it. The corpus checkout is still wanted to *set up*: `inspect_site.py` is not in the wheel |
 | `pyproject.toml` has no `PublisherId` or `Icon` | Kevin |
-| **Node names.** Kevin, 2026-09-08: "Flow PT for searching nodes is not great, SG is faster to search in the UI. SG Load, SG Publish is great, but other names like repo name etc need to change as well." Needs research first; DESIGN.md "Names" settled the current ones and would be reopened | research, then Kevin |
+| **Node names.** Kevin, 2026-09-08: "Flow PT for searching nodes is not great, SG is faster to search in the UI. SG Load, SG Publish is great, but other names like repo name etc need to change as well." Issue #76, research first; DESIGN.md "Names" settled the current ones and would be reopened | research, then Kevin |
+| Updating linked entities from a publish, a Task's status for instance | after release, Kevin |
 
 ### `frame_count`'s default — closed 2026-09-07: 0, "all of it"
 
