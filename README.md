@@ -157,11 +157,23 @@ are a rule an artist would say out loud — *the newest approved depth on this s
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
 
-`source` lists what that Version can actually deliver, best first, and published files lead. Where a
-Version published several, each is its own choice named by type and filename —
+Two media outputs, and each takes the best the Version has on its own:
+
+| output | takes, in order |
+|---|---|
+| `image` | the sequence, as a Published File then as path to frames; else a clip decoded; else the uploaded still; else the thumbnail |
+| `video` | a Movie Published File; else path to movie; else the uploaded mp4, untouched; else the frames wrapped at the Version's frame rate, or 24 fps when it records none |
+
+A Published File beats a path field of the same shape because it carries a type, a path per
+platform and the declared colour space. A file on a root this machine has not mounted does not
+count, so a laptop without the storage falls through to the upload by itself. The site's own
+transcode is never read: it is derived from the upload, lags it, and can describe a file that was
+replaced. The panel shows what each output will take before you run.
+
+`source`, in the fold, is the override: pick one file and both outputs read it. Where a Version
+published several, each is its own choice named by type and filename —
 `Rendered Image · sh010_comp_v003.%04d.png #6843` beside `Movie · sh010_comp_v003.mp4 #6844` — so the
-rendered sequence and the mp4 are told apart at a glance. A file whose path is on a root this machine
-has not mounted is not offered at all.
+rendered sequence and the mp4 are told apart at a glance.
 
 `frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
 loaded clip a real input to a video graph.

@@ -1,7 +1,7 @@
 {
   "id": "sg-00-example",
-  "last_node_id": 15,
-  "last_link_id": 14,
+  "last_node_id": 16,
+  "last_link_id": 15,
   "nodes": [
     {
       "id": 1,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twenty-four frames of moving grain go in twice: as frames, and as a clip\nfrom Create Video. The clip is the review movie. **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: the frames come\nback. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
+        "## SG — start here\n\nTwo rows, two halves each. Run one node at a time.\n\n**Still, top row.** Run the Publish node as it is: the test card appears in the Preview beside it and\nnothing is sent anywhere. To create a Version, pick a **project** and a **link** on the Publish node\nand Run again. The panel names the Version before you press anything. Then pick the same project\nand link on the Load node and Run: it reads back the Version you just made and shows it on the right.\n\n**Sequence, bottom row.** Twenty-four frames of moving grain go in twice: as frames, and as a clip\nfrom Create Video. The clip is the review movie. **Create Published Files** is ticked on this\nPublish node, so the frames are written under the storage your profile names and registered as a\nPublished File. Pick a project and a link, Run, then Run the Load node beside it: the frames come\nback as images, and the clip comes out of the video output into Save Video. Without a storage on the site this row stops with a sentence saying so, and nothing is\nwritten.\n\nNo model and no download. Ctrl-B mutes a node if you want it out of the way."
       ]
     },
     {
@@ -183,6 +183,12 @@
           "type": "STRING",
           "links": null,
           "slot_index": 3
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [],
+          "slot_index": 4
         }
       ],
       "properties": {},
@@ -432,6 +438,14 @@
           "type": "STRING",
           "links": [],
           "slot_index": 3
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [
+            15
+          ],
+          "slot_index": 4
         }
       ],
       "properties": {},
@@ -554,6 +568,75 @@
         "auto",
         "sRGB"
       ]
+    },
+    {
+      "id": 16,
+      "type": "SaveVideo",
+      "pos": [
+        1080,
+        1250
+      ],
+      "size": [
+        330,
+        130
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 15
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "filename_prefix"
+          }
+        },
+        {
+          "name": "format.codec",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "format.codec"
+          }
+        },
+        {
+          "name": "format",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "format"
+          }
+        },
+        {
+          "name": "codec",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "codec"
+          },
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "video/sg_example_sequence",
+        "auto",
+        "auto",
+        "auto"
+      ]
     }
   ],
   "links": [
@@ -643,6 +726,14 @@
       0,
       10,
       1,
+      "VIDEO"
+    ],
+    [
+      15,
+      12,
+      4,
+      16,
+      0,
       "VIDEO"
     ]
   ],

@@ -527,6 +527,29 @@ Tier 2 also resolves on anything this node published: a sequence publish writes 
 filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until there was a shared
 root to point at, there was nothing to write.
 
+### Two outputs, one rule each
+
+A Version carries up to four representations of one piece of media, and on the sandbox they are
+filled unevenly: Published Files with a path on 27 of 110 Versions, path fields on 27, an upload on
+107, the site's transcode on 106, a thumbnail on 106. On the probed studio site (probe 021) most
+Versions have only the upload and the thumbnail. So the node has two outputs and each takes the best
+it can on its own: `image` a sequence, else a clip decoded, else a still, else the thumbnail; `video`
+a Movie Published File, else the movie on the storage, else the uploaded mp4 untouched, else the
+frames wrapped at the rate the site measured on the upload, or 24 fps said out loud. A Published File
+beats a path field of the same shape: it carries a type, a path per platform and the colour space.
+
+`sg_uploaded_movie_mp4` is never a source. It is derived from the upload, lands later, keeps
+describing a replaced file while the status reads done, and its frame rate is wrong for a still
+(probe 022). Nothing it offers is better than the upload it came from. The thumbnail is the last
+fallback of `image` and not a choice: a Version that only ever had a still image stays loadable, and
+nobody picks a 240px reference on purpose.
+
+`source` stays, in the fold, as the override: two sequence Published Files on one Version, or exactly
+the clip a reviewer saw. Picking one feeds both outputs from that file. Storage versus cloud is not a
+preference but a fact of the machine, and which Published File type is the deliverable is already
+the profile's `TYPE_CANDIDATES` order, so there is no Load setting. The clip is fetched only when the
+`video` output is wired: the hidden `PROMPT` says who reads which slot.
+
 ### A clip, not a frame
 
 A sequence that comes back one frame at a time is not an input to a video graph, so a source can deliver a

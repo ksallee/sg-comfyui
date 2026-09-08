@@ -255,6 +255,13 @@ concept on the operator's machine and publishes it, 02 loads that Version and pu
 `example_workflows/demo_01_roto_plate.mp4`, which no graph read, is deleted. `seed.py` stays: it is
 how `/track-workflow` gets an existing graph's file into the site, not a demo tool.
 
+**SG Load has two outputs, decided with Kevin.** `image` and `video`, each taking the best the
+Version has on its own, `source` folded as the override, the site's transcode never offered, the
+thumbnail a fallback and not a choice, the clip fetched only when the output is wired. DESIGN.md
+"Two outputs, one rule each" has the reasoning and the measured counts. Kevin: saved graphs before
+the release may break; nothing has shipped. `00_example`'s sequence row ends in a Save Video on the
+Load node's video output.
+
 **`qa_node.py`** serves the pack under `[project].name` from `pyproject.toml` rather than the
 checkout's directory name, so the Templates category and the footer badge in a headless run show
 what a Registry install shows.

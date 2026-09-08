@@ -259,10 +259,11 @@ export function addPanel(node, title = "SG", onLayout = null) {
       // "unrecorded" never reads as "not AI": it says only that this Version carries no record of
       // how it was made, which is all the data supports.
       if (PROVENANCE[d.provenance]) rows.push(["provenance", PROVENANCE[d.provenance]]);
-      // What will actually be read, and what it claims to be. `source` is a combo holding a key, so
+      // What each output will take, and what it claims to be. `source` is a combo holding a key, so
       // the type, the filename and the frame count exist only here, and a colour space is what an
       // artist about to comp must see before the pixels reach a node that assumes sRGB.
-      if (d.source_label) rows.push(["source", d.source_label]);
+      if (d.image_label) rows.push(["image", d.image_label]);
+      if (d.video_label) rows.push(["video", d.video_label]);
       // The frame numbers this source has: `frame` is a number in a filename, and 0 means "wherever
       // the sequence starts", so the range belongs beside the widgets that ask for it.
       if (d.frames) {

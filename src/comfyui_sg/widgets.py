@@ -95,8 +95,10 @@ LOAD_FIELDS = (
           tooltip="The statuses to accept, separated by commas; empty accepts any."),
     Field("name_contains", "text", default="",
           tooltip="Words that must all appear in the Version name, for example depth v0."),
-    Field("source", "combo", dynamic=True,
-          tooltip="Which of the Version's media to read. Auto takes the best it can deliver."),
+    # An override: each output takes its own best on auto, and a picked file feeds both.
+    Field("source", "combo", dynamic=True, advanced=True,
+          tooltip="Read both outputs from this one file. Auto takes the best for each: the frames "
+                  "on the storage for image, the movie for video."),
     Field("frame", "int", advanced=True, default=0, minimum=0, maximum=1048576,
           tooltip="The frame to start at, by the number in the filename: 1003 means "
                   "plate.1003.exr. 0 starts wherever the sequence starts, so a plate running "

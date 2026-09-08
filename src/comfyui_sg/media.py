@@ -18,7 +18,10 @@ import requests
 from sg_groundtruth.client import FPTError
 
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
-          "sg_first_frame", "sg_last_frame"]
+          "sg_first_frame", "sg_last_frame", "sg_uploaded_movie_frame_rate"]
+
+# When no clip exists anywhere, the frames are wrapped at this rate and the log says so.
+DEFAULT_FPS = 24
 
 # Provenance the publish node writes (fields.py). Shown on the Load node so an artist can see what
 # they are building on before they run anything.
@@ -275,6 +278,69 @@ def sources(v):
         if detail:
             out.append((key, f"{label} — {detail}"))
     return out
+
+
+def kind_of(v, key):
+    """"sequence", "still" or "movie": the shape of what one source delivers."""
+    pf = pf_of(v, key)
+    if pf:
+        name = pf["path"]
+    elif key == "frames":
+        name = v.get("sg_path_to_frames") or ""
+    elif key == "movie":
+        name = v.get("sg_path_to_movie") or ""
+    elif key == "uploaded":
+        name = (v.get("sg_uploaded_movie") or {}).get("name") or ""
+    else:
+        return "still"
+    if SEQ.search(name):
+        return "sequence"
+    return "still" if name.lower().endswith(STILL) else "movie"
+
+
+# The Published File types a site publishes its deliverable as lead, then the rest by shape.
+_FRAMES_ORDER = ("sequence", "movie", "still")
+
+
+def best(v, want, available=None):
+    """The source the `image` or the `video` output takes on its own, or "" when nothing serves.
+
+    `image` takes frames from a sequence first, then a clip decoded, then a still, then the
+    thumbnail. `video` takes a clip only: a Movie Published File, the movie on the storage, the
+    uploaded mp4. A Published File beats a path field of the same shape because it carries a type,
+    per-platform paths and the declared colour space. The site's own transcode is never offered: it
+    is derived from the upload, lags it, and can describe a file that was replaced (probe 022).
+    """
+    keys = [k for k, _ in (available if available is not None else sources(v))]
+    if want == "video":
+        return next((k for k in keys if kind_of(v, k) == "movie"), "")
+    for shape in _FRAMES_ORDER:
+        for k in keys:
+            if k != "thumbnail" and kind_of(v, k) == shape:
+                return k
+    return "thumbnail" if "thumbnail" in keys else ""
+
+
+def clip(v, key):
+    """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
+    in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
+    from comfy_api.input_impl import VideoFromFile
+    pf = pf_of(v, key)
+    path = pf["path"] if pf else v.get("sg_path_to_movie") if key == "movie" else ""
+    if path:
+        return VideoFromFile(path)
+    if key == "uploaded":
+        import io
+        return VideoFromFile(io.BytesIO(_download(v["sg_uploaded_movie"]["url"])))
+    raise FPTError(f"{key} is not a clip this node can hand on as a video.")
+
+
+def frame_rate(v):
+    """(fps, why) for wrapping frames: the rate the site measured on an uploaded clip, else 24."""
+    fps = v.get("sg_uploaded_movie_frame_rate")
+    if fps and kind_of(v, "uploaded") == "movie":
+        return float(fps), "the uploaded clip's rate"
+    return float(DEFAULT_FPS), "the Version records no frame rate"
 
 
 def _pf_detail(pf):

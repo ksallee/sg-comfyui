@@ -450,16 +450,23 @@ def register():
             # What the node itself would pick: `auto` is a rule, and only the site knows what it
             # lands on.
             picked = q.get("source", "") or "auto"
-            key = available[0][0] if (picked in ("auto", "") and available) \
-                else picked.split(" — ")[0].strip()
+            if picked == "auto":
+                key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
+            else:
+                key = picked.split(" — ")[0].strip()
+                clip_key = key if media.kind_of(v, key) == "movie" else ""
+            label = dict(available)
+            fps, fps_why = media.frame_rate(v)
             # `media`, not `sources`: the publish panel spends `sources` on the Versions a publish
-            # came from.
+            # came from. The thumbnail is a fallback, never a choice.
             return {
                 **desc, "why": why, "filters": built,
-                "media": [k for k, _ in available],
-                # The label of what will actually be read: the type, the file and the count that the
-                # bare key cannot say.
-                "source_label": next((l for k, l in available if k == key), ""),
+                "media": [k for k, _ in available if k != "thumbnail"],
+                # What each output will take: the type, the file and the count that the bare key
+                # cannot say.
+                "image_label": label.get(key, ""),
+                "video_label": label.get(clip_key) if clip_key
+                else f"the frames at {fps:g} fps, {fps_why}",
                 # The frame numbers this source has, so `frame` is read off the panel rather than
                 # guessed. Only a sequence has them; a movie carries no numbering.
                 "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
