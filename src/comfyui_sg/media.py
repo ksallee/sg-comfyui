@@ -8,6 +8,7 @@ PublishedFiles come first, because a PublishedFile is the only source that names
 rendered sequence" and "the mp4" on one Version are distinguishable) and the only one carrying the
 colour space the publisher declared. The fixed tiers follow, best quality first.
 """
+import io
 import os
 import re
 import sys
@@ -143,17 +144,19 @@ def frame_size(v, key):
     return (h["width"], h["height"]) if h else None
 
 
-def _header(path):
+def _header(source):
     """What a file's container header says, or None when it will not open.
 
-    PyAV parses the header and stops, so this costs a file open rather than a decode.
+    `source` is a path on this machine, or the bytes of a file already fetched. PyAV parses the
+    header and stops, so this costs an open rather than a decode.
     """
     import av
 
-    if not path:
+    if not source:
         return None
+    path = source if isinstance(source, str) else ""
     try:
-        with av.open(path) as container:
+        with av.open(io.BytesIO(source) if isinstance(source, bytes) else source) as container:
             s = container.streams.video[0]
             fmt = s.format
             comps = list(fmt.components) if fmt else []
@@ -177,8 +180,22 @@ def describe_format(v, key):
 
     Read off the first file's container header, so a sequence costs one file open and nothing is
     decoded. The declared colour space follows as its own sentence when the publisher recorded one.
-    Empty where the file is not on this machine: an upload would have to be fetched to be described.
     """
+    line = _format_line(v, key)
+    colour = colour_of(v, key)
+    return line + (f" Colour space declared {colour}." if line and colour else "")
+
+
+def _format_line(v, key):
+    """The format half of `describe_format`, before the colour space is said."""
+    if key == "thumbnail":
+        return _thumbnail_format(v)
+    pf = pf_of(v, key)
+    if pf and pf["link"] == "upload":
+        return _upload_format(pf["name"], pf.get("content_type"))
+    if key == "uploaded":
+        mv = v.get("sg_uploaded_movie") or {}
+        return _upload_format(mv.get("name"), mv.get("content_type"))
     nums = frame_numbers(pattern_of(v, key))
     h = _header(nums[0][1] if nums else _first_file(v, key))
     if not h:
@@ -191,8 +208,27 @@ def describe_format(v, key):
              f'{h["width"]}x{h["height"]}']
     if count:
         parts.append(f"{count} frames" if count > 1 else "1 frame")
-    colour = colour_of(v, key)
-    return ", ".join(parts) + "." + (f" Colour space declared {colour}." if colour else "")
+    return ", ".join(parts) + "."
+
+
+def _thumbnail_format(v):
+    """The thumbnail's line, which says that it is a preview rather than the media.
+
+    A thumbnail is small enough to fetch for its header; nothing else here is.
+    """
+    size = ""
+    try:
+        h = _header(_download(v["image"])) if v.get("image") else None
+        size = f', {h["width"]}x{h["height"]}' if h else ""
+    except Exception:
+        size = ""
+    return f"thumbnail{size}, a preview the site made. Publish media to read the original."
+
+
+def _upload_format(name, content_type=""):
+    """What an upload can say without being fetched: a clip is never downloaded to be described."""
+    kind = content_type or os.path.splitext(name or "")[1].lstrip(".").upper()
+    return f'{kind or "uploaded file"} on the site. Size and depth are read at run time.'
 
 
 def _first_file(v, key):
@@ -206,7 +242,7 @@ def _first_file(v, key):
 def _frames_on_disk(pattern):
     """"N frames" for a sequence pattern that matches files, "" when it matches none."""
     hits = glob(frame_glob(pattern)) if pattern else []
-    return f"{len(hits)} frames" if hits else ""
+    return f"{len(hits)} frames" if len(hits) > 1 else "1 frame" if hits else ""
 
 
 # --- one Version ---------------------------------------------------------------------------------
@@ -264,6 +300,8 @@ def _published_files(sg, version_id):
         local = path.get(LOCAL_PATH) or "" if link == "local" else ""
         out.append({"id": d["id"], "link": link, "path": local,
                     "url": path.get("url") or "" if link == "upload" else "",
+                    # What an upload can be described by without fetching it (probe 013).
+                    "content_type": path.get("content_type") or "" if link == "upload" else "",
                     # The stored `source` value is built from this, so a local row is named by its
                     # file on disk and an uploaded one by the name the site holds.
                     "name": os.path.basename(local) if link == "local" else path.get("name") or "",
@@ -412,6 +450,22 @@ def sources(v):
     return out
 
 
+def no_media(v):
+    """Why this Version cannot be read here, said to the person who has to fix it.
+
+    A Version nothing was ever published to is a different problem from one whose files are on a
+    root this machine has not mounted, and the two fixes have nothing in common. A read the site
+    answered with an error told us nothing about the storage, so the storage is not blamed for it.
+    """
+    who = f'Version {v["id"]} ({v.get("code") or v["id"]})'
+    if v.get("published_files_error"):
+        return f'{who} has no media this node can read. {v["published_files_error"]}'
+    if v.get("published_files") or v.get("sg_path_to_frames") or v.get("sg_path_to_movie"):
+        return (f"{who} has no media this node can read. Check that the storage holding its files "
+                f"is mounted on this machine.")
+    return f"{who} has no media. Publish media to it, or pick another Version."
+
+
 def kind_of(v, key):
     """"sequence", "still", "movie" or "zip": the shape of what one source delivers.
 
@@ -512,7 +566,8 @@ def _resolve(v, key):
     if key == "thumbnail":
         # probe 013 — a transcode still in flight serves a placeholder from this path, not the media.
         img = v.get("image")
-        return "thumbnail" if isinstance(img, str) and "/images/status/transient/" not in img else ""
+        return ("a preview the site made"
+                if isinstance(img, str) and "/images/status/transient/" not in img else "")
     return ""
 
 

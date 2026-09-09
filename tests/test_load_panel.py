@@ -2,7 +2,9 @@
 
 Nothing here touches a site: `describe` is driven with a stub client.
 """
-from comfyui_sg import media
+from sg_groundtruth.client import FPTError
+
+from comfyui_sg import media, routes
 
 # What publish writes when the site has none of the nine fields (publish_version._description):
 # the note, a blank line, then one line per fact.
@@ -90,3 +92,100 @@ def test_facts_alone_leave_no_note():
     d = describe({"code": "x", "description": "seed: 1001"})
     assert facts(d) == {"seed": "1001"}
     assert d["provenance"] == "generated"
+
+
+# --- what is wrong with the media, and what to do about it -----------------------------------------
+
+def test_a_version_nothing_was_published_to_says_to_publish_to_it():
+    v = {"id": 31886, "code": "sh010_uidemo_v003", "published_files": [],
+         "published_files_error": ""}
+    assert media.no_media(v) == ("Version 31886 (sh010_uidemo_v003) has no media. Publish media to "
+                                 "it, or pick another Version.")
+
+
+def test_files_on_a_root_this_machine_lacks_still_names_the_storage():
+    v = {"id": 31886, "code": "sh010_uidemo_v003", "published_files_error": "",
+         "published_files": [{"id": 7788, "link": "local", "path": "", "url": "", "name": "",
+                              "type": "Rendered Image", "colour": ""}]}
+    assert media.no_media(v) == ("Version 31886 (sh010_uidemo_v003) has no media this node can "
+                                 "read. Check that the storage holding its files is mounted on "
+                                 "this machine.")
+
+
+def test_a_read_the_site_refused_is_not_blamed_on_the_storage():
+    v = {"id": 31886, "code": "sh010_uidemo_v003", "published_files": [],
+         "published_files_error": "The published files could not be read. Try again."}
+    assert media.no_media(v).endswith("The published files could not be read. Try again.")
+
+
+def test_one_file_is_one_frame(tmp_path):
+    (tmp_path / "plate.1001.png").write_bytes(b"")
+    v = {"id": 1, "published_files": [], "sg_path_to_frames": str(tmp_path / "plate.%04d.png")}
+    assert media.sources(v) == [("frames", "path to frames — 1 frame")]
+
+
+# --- the fallbacks say what they are ---------------------------------------------------------------
+
+def test_the_thumbnail_row_says_it_is_a_preview(monkeypatch):
+    v = {"id": 1, "published_files": [], "image": "https://s3/t.jpg?sig"}
+    monkeypatch.setattr(media, "_download", lambda url: b"jpeg")
+    monkeypatch.setattr(media, "_header", lambda blob: {"width": 480, "height": 270})
+    assert media.sources(v) == [("thumbnail", "thumbnail — a preview the site made")]
+    assert media.describe_format(v, "thumbnail") == (
+        "thumbnail, 480x270, a preview the site made. Publish media to read the original.")
+
+
+def test_a_thumbnail_that_will_not_open_still_says_what_it_is(monkeypatch):
+    def refuse(url):
+        raise OSError("no route to host")
+
+    v = {"id": 1, "published_files": [], "image": "https://s3/t.jpg?sig"}
+    monkeypatch.setattr(media, "_download", refuse)
+    assert media.describe_format(v, "thumbnail") == (
+        "thumbnail, a preview the site made. Publish media to read the original.")
+
+
+def test_an_upload_is_described_by_what_its_row_knows():
+    v = {"id": 1, "published_files": [],
+         "sg_uploaded_movie": {"url": "https://s3/x?sig", "name": "sh010_v001.mov",
+                               "content_type": "video/quicktime"}}
+    assert media.describe_format(v, "uploaded") == (
+        "video/quicktime on the site. Size and depth are read at run time.")
+
+
+def test_an_upload_with_no_content_type_falls_back_to_its_extension():
+    v = {"id": 1, "published_files": [],
+         "sg_uploaded_movie": {"url": "https://s3/x?sig", "name": "sh010_v001.mov"}}
+    assert media.describe_format(v, "uploaded").startswith("MOV on the site.")
+
+
+def test_an_uploaded_published_file_is_described_the_same_way():
+    pf = {"id": 6900, "link": "upload", "path": "", "url": "https://s3/x?sig",
+          "name": "sh010_v001.mov", "content_type": "video/quicktime",
+          "type": "Movie", "colour": "ACEScg"}
+    v = {"id": 1, "published_files": [pf]}
+    assert media.describe_format(v, media.pf_key(pf)) == (
+        "video/quicktime on the site. Size and depth are read at run time. "
+        "Colour space declared ACEScg.")
+
+
+# --- the sentence for a Version that is not there ---------------------------------------------------
+
+def test_a_pinned_version_that_does_not_exist_says_so_in_words():
+    # The site's own 404 body, which reads as a field called Version until it is said again.
+    said = routes._sentence(FPTError(
+        "Could not read Version 1 from Flow Production Tracking. Check that it still exists, then "
+        "run again. The site answered 404. "
+        '{"errors":[{"status":404,"code":104,"title":"Not Found","detail":"Version: 1 not found"}]}'))
+    assert said == ("Version 1 does not exist on this site. Check the id, then run again. "
+                    "Version: 1 not found")
+
+
+def test_another_entity_missing_reads_the_same_way():
+    said = routes._sentence(FPTError('{"errors":[{"detail":"Shot: 42 not found"}]}'))
+    assert said.startswith("Shot 42 does not exist on this site. Check the id, then run again.")
+
+
+def test_a_detail_that_is_not_a_missing_entity_is_left_alone():
+    assert routes._sentence(FPTError('{"errors":[{"detail":"Permission denied."}]}')) \
+        == "Permission denied."
