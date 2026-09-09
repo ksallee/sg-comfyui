@@ -293,19 +293,25 @@ export function addPanel(node, title = "SG", onLayout = null) {
         // `?? 0`, not `|| 0`: 0 is the value that means "all of them", and it is also the
         // declared default, so an absent widget and an explicit 0 have to read the same.
         const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 0);
-        const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
-        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}.`;
-        if (ask && (ask < f.first || ask > f.last)) {
-          note += ` Frame ${ask} is not in the sequence. Pick one between ${f.first} and ${f.last}.`;
+        // A movie answers with a count and no numbering, a sequence with both. The arithmetic is
+        // the same either way, and so is the batch the frames have to fit in.
+        const first = Number(f.first ?? 1);
+        const count = Number(f.count ?? 0);
+        const last = Number(f.last ?? first + Math.max(count, 1) - 1);
+        const span = first === last ? `${first}` : `${first}-${last}`;
+        let note = `${span}, ${count} frame${count === 1 ? "" : "s"}.`;
+        let got = 0;
+        if (ask && (ask < first || ask > last)) {
+          note += ` Frame ${ask} is not in the sequence. Pick one between ${first} and ${last}.`;
         } else {
-          const at = ask || f.first;
-          const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
+          const at = ask || first;
+          got = n <= 0 ? last - at + 1 : Math.min(n, last - at + 1);
           note += got === 1 ? ` Reads frame ${at}.` : ` Reads ${got} frames from ${at}.`;
-          // Said before the Run, not after it: one batch is a single tensor, and a plate too big
-          // to hold is a refusal the operator can avoid by setting frame_count or raising the
-          // budget. The same numbers the run would use.
-          if (d.batch && got > d.batch.fits) over = budgetSentence(d.batch, got);
         }
+        // Said before the Run, not after it: one batch is a single tensor, and a plate too big to
+        // hold is a refusal the operator can avoid by setting frame_count or raising the budget.
+        // The same numbers the run would use, whatever the frames are read from.
+        if (d.batch && got > d.batch.fits) over = budgetSentence(d.batch, got);
         rows.push(["frames", note]);
       }
       if (d.colour_space) rows.push(
