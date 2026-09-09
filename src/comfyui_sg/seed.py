@@ -17,35 +17,24 @@ from pathlib import Path
 from . import naming, publish, site, version_name
 
 
-def _pick(pairs, label):
-    """The id whose label matches exactly, or 0."""
-    return next((i for name, i in pairs if name == label), 0)
-
-
 def seed(path, project="", link="", task="", code="", template="", status="", note="",
          root_name=""):
     """Create one Version from a local file. Returns (version_id, code)."""
     data = Path(path).read_bytes()
     sg = site.client()
 
-    project_id = (int(project) if str(project).isdigit() else _pick(site.projects(), project)) \
-        or site.default_project()
+    # The node's own resolution, so a seeded Version links the way every other one does: the label
+    # carries its own type — `sh010 (Shot)` — and a bare name falls back to the project's default
+    # rather than assuming one (probe 005).
+    ctx = site.context(project, link, task, status)
+    project_id, p, link_type = ctx.project_id, ctx.profile, ctx.link_type
+    target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
     if not project_id:
-        raise ValueError("No project chosen. Pass --project, or set default_project in "
-                         "profile.local.json.")
-    p = site.for_project(project_id)
-
-    # The label carries its own type — `sh010 (Shot)` — and that wins, exactly as in the node:
-    # Version.entity accepts 15 types and a show may use several at once, so a bare name falls back
-    # to the project's default rather than assuming one (probe 005).
-    picked_type, picked_name = site.split_link(link)
-    link_type = picked_type or p.get("link_type", "Shot")
-    target = _pick(site.entities(link_type, project_id, q=picked_name), picked_name) if link else 0
+        raise ValueError("No project chosen. Pass --project, or set the default project under "
+                         "Settings, then SG.")
     if link and not target:
-        raise ValueError(f"No {link_type} named {picked_name} on project {project_id}. Check the "
+        raise ValueError(f"No {link_type} named {ctx.link_name} on project {project_id}. Check the "
                          f"spelling, and use the name as it appears in Flow Production Tracking.")
-    task_id = _pick(site.tasks_for(link_type, target), task) if (task and target) else 0
-    status_code = next((c for label, c in site.statuses(project_id) if label == status), "")
 
     name = code or version_name.next_code(
         template, project_id, link_type, target, task_id,

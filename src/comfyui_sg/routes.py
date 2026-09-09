@@ -65,10 +65,6 @@ def _int(query, name):
     return int(raw)
 
 
-def _id_for(pairs, label):
-    return next((i for l, i in pairs if l == label), 0)
-
-
 def _wired(widgets, name):
     """Whether that input is connected. An API-format prompt writes a link as ["node", slot] and a
     widget value as a scalar, so the shape of the entry is the answer."""
@@ -95,7 +91,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """
     if not widgets.get("register_files"):
         return []
-    from . import naming, publish, sequence, version_name
+    from . import publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
@@ -105,32 +101,23 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     if not (want_frames or want_movie):
         return []
     try:
-        _, root = sequence.root_for(publish.storages(site.client()), pf.get("storage", ""))
-        # Two templates, the pair `publish_version._stage` picks: a sequence earns a folder and a
-        # movie does not.
-        seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
-        mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
-        root_t = (widgets.get("root_name", "") or prof.get("root_name")
-                  or naming.DEFAULT_ROOT_TEMPLATE).strip()
         code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
-                                                  link_type, target, task_id, root_t)
-        # `{root_name}` and `{version_name}` are rendered here, never looked up: resolve_paths knows
-        # neither, and the run hands the path these same two names (publish_version._stage).
-        fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
-                  | set(naming.template_fields(root_t)))
-        vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
-        vals["root_name"] = version_name.root_of(root_t, vals)
-        vals["version_name"] = code
+                                                  link_type, target, task_id,
+                                                  widgets.get("root_name", ""))
+        # `sequence.plan` is what the run stages from, so the two cannot render a path differently.
+        pl = sequence.plan(prof, publish.storages(site.client()), code, version_no, project_id,
+                           link_type, target, task_id, widgets.get("root_name", ""))
         where = []
         if want_frames:
-            where.append(sequence.pattern(root, seq_t, dict(vals, ext=".png"), version_no, ".png"))
+            ext = sequence.extension(widgets.get("format", ""))
+            where.append(sequence.destination(pl, pl.seq_template, ext, version_no))
         # A deliverable is never transformed, so the clip keeps its own extension — a run-time fact
         # this states rather than guesses.
         if want_movie:
             ext = ".<the clip's own extension>"
-            where.append(sequence.pattern(root, mov_t, dict(vals, ext=ext), version_no, ext))
-        if not os.path.isdir(root):
-            where.append(f"{root} is not mounted. Mount it before you Run.")
+            where.append(sequence.destination(pl, pl.movie_template, ext, version_no))
+        if not os.path.isdir(pl.root):
+            where.append(f"{pl.root} is not mounted. Mount it before you Run.")
         return where
     except Exception as e:
         return [f"Create Published Files is ticked, but the paths could not be worked out. "
@@ -490,15 +477,10 @@ def register():
         def read():
             from . import naming, version_name
             site.client()     # nothing to preview until someone is connected: the sentence names Settings
-            project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
-            p = site.for_project(project_id)
-            picked_type, picked_name = site.split_link(q.get("link", ""))
-            lt = picked_type or (site.chosen_types(q.get("link_type", ""), project_id) or [""])[0] \
-                or p.get("link_type", "Shot")
-            target = _id_for(site.entities(lt, project_id, q=picked_name), picked_name) \
-                if q.get("link") else 0
-            task_id = _id_for(site.tasks_for(lt, target), q.get("task", "")) \
-                if (q.get("task") and target) else 0
+            ctx = site.context(q.get("project", ""), q.get("link", ""), q.get("task", ""),
+                               link_type=q.get("link_type", ""))
+            project_id, p, lt = ctx.project_id, ctx.profile, ctx.link_type
+            target, task_id, picked_name = ctx.link_id, ctx.task_id, ctx.link_name
             root_t = q.get("root_name", "")            # the ROOT template, not the version's name
             code = version_name.next_code(q.get("code_template", ""), project_id, lt, target,
                                           task_id, root_t)
@@ -546,7 +528,7 @@ def register():
         def read():
             from .nodes.publish_version import settings_defaults
             site.client()
-            pid = _id_for(site.projects(), q.get("project", "")) or site.default_project()
+            pid = site.id_for(site.projects(), q.get("project", "")) or site.default_project()
             return settings_defaults(pid)
         return answer(read, {})
 
@@ -601,8 +583,9 @@ def register():
             schema = sg_fields.schema_names(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
-            pid = next((n for l, n in site.projects() if l == w.get("project")), 0) \
-                or site.default_project()
+            ctx = site.context(w.get("project", ""), w.get("link", ""), w.get("task", ""),
+                               w.get("status", ""), w.get("link_id") or 0)
+            pid = ctx.project_id
             where = sg_fields.targets(*site.provenance_map(pid))
             values = sg_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
 
@@ -639,15 +622,10 @@ def register():
             # {"type", "id"}, the status takes a code, and the field name is the profile's
             # (probe 005). `site.unset()` drops "(none)" and "(all types)", which are labels for the
             # operator and never values for the site.
-            status, link, task = (site.unset(w.get(k)) for k in ("status", "link", "task"))
-            prof = site.for_project(pid)
+            link = site.unset(w.get("link"))
+            prof, link_type, picked_name = ctx.profile, ctx.link_type, ctx.link_name
             link_field = prof.get("link_field", "entity")
-            picked_type, picked_name = site.split_link(link)
-            link_type = picked_type or prof.get("link_type", "Shot")
-            target = int(w.get("link_id") or 0) or (
-                _id_for(site.entities(link_type, pid, q=picked_name), picked_name) if link else 0)
-            task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
-            status_code = next((c for l, c in site.statuses(pid) if l == status), "") if status else ""
+            target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
             plain = [("description", w.get("note") or "", "from the note field"),
                      ("sg_status_list", status_code, "" if status_code else "no status picked"),
                      (link_field, f"{link_type} {target}" if target else "",

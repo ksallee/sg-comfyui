@@ -15,6 +15,7 @@ import json
 import re
 import threading
 import time
+from collections import namedtuple
 from pathlib import Path
 
 import requests
@@ -394,6 +395,16 @@ def text_search(project_id, text, types):
     return _cached(("text_search", int(project_id), text.strip().lower(), tuple(types)), fetch)
 
 
+def id_for(pairs, label):
+    """The id whose label matches exactly, or 0. Every picker hands back a label; SG wants an id."""
+    return next((i for l, i in pairs if l == label), 0)
+
+
+def labels(pairs):
+    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    return [NO_VALUE] + [label for label, _ in pairs]
+
+
 def split_link(label):
     """`bunny_030_0090 (Shot)` -> ("Shot", "bunny_030_0090"). A bare name keeps its type unknown."""
     label = (label or "").strip()
@@ -524,6 +535,36 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
         return [d["attributes"].get(field)
                 for d in _search("Version", filters, [field], limit=limit)]
     return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
+
+
+Context = namedtuple("Context", "project_id profile link_type link_name link_id task_id "
+                                "status_code")
+
+
+def context(project="", link="", task="", status="", link_id=0, link_type="", fallback_type=True):
+    """What a Version's pickers add up to: the project, what it hangs off, its Task and its status.
+
+    Five places resolved these same four things and had already drifted apart. A picked label
+    carries its own type — Version.entity accepts 15 and a show may use several at once (probe 005)
+    — so `link_type` is only the restriction the operator put on the picker, and the profile's own
+    `link_type` is the last resort. `fallback_type` turns that last resort off for a caller that
+    means "every type this show uses".
+
+    A named link that resolves to nothing comes back with `link_id` 0 and `link_name` set, because
+    what to say about it differs between a node, a panel and a command line.
+    """
+    link, task, status = unset(link), unset(task), unset(status)
+    project_id = (int(project) if str(project).isdigit() else id_for(projects(), project)) \
+        or default_project()
+    p = for_project(project_id)
+    picked_type, picked_name = split_link(link)
+    lt = picked_type or (chosen_types(link_type, project_id) or [""])[0] \
+        or (p.get("link_type", "Shot") if fallback_type else "")
+    target = int(link_id or 0) or (id_for(entities(lt, project_id, q=picked_name), picked_name)
+                                   if link else 0)
+    task_id = id_for(tasks_for(lt, target), task) if (task and target) else 0
+    status_code = next((c for l, c in statuses(project_id) if l == status), "")
+    return Context(project_id, p, lt, picked_name, target, task_id, status_code)
 
 
 def status_lookup(project_id):

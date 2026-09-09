@@ -66,15 +66,6 @@ def _description(note, lines):
     return "\n".join([x for x in (note,) if x] + ([""] if note and lines else []) + lines)
 
 
-def _labels(pairs):
-    """Choices with a visible "no value" first — an empty string cannot be selected back."""
-    return [site.NO_VALUE] + [label for label, _ in pairs]
-
-
-def _id_for(pairs, label):
-    return next((i for l, i in pairs if l == label), 0)
-
-
 def _wants_files(pf):
     """The profile's default for the tick. `published_files.default` of `(none)` means no."""
     d = pf.get("default")
@@ -127,10 +118,10 @@ class SGPublishVersion:
                 **widgets.declare(
                     widgets.PUBLISH_FIELDS,
                     choices={
-                        "project": _labels(site.projects()),
-                        "link": _labels(links),
-                        "task": _labels(site.tasks_for(first_type, first_link)),
-                        "status": _labels(statuses),
+                        "project": site.labels(site.projects()),
+                        "link": site.labels(links),
+                        "task": site.labels(site.tasks_for(first_type, first_link)),
+                        "status": site.labels(statuses),
                     },
                     overrides={
                         # A house decides which fields it wants in front of it; the table's own
@@ -175,70 +166,45 @@ class SGPublishVersion:
                p, sg, project_id, link_type, target, task_id, root_name="", frame_format=""):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
-        The storage root and the path templates are profile data, per project like every other
-        site-specific decision (DESIGN). A path template is the language the code template already
-        speaks — dotted SG paths and Python's format spec (`naming.render`) — plus the frame
-        token `sg_path_to_frames` uses. A sequence earns a folder and a movie does not, which is why
-        there are two templates.
+        `sequence.plan` decides where; this decides what is written there. The panel calls the same
+        plan, so a path read before the Run is the path the run writes.
         """
         if not (want_frames or want_movie):
             return None
         pf = p.get("published_files") or {}
-        storages = publish.storages(sg)
-        storage_id, root = sequence.root_for(storages, pf.get("storage", ""))
-        sequence.check_root(root)
-        # The Version's path fields hold one absolute path each, written for the platform the
-        # profile picks; the files themselves are written under this machine's root.
-        row = sequence.storage_row(storages, pf.get("storage", ""))
-        platform = sequence.platform_for(row, pf.get("path_platform", ""))
-        field_path = lambda path: sequence.on_platform(path, root, row, platform)
-        seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
-        mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
-        # The stream is RENDERED from its own template, never derived by subtracting a version token
-        # from a longer one. A path refers to `{root_name}` and `{version_name}` rather than
-        # spelling the naming scheme a second time, so the two cannot disagree.
-        root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
-        fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
-                  | set(naming.template_fields(root_t)))
-        vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
-        # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
-        # probe 028: a 200 proves nothing, and neither does a path that rendered.
-        blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
-        # `version_name.root_of`, so the folder is the same stream name the code was built on.
-        name = version_name.root_of(root_t, vals)
-
-        def path_for(template, ext):
-            return sequence.pattern(root, template,
-                                    dict(vals, version_name=code, root_name=name, ext=ext),
-                                    version_no, ext)
-
+        pl = sequence.plan(p, publish.storages(sg), code, version_no, project_id, link_type, target,
+                           task_id, root_name)
+        sequence.check_root(pl.root)
         # The extension follows the files, never the template: it is the one the node's `format`
         # widget names, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
         ext = sequence.extension(frame_format)
-        out = {"root": root, "storage_id": storage_id, "template": seq_t, "blank_tokens": blank,
-               "declared_ext": os.path.splitext(sequence.single(seq_t))[1].lower(), "ext": ext,
+        out = {"root": pl.root, "storage_id": pl.storage_id, "template": pl.seq_template,
+               "blank_tokens": pl.blank, "ext": ext,
+               "declared_ext": os.path.splitext(sequence.single(pl.seq_template))[1].lower(),
                "colour": colour_space.strip(), "count": count}
         if want_frames:
-            pattern = path_for(seq_t, ext)
+            pattern = sequence.destination(pl, pl.seq_template, ext, version_no)
             # Written to ComfyUI's own output directory first. The copy is what puts a file where
             # the site can resolve it; the original stays put so a failed publish is recoverable.
             out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
                                            pattern)
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
-            out["frames_name"] = name
+            out["frames_name"] = pl.name
+            # The Version's path fields hold one absolute path each, written for the platform the
+            # profile picks; the files themselves are written under this machine's root.
             if pf.get("path_to_frames", True):
-                out["frames_field"] = field_path(pattern)
+                out["frames_field"] = sequence.field_path(pl, pattern)
         if want_movie:
             # The clip's real extension, because a deliverable is never transformed: a `.mov` off
             # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
-            ext = os.path.splitext(media_path)[1].lower() or ".mp4"
-            dest = path_for(mov_t, ext)
+            clip_ext = os.path.splitext(media_path)[1].lower() or ".mp4"
+            dest = sequence.destination(pl, pl.movie_template, clip_ext, version_no)
             out["media"] = sequence.copy_one(media_path, dest)
             out["media_code"] = os.path.basename(dest)
-            out["media_name"] = name
+            out["media_name"] = pl.name
             if pf.get("path_to_movie", True):
-                out["media_field"] = field_path(out["media"])
+                out["media_field"] = sequence.field_path(pl, out["media"])
         return out
 
     @staticmethod
@@ -359,31 +325,22 @@ class SGPublishVersion:
                 f"CreateVideo and wire the video into this node.")
         # The picked project decides, then the profile answers for THAT project — two graphs open in
         # one ComfyUI can target two shows that link Versions differently.
-        project_id = _id_for(site.projects(), project) or site.default_project()
-        if not project_id:
-            raise ValueError("No project is selected. Pick one from the list, or set "
-                             "default_project in profile.local.json.")
-        p = site.for_project(project_id)
+        ctx = site.context(project, link, task, status, link_id)
+        project_id, p, link_type = ctx.project_id, ctx.profile, ctx.link_type
+        target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
+        picked_name = ctx.link_name
         link_field = p.get("link_field", "entity")   # probe 005 — never assume sg_task
-        link, task, status = site.unset(link), site.unset(task), site.unset(status)
-        # The label carries its own type: Version.entity accepts 15 types and a show may use several
-        # at once. The profile answers only for a link picked before labels carried a type.
-        picked_type, picked_name = site.split_link(link)
-        link_type = picked_type or p.get("link_type", "Shot")
-
-        # Combos carry labels; SG wants ids. Resolve narrowly rather than trusting a cached list.
-        target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),
-                                          picked_name) if link else 0)
-        if link and not target:
+        if not project_id:
+            raise ValueError("No project is selected. Pick one from the list, or pick the project "
+                             "under Settings, then SG.")
+        if site.unset(link) and not target:
             raise ValueError(f"No {link_type} named {picked_name} on this project. Pick one from "
                              f"the list.")
-        task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
         # The same sentence the panel shows, refused before the site is written to.
         missing = version_name.missing_fields(code_template, root_name, project_id, target,
                                               task_id)
         if missing:
             raise ValueError(f"Fill in the required fields ({', '.join(missing)}).")
-        status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
 
         # unique_id scopes provenance to this node's branch (provenance.ancestors).
         prov = provenance.extract(prompt, extra_pnginfo, node_id=unique_id)

@@ -18,9 +18,10 @@ import re
 import shutil
 import sys
 import tempfile
+from collections import namedtuple
 from pathlib import Path
 
-from . import media, naming
+from . import media, naming, site, version_name
 
 # The frame token, wherever the operator put it. `media.SEQ` knows printf, Shake `#` and `@` alike,
 # so a path template speaks the same notation `sg_path_to_frames` does.
@@ -290,6 +291,49 @@ def copy_one(source, dest):
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, dest)
     return dest
+
+
+Plan = namedtuple("Plan", "root storage_id row platform seq_template movie_template "
+                          "values blank name")
+
+
+def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name=""):
+    """Where this publish's files would land: the root, the two templates and everything filled in.
+
+    Resolves and renders; touches no disk and creates nothing. The panel and the run both answer
+    from here, so a path an operator reads before pressing Run is the path the run writes.
+
+    A path template is the language the code template already speaks — dotted SG paths and Python's
+    format spec (`naming.render`) — plus the frame token `sg_path_to_frames` uses. A sequence earns
+    a folder and a movie does not, which is why there are two templates. Neither repeats the naming
+    scheme: `{root_name}` and `{version_name}` are the two names themselves.
+    """
+    pf = p.get("published_files") or {}
+    storage_id, root = root_for(storages, pf.get("storage", ""))
+    row = storage_row(storages, pf.get("storage", ""))
+    platform = platform_for(row, pf.get("path_platform", ""))
+    seq_t = pf.get("path_template") or DEFAULT_SEQUENCE_TEMPLATE
+    mov_t = pf.get("movie_path_template") or DEFAULT_MOVIE_TEMPLATE
+    root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
+    fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
+              | set(naming.template_fields(root_t)))
+    vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
+    # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
+    # probe 028: a 200 proves nothing, and neither does a path that rendered.
+    blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
+    name = version_name.root_of(root_t, vals)
+    return Plan(root, storage_id, row, platform, seq_t, mov_t,
+                dict(vals, version_name=code, root_name=name), blank, name)
+
+
+def destination(pl, template, ext, version_no):
+    """One rendered absolute path under the plan's root, frame token intact."""
+    return pattern(pl.root, template, dict(pl.values, ext=ext), version_no, ext)
+
+
+def field_path(pl, path):
+    """The same file under the root the profile writes the Version's path fields for."""
+    return on_platform(path, pl.root, pl.row, pl.platform)
 
 
 def relative(root, path):
