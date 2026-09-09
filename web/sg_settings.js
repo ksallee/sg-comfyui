@@ -60,7 +60,7 @@ async function save(changes) {
   const d = await call("/sg/settings", { body: changes });
   if (!d.error) status = d;
   redraw();
-  announce();
+  if (!d.error) announce();   // a refused save changed nothing, so no node has anything to reread
   return d;
 }
 
@@ -84,7 +84,9 @@ function row(draw) {
   draw.el = el;
   rows.add(draw);
   draw();
-  if (!status) load();
+  // Every time the dialog opens, not only the first: a login approved in another tab, or one that
+  // expired since, is what the row is there to show. Rows built together share the one request.
+  load();
   return el;
 }
 
@@ -346,7 +348,8 @@ async function saveDefault(key, value) {
   const d = await call("/sg/defaults", { body: { key, value } });
   if (!d.error) defaults = d;
   redraw();
-  announce();
+  // No announce: these are the values a new node starts from and the ones the button on the node
+  // fills in. Who the nodes publish as is what makes every picker read again, and that is `save`.
   return d;
 }
 

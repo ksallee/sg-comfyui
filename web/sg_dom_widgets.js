@@ -660,7 +660,7 @@ export function chipSelect(node, target,
     });
     relayout();
   };
-  const reload = () => load().then((items) => draw(items || []));
-  reload();
-  return { relayout, reload };
+  // Nothing is read here: the chips are for one project, and which project that is arrives one
+  // round trip later. The caller reloads them once it knows.
+  return { reload: () => load().then((items) => draw(items || [])) };
 }

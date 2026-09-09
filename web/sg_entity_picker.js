@@ -312,11 +312,21 @@ function publishPickers(nodeType, nodeData) {
     // ComfyUI announces the cached nodes first, then replays each one's old result as `executed`,
     // so the flag is read there and the sentence lands after the readout it explains.
     let cached = false;
-    app.api.addEventListener("execution_start", () => { cached = false; });
-    app.api.addEventListener("execution_cached", ({ detail }) => {
+    // Every listener is dropped when the node goes: a workflow opened and closed otherwise leaves
+    // its listeners behind, and each later run redraws a panel that is on no screen.
+    const listen = (name, fn) => {
+      app.api.addEventListener(name, fn);
+      const prev = node.onRemoved;
+      node.onRemoved = function () {
+        app.api.removeEventListener(name, fn);
+        return prev?.apply(this, arguments);
+      };
+    };
+    listen("execution_start", () => { cached = false; });
+    listen("execution_cached", ({ detail }) => {
       cached = (detail.nodes || []).map(String).includes(String(node.id));
     });
-    app.api.addEventListener("executed", ({ detail }) => {
+    listen("executed", ({ detail }) => {
       if (String(detail.node) !== String(node.id)) return;
       const rows = (detail.output && detail.output.published) || [];
       panel.clearLog();
