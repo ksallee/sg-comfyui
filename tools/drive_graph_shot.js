@@ -14,9 +14,14 @@ for (const n of app.graph.nodes.filter((n) => n.type === "LoadImage")) {
   const w = n.widgets?.find((x) => x.name === "image");
   if (w) { w.value = "sh010_plate_f0001.png"; w.callback?.(w.value); }
 }
-await pause(1500);
-// Toasts only, by their own close control, however the toolkit names it.
-document.querySelectorAll(".p-toast button, .p-toast [role=button]").forEach((b) => b.click());
+// The red badge is the validation of the first load, which a widget change does not clear.
+for (const n of app.graph.nodes) n.has_errors = false;
+app.canvas.setDirty(true, true);
+// Toasts arrive on their own clock; keep closing them until the shot.
+for (let i = 0; i < 10; i++) {
+  await pause(400);
+  document.querySelectorAll(".p-toast button, .p-toast [role=button]").forEach((b) => b.click());
+}
 // Toasts only: a generic Close matches the workflow tabs, and closing one empties the graph.
 document.querySelectorAll(".p-toast-close-button").forEach((b) => b.click());
 const mini = document.querySelector("[aria-label*='minimap' i], button[title*='minimap' i]");
