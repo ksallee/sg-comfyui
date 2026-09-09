@@ -1,10 +1,6 @@
-"""The node registry ComfyUI reads. The repo-root `__init__.py` re-exports these two mappings."""
-from .nodes import SGLoadVersion, SGPublishVersion
+"""ComfyUI nodes that publish generations to Flow Production Tracking with provenance.
 
-# Keys are written into every saved workflow, so they are permanent.
-NODE_CLASS_MAPPINGS = {"SGLoadVersion": SGLoadVersion,
-                       "SGPublishVersion": SGPublishVersion}
-NODE_DISPLAY_NAME_MAPPINGS = {"SGLoadVersion": "SG Load",
-                              "SGPublishVersion": "SG Publish"}
-
-__all__ = ["NODE_CLASS_MAPPINGS", "NODE_DISPLAY_NAME_MAPPINGS"]
+Deliberately free of imports. The setup commands — `python -m comfyui_sg.fields`, `python -m
+comfyui_sg.seed` — are run on whatever Python is to hand, and importing a node class here would
+pull in torch and stop them. The mappings ComfyUI reads are built in the repo-root `__init__.py`.
+"""

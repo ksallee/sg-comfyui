@@ -495,7 +495,8 @@
         "sRGB",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ]
     },
     {
@@ -538,7 +539,8 @@
         "sRGB",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ]
     },
     {

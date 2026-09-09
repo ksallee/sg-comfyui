@@ -77,25 +77,29 @@ def storages(sg):
 
 
 def published_file_type(sg, candidates):
-    """The first of `candidates` this site already has, matched case-insensitively (recipe 004).
+    """(the first of `candidates` this site has, a sentence where the site would not say).
 
-    Never creates one: PublishedFileType has no `project`, so a create adds it to every show on the
-    site. A miss returns None and the caller says so — an unlabelled publish is honest, an invented
-    site-wide type is not.
+    Matched case-insensitively (recipe 004). Never creates one: PublishedFileType has no `project`,
+    so a create adds it to every show on the site. A miss returns None with no sentence, because a
+    site that genuinely has no such type is the caller's story to tell; a site that refused the read
+    is this function's, and the two must not be reported as one.
     """
     r = sg.get("/entity/published_file_types", params={"fields": "code", "page[size]": 200})
     if not r.ok:
-        return None
+        return None, (f"The Published File Type list could not be read, so the file was registered "
+                      f"without a type. Run again. The site answered {r.status_code}.")
     have = {(d["attributes"].get("code") or "").strip().lower(): d["id"]
             for d in r.json().get("data", [])}
     for want in candidates:
         if want.strip().lower() in have:
-            return {"type": "PublishedFileType", "id": have[want.strip().lower()]}
-    return None
+            return {"type": "PublishedFileType", "id": have[want.strip().lower()]}, ""
+    return None, ""
 
 
 def published_files_of(sg, version_ids, exact=None):
-    """Every PublishedFile hanging off these Versions — the upstream half of a dependency link.
+    """(every PublishedFile hanging off these Versions, a sentence where the search failed).
+
+    The upstream half of a dependency link.
 
     `upstream_published_files` is the PublishedFile-level twin of `sg_ai_generated_from`: the node
     already knows which Versions this one came from, and where those Versions carry files, the files
@@ -112,13 +116,14 @@ def published_files_of(sg, version_ids, exact=None):
     out = [{"type": "PublishedFile", "id": int(i)} for v in ids for i in exact.get(v, [])]
     rest = [v for v in ids if v not in exact]
     if not rest:
-        return out
+        return out, ""
     r = sg.post("/entity/published_files/_search", headers=site.ARRAY_JSON, json={
         "filters": [["version", "in", [{"type": "Version", "id": i} for i in rest]]],
         "fields": ["code"], "page": {"size": 200}})
     if not r.ok:
-        return out
-    return out + [{"type": "PublishedFile", "id": d["id"]} for d in r.json().get("data", [])]
+        return out, (f"The source versions' published files could not be read, so nothing upstream "
+                     f"was linked. Run again. The site answered {r.status_code}.")
+    return out + [{"type": "PublishedFile", "id": d["id"]} for d in r.json().get("data", [])], ""
 
 
 def create_published_file(sg, project_id, code, name, local_path, fields=None):

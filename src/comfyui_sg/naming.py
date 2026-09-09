@@ -127,7 +127,7 @@ def _all_filled(template, values):
 def template_regex(template, values):
     """A matcher for codes this template has produced, with the known values pinned.
 
-    Pinning is what makes numbering per link and per output: the depth pass of one shot counts its
+    Pinning is what makes numbering per link and per stream: the depth pass of one shot counts its
     own history and nobody else's.
     """
     out, i = "", 0

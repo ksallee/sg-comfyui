@@ -8,23 +8,23 @@ Frames land in ComfyUI's own output directory and are **copied** into place unde
 never move: the run stays where the artist expects it, a publish that fails half way leaves
 something to re-publish from, and a second attempt costs a copy rather than a re-render.
 
-Nothing here transcodes and nothing here infers. A PNG is registered as a PNG, and the colour space
-is recorded exactly as the operator declared it (DESIGN: a colour transform is the most
-consequential pixel change there is, and this project does not make images).
+Nothing here transcodes and nothing here infers. The frames are written by ComfyUI's own encoder in
+the format the node was told, registered under that format's own extension, and the colour space is
+recorded exactly as the operator declared it (DESIGN: a colour transform is the most consequential
+pixel change there is, and this project does not make images).
 """
 import os
 import re
 import shutil
 import sys
 import tempfile
+from collections import namedtuple
 from pathlib import Path
 
-from PIL import Image
+from . import media, naming, site, version_name
 
-from . import media, movie, naming
-
-# The frame token, wherever the operator put it. `media.SEQ` already knows printf, Shake `#` and `@`
-# (docs/quirks), so a path template speaks the same notation `sg_path_to_frames` does.
+# The frame token, wherever the operator put it. `media.SEQ` knows printf, Shake `#` and `@` alike,
+# so a path template speaks the same notation `sg_path_to_frames` does.
 SEQ = media.SEQ
 
 # Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
@@ -60,19 +60,50 @@ def folder(stem):
     return output_dir() / stem
 
 
-def write_frames(images, stem):
-    """The batch as a PNG sequence in ComfyUI's output directory, one folder per publish.
+# What each choice on the node's `format` widget is, in ComfyUI's own encoder vocabulary:
+# (file format, bit depth, colour space, extension). PNG's colour space does not modify pixels. EXR
+# takes "linear", which is the encoder's write-through, so a scene-linear plate goes to disk exactly
+# as the graph made it and the operator's declared colour space stays a claim about the pixels
+# rather than a transform applied to them.
+FORMATS = {
+    "8-bit PNG":        ("png", "8-bit", "sRGB", ".png"),
+    "16-bit PNG":       ("png", "16-bit", "sRGB", ".png"),
+    "EXR 32-bit float": ("exr", "32-bit float", "linear", ".exr"),
+}
+DEFAULT_FORMAT = "8-bit PNG"
 
-    PNG because that is what Pillow can write from an IMAGE tensor without inventing anything. The
+
+def spec_for(fmt):
+    """One format's (file format, bit depth, colour space, extension)."""
+    return FORMATS.get(fmt or DEFAULT_FORMAT, FORMATS[DEFAULT_FORMAT])
+
+
+def extension(fmt):
+    """The extension the frames of this format actually have."""
+    return spec_for(fmt)[3]
+
+
+def write_frames(images, stem, fmt=DEFAULT_FORMAT):
+    """The batch as a sequence in ComfyUI's output directory, one folder per publish.
+
+    ComfyUI's own encoder writes them (`comfy_extras.nodes_images._encode_image`), because bit
+    depth, channel count and any colour transform are its business and not this repo's. Imported
+    inside the call, so an older install still loads every node and only refuses the write. The
     extension the site records follows these files and is never taken from the path template, which
     would let a template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
     """
+    try:
+        from comfy_extras.nodes_images import _encode_image
+    except ImportError:
+        raise RuntimeError(f"Writing {fmt} needs ComfyUI 0.34.0 or newer. Update ComfyUI, or pick "
+                           f"8-bit PNG.")
+    file_format, bit_depth, colorspace, ext = spec_for(fmt)
     into = folder(stem)
     into.mkdir(parents=True, exist_ok=True)
     out = []
     for i, frame in enumerate(images, start=1):
-        p = into / f"{stem}.{i:04d}.png"
-        Image.fromarray(movie.to_u8(frame)).save(p, format="PNG")
+        p = into / f"{stem}.{i:04d}{ext}"
+        p.write_bytes(_encode_image(frame, file_format, bit_depth, colorspace))
         out.append(p)
     return out
 
@@ -86,16 +117,19 @@ def storage_row(storages, code=""):
     """The LocalStorage the profile names. Chosen by code, never by position: one root is not a
     choice, several are, and taking the first would put a show's frames on whichever storage the
     site happens to list first."""
-    have = ", ".join(sorted(s["code"] for s in storages)) or "none"
+    have = ", ".join(sorted(s["code"] for s in storages))
+    if not storages:
+        raise RuntimeError("This site has no Local File Storage, so nothing can be published to "
+                           "it. Add one in Flow Production Tracking, under Site Preferences then "
+                           "File Management.")
     if not code and len(storages) != 1:
-        raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
-                           f"site has {len(storages)} storages to choose from. Set it to one of "
-                           f"these: {have}.")
+        raise RuntimeError(f"No storage is chosen, and this site has {len(storages)} to choose "
+                           f"from. Pick Storage under Settings, then SG: {have}.")
     rows = [s for s in storages
             if not code or s["code"].strip().lower() == code.strip().lower()]
     if not rows:
-        raise RuntimeError(f"No storage called {code} on this site. Set published_files.storage "
-                           f"in profile.local.json to one of these: {have}.")
+        raise RuntimeError(f"No storage called {code} on this site. Pick Storage under Settings, "
+                           f"then SG: {have}.")
     return rows[0]
 
 
@@ -120,12 +154,15 @@ def on_platform(path, local_root, row, platform):
     so a studio picks the one it is written for. A Windows root takes backslashes after it, which
     is reasoned from how SG spells `windows_path` and not measured against a Windows client.
     """
-    if platform == THIS_PLATFORM or not path.startswith(local_root):
+    here, base = _clean(path), _clean(local_root).rstrip("/")
+    # Both cleaned: a path is written forward-slashed and a Windows root is not, so comparing them
+    # raw finds no match on a Windows publisher and the swap silently never happens.
+    if platform == THIS_PLATFORM or not here.startswith(base):
         return path
     root = ((row or {}).get(PLATFORM_KEY.get(platform, "")) or "").rstrip("/").rstrip("\\")
     if not root:
         return path
-    rel = path[len(local_root):]
+    rel = here[len(base):]
     return root + (rel.replace("/", "\\") if platform == "windows" else rel)
 
 
@@ -141,7 +178,8 @@ def root_for(storages, code=""):
     if not root:
         raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "
                            f"published to it from this machine. Set that path on the storage in "
-                           f"Flow Production Tracking, or name another storage in profile.local.json.")
+                           f"Flow Production Tracking, or pick another Storage under Settings, "
+                           f"then SG.")
     return row["id"], root
 
 
@@ -160,9 +198,15 @@ def check_root(root):
 
 
 def swap_ext(path, ext):
-    """The extension the files actually have, replacing whatever the template guessed."""
-    base, _, _ = str(path).rpartition(".")
-    return (base or str(path)) + ext
+    """The extension the files actually have, replacing whatever the template guessed.
+
+    A template that ends in the frame token has no extension to replace — `.%04d` is the frame
+    number — so the token is kept and the real extension is appended after it.
+    """
+    base, dot, tail = str(path).rpartition(".")
+    if not dot or "/" in tail or "\\" in tail or SEQ.fullmatch(tail):
+        return str(path) + ext
+    return base + ext
 
 
 # A path template says two numbers at once and they must not be confused. `{version}` is the publish
@@ -215,7 +259,8 @@ def pattern(root, template, values, version, ext):
     out = _clean(swap_ext(f"{root}/{rel}", ext))
     if not _under(root, out):
         raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to sit "
-                           f"under the root, so fix path_template in profile.local.json.")
+                           f"under the root. Fix Sequence path or Movie path under Settings, "
+                           f"then SG.")
     return out
 
 
@@ -247,6 +292,52 @@ def copy_one(source, dest):
     Path(dest).parent.mkdir(parents=True, exist_ok=True)
     shutil.copyfile(source, dest)
     return dest
+
+
+Plan = namedtuple("Plan", "root storage_id row platform seq_template movie_template "
+                          "values blank name")
+
+
+def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name=""):
+    """Where this publish's files would land: the root, the two templates and everything filled in.
+
+    Resolves and renders; touches no disk and creates nothing. The panel and the run both answer
+    from here, so a path an operator reads before pressing Run is the path the run writes.
+
+    A path template is the language the code template already speaks — dotted SG paths and Python's
+    format spec (`naming.render`) — plus the frame token `sg_path_to_frames` uses. A sequence earns
+    a folder and a movie does not, which is why there are two templates. Neither repeats the naming
+    scheme: `{root_name}` and `{version_name}` are the two names themselves.
+    """
+    pf = p.get("published_files") or {}
+    storage_id, root = root_for(storages, pf.get("storage", ""))
+    row = storage_row(storages, pf.get("storage", ""))
+    platform = platform_for(row, pf.get("path_platform", ""))
+    seq_t = pf.get("path_template") or DEFAULT_SEQUENCE_TEMPLATE
+    mov_t = pf.get("movie_path_template") or DEFAULT_MOVIE_TEMPLATE
+    root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
+    fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
+              | set(naming.template_fields(root_t)))
+    vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
+    # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
+    # probe 028: a 200 proves nothing, and neither does a path that rendered.
+    # `root_name`, `version_name` and `ext` are filled below rather than looked up, so a template
+    # asking for them has not left anything unresolved.
+    blank = sorted(k for k in fields - {"root_name", "version_name", "ext"}
+                   if not str(vals.get(k, "")).strip())
+    name = version_name.root_of(root_t, vals, version_no)
+    return Plan(root, storage_id, row, platform, seq_t, mov_t,
+                dict(vals, version_name=code, root_name=name), blank, name)
+
+
+def destination(pl, template, ext, version_no):
+    """One rendered absolute path under the plan's root, frame token intact."""
+    return pattern(pl.root, template, dict(pl.values, ext=ext), version_no, ext)
+
+
+def field_path(pl, path):
+    """The same file under the root the profile writes the Version's path fields for."""
+    return on_platform(path, pl.root, pl.row, pl.platform)
 
 
 def relative(root, path):

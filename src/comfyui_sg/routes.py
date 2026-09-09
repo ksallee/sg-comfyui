@@ -65,10 +65,6 @@ def _int(query, name):
     return int(raw)
 
 
-def _id_for(pairs, label):
-    return next((i for l, i in pairs if l == label), 0)
-
-
 def _wired(widgets, name):
     """Whether that input is connected. An API-format prompt writes a link as ["node", slot] and a
     widget value as a scalar, so the shape of the entry is the answer."""
@@ -95,8 +91,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """
     if not widgets.get("register_files"):
         return []
-    from . import naming, publish, sequence
-    from .nodes.publish_version import SGPublishVersion as PV
+    from . import publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
@@ -106,32 +101,23 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     if not (want_frames or want_movie):
         return []
     try:
-        _, root = sequence.root_for(publish.storages(site.client()), pf.get("storage", ""))
-        # Two templates, the pair `publish_version._stage` picks: a sequence earns a folder and a
-        # movie does not.
-        seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
-        mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
-        root_t = (widgets.get("root_name", "") or prof.get("root_name")
-                  or naming.DEFAULT_ROOT_TEMPLATE)
-        code, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
-                                        target, task_id, root_t)
-        # `{root_name}` and `{version_name}` are rendered here, never looked up: resolve_paths knows
-        # neither, and the run hands the path these same two names (publish_version._stage).
-        fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
-                  | set(naming.template_fields(root_t)))
-        vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
-        vals["root_name"] = naming.render(root_t, vals, version_no)
-        vals["version_name"] = code
+        code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
+                                                  link_type, target, task_id,
+                                                  widgets.get("root_name", ""))
+        # `sequence.plan` is what the run stages from, so the two cannot render a path differently.
+        pl = sequence.plan(prof, publish.storages(site.client()), code, version_no, project_id,
+                           link_type, target, task_id, widgets.get("root_name", ""))
         where = []
         if want_frames:
-            where.append(sequence.pattern(root, seq_t, dict(vals, ext=".png"), version_no, ".png"))
+            ext = sequence.extension(widgets.get("format", ""))
+            where.append(sequence.destination(pl, pl.seq_template, ext, version_no))
         # A deliverable is never transformed, so the clip keeps its own extension — a run-time fact
         # this states rather than guesses.
         if want_movie:
             ext = ".<the clip's own extension>"
-            where.append(sequence.pattern(root, mov_t, dict(vals, ext=ext), version_no, ext))
-        if not os.path.isdir(root):
-            where.append(f"{root} is not mounted. Mount it before you Run.")
+            where.append(sequence.destination(pl, pl.movie_template, ext, version_no))
+        if not os.path.isdir(pl.root):
+            where.append(f"{pl.root} is not mounted. Mount it before you Run.")
         return where
     except Exception as e:
         return [f"Create Published Files is ticked, but the paths could not be worked out. "
@@ -145,9 +131,8 @@ DEFAULT_KEYS = ("default_project", "code_template", "root_name", "status",
                 "published_files.register_movie", "published_files.path_to_frames",
                 "published_files.path_to_movie", "published_files.colour_space")
 
-# What a template example is rendered on: one Shot, one Task, one output, version 3.
-SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "output": "roto",
-          "step": "Roto", "ext": ".png"}
+# What a template example is rendered on: one Shot, its Task, version 3.
+SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "step": "Roto", "ext": ".png"}
 
 
 def _sample_values(template, extra=None):
@@ -170,11 +155,12 @@ def _sample_values(template, extra=None):
 
 def _example(kind, template):
     """`kind` is name, root, sequence or movie."""
-    from . import naming, sequence
+    from . import naming, sequence, version_name
     p = site.for_project(site.default_project())
     pf = p.get("published_files") or {}
-    root_t = (template if kind == "root" else p.get("root_name")) or naming.DEFAULT_ROOT_TEMPLATE
-    root_name = naming.render(root_t, _sample_values(root_t), 3)
+    root_t = ((template if kind == "root" else p.get("root_name"))
+              or naming.DEFAULT_ROOT_TEMPLATE).strip()
+    root_name = version_name.root_of(root_t, _sample_values(root_t), 3)
     if kind == "root":
         return root_name
     name_t = (template if kind == "name" else p.get("code_template")) or naming.DEFAULT_TEMPLATE
@@ -521,24 +507,19 @@ def register():
         q = request.rel_url.query
 
         def read():
-            from . import naming
-            from .nodes.publish_version import SGPublishVersion as PV
+            from . import naming, version_name
             site.client()     # nothing to preview until someone is connected: the sentence names Settings
-            project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
-            p = site.for_project(project_id)
-            picked_type, picked_name = site.split_link(q.get("link", ""))
-            lt = picked_type or (site.chosen_types(q.get("link_type", ""), project_id) or [""])[0] \
-                or p.get("link_type", "Shot")
-            target = _id_for(site.entities(lt, project_id, q=picked_name), picked_name) \
-                if q.get("link") else 0
-            task_id = _id_for(site.tasks_for(lt, target), q.get("task", "")) \
-                if (q.get("task") and target) else 0
+            ctx = site.context(q.get("project", ""), q.get("link", ""), q.get("task", ""),
+                               link_type=q.get("link_type", ""))
+            project_id, p, lt = ctx.project_id, ctx.profile, ctx.link_type
+            target, task_id, picked_name = ctx.link_id, ctx.task_id, ctx.link_name
             root_t = q.get("root_name", "")            # the ROOT template, not the version's name
-            code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id, root_t)
+            code = version_name.next_code(q.get("code_template", ""), project_id, lt, target,
+                                          task_id, root_t)
             # Name the fields to fill in, never the consequence of leaving them empty. The run
             # refuses on the same list, so the alert is a promise.
-            missing = PV.missing_fields(q.get("code_template", ""), root_t, project_id, target,
-                                        task_id)
+            missing = version_name.missing_fields(q.get("code_template", ""), root_t, project_id,
+                                                  target, task_id)
             if q.get("link") and not target:
                 alert = f"No {lt} named {picked_name} on this project. Pick one from the list."
             elif missing:
@@ -579,7 +560,7 @@ def register():
         def read():
             from .nodes.publish_version import settings_defaults
             site.client()
-            pid = _id_for(site.projects(), q.get("project", "")) or site.default_project()
+            pid = site.id_for(site.projects(), q.get("project", "")) or site.default_project()
             return settings_defaults(pid)
         return answer(read, {})
 
@@ -596,6 +577,12 @@ def register():
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
+            # The client that will submit the Run, named the same way the run names it, so the
+            # panel's "made by" line and the Version's agree. ComfyUI's own frontend puts
+            # `comfy_usage_source: "comfyui-frontend"` in extra_data on /prompt and sends no header
+            # here, and this route is only ever called from it.
+            prov["comfy_usage_source"] = (request.headers.get("Comfy-Usage-Source")
+                                          or "comfyui-frontend")
 
             # Typed ids first, then upstream Load nodes — the order the node itself uses.
             own = (prompt.get(node_id) or {}).get("inputs") or {}
@@ -623,11 +610,14 @@ def register():
                     sources.append({"id": vid, "code": code, "why": why})
 
             sg = site.client()
-            have = sg_fields.available(sg)
+            # The whole schema, not the nine this repo declares: a mapping onto a field the studio
+            # already has is the preferred move, and intersecting the nine would strike it through.
+            schema = sg_fields.schema_names(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
-            pid = next((n for l, n in site.projects() if l == w.get("project")), 0) \
-                or site.default_project()
+            ctx = site.context(w.get("project", ""), w.get("link", ""), w.get("task", ""),
+                               w.get("status", ""), w.get("link_id") or 0)
+            pid = ctx.project_id
             where = sg_fields.targets(*site.provenance_map(pid))
             values = sg_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
 
@@ -639,24 +629,24 @@ def register():
             rows = []
             # Every concept, not only the ones with a value: an empty seed on a graph with no
             # sampler is information. The row is named for where the value LANDS, because that is
-            # the operator's decision; the concept is the label beside it.
+            # the operator's decision; the concept is the label beside it. The same split the run
+            # makes: a field this site has takes the value, everything else is a description line.
             for concept, target in where.items():
                 v = values.get(concept)
                 has = v not in (None, "", [])
+                described = target == sg_fields.DESCRIPTION or (target and target not in schema)
                 if target is None:
-                    note = "not mapped to a field"
-                elif target == sg_fields.DESCRIPTION:
-                    note = "into the description"
-                elif target in have:
-                    note = "" if has else "not in this graph"
+                    note = "Recorded nowhere."
+                elif described:
+                    note = "Into the description."
                 else:
-                    note = "this site has no such field"
+                    note = "" if has else "Not in this graph."
                 rows.append({
-                    "name": (target[3:] if target.startswith("sg_") else target) if target
-                            else sg_fields.CONCEPT_LABELS[concept],
+                    "name": (target[3:] if target.startswith("sg_") else target)
+                            if target and not described else sg_fields.CONCEPT_LABELS[concept],
                     "label": sg_fields.CONCEPT_LABELS[concept],
                     "value": show(v) if has else "",
-                    "present": target is None or target == sg_fields.DESCRIPTION or target in have,
+                    "present": True,
                     "note": note,
                 })
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
@@ -664,23 +654,18 @@ def register():
             # {"type", "id"}, the status takes a code, and the field name is the profile's
             # (probe 005). `site.unset()` drops "(none)" and "(all types)", which are labels for the
             # operator and never values for the site.
-            status, link, task = (site.unset(w.get(k)) for k in ("status", "link", "task"))
-            prof = site.for_project(pid)
+            link = site.unset(w.get("link"))
+            prof, link_type, picked_name = ctx.profile, ctx.link_type, ctx.link_name
             link_field = prof.get("link_field", "entity")
-            picked_type, picked_name = site.split_link(link)
-            link_type = picked_type or prof.get("link_type", "Shot")
-            target = int(w.get("link_id") or 0) or (
-                _id_for(site.entities(link_type, pid, q=picked_name), picked_name) if link else 0)
-            task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
-            status_code = next((c for l, c in site.statuses(pid) if l == status), "") if status else ""
-            plain = [("description", w.get("note") or "", "from the note field"),
-                     ("sg_status_list", status_code, "" if status_code else "no status picked"),
+            target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
+            plain = [("description", w.get("note") or "", "From the note field."),
+                     ("sg_status_list", status_code, "" if status_code else "No status picked."),
                      (link_field, f"{link_type} {target}" if target else "",
                       "" if target else
-                      (f"no {link_type} named {picked_name} on this project" if link
-                       else "no link picked")),
+                      (f"No {link_type} named {picked_name} on this project." if link
+                       else "No link picked.")),
                      ("sg_task", f"Task {task_id}" if task_id else "",
-                      "" if task_id else "no task picked")]
+                      "" if task_id else "No task picked.")]
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
@@ -691,26 +676,25 @@ def register():
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
             writes = _files_preview(w, prof, pid, link_type, target, task_id)
-            # Which row of the truth table this node is on. The frame count and the frame rate are
-            # run-time facts, so the panel states the rule and names the path the run will take.
+            # What this node will publish, from what is wired into it. The frame count and the
+            # frame rate are run-time facts, so the panel states the rule and names the path
+            # the run will take.
             if _wired(w, "video"):
-                media = "the clip"
+                media = "The clip."
                 if _wired(w, "images"):
-                    media += ". The frames become Published Files."
+                    media += " The frames become Published Files."
             elif _wired(w, "images") and w.get("register_files"):
-                media = "frame 1, as a still. Every frame becomes a Published File."
+                media = "Frame 1, as a still. Every frame becomes a Published File."
             elif _wired(w, "images"):
-                media = "frame 1, as a still. Tick Create Published Files to publish all frames."
+                media = "Frame 1, as a still. Tick Create Published Files to publish all frames."
             else:
-                media = "nothing. Wire an image or a video into this node."
+                media = "Nothing. Wire an image or a video into this node."
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
                 "writes": writes,
                 "media": media,
                 "sources": sources,
-                "missing_fields": sorted({t for t in where.values()
-                                          if t and t != sg_fields.DESCRIPTION and t not in have}),
             })
         except Exception as e:
             return web.json_response({"error": _sentence(e), "fields": [], "sources": []})

@@ -15,6 +15,7 @@ import json
 import re
 import threading
 import time
+from collections import namedtuple
 from pathlib import Path
 
 import requests
@@ -170,20 +171,25 @@ def provenance_map(project_id=None):
     return dict(block.get("map") or {}), block.get("mode") or "fields"
 
 
-def _cached(key, fetch):
+def _cached(key, fetch, empty=()):
+    """The cached answer, the stale one, or `empty`.
+
+    `empty` has to be the shape the caller expects: a dict caller handed a list reads in the editor
+    as `'list' object has no attribute 'get'`, which is a Python error in a picker.
+    """
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     try:
         value = fetch()
     except Exception:
-        return hit[1] if hit else []   # stale beats empty; empty beats an unopenable graph
+        return hit[1] if hit else empty   # stale beats empty; empty beats an unopenable graph
     _cache[key] = (time.time(), value)
     return value
 
 
 def forget(*prefixes):
-    """Drop cached lookups a write just invalidated.
+    """Drop cached lookups a write just invalidated, by the first element of their key.
 
     Three publish nodes in one execution must each see what the previous one wrote, or all three read
     the version count from before any of them wrote and all three propose the same next version.
@@ -365,7 +371,8 @@ def links(project_id, q="", types=None):
     return out
 
 
-# endpoint post_entity_text_search — the page is capped at 25 rows, which is a typeahead's worth.
+# What this client asks for: a typeahead's worth. The endpoint's own ceiling is not measured, so
+# this is a cap we set and not one the site imposes.
 TEXT_SEARCH_ROWS = 25
 
 
@@ -387,6 +394,16 @@ def text_search(project_id, text, types):
         rows = [(d["attributes"].get("name") or "", d["type"], d["id"]) for d in r.json()["data"]]
         return [(label_for(n, t), t, i) for n, t, i in sorted(rows) if n]
     return _cached(("text_search", int(project_id), text.strip().lower(), tuple(types)), fetch)
+
+
+def id_for(pairs, label):
+    """The id whose label matches exactly, or 0. Every picker hands back a label; SG wants an id."""
+    return next((i for l, i in pairs if l == label), 0)
+
+
+def labels(pairs):
+    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    return [NO_VALUE] + [label for label, _ in pairs]
 
 
 def split_link(label):
@@ -521,6 +538,38 @@ def version_numbers(link_type, link_id, project_id, field, limit=200):
     return _cached(("vnums", link_type, int(link_id), int(project_id), field), fetch)
 
 
+Context = namedtuple("Context", "project_id profile link_type link_name link_id task_id "
+                                "status_code")
+
+
+def context(project="", link="", task="", status="", link_id=0, link_type="", fallback_type=True):
+    """What a Version's pickers add up to: the project, what it hangs off, its Task and its status.
+
+    Five places resolved these same four things and had already drifted apart. A picked label
+    carries its own type — Version.entity accepts 15 and a show may use several at once (probe 005)
+    — so `link_type` is only the restriction the operator put on the picker, and the profile's own
+    `link_type` is the last resort. `fallback_type` turns that last resort off for a caller that
+    means "every type this show uses".
+
+    A named link that resolves to nothing comes back with `link_id` 0 and `link_name` set, because
+    what to say about it differs between a node, a panel and a command line.
+    """
+    link, task, status = unset(link), unset(task), unset(status)
+    project_id = (int(project) if str(project).isdigit() else id_for(projects(), project)) \
+        or default_project()
+    p = for_project(project_id)
+    picked_type, picked_name = split_link(link)
+    lt = picked_type or (chosen_types(link_type, project_id) or [""])[0] \
+        or (p.get("link_type", "Shot") if fallback_type else "")
+    target = int(link_id or 0) or (id_for(entities(lt, project_id, q=picked_name), picked_name)
+                                   if link else 0)
+    task_id = id_for(tasks_for(lt, target), task) if (task and target) else 0
+    # Only where one was picked: this runs on every preview keystroke and the status list is
+    # a schema read.
+    status_code = next((c for l, c in statuses(project_id) if l == status), "") if status else ""
+    return Context(project_id, p, lt, picked_name, target, task_id, status_code)
+
+
 def status_lookup(project_id):
     """{typed: code} accepting either what the UI shows or what the API stores.
 
@@ -559,7 +608,7 @@ def status_colors():
         r = client().get("/entity/statuses", params={"fields": "code,bg_color", "page[size]": 200})
         return {} if not r.ok else {d["attributes"]["code"]: d["attributes"].get("bg_color")
                                     for d in r.json()["data"] if d["attributes"].get("code")}
-    return _cached(("status_colors",), fetch)
+    return _cached(("status_colors",), fetch, {})
 
 
 # recipe 010 — `url` reads as an empty string unless `image_data` is asked for in the SAME call, so
@@ -586,7 +635,7 @@ def _stylesheets():
             if r.ok:
                 out.append(r.text)
         return "\n".join(out)
-    return _cached(("stylesheets",), fetch) or ""
+    return _cached(("stylesheets",), fetch, "")
 
 
 def _sprite(key):
@@ -640,7 +689,7 @@ def status_icons():
             if icon:
                 out[code] = icon
         return out
-    return _cached(("status_icons",), fetch)
+    return _cached(("status_icons",), fetch, {})
 
 
 # What a bare `{entity}` / `{sg_task}` / `{project}` resolves to. A Task is named by `content` and a
@@ -685,7 +734,7 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
         def fetch(etype=etype, eid=eid, fields=tuple(fields)):
             r = client().get(f"{route(etype)}/{eid}", params={"fields": ",".join(fields)})
             return r.json()["data"]["attributes"] if r.ok else {}
-        attrs = _cached(("paths", etype, eid, tuple(fields)), fetch) or {}
+        attrs = _cached(("paths", etype, eid, tuple(fields)), fetch, {})
         for path, field in items:
             v = attrs.get(field)
             out[path] = v.get("name") if isinstance(v, dict) else v
@@ -714,7 +763,7 @@ def status_usage(project_id, days=30, entity_type="Version", field="sg_status_li
             return {}
         return {g.get("group_value"): (g.get("summaries") or {}).get("id", 0)
                 for g in (r.json().get("data") or {}).get("groups", []) if g.get("group_value")}
-    return _cached(("status_usage", int(project_id), int(days), entity_type, field), fetch)
+    return _cached(("status_usage", int(project_id), int(days), entity_type, field), fetch, {})
 
 
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
