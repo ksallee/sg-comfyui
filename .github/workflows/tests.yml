@@ -59,7 +59,11 @@ jobs:
   #     uv run --with playwright --with sg-groundtruth --python 3.11 python tools/smoke.py --port 8999
   smoke:
     if: github.event_name == 'workflow_dispatch'
-    runs-on: [self-hosted, comfyui]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: python tools/smoke.py --port 8999
+      - name: This job needs a machine with ComfyUI
+        run: |
+          echo "tools/smoke.py needs a ComfyUI checkout and playwright. Run it on a machine that has them:"
+          echo "  uv run --with playwright --with sg-groundtruth --python 3.11 python tools/smoke.py --port 8999"
+          exit 1
