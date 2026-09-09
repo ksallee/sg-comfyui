@@ -8,7 +8,6 @@ rather than a Version id. `pin_version_id` is the escape hatch and overrides eve
 """
 import json
 
-import numpy as np
 import torch
 
 from .. import lineage, media, resolve, site, widgets
@@ -231,19 +230,18 @@ class SGLoadVersion:
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0))
 
-        frames = media.load_frames(v, key, frame, frame_count,
-                                  site.profile().get("batch_budget_gib", 0))
-        a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
+        images, _ = media.load_frames(v, key, frame, frame_count,
+                                      site.profile().get("batch_budget_gib", 0))
+        n = int(images.shape[0])
         colour = media.colour_of(v, key)
         # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
         # line saying "from 0" would name a frame that does not exist.
         rng = media.frame_range(v, key)
         at = (rng[0] if rng else 1) if int(frame) <= 0 else int(frame)
-        got = f"{len(frames)} frames from {at}" if len(frames) > 1 else f"frame {at}"
+        got = f"{n} frames from {at}" if n > 1 else f"frame {at}"
         # A batch that came back short is a fact about the media, said out loud rather than left for
         # the graph downstream to discover as a wrong frame count.
-        short = f", short of the {frame_count} asked for" if len(frames) < int(frame_count) else ""
-        images = torch.from_numpy(a)
+        short = f", short of the {frame_count} asked for" if n < int(frame_count) else ""
         # The clip is fetched only when something reads it: a download nobody asked for is a cost,
         # and the frames wrapped at a stated rate are a video too.
         if clip_key and _wired(prompt, unique_id, 4):

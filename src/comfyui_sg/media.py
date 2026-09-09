@@ -119,18 +119,35 @@ def frame_range(v, key):
 def frame_size(v, key):
     """(width, height) of this source's first frame, or None where nothing on disk answers.
 
-    PIL reads the header and stops, so this costs a file open rather than a decode. Only a sequence
-    answers: a movie's size needs the container opened, which the panel must not pay for.
+    Only a sequence answers: a movie's size needs the container opened, which the panel must not pay
+    for.
     """
-    from PIL import Image
-
     nums = frame_numbers(pattern_of(v, key))
-    if not nums:
-        return None
+    h = _header(nums[0][1]) if nums else None
+    return (h["width"], h["height"]) if h else None
+
+
+def _header(path):
+    """What a file's container header says, or None when it will not open.
+
+    PyAV parses the header and stops, so this costs a file open rather than a decode.
+    """
+    import av
+
     try:
-        with Image.open(nums[0][1]) as im:
-            return im.size
-    except OSError:
+        with av.open(path) as container:
+            s = container.streams.video[0]
+            fmt = s.format
+            comps = list(fmt.components) if fmt else []
+            return {"container": (os.path.splitext(path)[1].lstrip(".")
+                                  or container.format.name).upper(),
+                    "width": s.width, "height": s.height,
+                    "bits": max((c.bits for c in comps), default=8),
+                    "float": "f32" in (fmt.name if fmt else ""),
+                    "channels": len(comps),
+                    "alpha": any(c.is_alpha for c in comps),
+                    "frames": int(s.frames or 0)}
+    except Exception:
         return None
 
 
@@ -324,7 +341,7 @@ def best(v, want, available=None):
 def clip(v, key):
     """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
     in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
-    from comfy_api.input_impl import VideoFromFile
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
     pf = pf_of(v, key)
     path = pf["path"] if pf else v.get("sg_path_to_movie") if key == "movie" else ""
     if path:
@@ -437,7 +454,9 @@ def _download(url):
 
 
 def load_frames(v, key, start=0, count=1, budget=0):
-    """`count` PIL images from frame `start`. One item is exactly what a single-frame read returns.
+    """(images, alpha) for `count` frames from frame `start`, as ComfyUI's own decoder returns them.
+
+    `images` is float32 [N,H,W,3]; `alpha` is [N,H,W,1] or None where the source carries none.
 
     `start` is the frame NUMBER — the one in the filename and the one SG shows — not a position
     in the list. `start` 0 is the first frame the source actually has, and `count` 0 is every frame
@@ -464,43 +483,66 @@ def load_frames(v, key, start=0, count=1, budget=0):
         chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
         # never has to refuse frame_count 500, and a 500-frame one still does.
-        return _stack(_stills(chosen), len(chosen),
-                      f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
-                      budget_bytes(budget))
+        return _batch(_stack(
+            _stills(chosen), len(chosen),
+            f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
+            budget_bytes(budget)))
     # Not a sequence: one blob, and a movie's frames come out of decoding it. A container carries no
     # frame numbers, so here `start` counts decoded frames from 1 and 0 means the same as 1.
     at = max(start, 1)
     data, filename = load(v, key, at)
-    return _stack(_decode(data, filename, at), count,
-                  f"{filename} has no frame {at}. Pick a lower frame number.",
-                  budget_bytes(budget))
+    return _batch(_stack(_decode(data, filename, at), count,
+                         f"{filename} has no frame {at}. Pick a lower frame number.",
+                         budget_bytes(budget)))
+
+
+def _components(source, filename):
+    """(images, alpha) out of one file path or blob, through ComfyUI's own decoder.
+
+    `VideoFromFile(...).get_components()` is the call core Load Image makes. Frames come back float32
+    [N,H,W,3] with the alpha channel separate, so a 16-bit PNG keeps its levels and a 32-bit float
+    EXR keeps its range and its values above 1. Pillow reads the first as two levels and cannot open
+    the second at all, which is why nothing on this path goes through it.
+    """
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
+
+    try:
+        got = VideoFromFile(source).get_components()
+    except Exception as e:
+        raise FPTError(f"{filename} could not be decoded. Check that the file is complete, then run "
+                       f"again. {e}")
+    if got.images.shape[0] == 0:
+        raise FPTError(f"{filename} holds no image this node can read. Pick another source.")
+    return got.images, got.alpha
 
 
 def _stills(paths):
-    from PIL import Image
+    """(image, alpha, name) for each file of a sequence — one frame per file, which is what a
+    sequence is."""
     for p in paths:
-        yield Image.open(p).convert("RGB"), os.path.basename(p)
+        name = os.path.basename(p)
+        images, alpha = _components(p, name)
+        yield images[0], None if alpha is None else alpha[0], name
 
 
 def _decode(data, filename, start=1):
-    """Frames out of one blob: a still is itself, a movie is decoded from `start` to its end."""
+    """(image, alpha, name) out of one blob: a still is itself, a movie is every frame from `start`.
+
+    A container is decoded whole, so the ceiling below refuses a batch after the decode rather than
+    before it.
+    """
     import io
 
-    from PIL import Image
+    images, alpha = _components(io.BytesIO(data), filename)
+    single = images.shape[0] == 1
+    for i in range(int(start) - 1, images.shape[0]):
+        yield images[i], None if alpha is None else alpha[i], \
+            filename if single else f"{filename} frame {i + 1}"
 
-    if filename.lower().endswith(STILL):
-        yield Image.open(io.BytesIO(data)).convert("RGB"), filename
-        return
-    try:
-        import av   # ships with ComfyUI for its video nodes; see DESIGN
-    except ImportError:
-        raise FPTError(f"{filename} is a movie, and decoding one needs PyAV. Install av into the "
-                       f"Python that runs ComfyUI, or pick a still image source.")
-    with av.open(io.BytesIO(data)) as container:
-        stream = container.streams.video[0]
-        for i, got in enumerate(container.decode(stream), start=1):
-            if i >= int(start):
-                yield got.to_image().convert("RGB"), f"{filename} frame {i}"
+
+def _size(image):
+    """(width, height) of one decoded frame, which arrives height first."""
+    return int(image.shape[1]), int(image.shape[0])
 
 
 def _stack(frames, count, empty, budget):
@@ -511,26 +553,36 @@ def _stack(frames, count, empty, budget):
     torch's reply to a size change mid-sequence names two shapes and no filename.
     """
     out = []
-    for img, name in frames:
+    for img, alpha, name in frames:
         if not out:
-            _budget(img.size, max(count, 1), budget)
-        elif img.size != out[0].size:
-            w, h = img.size
-            w0, h0 = out[0].size
+            _budget(_size(img), max(count, 1), budget)
+        elif _size(img) != _size(out[0][0]):
+            w, h = _size(img)
+            w0, h0 = _size(out[0][0])
             raise FPTError(
                 f"{name} is {w}×{h} but this batch started {w0}×{h0}. Frames of different sizes "
                 f"cannot go into one IMAGE. Load the runs separately, or resize before the batch.")
-        out.append(img)
+        out.append((img, alpha))
         # `count` 0 is "everything there is". A sequence knows how many that is before it reads
         # anything and arrives here with a real number; a movie does not, so the budget is checked
         # against what has accumulated.
         if count <= 0:
-            _budget(out[0].size, len(out), budget)
+            _budget(_size(out[0][0]), len(out), budget)
         elif len(out) >= count:
             break
     if not out:
         raise FPTError(empty)
     return out
+
+
+def _batch(frames):
+    """(images, alpha) as two tensors. A batch mixing files with and without an alpha channel has no
+    one alpha, and says so by returning None."""
+    import torch
+
+    images = torch.stack([img for img, _ in frames])
+    alpha = None if any(a is None for _, a in frames) else torch.stack([a for _, a in frames])
+    return images, alpha
 
 
 def budget_bytes(gib=0):
