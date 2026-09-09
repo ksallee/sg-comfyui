@@ -144,9 +144,8 @@ DEFAULT_KEYS = ("default_project", "code_template", "root_name", "status",
                 "published_files.register_movie", "published_files.path_to_frames",
                 "published_files.path_to_movie", "published_files.colour_space")
 
-# What a template example is rendered on: one Shot, one Task, one output, version 3.
-SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "output": "roto",
-          "step": "Roto", "ext": ".png"}
+# What a template example is rendered on: one Shot, its Task, version 3.
+SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "step": "Roto", "ext": ".png"}
 
 
 def _sample_values(template, extra=None):

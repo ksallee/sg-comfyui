@@ -279,7 +279,7 @@ something anyone decides twice a day, so it sits in the profile with `storage`, 
 
     "published_files": {
       "storage":        "primary",
-      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "path_template":  "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
       "colour_space":   "sRGB",
       "register_movie": false
     }
@@ -345,7 +345,7 @@ The storage root and the path template are profile data, per project like every 
 
     "published_files": {
       "storage":       "primary",
-      "path_template": "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
+      "path_template": "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
       "colour_space":  "sRGB"
     }
 
