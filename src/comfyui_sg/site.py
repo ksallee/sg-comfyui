@@ -355,11 +355,38 @@ def links(project_id, q="", types=None):
     """
     if not project_id:
         return []
+    types = types or link_types(project_id)
+    if (q or "").strip():
+        return text_search(project_id, q, types)
     out = []
-    for t in (types or link_types(project_id)):
+    for t in types:
         for name, eid in entities(t, project_id, q=q, limit=PER_TYPE, sort="code"):
             out.append((label_for(name, t), t, eid))
     return out
+
+
+# endpoint post_entity_text_search — the page is capped at 25 rows, which is a typeahead's worth.
+TEXT_SEARCH_ROWS = 25
+
+
+def text_search(project_id, text, types):
+    """(label, type, id) for words typed into a picker: one call across every type.
+
+    endpoint post_entity_text_search — the site's own search: every word must appear in the name,
+    anywhere in it and in any case, so `sbx 020` finds sbx_0020. One request for all the types
+    the show uses, where a `contains` filter per type cost one round trip each. The text must not
+    be empty, so the list on open still comes from `entities`.
+    """
+    def fetch():
+        scope = [_is("project", "Project", project_id)]
+        r = client().post("/entity/_text_search", headers=ARRAY_JSON, json={
+            "text": text.strip(), "entity_types": {t: scope for t in types},
+            "page": {"size": TEXT_SEARCH_ROWS}})
+        if not r.ok:
+            return []
+        rows = [(d["attributes"].get("name") or "", d["type"], d["id"]) for d in r.json()["data"]]
+        return [(label_for(n, t), t, i) for n, t, i in sorted(rows) if n]
+    return _cached(("text_search", int(project_id), text.strip().lower(), tuple(types)), fetch)
 
 
 def split_link(label):

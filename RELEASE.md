@@ -262,6 +262,12 @@ thumbnail a fallback and not a choice, the clip fetched only when the output is 
 the release may break; nothing has shipped. `00_example`'s sequence row ends in a Save Video on the
 Load node's video output.
 
+**Typed link searches go through the site's text search**, one call for every type the show
+uses, 0.55 s through ComfyUI where the `contains` filter per type took 1.6 to 2.7 s on 14 types.
+Case is ignored, a word matches anywhere in the name, and `sbx 020` finds sbx_0020. The page is
+capped at 25 rows, a typeahead's worth. The list on open, with nothing typed, still comes per type
+because the text must not be empty. What the corpus does not record is sg-groundtruth issue #48.
+
 **`qa_node.py`** serves the pack under `[project].name` from `pyproject.toml` rather than the
 checkout's directory name, so the Templates category and the footer badge in a headless run show
 what a Registry install shows.
