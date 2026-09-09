@@ -233,7 +233,8 @@ function publishPickers(nodeType, nodeData) {
       if (mine !== previewing) return;
       panel.clearLog();
       if (!d.code) {
-        panel.show({ error: d.error || "code_template produced no name. Check the template." });
+        panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
+          + "node, or empty it to use the default under Settings, then SG." });
         return;
       }
       // Provenance lives in the executing graph, so hand over the very thing Run would send.
@@ -406,7 +407,7 @@ function publishPickers(nodeType, nodeData) {
       relayout();
       preview();
     };
-    dontSerialize(this.addWidget("button", "Reset fields to Settings Defaults", null, copyDefaults));
+    dontSerialize(this.addWidget("button", "Fill from SG defaults", null, copyDefaults));
     // Who this publishes as is set under Settings, and a change there changes what every picker
     // reads (probe 027), so the node reloads.
     onSession(this, () => loadProject());

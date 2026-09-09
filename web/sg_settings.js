@@ -273,7 +273,8 @@ function signInRow() {
       who.classList.add("sg-off");
       btn.textContent = "Log in";
     } else {
-      who.textContent = "Not logged in. Approve one request in your browser and the nodes publish as you.";
+      who.textContent = "Not logged in. Click Log in, then approve the request in the browser tab "
+        + "that opens.";
       btn.textContent = "Log in";
     }
     // The site is needed before a request can be made, so the button waits for it; the note goes

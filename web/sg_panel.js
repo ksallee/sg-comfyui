@@ -282,9 +282,9 @@ export function addPanel(node, title = "SG", onLayout = null) {
           // to hold is a refusal the operator can avoid by setting frame_count or raising the
           // budget. The same numbers the run would use.
           if (d.batch && got > d.batch.fits) {
-            over = `${got} frames of ${d.batch.width}×${d.batch.height} will not fit in one batch. `
-              + `Set frame count to ${d.batch.fits} or less, or raise batch_budget_gib in `
-              + `profile.local.json above ${d.batch.gib} GiB.`;
+            over = `Set frame_count to ${d.batch.fits} or less, or raise batch_budget_gib in `
+              + `profile.local.json above ${d.batch.gib} GiB. `
+              + `${got} frames of ${d.batch.width}×${d.batch.height} do not fit in one batch.`;
           }
         }
         rows.push(["frames", note]);
