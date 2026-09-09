@@ -564,7 +564,9 @@ def context(project="", link="", task="", status="", link_id=0, link_type="", fa
     target = int(link_id or 0) or (id_for(entities(lt, project_id, q=picked_name), picked_name)
                                    if link else 0)
     task_id = id_for(tasks_for(lt, target), task) if (task and target) else 0
-    status_code = next((c for l, c in statuses(project_id) if l == status), "")
+    # Only where one was picked: this runs on every preview keystroke and the status list is
+    # a schema read.
+    status_code = next((c for l, c in statuses(project_id) if l == status), "") if status else ""
     return Context(project_id, p, lt, picked_name, target, task_id, status_code)
 
 

@@ -7,6 +7,12 @@ MAC = {"code": "primary", "mac_path": "/Volumes/FPT", "windows_path": "X:\\shows
        "linux_path": "/mnt/fpt"}
 
 
+@pytest.fixture
+def publishing_from(monkeypatch):
+    """Pin the platform the publisher is running on, so these read the same on all three."""
+    return lambda name: monkeypatch.setattr(sequence, "THIS_PLATFORM", name)
+
+
 @pytest.mark.parametrize("path,ext,want", [
     ("/root/sh010/sh010_matte_v001.png", ".exr", "/root/sh010/sh010_matte_v001.exr"),
     ("/root/sh010/sh010_matte_v001.exr", ".png", "/root/sh010/sh010_matte_v001.png"),
@@ -28,14 +34,16 @@ def test_the_frame_token_survives_a_pattern_with_no_extension():
     assert out == "/Volumes/FPT/sh010/sh010_matte_v001.%04d.exr"
 
 
-def test_on_platform_writes_a_windows_root_with_backslashes():
+def test_on_platform_writes_a_windows_root_with_backslashes(publishing_from):
+    publishing_from("mac")
     out = sequence.on_platform("/Volumes/FPT/sh010/sh010_matte_v001.%04d.exr",
                                "/Volumes/FPT", MAC, "windows")
     assert out == "X:\\shows\\sh010\\sh010_matte_v001.%04d.exr"
 
 
-def test_on_platform_matches_a_root_written_the_other_way_round():
+def test_on_platform_matches_a_root_written_the_other_way_round(publishing_from):
     """A Windows publisher renders a forward-slashed path against a raw `X:\\shows` root."""
+    publishing_from("windows")
     out = sequence.on_platform("X:/shows/sh010/sh010_matte_v001.%04d.exr",
                                "X:\\shows", MAC, "linux")
     assert out == "/mnt/fpt/sh010/sh010_matte_v001.%04d.exr"
@@ -46,12 +54,14 @@ def test_on_platform_leaves_this_machines_own_platform_alone():
     assert sequence.on_platform(path, "/Volumes/FPT", MAC, sequence.THIS_PLATFORM) == path
 
 
-def test_on_platform_leaves_a_path_outside_the_root_alone():
+def test_on_platform_leaves_a_path_outside_the_root_alone(publishing_from):
+    publishing_from("mac")
     path = "/somewhere/else/f.%04d.exr"
     assert sequence.on_platform(path, "/Volumes/FPT", MAC, "windows") == path
 
 
-def test_on_platform_leaves_a_platform_the_storage_does_not_define():
+def test_on_platform_leaves_a_platform_the_storage_does_not_define(publishing_from):
+    publishing_from("mac")
     path = "/Volumes/FPT/sh010/f.%04d.exr"
     row = {"code": "primary", "mac_path": "/Volumes/FPT"}
     assert sequence.on_platform(path, "/Volumes/FPT", row, "windows") == path
