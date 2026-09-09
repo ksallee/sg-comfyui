@@ -297,10 +297,27 @@ function publishPickers(nodeType, nodeData) {
     let pending;
     const previewSoon = () => { clearTimeout(pending); pending = setTimeout(preview, 250); };
 
+    // ComfyUI skips a node whose inputs did not change and keeps its last result, which is the
+    // rule that stops a re-run from filing duplicate Versions. Said on the panel, because the
+    // readout above it names the NEXT version and a silent skip reads as a publish that failed.
+    // ComfyUI announces the cached nodes first, then replays each one's old result as `executed`,
+    // so the flag is read there and the sentence lands after the readout it explains.
+    let cached = false;
+    app.api.addEventListener("execution_start", () => { cached = false; });
+    app.api.addEventListener("execution_cached", ({ detail }) => {
+      cached = (detail.nodes || []).map(String).includes(String(node.id));
+    });
     app.api.addEventListener("executed", ({ detail }) => {
       if (String(detail.node) !== String(node.id)) return;
       const rows = (detail.output && detail.output.published) || [];
       panel.clearLog();
+      if (rows.length && cached) {
+        panel.show({ id: rows[0].id, code: rows[0].code, link: rows[0].link,
+                     status: statusOf(status?.value), state: "warn", why: "" });
+        panel.log(`Not published again: nothing changed since ${rows[0].code}. Change the image `
+          + "or a field on this node, then Run, for the next version.", false);
+        return;
+      }
       if (rows.length) {
         panel.show({
           id: rows[0].id, code: rows[0].code, link: rows[0].link,
