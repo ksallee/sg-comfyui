@@ -55,11 +55,18 @@ async function get(url, tok) {
 }
 
 /** Keep a combo's options in step with the site without touching its value unless the value is
- *  gone. */
-function setOptions(widget, labels, keep) {
-  widget.options.values = [NONE].concat(labels);
+ *  gone, and answer the site's sentence if it sent one.
+ *
+ *  An answer carrying `error` leaves both the options and the value alone: a login that expired
+ *  while the graph was opening would otherwise reset link, task and status to "(none)" and the next
+ *  Run would publish an unlinked Version. */
+function setOptions(widget, d, keep) {
+  if (!widget) return "";
+  if (d.error) return d.error;
+  widget.options.values = [NONE].concat((d.items || []).map((x) => x.label));
   const wanted = keep ?? widget.value;
   widget.value = widget.options.values.includes(wanted) ? wanted : widget.options.values[0];
+  return "";
 }
 
 /** Chain `after` onto a widget's callback, keeping whatever was already there. */
@@ -98,7 +105,8 @@ function projectPicker(node, widget, state, onPick) {
   });
 }
 
-/** Read the projects, point `state` at the one picked, and keep the hidden combo legal.
+/** Read the projects, point `state` at the one picked, and keep the hidden combo legal. Answers the
+ *  sentence to show, or "".
  *
  * The picked value is read AFTER the fetch: ComfyUI applies a saved graph's widget values while
  * this is in flight, so a value captured before the await is stale and writing it back reverts the
@@ -106,14 +114,21 @@ function projectPicker(node, widget, state, onPick) {
  */
 async function selectProject(widget, state, picked, tok) {
   const d = await get("/sg/projects", tok);
-  if (!tok.live) return;
+  if (!tok.live) return "";
+  if (d.error) return d.error;
   state.projects = d.items || [];
   let chosen = picked ?? widget.value;
   // "(none)" in a saved graph is no choice, and no choice means the project under Settings, the
   // same one a fresh node opens on. A template therefore lands on the operator's show.
   if (!bare(chosen)) chosen = (state.projects.find((x) => x.id === d.default) || {}).label || chosen;
-  state.projectId = (state.projects.find((x) => x.label === chosen) || {}).id || 0;
-  setOptions(widget, state.projects.map((x) => x.label), chosen);
+  const row = state.projects.find((x) => x.label === chosen);
+  state.projectId = row?.id || 0;
+  widget.options.values = [NONE].concat(state.projects.map((x) => x.label));
+  // A project this login cannot see stays on the widget rather than being replaced by "(none)":
+  // the graph names a real show, and an operator who signs in as themselves gets it back.
+  restoreValue(widget, chosen || NONE);
+  return (row || !bare(chosen))
+    ? "" : `No project named ${chosen} on this site. Pick one from the list.`;
 }
 
 /** The row behind the combo's current value, so the trigger carries the project's thumbnail. */
@@ -149,16 +164,17 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
  *  options must stay legal for a saved graph whose link this project does not have. */
 async function loadLinkOptions(widget, state, tok, narrow = "") {
   const d = await get(`/sg/entities?project_id=${state.projectId}${narrow}`, tok);
-  if (!tok.live) return;
+  if (!tok.live) return "";
+  if (d.error) return d.error;
   state.linkIds = Object.fromEntries((d.items || []).map((x) => [x.label, x.id]));
-  setOptions(widget, (d.items || []).map((x) => x.label));
+  return setOptions(widget, d);
 }
 
 /** The tasks on one link, into the `task` combo. */
 async function loadTaskOptions(widget, type, id, tok) {
   const d = await get(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`, tok);
-  if (!tok.live) return;
-  if (widget) setOptions(widget, (d.items || []).map((x) => x.label));
+  if (!tok.live) return "";
+  return setOptions(widget, d);
 }
 
 app.registerExtension({
@@ -359,35 +375,37 @@ function publishPickers(nodeType, nodeData) {
     // Picking a second project supersedes every read the first one started: one cascade at a time,
     // and each step of it carries the token the entry point began with.
     const chain = cascade();
+    // A site that answered with a sentence instead of rows stops the cascade there: every widget
+    // keeps the value the saved graph gave it, and the sentence is on the panel.
+    const stop = (msg) => { if (msg) panel.show({ error: msg }); return !!msg; };
 
     const loadTasks = async (picked, tok = chain.begin()) => {
       // The picked value, not the widget's: a widget's own .value is not always assigned yet when
       // its callback fires, and reading it here asks about the PREVIOUS link.
       const chosen = picked ?? link.value;
-      await loadTaskOptions(task, typeOf(chosen), state.linkIds[chosen], tok);
-      if (!tok.live) return;
+      const bad = await loadTaskOptions(task, typeOf(chosen), state.linkIds[chosen], tok);
+      if (!tok.live || stop(bad)) return;
       await preview();
     };
 
     const loadLinks = async (tok = chain.begin()) => {
-      await loadLinkOptions(link, state, tok);
-      if (!tok.live) return;
+      const bad = await loadLinkOptions(link, state, tok);
+      if (!tok.live || stop(bad)) return;
       linkPick.refresh();
       await loadTasks(undefined, tok);
     };
 
     const loadProject = async (picked, tok = chain.begin()) => {
-      await selectProject(project, state, picked, tok);
-      if (!tok.live) return;
+      const bad = await selectProject(project, state, picked, tok);
+      if (!tok.live || stop(bad)) return;
       // Per project, because one show hangs Versions off Shots and the next off Assets.
       const prof = await get(`/sg/profile?project_id=${state.projectId}`, tok);
-      if (!tok.live) return;
+      if (!tok.live || stop(prof.error)) return;
       linkType = prof.link_type || "Shot";
       if (status) {
         const s = await get(`/sg/statuses?project_id=${state.projectId}`, tok);
-        if (!tok.live) return;
+        if (!tok.live || stop(setOptions(status, s))) return;
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
-        setOptions(status, (s.items || []).map((x) => x.label));
       }
       projectPick.refresh(currentProject(project, state));
       await loadLinks(tok);
@@ -536,11 +554,14 @@ function loadPickers(nodeType) {
     // Picking a second project supersedes every read the first one started: one cascade at a time,
     // and each step of it carries the token the entry point began with.
     const chain = cascade();
+    // A site that answered with a sentence instead of rows stops the cascade there: every widget
+    // keeps the value the saved graph gave it, and the sentence is on the panel.
+    const stop = (msg) => { if (msg) panel.show({ error: msg }); return !!msg; };
 
     const loadTasks = async (picked, tok = chain.begin()) => {
       const chosen = picked ?? link.value;
-      await loadTaskOptions(task, typeFromLabel(chosen), state.linkIds[chosen], tok);
-      if (!tok.live) return;
+      const bad = await loadTaskOptions(task, typeFromLabel(chosen), state.linkIds[chosen], tok);
+      if (!tok.live || stop(bad)) return;
       await refresh();
     };
 
@@ -548,18 +569,18 @@ function loadPickers(nodeType) {
       const chosen = picked ?? linkTypeW?.value;
       const narrow = (chosen && chosen !== ALL_TYPES)
         ? `&type=${encodeURIComponent(chosen)}` : "";
-      await loadLinkOptions(link, state, tok, narrow);
-      if (!tok.live) return;
+      const bad = await loadLinkOptions(link, state, tok, narrow);
+      if (!tok.live || stop(bad)) return;
       linkPick.refresh();
       await loadTasks(undefined, tok);
     };
 
     const loadProject = async (picked, tok = chain.begin()) => {
-      await selectProject(project, state, picked, tok);
-      if (!tok.live) return;
+      const bad = await selectProject(project, state, picked, tok);
+      if (!tok.live || stop(bad)) return;
       if (linkTypeW) {
         const t = await get(`/sg/link_types?project_id=${state.projectId}`, tok);
-        if (!tok.live) return;
+        if (!tok.live || stop(t.error)) return;
         const vals = (t.items || []).map((x) => x.label);
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
