@@ -180,7 +180,7 @@ class SGLoadVersion:
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
-                   source=AUTO, frame=0, frame_count=1, **kw):
+                   source=AUTO, frame=0, frame_count=0, **kw):
         """The id this node WOULD load, so it re-executes when that changes and only then.
 
         ComfyUI otherwise caches on unchanged widgets, and a node resolving by rule keeps serving
@@ -198,7 +198,7 @@ class SGLoadVersion:
 
     def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-              frame=0, frame_count=1, unique_id=None, prompt=None):
+              frame=0, frame_count=0, unique_id=None, prompt=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:

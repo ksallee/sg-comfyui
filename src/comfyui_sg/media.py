@@ -44,8 +44,8 @@ TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
 
 STILL = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".exr")
 
-# docs/quirks — the frame-pattern field is free text with no validation, and printf padding, Shake
-# `#` and `@` all occur in the wild. Assuming `%04d` would silently mis-read half of them.
+# The frame-pattern field is free text with no validation, and printf padding, Shake `#` and `@` all
+# occur in the wild. Assuming `%04d` would silently mis-read half of them.
 SEQ = re.compile(r"%0?(\d*)d|(#+)|(@+)")
 
 # recipe 004 — a LocalStorage root is per platform and a row may define only one, so the other two
@@ -662,12 +662,15 @@ def _batch(frames):
 
 
 def budget_bytes(gib=0):
-    """Bytes one IMAGE batch may cost. 0 means the built-in fallback."""
+    """Bytes one IMAGE batch may cost. Anything that is not a positive number is the fallback.
+
+    A negative budget would refuse every batch there is, with a sentence naming a negative ceiling.
+    """
     try:
-        gib = float(gib or 0) or DEFAULT_BUDGET_GIB
+        gib = float(gib or 0)
     except (TypeError, ValueError):
-        gib = DEFAULT_BUDGET_GIB
-    return int(gib * 2 ** 30)
+        gib = 0
+    return int((gib if gib > 0 else DEFAULT_BUDGET_GIB) * 2 ** 30)
 
 
 def frames_that_fit(size, budget):

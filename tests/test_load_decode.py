@@ -175,3 +175,21 @@ def test_the_budget_refuses_and_says_how_many_fit(tmp_path):
     with pytest.raises(Exception) as e:
         media.load_frames(v, "frames", 0, 0, budget=2 * one / 2 ** 30)
     assert f"{W}×{H}" in str(e.value)
+
+
+def test_a_non_positive_budget_falls_back_to_the_default():
+    assert media.budget_bytes(0) == media.DEFAULT_BUDGET_GIB * 2 ** 30
+    assert media.budget_bytes(-4) == media.DEFAULT_BUDGET_GIB * 2 ** 30
+    assert media.budget_bytes("") == media.DEFAULT_BUDGET_GIB * 2 ** 30
+    assert media.budget_bytes("nonsense") == media.DEFAULT_BUDGET_GIB * 2 ** 30
+    assert media.budget_bytes(2) == 2 * 2 ** 30
+
+
+def test_frame_count_declares_the_default_its_signature_takes():
+    import inspect
+
+    from comfyui_sg import widgets
+    node = pytest.importorskip("comfyui_sg.nodes.load_version").SGLoadVersion
+    declared = widgets.field(widgets.LOAD_FIELDS, "frame_count").default
+    for fn in (node.load, node.IS_CHANGED):
+        assert inspect.signature(fn).parameters["frame_count"].default == declared
