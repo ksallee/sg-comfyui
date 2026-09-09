@@ -215,13 +215,15 @@ function publishPickers(nodeType, nodeData) {
       ...(r.site_url ? [{ label: "latest", value: `${r.code || "Version " + r.id}`,
                           href: `${r.site_url}/detail/Version/${r.id}` }] : []),
       ...(r.files || []).map((f) => ({
-        label: f.kind === "frames" ? `${f.count} frames` : f.kind,
+        label: f.kind === "frames" ? `${f.count} frame${f.count === 1 ? "" : "s"}` : f.kind,
         value: f.path,
         href: "file://" + f.path.replace(/[^/]*$/, ""),
       })),
     ];
 
-    const preview = async () => {
+    // `keepLog` is what the redraw after a run passes: the readout ahead of it changes, and the
+    // lines that run wrote stay under it until the next Run or the next edit.
+    const preview = async (keepLog = false) => {
       const mine = ++previewing;
       panel.loading();
       const q = new URLSearchParams({
@@ -231,7 +233,7 @@ function publishPickers(nodeType, nodeData) {
       });
       const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
-      panel.clearLog();
+      if (!keepLog) panel.clearLog();
       if (!d.code) {
         panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
           + "node, or empty it to use the default under Settings, then SG." });
@@ -249,7 +251,6 @@ function publishPickers(nodeType, nodeData) {
       // given replaces the whole readout, and the name must not be lost because the provenance call
       // failed. It becomes the line under the name instead.
       const { error, ...rest } = extra || {};
-      const missing = (rest.missing_fields || []).length;
       // Which row of the truth table this node is on, in front of the operator rather than in the
       // fold: one run is one Version, and what that Version carries is decided by what is wired.
       // An empty root name or version name is named by Settings, and this is where the operator
@@ -264,13 +265,13 @@ function publishPickers(nodeType, nodeData) {
         // link would otherwise read as a bare "Shot" that had been decided.
         link: bare(link?.value) ? d.link : "",
         status: statusOf(status?.value),
-        // Why the name is not the name a Run would write. Never folded — the name is the readout.
-        alert: d.alert || "",
+        // What stops this Run: a name that cannot be written, or files that cannot land. Never
+        // folded — the name is the readout, and neither of these is about the name.
+        alert: d.alert || rest.alert || "",
         // The reason lives in the fold, so the pill carries it: a publish that cannot read its
         // provenance, or that would drop a mapped value, is not VALID however good the name is.
-        state: (error || missing || d.alert) ? "warn" : "ok",
+        state: (error || d.alert || rest.alert) ? "warn" : "ok",
         why: error ? `Provenance could not be read. ${error}`
-          : missing ? `${missing} field(s) below are missing from this site, struck through.`
           : "This is what the next Run will create.",
       });
     };
@@ -295,7 +296,7 @@ function publishPickers(nodeType, nodeData) {
         return prev?.apply(this, arguments);
       };
     };
-    listen("execution_start", () => { cached = false; });
+    listen("execution_start", () => { cached = false; panel.clearLog(); });
     listen("execution_cached", ({ detail }) => {
       cached = (detail.nodes || []).map(String).includes(String(node.id));
     });
@@ -328,8 +329,9 @@ function publishPickers(nodeType, nodeData) {
       }
       const text = (detail.output && detail.output.text) || [];
       if (text.length) panel.log(text, rows.length > 0);
-      // What the NEXT run would create, now that this one has taken a number.
-      setTimeout(preview, 1200);
+      // What the NEXT run would create, now that this one has taken a number. The lines this run
+      // wrote are the Version id and the paths it landed on, so they stay on the panel.
+      setTimeout(() => preview(true), 1200);
     });
     if (!project || !link) return;
 

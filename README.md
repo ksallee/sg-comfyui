@@ -156,9 +156,9 @@ artist would say out loud, *the newest approved depth on this shot*, rather than
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
 
-Media is decoded by ComfyUI's own decoder, so 16-bit PNG and EXR come back at full precision. The
-panel states the format of what it will read before you run it, for example `16-bit PNG, RGBA,
-1920x1080, 48 frames`, with the colour space the publisher declared.
+Media is decoded by ComfyUI's own decoder, so a 16-bit PNG comes back at 16-bit and an EXR comes
+back exactly as it was written. The panel states the format of what it will read before you run it,
+for example `16-bit PNG, RGBA, 1920x1080, 48 frames`, with the colour space the publisher declared.
 
 Two media outputs, and each takes the best the Version has on its own:
 
