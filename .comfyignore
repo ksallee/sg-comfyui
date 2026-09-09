@@ -1,0 +1,7 @@
+# What `comfy node publish` leaves out of the Registry package. Gitignore syntax.
+# The node pack is what ComfyUI loads; the rest is how this repo is developed.
+tests/
+tools/experiments/
+tools/workflows/
+site/
+.github/
