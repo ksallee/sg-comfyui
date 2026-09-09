@@ -55,8 +55,6 @@ def test_created_at_is_the_order_the_operator_asked_for(monkeypatch):
     assert why == "newest by created_at of 2"
 
 
-@pytest.mark.xfail(strict=False, reason="fix/load-path: without code_regex the convention is "
-                                        "derived from the version template")
 def test_a_site_with_no_convention_still_ranks_by_version(monkeypatch):
     rows_are(monkeypatch, ROWS)
     vid, code, _ = resolve.pick(1180, order=resolve.BY_VERSION, regex="")

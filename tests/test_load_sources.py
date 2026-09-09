@@ -3,20 +3,7 @@
 Nothing here touches a site: `_published_files` is driven with a stub client, and `resolve.pick`
 through the one function it asks the site for.
 """
-import os
-import sys
-import types
-
 import pytest
-
-# pytest makes the repo root a package because ComfyUI's entry point lives in `__init__.py` there,
-# and that file's relative import fails outside ComfyUI. A bare module under the name it would be
-# imported as keeps the collector from running it. Belongs in tests/conftest.py once there is one.
-sys.modules.setdefault("__init__", types.ModuleType("__init__"))
-
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if os.path.join(_ROOT, "src") not in sys.path:
-    sys.path.insert(0, os.path.join(_ROOT, "src"))
 
 from comfyui_sg import media, naming, resolve  # noqa: E402
 

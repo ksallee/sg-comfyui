@@ -104,10 +104,7 @@ def defaults_in_three_places():
         for f in fields:
             if f.default is None:
                 continue
-            mark = [pytest.mark.xfail(strict=False,
-                                      reason="frame_count signature default moves to 0 in "
-                                             "fix/load-path")] if f.name == "frame_count" else []
-            out.append(pytest.param(f, method, table, marks=mark, id=f.name))
+            out.append(pytest.param(f, method, table, id=f.name))
     return out
 
 

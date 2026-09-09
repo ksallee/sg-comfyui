@@ -1,6 +1,8 @@
 """Reading frames back: a frame is the number in the filename, and a batch is refused before torch."""
+import os
+
 import pytest
-from conftest import frame_number
+from conftest import DECODES, frame_number
 from sg_groundtruth.client import FPTError
 
 from comfyui_sg import media
@@ -28,15 +30,17 @@ def test_a_sequence_past_its_padding_is_still_that_sequence(tmp_path, sequence_o
     assert [n for n, _ in media.frame_numbers(pattern)] == [9999, 10000, 10001]
 
 
+@DECODES
 def test_frame_zero_is_wherever_the_sequence_starts(version):
-    got = media.load_frames(version, "frames", 0, 1)
+    got, _ = media.load_frames(version, "frames", 0, 1)
     assert len(got) == 1
     assert frame_number(got[0]) == FIRST
 
 
+@DECODES
 def test_frame_is_a_number_not_a_position(version):
     """1003 means plate.1003.png, not the third frame of the sequence."""
-    got = media.load_frames(version, "frames", 1003, 1)
+    got, _ = media.load_frames(version, "frames", 1003, 1)
     assert frame_number(got[0]) == 1003
 
 
@@ -49,23 +53,27 @@ def test_a_frame_the_sequence_does_not_have_names_the_range(version):
     assert "48 frames" in said
 
 
+@DECODES
 def test_count_zero_reads_to_the_end_of_the_sequence(version):
-    got = media.load_frames(version, "frames", 0, 0)
+    got, _ = media.load_frames(version, "frames", 0, 0)
     assert len(got) == COUNT
     assert [frame_number(f) for f in got[:3]] == [1001, 1002, 1003]
     assert frame_number(got[-1]) == 1048
 
 
+@DECODES
 def test_a_batch_that_runs_out_comes_back_short_rather_than_padded(version):
-    got = media.load_frames(version, "frames", 0, 100)
+    got, _ = media.load_frames(version, "frames", 0, 100)
     assert len(got) == COUNT
 
 
+@DECODES
 def test_a_batch_starting_mid_sequence_ends_with_the_sequence(version):
-    got = media.load_frames(version, "frames", 1040, 20)
+    got, _ = media.load_frames(version, "frames", 1040, 20)
     assert [frame_number(f) for f in got] == list(range(1040, 1049))
 
 
+@DECODES
 def test_a_batch_past_the_budget_says_how_many_fit(version):
     """An allocator's answer to 300 frames of 4K is a stack trace; this one is a sentence."""
     with pytest.raises(FPTError) as e:
@@ -86,8 +94,6 @@ def test_no_budget_set_is_the_built_in_fallback():
     assert media.budget_bytes("not a number") == media.DEFAULT_BUDGET_GIB * 2 ** 30
 
 
-@pytest.mark.xfail(strict=False,
-                   reason="fix/load-path: a negative budget refuses every batch")
 def test_a_budget_below_zero_falls_back_to_the_default():
     assert media.budget_bytes(-4) == media.budget_bytes(0)
 
@@ -100,7 +106,9 @@ def test_a_pattern_that_matches_nothing_says_so(tmp_path):
 
 
 def test_a_published_file_is_the_source_a_person_picks(version):
-    version["published_files"] = [{"id": 7788, "path": version["sg_path_to_frames"],
+    path = version["sg_path_to_frames"]
+    version["published_files"] = [{"id": 7788, "link": "local", "path": path, "url": "",
+                                   "name": os.path.basename(path),
                                    "type": "Rendered Image", "colour": "ACEScg"}]
     key = media.pf_key(version["published_files"][0])
     assert key.endswith("#7788")
