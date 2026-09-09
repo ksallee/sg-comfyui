@@ -2,7 +2,7 @@
 import pytest
 from conftest import stub_site
 
-from comfyui_sg import site
+from comfyui_sg import site, version_name
 from comfyui_sg.nodes.load_version import SGLoadVersion
 from comfyui_sg.nodes.publish_version import SGPublishVersion
 
@@ -36,30 +36,28 @@ def test_the_editors_own_choice_is_accepted():
 
 def test_a_name_that_needs_a_link_says_which_field_to_fill(monkeypatch):
     stub_site(monkeypatch)
-    assert SGPublishVersion.missing_fields("", "", 1180, 0, 0) == ["link"]
-    assert SGPublishVersion.missing_fields("", "", 1180, 7514, 0) == []
-    assert SGPublishVersion.missing_fields("", "{entity}_{task}", 1180, 0, 0) == ["link", "task"]
+    assert version_name.missing_fields("", "", 1180, 0, 0) == ["link"]
+    assert version_name.missing_fields("", "", 1180, 7514, 0) == []
+    assert version_name.missing_fields("", "{entity}_{task}", 1180, 0, 0) == ["link", "task"]
 
 
 def test_a_literal_name_is_used_as_written(monkeypatch):
     stub_site(monkeypatch)
-    assert SGPublishVersion.next_name("hero_plate", 1180, "Shot", 7514, 0) == ("hero_plate", 1)
+    assert version_name.next_name("hero_plate", 1180, "Shot", 7514, 0) == ("hero_plate", 1)
 
 
 def test_the_next_version_follows_what_is_already_on_the_link(monkeypatch):
     stub_site(monkeypatch)
     monkeypatch.setattr(site, "resolve_paths", lambda *a, **kw: {"entity": "sh010"})
     monkeypatch.setattr(site, "find_versions", lambda *a, **kw: [("sh010_v001", "apr", 1)])
-    assert SGPublishVersion.next_name("", 1180, "Shot", 7514, 0, "{entity}") == ("sh010_v002", 2)
+    assert version_name.next_name("", 1180, "Shot", 7514, 0, "{entity}") == ("sh010_v002", 2)
 
 
-@pytest.mark.xfail(strict=False, reason="fix/publish-path: the root name is rendered without the "
-                                        "version, so the code and the folder disagree")
 def test_a_version_in_the_root_name_is_the_one_being_published(monkeypatch):
     stub_site(monkeypatch)
     monkeypatch.setattr(site, "resolve_paths", lambda *a, **kw: {"entity": "sh010"})
     monkeypatch.setattr(site, "find_versions", lambda *a, **kw: [])
-    code, number = SGPublishVersion.next_name("", 1180, "Shot", 7514, 0, "{entity}_v{version:03d}")
+    code, number = version_name.next_name("", 1180, "Shot", 7514, 0, "{entity}_v{version:03d}")
     assert number == 1
     assert code.startswith("sh010_v001")
 
@@ -100,8 +98,6 @@ def test_a_batch_of_frames_with_no_movie_refuses_to_lose_the_rest(monkeypatch):
     assert "Tick Create Published Files" in str(e.value)
 
 
-@pytest.mark.xfail(strict=False,
-                   reason="fix/publish-path: an empty batch reaches the site and then IndexErrors")
 def test_a_batch_with_no_frames_is_refused_before_the_site_is_touched(monkeypatch):
     stub_site(monkeypatch)
     monkeypatch.setattr(site, "client", lambda: pytest.fail("the site was touched"))

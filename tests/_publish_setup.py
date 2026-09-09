@@ -1,29 +1,44 @@
-"""Path wiring the test_publish_* files share. Not a conftest: it changes nothing for anyone else.
+"""What the frame tests need beyond conftest: the real torch, and ComfyUI's own encoder.
 
-    ~/dev/ComfyUI/venv/bin/python -m pytest tests --import-mode=importlib --confcutdir=tests
+conftest stubs `torch` so every module imports on a machine that has none, which is right for the
+rest of the suite and not enough here: `_encode_image` is the thing under test and it wants tensors.
+So the stub is swapped for the genuine article where one is installed, and put back where it is not.
 
-Both flags are needed, and for one reason: the repo root carries the `__init__.py` ComfyUI reads.
-Without them pytest takes the whole checkout for a package, imports that file, and either fails on
-its relative import or runs `routes.register()` against a server that is not there.
-
-The package under test lives in `src/` and nothing installs it; ComfyUI's own encoder is read from
-the checkout, which is `~/dev/ComfyUI` unless COMFYUI_PATH says otherwise. A machine with neither
-skips rather than fails, so these run in a checkout with no ComfyUI beside it.
+ComfyUI itself is read from `~/dev/ComfyUI` unless COMFYUI_PATH says otherwise. A machine with
+neither skips rather than fails, which is what CI does.
 """
 import os
 import sys
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[1]
 COMFY = Path(os.environ.get("COMFYUI_PATH", Path.home() / "dev" / "ComfyUI"))
 
-for _d in (REPO / "src", COMFY):
-    if _d.is_dir() and str(_d) not in sys.path:
-        sys.path.insert(0, str(_d))
+if COMFY.is_dir() and str(COMFY) not in sys.path:
+    sys.path.insert(0, str(COMFY))
+
+
+def real_torch():
+    """The installed torch, or None. conftest's stub is restored where there is none."""
+    stub = sys.modules.get("torch")
+    if stub is not None and hasattr(stub, "full"):
+        return stub
+    if stub is not None:
+        del sys.modules["torch"]
+    try:
+        import torch
+    except ImportError:
+        torch = None
+    if torch is None or not hasattr(torch, "full"):
+        if stub is not None:
+            sys.modules["torch"] = stub
+        return None
+    return torch
 
 
 def encoder():
-    """ComfyUI's own `_encode_image`, or None where this machine has no ComfyUI to read it from."""
+    """ComfyUI's own `_encode_image`, or None where this machine cannot import it."""
+    if real_torch() is None:
+        return None
     try:
         from comfy_extras.nodes_images import _encode_image
     except Exception:

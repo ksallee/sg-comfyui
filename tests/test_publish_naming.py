@@ -1,14 +1,5 @@
-"""The root name and the version number, rendered once and read the same by the name and the path.
-
-    ~/dev/ComfyUI/venv/bin/python -m pytest tests --import-mode=importlib --confcutdir=tests
-"""
-import sys
-from pathlib import Path
-
+"""The root name and the version number, rendered once and read the same by name and path."""
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _publish_setup                                                          # noqa: E402,F401
 
 from comfyui_sg import naming, sequence, site, version_name                         # noqa: E402
 

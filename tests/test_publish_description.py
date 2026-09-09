@@ -1,19 +1,6 @@
-"""What the Version's description says when this site has no field for a fact.
-
-    ~/dev/ComfyUI/venv/bin/python -m pytest tests --import-mode=importlib --confcutdir=tests
-"""
-import sys
-from pathlib import Path
-
-import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _publish_setup                                                          # noqa: E402,F401
-
-pytest.importorskip("torch")
-
-from comfyui_sg import fields as sg_fields                                          # noqa: E402
-from comfyui_sg.nodes import publish_version as pv                                  # noqa: E402
+"""What the Version's description says when this site has no field for a fact."""
+from comfyui_sg import fields as sg_fields
+from comfyui_sg.nodes import publish_version as pv
 
 PROMPT = ("a wide shot of the couple crossing the bridge at dusk, volumetric haze, "
           "35mm anamorphic, shallow depth of field")

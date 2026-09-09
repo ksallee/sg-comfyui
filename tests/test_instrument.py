@@ -16,7 +16,7 @@ _spec.loader.exec_module(instrument)
 
 def test_the_positional_array_is_built_by_name():
     names = instrument.LOAD_WIDGETS
-    values = instrument.widgets(names, instrument.LOAD_DEFAULTS, name_contains="depth")
+    values = instrument.widget_values(names, instrument.LOAD_DEFAULTS, name_contains="depth")
     assert len(values) == len(names)
     assert values[names.index("name_contains")] == "depth"
     assert values[names.index("frame")] == 0
@@ -24,7 +24,7 @@ def test_the_positional_array_is_built_by_name():
 
 def test_a_widget_this_node_does_not_have_is_refused():
     with pytest.raises(ValueError) as e:
-        instrument.widgets(instrument.LOAD_WIDGETS, {}, frame_rate=24)
+        instrument.widget_values(instrument.LOAD_WIDGETS, {}, frame_rate=24)
     assert "frame_rate" in str(e.value)
 
 

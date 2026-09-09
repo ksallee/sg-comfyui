@@ -1,16 +1,7 @@
-"""Where a published file lands: the extension swap, and the root a path field is written under.
-
-    ~/dev/ComfyUI/venv/bin/python -m pytest tests --import-mode=importlib --confcutdir=tests
-"""
-import sys
-from pathlib import Path
-
+"""Where a published file lands: the extension swap, and the root a path field is written under."""
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _publish_setup                                                          # noqa: E402,F401
-
-from comfyui_sg import sequence                                                     # noqa: E402
+from comfyui_sg import sequence
 
 MAC = {"code": "primary", "mac_path": "/Volumes/FPT", "windows_path": "X:\\shows",
        "linux_path": "/mnt/fpt"}

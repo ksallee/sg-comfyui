@@ -25,7 +25,7 @@ def test_no_storage_of_that_name_lists_the_ones_there():
 def test_several_storages_and_no_choice_is_refused():
     with pytest.raises(RuntimeError) as e:
         sequence.storage_row(STORAGES)
-    assert "published_files.storage" in str(e.value)
+    assert "Pick Storage under Settings, then SG" in str(e.value)
 
 
 def test_a_platform_the_storage_has_no_root_for_is_not_offered():
@@ -62,8 +62,6 @@ def test_a_path_outside_the_root_is_left_alone(monkeypatch):
         == "/tmp/plate.png"
 
 
-@pytest.mark.xfail(strict=False, reason="fix/publish-path: a root spelled with backslashes never "
-                                        "matches the rendered path, which uses forward slashes")
 def test_a_root_spelled_with_backslashes_still_matches_the_path(monkeypatch):
     """The path is rendered with forward slashes (`_clean`), so the prefix test has to see past
     the spelling of the root the publisher ran on."""
@@ -77,8 +75,6 @@ def test_the_extension_follows_the_files_not_the_template():
         == "/Volumes/proj/sh010/plate.%04d.png"
 
 
-@pytest.mark.xfail(strict=False,
-                   reason="fix/publish-path: a template with no extension loses its frame token")
 def test_a_template_with_no_extension_keeps_its_frame_token():
     assert sequence.swap_ext("/Volumes/proj/sh010/plate.%04d", ".png") \
         == "/Volumes/proj/sh010/plate.%04d.png"

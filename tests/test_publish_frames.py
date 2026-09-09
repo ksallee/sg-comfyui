@@ -1,17 +1,18 @@
-"""What `format` writes: the extension, the bit depth, and the sentence with no encoder."""
+"""What `format` writes: the extension, the bit depth, and the sentence with no encoder.
+
+Skipped where this machine has no ComfyUI and no torch: the encoder under test is ComfyUI's own,
+and a fake one would prove nothing about the bit depth of the file on disk.
+"""
 import sys
-from pathlib import Path
 
 import pytest
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
-import _publish_setup as setup                                                      # noqa: E402
+import _publish_setup as setup
 
-pytest.importorskip("torch")
 if setup.encoder() is None:
     pytest.skip("no ComfyUI to read the encoder from", allow_module_level=True)
 
-import torch                                                                       # noqa: E402
+torch = setup.real_torch()
 
 from comfyui_sg import sequence                                                     # noqa: E402
 
