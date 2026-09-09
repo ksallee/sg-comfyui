@@ -118,14 +118,16 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         where = []
         if want_frames:
             ext = sequence.extension(widgets.get("format", ""))
-            where.append(sequence.destination(pl, pl.seq_template, ext, version_no))
+            where.append({"label": "frames path",
+                          "path": sequence.destination(pl, pl.seq_template, ext, version_no)})
         # A deliverable is never transformed, so the clip keeps its own extension — a run-time fact
         # this states rather than guesses.
         if want_movie:
             ext = ".<the clip's own extension>"
-            where.append(sequence.destination(pl, pl.movie_template, ext, version_no))
+            where.append({"label": "clip path",
+                          "path": sequence.destination(pl, pl.movie_template, ext, version_no)})
         if not os.path.isdir(pl.root):
-            where.append(f"{pl.root} is not mounted. Mount it before you Run.")
+            return where, f"The storage root {pl.root} is not mounted. Mount it, then run again."
         return where, ""
     except Exception as e:
         return [], (f"Create Published Files is ticked, but the paths could not be worked out. "
@@ -541,12 +543,9 @@ def register():
             rows = site.versions_on(lt, target, project_id) if target else []
             if rows:
                 lcode, _lstatus, lid = rows[0]
-                latest = {"id": lid, "code": lcode, "site_url": site.client().site, "files": []}
-                try:
-                    latest["files"] = [{"kind": f.get("type") or "file", "path": f["path"]}
-                                       for f in site.cached_published_files(lid) if f.get("path")]
-                except Exception:
-                    pass                      # a Version whose files cannot be read still has a link
+                # Its link only: what that Version wrote is on the site, and drawing its files here
+                # reads as the files this publish will write.
+                latest = {"id": lid, "code": lcode, "site_url": site.client().site}
             # An empty field on the node means Settings names it, and the panel is where that
             # shows: the template in force, tagged with where it came from.
             templates = [{"label": label, "value": value, "source": "Settings"}
@@ -580,7 +579,7 @@ def register():
         frontend already builds for Run (`graphToPrompt`). Nothing is written.
         """
         try:
-            from . import fields as sg_fields, provenance
+            from . import fields as sg_fields, provenance, sequence
             from .nodes.load_version import SGLoadVersion as FV
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
@@ -685,27 +684,39 @@ def register():
                        "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
-            writes, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
-            # What this node will publish, from what is wired into it. The frame count and the
-            # frame rate are run-time facts, so the panel states the rule and names the path
-            # the run will take.
-            if _wired(w, "video"):
-                media = "The clip."
-                if _wired(w, "images"):
-                    media += " The frames become Published Files."
-            elif _wired(w, "images") and w.get("register_files"):
-                media = "Frame 1, as a still. Every frame becomes a Published File."
-            elif _wired(w, "images"):
-                media = "Frame 1, as a still. Tick Create Published Files to publish all frames."
+            paths, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
+            # What this node will publish, from what is wired into it: the review media the Version
+            # carries, and the files that land on disk when Create Published Files is ticked. The
+            # frame count and the frame rate are run-time facts, so the sentences state the rule.
+            images, video = _wired(w, "images"), _wired(w, "video")
+            fmt = w.get("format") or sequence.DEFAULT_FORMAT
+            keeps_movie = bool((prof.get("published_files") or {}).get("register_movie"))
+            if video:
+                review = "The clip, 8-bit."
+            elif images:
+                review = "Frame 1 as a still, 8-bit PNG."
             else:
-                media = "Nothing. Wire an image or a video into this node."
+                review = "Nothing. Wire an image or a video into this node."
+            if not (images or video):
+                files = ""
+            elif not w.get("register_files"):
+                files = ("None. Tick Create Published Files to keep the frames as files."
+                         if images else "None. Tick Create Published Files to keep the clip as a file.")
+            elif images and video:
+                files = (f"Every frame as {fmt}, and the clip as it is." if keeps_movie
+                         else f"Every frame as {fmt}. The clip is review only.")
+            elif images:
+                files = f"Every frame as {fmt}."
+            else:
+                files = "The clip as it is, never re-encoded."
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
-                "writes": writes,
+                "paths": paths,
                 # A publish that cannot resolve its storage is not valid, whatever the name reads.
                 "alert": files_alert,
-                "media": media,
+                "review": review,
+                "files": files,
                 "sources": sources,
             })
         except Exception as e:

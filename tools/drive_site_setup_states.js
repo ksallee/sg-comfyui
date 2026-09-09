@@ -93,22 +93,21 @@ if (STATE === "three_of_nine") {
 }
 
 btn.click();
-await until(() => results().length >= 9, 60000);
+await until(() => results().length >= 1 && !/Asking the site/.test(results()[0]), 60000);
 await until(() => !btn.disabled, 60000);
 const lines = results();
 // The result runs past the foot of the dialog, and the screenshot is what gets reviewed.
 [...el.querySelectorAll(".sg-rows > *")].pop()?.scrollIntoView({ block: "center" });
 await wait(400);
 
+// One refusal for one reason is one sentence, then the advice.
 if (STATE === "refused") {
-  const ok = lines.length === 10 && lines.slice(0, 9).every((l) => l.endsWith(REFUSAL))
-    && lines[9] === ADVICE;
-  return { verdict: `${ok ? "PASS" : "FAIL"} refused: "${lines[0]}" then "${lines[9]}"` };
+  const ok = lines.length === 2 && lines[0] === `None were created. ${REFUSAL}` && lines[1] === ADVICE;
+  return { verdict: `${ok ? "PASS" : "FAIL"} refused: "${lines[0]}" then "${lines[1]}"` };
 }
 
 // nine_of_nine: the site really answered, and pressing Create created nothing.
 await until(() => value() === "9 of 9 exist on this site.");
-const made = lines.filter((l) => / created\.$/.test(l)).length;
-const had = lines.filter((l) => / already exists\.$/.test(l)).length;
-const ok = had === 9 && made === 0 && value() === "9 of 9 exist on this site.";
-return { verdict: `${ok ? "PASS" : "FAIL"} ${had} present ${made} created — "${value()}"` };
+const ok = lines.length === 1 && lines[0] === "All 9 already exist. Nothing was created."
+  && value() === "9 of 9 exist on this site.";
+return { verdict: `${ok ? "PASS" : "FAIL"} "${lines[0]}" — "${value()}"` };

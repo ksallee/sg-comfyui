@@ -49,9 +49,14 @@ const CSS = `
 .sg-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .sg-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   color: #b9c0c8; white-space: nowrap; }
-.sg-body > .sg-run, .sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
+.sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
 .sg-body > .sg-dim, .sg-body > .sg-err, .sg-body > .sg-ok, .sg-body > .sg-alert,
-.sg-body > .sg-full, .sg-body > .sg-v:only-child { grid-column: 1 / -1; }
+.sg-body > .sg-full, .sg-body > .sg-v:only-child,
+.sg-run > .sg-sec, .sg-run > .sg-dim, .sg-run > .sg-err, .sg-run > .sg-ok, .sg-run > .sg-full
+  { grid-column: 1 / -1; }
+/* The run block is one removable node in the DOM and no box in the grid, so its rows sit on the
+   same two columns as the readout above them. */
+.sg-run { display: contents; }
 /* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
    a width so a site's own field names still widen the column. The two boxes are two widgets and so
    two grids; the shared floor is what keeps them from sitting six characters apart. */
@@ -124,6 +129,13 @@ function pill(label, rgb) {
     `${label}</span>`;
 }
 
+/** Label and value rows on the panel's grid. A value with a linkable href is drawn as a link. */
+const rowsHtml = (rows) => rows.map(([k, v, href]) =>
+  `<div class="sg-row"><span class="sg-k">${esc(k)}</span>` +
+  `<span class="sg-v">${linkable(href)
+    ? `<a class="sg-a" href="${esc(href)}" target="_blank" rel="noreferrer">${esc(v)}</a>`
+    : esc(v)}</span></div>`).join("");
+
 /** What the run would record, field by field. A field with no value is dimmed rather than dropped:
  *  an absent seed on a graph with no sampler is worth knowing before you publish. Where a value
  *  lands is said beside it, because a fact in the description is not a fact in a field. */
@@ -145,9 +157,7 @@ function writesBlock(d) {
         `<div class="sg-full sg-dim">${esc(u)}</div>`).join("") : "");
   // The heading names what the rows ARE: this panel says what a Run WOULD do, never what was done.
   return `<div class="sg-sec">fields that will populate</div>` + f.map(row).join("") +
-    list("uploads", d.uploads) +
-    // Copies onto a shared volume are not uploads, and are the ones worth reading twice.
-    list("copied to", d.writes);
+    list("uploads", d.uploads);
 }
 
 /** The Versions this publish would say it came from. The reason goes under the name, not beside it:
@@ -192,13 +202,17 @@ export function addPanel(node, title = "SG", onLayout = null) {
   // else. It goes when the next Run starts, or when a widget on the node changes.
   let lastRun = null;
   // One block, so drawing it again replaces it rather than adding a second copy of the same run.
+  // A run that went through is rows, the same grid as the readout above it; anything that needs
+  // attention follows as a dim line; a refusal is the sentence in red.
   const drawLog = () => {
     body.querySelectorAll(".sg-run").forEach((e) => e.remove());
     if (!lastRun) return;
     const cls = lastRun.ok ? "sg-ok" : "sg-err";
     body.insertAdjacentHTML("beforeend",
       `<div class="sg-run"><div class="sg-sec">last run</div>` +
-      lastRun.lines.map((l) => `<div class="${cls}">${esc(l)}</div>`).join("") + `</div>`);
+      rowsHtml(lastRun.rows || []) +
+      (lastRun.notes || []).map((l) => `<div class="sg-full sg-dim">${esc(l)}</div>`).join("") +
+      (lastRun.lines || []).map((l) => `<div class="${cls}">${esc(l)}</div>`).join("") + `</div>`);
   };
   /** Replace the readout, keeping the run log under it. */
   const setBody = (html) => { body.innerHTML = html; drawLog(); };
@@ -232,11 +246,6 @@ export function addPanel(node, title = "SG", onLayout = null) {
     show(d) {
       const t = root.querySelector(".sg-title");
       setState((d && d.state) || (d && d.error ? "warn" : (d && d.id) ? "ok" : "warn"));
-      const plain = (rows) => rows.map(([k, v, href]) =>
-        `<div class="sg-row"><span class="sg-k">${esc(k)}</span>
-          <span class="sg-v">${linkable(href)
-            ? `<a class="sg-a" href="${esc(href)}" target="_blank" rel="noreferrer">${esc(v)}</a>`
-            : esc(v)}</span></div>`).join("");
       const fold = (html) => {
         detail.innerHTML = html;
         more.hidden = !html;   // an empty box inside the fold is worse than no row at all
@@ -284,11 +293,11 @@ export function addPanel(node, title = "SG", onLayout = null) {
       // What each output will take, and what it claims to be. `source` is a combo holding a key, so
       // the type, the filename and the frame count exist only here, and a colour space is what an
       // artist about to comp must see before the pixels reach a node that assumes sRGB.
+      // What the file this will read IS, first and directly under the name: bit depth, channels
+      // and size are what decide whether these pixels reach a comp untouched.
+      if (typeof d.format === "string" && d.format) rows.push(["format", d.format]);
       if (d.image_label) rows.push(["image", d.image_label]);
       if (d.video_label) rows.push(["video", d.video_label]);
-      // What the file this will read IS, in the site's own words: bit depth, channels and size are
-      // what decide whether these pixels reach a comp untouched.
-      if (typeof d.format === "string" && d.format) rows.push(["format", d.format]);
       // The frame numbers this source has: `frame` is a number in a filename, and 0 means "wherever
       // the sequence starts", so the range belongs beside the widgets that ask for it.
       if (d.frames) {
@@ -327,7 +336,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
       const notice = over ? (d.alert || "") : "";
       if (over) setState("warn");
       setBody((alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") +
-        (notice ? `<div class="sg-dim">${esc(notice)}</div>` : "") + plain(rows));
+        (notice ? `<div class="sg-dim">${esc(notice)}</div>` : "") + rowsHtml(rows));
       // The fold takes the reasoning behind a name the operator can already see, and the concepts
       // that are the same every publish: configuration-time reading, not pre-Run reading.
       fold((d.why ? `<div class="sg-why">${esc(d.why)}</div>` : "") +
@@ -338,6 +347,12 @@ export function addPanel(node, title = "SG", onLayout = null) {
      *  redraw until `clearLog`. */
     log(lines, ok = true) {
       lastRun = { lines: [].concat(lines), ok };
+      drawLog();
+      relayout();
+    },
+    /** What the node last published, as rows, plus the lines that need attention. */
+    ran(rows, notes = []) {
+      lastRun = { rows, notes, ok: true };
       drawLog();
       relayout();
     },
