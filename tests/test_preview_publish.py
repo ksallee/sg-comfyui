@@ -27,4 +27,5 @@ def test_a_storage_that_resolves_answers_with_the_path(tmp_path, monkeypatch):
     where, alert = routes._files_preview(WIDGETS, {}, 1, "Shot", 2, 0)
 
     assert alert == ""
-    assert where == [(tmp_path / "sh010/sh010_matte/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()]
+    assert where == [{"label": "frames path", "path": (
+        tmp_path / "sh010/sh010_matte/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()}]

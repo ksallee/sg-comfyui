@@ -215,7 +215,7 @@ function publishPickers(nodeType, nodeData) {
       ...(r.site_url ? [{ label: "latest", value: `${r.code || "Version " + r.id}`,
                           href: `${r.site_url}/detail/Version/${r.id}` }] : []),
       ...(r.files || []).map((f) => ({
-        label: f.kind === "frames" ? `${f.count} frame${f.count === 1 ? "" : "s"}` : f.kind,
+        label: f.kind === "frames" ? "frames path" : "clip path",
         value: f.path,
         href: "file://" + f.path.replace(/[^/]*$/, ""),
       })),
@@ -255,8 +255,13 @@ function publishPickers(nodeType, nodeData) {
       // fold: one run is one Version, and what that Version carries is decided by what is wired.
       // An empty root name or version name is named by Settings, and this is where the operator
       // sees what that resolves to.
-      const facts = (d.templates || []).map((t) => ({ label: t.label, value: `${t.value} · ${t.source}` }))
-        .concat(rest.media ? [{ label: "media", value: rest.media }] : [])
+      // What this Run would publish: the review media, the files and where they land. The
+      // previous Version is a link and nothing more, so its files cannot read as this Run's.
+      const facts = []
+        .concat(rest.review ? [{ label: "review", value: rest.review }] : [])
+        .concat(rest.files ? [{ label: "files", value: rest.files }] : [])
+        .concat((rest.paths || []).map((x) => ({ label: x.label, value: x.path })))
+        .concat((d.templates || []).map((t) => ({ label: t.label, value: `${t.value} · ${t.source}` })))
         .concat(runFacts(d.latest));
       panel.show({
         ...rest, facts,
@@ -312,23 +317,24 @@ function publishPickers(nodeType, nodeData) {
         return;
       }
       if (rows.length) {
-        panel.show({
-          id: rows[0].id, code: rows[0].code, link: rows[0].link,
-          status: statusOf(status?.value), state: "ok",
-          why: "",
-          // `facts`, not `echo`: what a run actually wrote is nowhere else on the node. `media`
-          // names the path the run took — the source file uploaded untouched, a ComfyUI encode, or
-          // our own still — with the frame count measured off the clip itself.
-          facts: [
-            ...(rows[0].media ? [{ label: "media", value: rows[0].media }] : []),
-            ...(rows[0].outputs && rows[0].outputs.length
-              ? [{ label: "wrote", value: rows[0].outputs.join(", ") }] : []),
-            ...runFacts(rows[0]),
-          ],
-        });
+        const r = rows[0];
+        panel.show({ id: r.id, code: r.code, link: r.link, status: statusOf(status?.value),
+                     state: "ok", why: "" });
+        // What the run did, as rows: the Version by name (its id is in the link), the review
+        // media, the files as the format they were written in, and where each landed.
+        const files = (r.files || []).map((f) => f.kind === "frames"
+          ? `${f.count} frame${f.count === 1 ? "" : "s"} as ${r.format || "PNG"}`
+          : "the clip as it is").join(", ");
+        panel.ran([
+          ...(r.site_url ? [["published", r.code, `${r.site_url}/detail/Version/${r.id}`]] : []),
+          ...(r.media ? [["review", r.media]] : []),
+          ...(files ? [["files", files]] : []),
+          ...runFacts({ ...r, site_url: "" }).map((x) => [x.label, x.value, x.href]),
+        ], r.notes || []);
+      } else {
+        const text = (detail.output && detail.output.text) || [];
+        if (text.length) panel.log(text, false);
       }
-      const text = (detail.output && detail.output.text) || [];
-      if (text.length) panel.log(text, rows.length > 0);
       // What the NEXT run would create, now that this one has taken a number. The lines this run
       // wrote are the Version id and the paths it landed on, so they stay on the panel.
       setTimeout(() => preview(true), 1200);

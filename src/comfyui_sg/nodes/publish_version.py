@@ -519,9 +519,13 @@ class SGPublishVersion:
                                      "count": len(staged.get("frames") or [])})
             if staged.get("media"):
                 staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
+        # The panel draws the run as rows, so the lines it keeps are the ones that ask for
+        # attention: everything the rows already say is left to `text`.
+        said = ("Published ", "Review media: ", "Registered ")
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
                  "status": status_code, "outputs": sorted(typed), "media": media_note,
-                 "site_url": sg.site, "files": staged_files}]
+                 "format": (format or sequence.DEFAULT_FORMAT) if want_frames else "", "site_url": sg.site, "files": staged_files,
+                 "notes": [x for x in published if not x.startswith(said)]}]
         # `text` is the plain readout ComfyUI shows anywhere; `published` is what the node's own
         # panel renders — the same run, described rather than printed.
         return {"ui": {"text": published, "published": done}}
