@@ -9,7 +9,7 @@ import { app } from "../../scripts/app.js";
 import { addPanel } from "./sg_panel.js";
 import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets, restoreValue, textRows, cascade } from "./sg_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows, cascade, call } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -41,18 +41,6 @@ function typeFromLabel(label) {
 
 /** The same label without its trailing type. */
 const withoutType = (label) => String(label ?? "").replace(/\s\([^()]+\)$/, "");
-
-/** One route, decoded. A failed request answers in the shape every picker reads; a request the
- *  cascade aborted answers nothing at all, because its caller is about to stop anyway. */
-async function get(url, tok) {
-  try {
-    const r = await fetch(url, { signal: tok?.signal });
-    return await r.json();
-  } catch (e) {
-    if (e?.name === "AbortError") return { aborted: true, items: [] };
-    return { items: [], error: `The ComfyUI server did not answer. ${e}` };
-  }
-}
 
 /** Keep a combo's options in step with the site without touching its value unless the value is
  *  gone, and answer the site's sentence if it sent one.
@@ -94,7 +82,7 @@ function projectPicker(node, widget, state, onPick) {
     placeholder: "search projects",
     empty: "No project matches those words.",
     search: async (q, { live, signal }) => {
-      const d = await get("/sg/projects", { signal });
+      const d = await call("/sg/projects", { signal });
       if (!live()) return [];      // a superseded search records nothing
       state.projects = d.items || [];
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
@@ -113,7 +101,7 @@ function projectPicker(node, widget, state, onPick) {
  * node to the default project.
  */
 async function selectProject(widget, state, picked, tok) {
-  const d = await get("/sg/projects", tok);
+  const d = await call("/sg/projects", tok);
   if (!tok.live) return "";
   if (d.error) return d.error;
   state.projects = d.items || [];
@@ -148,7 +136,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
     placeholder: "search links",
     empty,
     search: async (q, { live, signal }) => {
-      const d = await get(`/sg/entities?project_id=${state.projectId}` +
+      const d = await call(`/sg/entities?project_id=${state.projectId}` +
         `&q=${encodeURIComponent(q)}${narrow()}`, { signal });
       if (!live()) return [];      // a superseded search records no ids
       for (const x of d.items || []) state.linkIds[x.label] = x.id;
@@ -163,7 +151,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
 /** Every link on the project, into the hidden combo. Hidden, it still holds the value, so its
  *  options must stay legal for a saved graph whose link this project does not have. */
 async function loadLinkOptions(widget, state, tok, narrow = "") {
-  const d = await get(`/sg/entities?project_id=${state.projectId}${narrow}`, tok);
+  const d = await call(`/sg/entities?project_id=${state.projectId}${narrow}`, tok);
   if (!tok.live) return "";
   if (d.error) return d.error;
   state.linkIds = Object.fromEntries((d.items || []).map((x) => [x.label, x.id]));
@@ -172,7 +160,7 @@ async function loadLinkOptions(widget, state, tok, narrow = "") {
 
 /** The tasks on one link, into the `task` combo. */
 async function loadTaskOptions(widget, type, id, tok) {
-  const d = await get(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`, tok);
+  const d = await call(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`, tok);
   if (!tok.live) return "";
   return setOptions(widget, d);
 }
@@ -269,7 +257,7 @@ function publishPickers(nodeType, nodeData) {
         code_template: w("code_template")?.value || "",
         root_name: w("root_name")?.value || "",
       });
-      const d = await get(`/sg/preview_code?${q}`);
+      const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
       panel.clearLog();
       if (!d.code) {
@@ -280,11 +268,8 @@ function publishPickers(nodeType, nodeData) {
       let extra = {};
       try {
         const { output } = await app.graphToPrompt();
-        const r = await fetch("/sg/preview_publish", {
-          method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ prompt: output, node_id: String(node.id) }),
-        });
-        extra = await r.json();
+        extra = await call("/sg/preview_publish",
+                           { body: { prompt: output, node_id: String(node.id) } });
       } catch (e) { /* an unbuilt graph simply has nothing to describe yet */ }
       if (mine !== previewing) return;
       // Its `error` is kept out of the spread on purpose: an `error` anywhere in what show() is
@@ -399,11 +384,11 @@ function publishPickers(nodeType, nodeData) {
       const bad = await selectProject(project, state, picked, tok);
       if (!tok.live || stop(bad)) return;
       // Per project, because one show hangs Versions off Shots and the next off Assets.
-      const prof = await get(`/sg/profile?project_id=${state.projectId}`, tok);
+      const prof = await call(`/sg/profile?project_id=${state.projectId}`, tok);
       if (!tok.live || stop(prof.error)) return;
       linkType = prof.link_type || "Shot";
       if (status) {
-        const s = await get(`/sg/statuses?project_id=${state.projectId}`, tok);
+        const s = await call(`/sg/statuses?project_id=${state.projectId}`, tok);
         if (!tok.live || stop(setOptions(status, s))) return;
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
       }
@@ -428,7 +413,7 @@ function publishPickers(nodeType, nodeData) {
     // The Settings values written into the widgets, as a starting point to edit or to bring an
     // older node up to date. An emptied root name or version name follows Settings again.
     const copyDefaults = async () => {
-      const d = await get(`/sg/node_defaults?project=${encodeURIComponent(project?.value || "")}`);
+      const d = await call(`/sg/node_defaults?project=${encodeURIComponent(project?.value || "")}`);
       if (d.error) { panel.show({ error: d.error }); return; }
       for (const [name, value] of Object.entries(d)) {
         const widget = w(name);
@@ -483,7 +468,7 @@ function loadPickers(nodeType) {
     const statusChips = statuses && chipSelect(this, statuses, {
       label: "statuses",
       empty: "This project has no statuses.",
-      load: async () => (await get(`/sg/statuses?project_id=${state.projectId}`)).items || [],
+      load: async () => (await call(`/sg/statuses?project_id=${state.projectId}`)).items || [],
     });
 
     const panel = addPanel(this, "SG Load", relayout);
@@ -535,7 +520,7 @@ function loadPickers(nodeType) {
         if (t) q.append("statuses", t);
       }
       panel.loading();
-      const d = await get(`/sg/resolve?${q}`);
+      const d = await call(`/sg/resolve?${q}`);
       if (mine !== resolving) return;      // superseded while we waited
       const pinned = Number(val("pin_version_id") || 0);
       resolved = { ...d, pinned };
@@ -579,7 +564,7 @@ function loadPickers(nodeType) {
       const bad = await selectProject(project, state, picked, tok);
       if (!tok.live || stop(bad)) return;
       if (linkTypeW) {
-        const t = await get(`/sg/link_types?project_id=${state.projectId}`, tok);
+        const t = await call(`/sg/link_types?project_id=${state.projectId}`, tok);
         if (!tok.live || stop(t.error)) return;
         const vals = (t.items || []).map((x) => x.label);
         linkTypeW.options.values = vals;

@@ -265,6 +265,38 @@ export function restoreDeclaredWidgets(nodeType) {
   };
 }
 
+const RESTART = "The running ComfyUI predates this version of the pack. Restart ComfyUI, then "
+  + "reload this page.";
+
+/** One route, decoded, for every caller here: the pickers, the panels and the Settings rows.
+ *
+ * A failure answers `{items: [], error}`, the shape a picker already reads, and the three failures
+ * are told apart: a server that did not answer, a 404 — the routes register when ComfyUI imports
+ * the pack, so a missing one is a server started before this version was installed — and a body
+ * that is not JSON. A request its caller aborted answers `{aborted: true}` and no sentence.
+ *
+ * `body` makes it a POST. `signal` is a cascade token's or a picker's.
+ */
+export async function call(url, { body, signal } = {}) {
+  let r;
+  try {
+    r = await fetch(url, body === undefined ? { signal } : {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal,
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") return { aborted: true, items: [] };
+    return { items: [], error: `The ComfyUI server did not answer. ${e}` };
+  }
+  if (r.status === 404) return { items: [], error: RESTART };
+  try {
+    return await r.json();
+  } catch (e) {
+    return { items: [],
+             error: `The ComfyUI server answered ${r.status} instead of JSON. ${RESTART}` };
+  }
+}
+
 /** One cascade of reads at a time.
  *
  * `begin()` aborts whatever the previous cascade still has in flight and answers a token. A token's

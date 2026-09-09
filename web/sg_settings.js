@@ -7,7 +7,7 @@
  * tooltips carry the full product name, so a search for "Flow" lands here as well.
  */
 import { app } from "../../scripts/app.js";
-import { styleOnce, esc } from "./sg_dom_widgets.js";
+import { styleOnce, esc, call } from "./sg_dom_widgets.js";
 
 // The sidebar entry. The full name truncates there, and SG is what the issue settled on for every
 // short surface: the full product name or SG, nothing in between.
@@ -34,28 +34,6 @@ const CSS = `
 const POLL_MS = 2000;               // the interval the site's own flow uses
 const GIVE_UP_MS = 6 * 60 * 1000;   // the site forgets an unapproved request after about five minutes
 
-/** One route, decoded. A failed request answers in a shape the rows can show. */
-async function call(url, body) {
-  let r;
-  try {
-    r = await fetch(url, body === undefined ? {} : {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
-  } catch (e) {
-    return { error: `The ComfyUI server did not answer. ${e}` };
-  }
-  // Routes register when ComfyUI imports the pack, so a 404 is a server older than this page.
-  if (r.status === 404) return { error: RESTART };
-  try {
-    return await r.json();
-  } catch (e) {
-    return { error: `The ComfyUI server answered ${r.status} instead of JSON. ${RESTART}` };
-  }
-}
-
-const RESTART = "Restart ComfyUI, then reload this page: the running server predates this version of the pack.";
-
 // The last /sg/session answer, shared by every row in the dialog, and the rows that draw it.
 let status = null;
 const rows = new Set();
@@ -79,7 +57,7 @@ function load() {
 const announce = () => window.dispatchEvent(new CustomEvent("sg:session"));
 
 async function save(changes) {
-  const d = await call("/sg/settings", changes);
+  const d = await call("/sg/settings", { body: changes });
   if (!d.error) status = d;
   redraw();
   announce();
@@ -240,7 +218,7 @@ function signInRow() {
     // Opened on the click, before any await, so the browser treats it as the operator's own tab
     // rather than a pop-up; the address is filled in once the site has issued it.
     const tab = window.open("", "_blank");
-    const d = await call("/sg/login", { site: (status && status.site) || "" });
+    const d = await call("/sg/login", { body: { site: (status && status.site) || "" } });
     if (!d.url) {
       tab && tab.close();
       n.textContent = d.error || "The site did not issue a login page. Check the site address, then try again.";
@@ -269,7 +247,7 @@ function signInRow() {
 
   const signOut = async () => {
     polling++;
-    await call("/sg/logout", {});
+    await call("/sg/logout", { body: {} });
     n.textContent = "";
     await load();
     announce();
@@ -315,7 +293,7 @@ function connectionRow() {
   btn.addEventListener("click", async () => {
     btn.disabled = true;
     n.textContent = "Asking the site…";
-    const d = await call("/sg/test", {});
+    const d = await call("/sg/test", { body: {} });
     n.textContent = d.ok ? `Connected as ${d.who}.` : (d.error || "The site did not answer.");
     n.classList.toggle("sg-bad", !d.ok);
     btn.disabled = false;
@@ -365,7 +343,7 @@ function loadDefaults() {
 }
 
 async function saveDefault(key, value) {
-  const d = await call("/sg/defaults", { key, value });
+  const d = await call("/sg/defaults", { body: { key, value } });
   if (!d.error) defaults = d;
   redraw();
   announce();
