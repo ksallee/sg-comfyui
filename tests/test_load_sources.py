@@ -1,6 +1,6 @@
 """Which sources SG Load offers, what it calls them, and which Version a rule lands on.
 
-Nothing here touches a site: `published_files` is driven with a stub client, and `resolve.pick`
+Nothing here touches a site: `_published_files` is driven with a stub client, and `resolve.pick`
 through the one function it asks the site for.
 """
 import os
@@ -58,7 +58,7 @@ WEB = {"link_type": "web", "name": "plate.mov", "url": "file:///Users/someone/pl
 
 
 def files(*paths):
-    rows, _ = media.published_files(Site(Answer([row(6900 + i, p) for i, p in enumerate(paths)])), 1)
+    rows, _ = media._published_files(Site(Answer([row(6900 + i, p) for i, p in enumerate(paths)])), 1)
     return rows
 
 
@@ -91,17 +91,17 @@ def test_a_local_row_with_no_path_for_this_platform_keeps_its_row():
 
 
 def test_the_status_code_reaches_the_caller():
-    rows, why = media.published_files(Site(Answer(ok=False, status=503, text="upstream")), 1)
+    rows, why = media._published_files(Site(Answer(ok=False, status=503, text="upstream")), 1)
     assert rows == []
     assert "503" in why and "upstream" in why
 
-    rows, why = media.published_files(Site(RuntimeError("no route to host")), 1)
+    rows, why = media._published_files(Site(RuntimeError("no route to host")), 1)
     assert rows == [] and "no route to host" in why
 
-    rows, why = media.published_files(Site(Answer(json_body=False)), 1)
+    rows, why = media._published_files(Site(Answer(json_body=False)), 1)
     assert rows == [] and "not JSON" in why
 
-    rows, why = media.published_files(Site(Answer([row(1, LOCAL)])), 1)
+    rows, why = media._published_files(Site(Answer([row(1, LOCAL)])), 1)
     assert why == ""
 
 
@@ -194,3 +194,9 @@ def test_a_template_matching_nothing_falls_back_to_newest_by_id(monkeypatch):
 def test_the_derived_regex_names_a_version_group():
     rx = naming.template_regex(naming.DEFAULT_TEMPLATE, {})
     assert naming.parse("sh010_v011", rx)["version"] == 11
+
+
+def test_the_plain_call_still_returns_a_list():
+    """`site.cached_published_files` and the publish panel read this one."""
+    assert media.published_files(Site(Answer([row(6900, LOCAL)])), 1)[0]["id"] == 6900
+    assert media.published_files(Site(Answer(ok=False, status=503)), 1) == []

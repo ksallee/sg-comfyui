@@ -196,7 +196,16 @@ def _frames_on_disk(pattern):
 # --- one Version ---------------------------------------------------------------------------------
 
 def published_files(sg, version_id):
-    """(rows, why) — every readable PublishedFile on this Version, flattened for a picker.
+    """Every readable PublishedFile on this Version, as a plain list for a picker.
+
+    What stopped a read is dropped here and kept by `version`, because the caller that has nothing to
+    show is the one that has to explain why.
+    """
+    return _published_files(sg, version_id)[0]
+
+
+def _published_files(sg, version_id):
+    """(rows, why) — the read itself, with what stopped it.
 
     recipe 004 — a `local` path comes back with the LocalStorage join already done, so nothing here
     reads LocalStorage or reassembles a root. A row whose path this platform has no root for reads
@@ -260,7 +269,7 @@ def version(sg, version_id):
                        f"it still exists, then run again. The site answered {r.status_code}. "
                        f"{r.text[:200]}")
     d = r.json()["data"]
-    files, why = published_files(sg, version_id)
+    files, why = _published_files(sg, version_id)
     return {**d.get("attributes", {}), "id": d["id"],
             "published_files": files, "published_files_error": why}
 
