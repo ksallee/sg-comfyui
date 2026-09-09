@@ -8,6 +8,7 @@ PublishedFiles come first, because a PublishedFile is the only source that names
 rendered sequence" and "the mp4" on one Version are distinguishable) and the only one carrying the
 colour space the publisher declared. The fixed tiers follow, best quality first.
 """
+import io
 import os
 import re
 import sys
@@ -16,6 +17,8 @@ from glob import glob
 import requests
 
 from sg_groundtruth.client import FPTError
+
+from . import fields
 
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
           "sg_first_frame", "sg_last_frame", "sg_uploaded_movie_frame_rate"]
@@ -33,6 +36,12 @@ SUMMARY_LABELS = {"sg_ai_generator": "made by", "sg_ai_model": "model", "sg_ai_p
                   "sg_ai_cfg": "cfg", "description": "note"}
 # The header carries code, status and date; everything else is a listed fact.
 DETAIL_FIELDS = [f for f in SUMMARY_FIELDS if f not in ("code", "sg_status_list", "created_at")]
+# A site without the nine fields carries the same facts in the description instead
+# (publish_version._description): the note, a blank line, then one `label: value` line per fact, in
+# the labels fields.py writes. Read back here, so what a publish recorded is what a Load reads.
+FACT_LABELS = set(fields.CONCEPT_LABELS.values())
+FACT_LINE = re.compile(r"\s*([^:\n]+?)\s*:\s*(.*)$")
+LINEAGE_LABEL = fields.CONCEPT_LABELS["generated_from"]
 AI_FIELDS = [f for f in SUMMARY_FIELDS if f.startswith("sg_ai_")]
 RELATED_FIELDS = ["entity", "sg_task", "sg_ai_generated_from"]
 
@@ -108,12 +117,20 @@ def frame_numbers(pattern):
 
 
 def frame_range(v, key):
-    """(first, last, count) of the sequence this source reads, or None when it is not a sequence.
+    """(first, last, count) of what this source reads, or None where nothing on disk answers.
 
-    For the panel, so `frame` is a number the operator can see rather than one they guess at.
+    For the panel, so `frame` is a number the operator can see rather than one they guess at. A
+    sequence is numbered by its filenames; a movie is numbered from 1 and its length comes off the
+    container header, which is one file open and no decode.
     """
     nums = frame_numbers(pattern_of(v, key))
-    return (nums[0][0], nums[-1][0], len(nums)) if nums else None
+    if nums:
+        return (nums[0][0], nums[-1][0], len(nums))
+    if kind_of(v, key) == "movie":
+        h = _header(_first_file(v, key))
+        if h and h["frames"]:
+            return (1, h["frames"], h["frames"])
+    return None
 
 
 def frame_size(v, key):
@@ -127,17 +144,19 @@ def frame_size(v, key):
     return (h["width"], h["height"]) if h else None
 
 
-def _header(path):
+def _header(source):
     """What a file's container header says, or None when it will not open.
 
-    PyAV parses the header and stops, so this costs a file open rather than a decode.
+    `source` is a path on this machine, or the bytes of a file already fetched. PyAV parses the
+    header and stops, so this costs an open rather than a decode.
     """
     import av
 
-    if not path:
+    if not source:
         return None
+    path = source if isinstance(source, str) else ""
     try:
-        with av.open(path) as container:
+        with av.open(io.BytesIO(source) if isinstance(source, bytes) else source) as container:
             s = container.streams.video[0]
             fmt = s.format
             comps = list(fmt.components) if fmt else []
@@ -161,8 +180,22 @@ def describe_format(v, key):
 
     Read off the first file's container header, so a sequence costs one file open and nothing is
     decoded. The declared colour space follows as its own sentence when the publisher recorded one.
-    Empty where the file is not on this machine: an upload would have to be fetched to be described.
     """
+    line = _format_line(v, key)
+    colour = colour_of(v, key)
+    return line + (f" Colour space declared {colour}." if line and colour else "")
+
+
+def _format_line(v, key):
+    """The format half of `describe_format`, before the colour space is said."""
+    if key == "thumbnail":
+        return _thumbnail_format(v)
+    pf = pf_of(v, key)
+    if pf and pf["link"] == "upload":
+        return _upload_format(pf["name"], pf.get("content_type"))
+    if key == "uploaded":
+        mv = v.get("sg_uploaded_movie") or {}
+        return _upload_format(mv.get("name"), mv.get("content_type"))
     nums = frame_numbers(pattern_of(v, key))
     h = _header(nums[0][1] if nums else _first_file(v, key))
     if not h:
@@ -175,8 +208,27 @@ def describe_format(v, key):
              f'{h["width"]}x{h["height"]}']
     if count:
         parts.append(f"{count} frames" if count > 1 else "1 frame")
-    colour = colour_of(v, key)
-    return ", ".join(parts) + "." + (f" Colour space declared {colour}." if colour else "")
+    return ", ".join(parts) + "."
+
+
+def _thumbnail_format(v):
+    """The thumbnail's line, which says that it is a preview rather than the media.
+
+    A thumbnail is small enough to fetch for its header; nothing else here is.
+    """
+    size = ""
+    try:
+        h = _header(_download(v["image"])) if v.get("image") else None
+        size = f', {h["width"]}x{h["height"]}' if h else ""
+    except Exception:
+        size = ""
+    return f"thumbnail{size}, a preview the site made. Publish media to read the original."
+
+
+def _upload_format(name, content_type=""):
+    """What an upload can say without being fetched: a clip is never downloaded to be described."""
+    kind = content_type or os.path.splitext(name or "")[1].lstrip(".").upper()
+    return f'{kind or "uploaded file"} on the site. Size and depth are read at run time.'
 
 
 def _first_file(v, key):
@@ -190,7 +242,7 @@ def _first_file(v, key):
 def _frames_on_disk(pattern):
     """"N frames" for a sequence pattern that matches files, "" when it matches none."""
     hits = glob(frame_glob(pattern)) if pattern else []
-    return f"{len(hits)} frames" if hits else ""
+    return f"{len(hits)} frames" if len(hits) > 1 else "1 frame" if hits else ""
 
 
 # --- one Version ---------------------------------------------------------------------------------
@@ -248,6 +300,8 @@ def _published_files(sg, version_id):
         local = path.get(LOCAL_PATH) or "" if link == "local" else ""
         out.append({"id": d["id"], "link": link, "path": local,
                     "url": path.get("url") or "" if link == "upload" else "",
+                    # What an upload can be described by without fetching it (probe 013).
+                    "content_type": path.get("content_type") or "" if link == "upload" else "",
                     # The stored `source` value is built from this, so a local row is named by its
                     # file on disk and an uploaded one by the name the site holds.
                     "name": os.path.basename(local) if link == "local" else path.get("name") or "",
@@ -274,6 +328,23 @@ def version(sg, version_id):
             "published_files": files, "published_files_error": why}
 
 
+def split_description(text):
+    """(note, facts) — the operator's note, and the facts publish wrote under it.
+
+    Only the run of `label: value` lines at the end, in the labels fields.py writes, is facts;
+    everything above it is the note, colons and all.
+    """
+    lines = (text or "").rstrip().splitlines()
+    facts = []
+    while lines:
+        m = FACT_LINE.match(lines[-1])
+        if not m or m.group(1) not in FACT_LABELS:
+            break
+        facts.insert(0, {"label": m.group(1), "value": m.group(2).strip()})
+        lines.pop()
+    return "\n".join(lines).strip(), facts
+
+
 def provenance_state(attrs, sources):
     """Whether this Version says how it was made: "generated", "derived" or "unrecorded".
 
@@ -281,10 +352,15 @@ def provenance_state(attrs, sources):
     records nothing, from ComfyUI without this node, or from a camera, so absence is the absence of
     a *record*; rendering it as "not AI generated" would manufacture the assurance this project
     exists to make checkable.
+
+    The description counts for as much as the typed fields: a site without the nine fields is where
+    a publish put every fact, and reading only the fields would call its own record absent.
     """
-    if any(attrs.get(f) not in (None, "", []) for f in AI_FIELDS):
+    facts = split_description(attrs.get("description"))[1]
+    made = [f for f in facts if f["label"] != LINEAGE_LABEL]
+    if made or any(attrs.get(f) not in (None, "", []) for f in AI_FIELDS):
         return "generated"
-    return "derived" if sources else "unrecorded"
+    return "derived" if (sources or facts) else "unrecorded"
 
 
 def describe(sg, version_id, statuses=(), colors=None, icons=None):
@@ -305,8 +381,18 @@ def describe(sg, version_id, statuses=(), colors=None, icons=None):
     ent = (rel.get("entity") or {}).get("data") or {}
     task = (rel.get("sg_task") or {}).get("data") or {}
     src = (rel.get("sg_ai_generated_from") or {}).get("data") or []
-    facts = [{"label": SUMMARY_LABELS.get(f, f), "value": str(a[f]).replace("\n", " ")[:200]}
-             for f in DETAIL_FIELDS if a.get(f) not in (None, "", [])]
+    note, written = split_description(a.get("description"))
+    facts = []
+    for f in DETAIL_FIELDS:
+        # The note fact is the note. The facts publish wrote under it are facts of their own, so a
+        # site without the nine fields reads the same way as one that has them.
+        value = note if f == "description" else a.get(f)
+        if value not in (None, "", []):
+            facts.append({"label": SUMMARY_LABELS.get(f, f),
+                          "value": str(value).replace("\n", " ")[:200]})
+    # A typed field wins over the same fact in the description: it is the queryable one.
+    seen = {x["label"] for x in facts}
+    facts += [x for x in written if x["label"] not in seen]
     return {
         "id": d["id"], "code": a.get("code") or str(d["id"]),
         # site.statuses yields (label, code); an artist reads "Approved", never "apr" (probe 009).
@@ -362,6 +448,22 @@ def sources(v):
         if detail:
             out.append((key, f"{label} — {detail}"))
     return out
+
+
+def no_media(v):
+    """Why this Version cannot be read here, said to the person who has to fix it.
+
+    A Version nothing was ever published to is a different problem from one whose files are on a
+    root this machine has not mounted, and the two fixes have nothing in common. A read the site
+    answered with an error told us nothing about the storage, so the storage is not blamed for it.
+    """
+    who = f'Version {v["id"]} ({v.get("code") or v["id"]})'
+    if v.get("published_files_error"):
+        return f'{who} has no media this node can read. {v["published_files_error"]}'
+    if v.get("published_files") or v.get("sg_path_to_frames") or v.get("sg_path_to_movie"):
+        return (f"{who} has no media this node can read. Check that the storage holding its files "
+                f"is mounted on this machine.")
+    return f"{who} has no media. Publish media to it, or pick another Version."
 
 
 def kind_of(v, key):
@@ -464,7 +566,8 @@ def _resolve(v, key):
     if key == "thumbnail":
         # probe 013 — a transcode still in flight serves a placeholder from this path, not the media.
         img = v.get("image")
-        return "thumbnail" if isinstance(img, str) and "/images/status/transient/" not in img else ""
+        return ("a preview the site made"
+                if isinstance(img, str) and "/images/status/transient/" not in img else "")
     return ""
 
 
@@ -732,6 +835,11 @@ def budget_bytes(gib=0):
     return int((gib if gib > 0 else DEFAULT_BUDGET_GIB) * 2 ** 30)
 
 
+def gib(n):
+    """Bytes as GiB. Three significant digits, so a budget under a tenth of a GiB still reads."""
+    return f"{float(f'{n / 2 ** 30:.3g}'):g}"
+
+
 def frames_that_fit(size, budget):
     """How many frames of this size one batch can hold."""
     w, h = size
@@ -739,12 +847,11 @@ def frames_that_fit(size, budget):
 
 
 def _budget(size, count, budget):
-    """Refuse a batch past `budget`, naming the resolution and how many frames do fit at it."""
+    """Refuse a batch past `budget`: what to set, then the numbers that say why."""
     w, h = size
     need = w * h * 3 * 4 * int(count)     # float32 RGB, which is what an IMAGE tensor holds
     if need > budget:
         raise FPTError(
-            f"{count} frames of {w}×{h} would need {need / 2 ** 30:.1f} GiB as one IMAGE batch. "
-            f"This machine is set to build at most {budget / 2 ** 30:.1f} GiB in one go. Set "
-            f"frame_count to {frames_that_fit(size, budget)} or less at this resolution, or raise "
-            f"batch_budget_gib in profile.local.json.")
+            f"Set frame_count to {frames_that_fit(size, budget)} or less at this resolution. "
+            f"{count} frames of {w}×{h} would need {gib(need)} GiB as one batch; the limit is "
+            f"{gib(budget)} GiB, batch_budget_gib in profile.local.json.")

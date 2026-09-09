@@ -191,13 +191,21 @@ class SGPublishVersion:
             # the site can resolve it; the original stays put so a failed publish is recoverable.
             out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
                                            pattern)
-            out["frames_pattern"] = pattern
-            out["frames_code"] = os.path.basename(pattern)
+            # One frame is a file, not a sequence: the `%04d` pattern names nothing on disk, so what
+            # is registered — and what `path_cache` holds — is the file itself.
+            single = len(out["frames"]) == 1
+            out["frames_pattern"] = str(out["frames"][0]) if single else pattern
+            out["frames_code"] = os.path.basename(out["frames_pattern"])
             out["frames_name"] = pl.name
             # The Version's path fields hold one absolute path each, written for the platform the
             # profile picks; the files themselves are written under this machine's root.
+            # `sg_path_to_frames` holds a sequence, so a still leaves it empty and says so.
             if pf.get("path_to_frames", True):
-                out["frames_field"] = sequence.field_path(pl, pattern)
+                if single:
+                    out["frames_note"] = ("This publish is a single image, so no frame path was "
+                                          "written on the Version.")
+                else:
+                    out["frames_field"] = sequence.field_path(pl, pattern)
         if want_movie:
             # The clip's real extension, because a deliverable is never transformed: a `.mov` off
             # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
@@ -365,7 +373,7 @@ class SGPublishVersion:
         # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
         upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
         for vid in (provenance.loaded_versions(prompt or {}, unique_id)
-                    + lineage.for_nodes(upstream)):
+                    + lineage.for_nodes(upstream, prompt)):
             if vid not in src_ids:
                 src_ids.append(vid)
         # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
@@ -471,7 +479,7 @@ class SGPublishVersion:
 
             file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
                                         task_id, count, note, colour_space, src_ids,
-                                        lineage.files_for_nodes(upstream))
+                                        lineage.files_for_nodes(upstream, prompt))
         except Exception as e:
             raise RuntimeError(" ".join(x for x in (
                 str(e),
@@ -485,6 +493,8 @@ class SGPublishVersion:
         if skipped_paths:
             published.append(f"This site has no {', '.join(skipped_paths)}. Ask an admin to add "
                              f"them, so the files open from the Version.")
+        if (staged or {}).get("frames_note"):
+            published.append(staged["frames_note"])
         if count > 1:
             skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
             if skipped:

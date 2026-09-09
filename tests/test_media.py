@@ -89,6 +89,19 @@ def test_how_many_frames_fit_is_the_batchs_own_size():
     assert media.frames_that_fit((3840, 2160), 1) == 1
 
 
+def test_a_small_budget_reads_as_itself_rather_than_as_zero():
+    assert media.gib(0.05 * 2 ** 30) == "0.05"
+    assert media.gib(4 * 2 ** 30) == "4"
+
+
+def test_a_budget_under_a_tenth_of_a_gib_is_named_in_the_refusal():
+    with pytest.raises(FPTError) as e:
+        media._budget((1920, 1080), 20, media.budget_bytes(0.05))
+    assert str(e.value) == ("Set frame_count to 2 or less at this resolution. 20 frames of "
+                            "1920×1080 would need 0.463 GiB as one batch; the limit is 0.05 GiB, "
+                            "batch_budget_gib in profile.local.json.")
+
+
 def test_no_budget_set_is_the_built_in_fallback():
     assert media.budget_bytes(0) == media.DEFAULT_BUDGET_GIB * 2 ** 30
     assert media.budget_bytes("not a number") == media.DEFAULT_BUDGET_GIB * 2 ** 30

@@ -49,7 +49,7 @@ const CSS = `
 .sg-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .sg-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   color: #b9c0c8; white-space: nowrap; }
-.sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
+.sg-body > .sg-run, .sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
 .sg-body > .sg-dim, .sg-body > .sg-err, .sg-body > .sg-ok, .sg-body > .sg-alert,
 .sg-body > .sg-full, .sg-body > .sg-v:only-child { grid-column: 1 / -1; }
 /* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
@@ -68,7 +68,6 @@ const CSS = `
 .sg-ok { color: #7fd18b; }
 .sg-err { color: #f08a8a; white-space: pre-wrap; }
 .sg-dim { color: #7f868f; }
-.sg-gone { text-decoration: line-through; opacity: .5; }
 .sg-code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #f2f5f8;
   letter-spacing: .01em; overflow-wrap: anywhere; min-width: 0; }
 .sg-badge { display: inline-flex; align-items: center; gap: 3px; }
@@ -97,6 +96,17 @@ const PROVENANCE = {
   unrecorded: "no generation record",
 };
 
+/** Bytes as GiB, the way the node's own refusal prints them: three significant digits, and a
+ *  budget under a tenth of a GiB still reads as itself. */
+const gib = (bytes) => String(Number((bytes / 2 ** 30).toPrecision(3)));
+
+/** The refusal the run would raise, said before the Run: what to set, then why. A batch is one
+ *  float32 RGB tensor, so N frames of W×H cost N·W·H·12 bytes to build. */
+const budgetSentence = (b, frames) =>
+  `Set frame_count to ${b.fits} or less at this resolution. ${frames} frames of `
+  + `${b.width}×${b.height} would need ${gib(frames * b.width * b.height * 12)} GiB as one batch; `
+  + `the limit is ${b.gib} GiB, batch_budget_gib in profile.local.json.`;
+
 /** A destination this panel will link to. Everything else is drawn as plain text, so a path or a
  *  URL that came off the site cannot carry a `javascript:` scheme into an href. */
 const linkable = (u) => /^(?:https?|file):/i.test(String(u ?? "").replace(/[\t\n\r]/g, "").trim());
@@ -114,19 +124,19 @@ function pill(label, rgb) {
     `${label}</span>`;
 }
 
-/** What the run would record, field by field. A field the site does not have is struck through
- *  rather than hidden, and a field with no value is dimmed rather than dropped: an absent seed on a
- *  graph with no sampler is worth knowing before you publish. */
+/** What the run would record, field by field. A field with no value is dimmed rather than dropped:
+ *  an absent seed on a graph with no sampler is worth knowing before you publish. Where a value
+ *  lands is said beside it, because a fact in the description is not a fact in a field. */
 function writesBlock(d) {
   const f = d && d.fields;
   if (!f || !f.length) return "";
   const row = (x) => {
-    const dead = !x.present;
     const empty = !x.value;
-    return `<div class="sg-row"><span class="sg-k${dead ? " sg-gone" : ""}">${
-      esc(x.name.replace(/^ai_/, ""))}</span><span class="sg-v${
-      dead ? " sg-gone" : empty ? " sg-dim" : ""}">${
-      esc(x.value || x.note || "—")}</span></div>`;
+    const where = x.into_description && !empty
+      ? ` <span class="sg-dim">into the description</span>` : "";
+    return `<div class="sg-row"><span class="sg-k">${
+      esc(x.name.replace(/^ai_/, ""))}</span><span class="sg-v${empty ? " sg-dim" : ""}">${
+      esc(x.value || x.note || "—")}${where}</span></div>`;
   };
   // sg-full, not a .sg-row with one child: the grid rule reads the DOM tree, so a lone .sg-v
   // inside a display:contents row does not match it and two filenames sit side by side.
@@ -177,6 +187,21 @@ export function addPanel(node, title = "SG", onLayout = null) {
   };
   const body = root.querySelector(".sg-body");
   const detail = more.querySelector(".sg-body");
+  // What the last run did, kept rather than drawn once: every redraw of the readout rewrites the
+  // body, and a run's Version id and file paths are the one thing on this panel that is nowhere
+  // else. It goes when the next Run starts, or when a widget on the node changes.
+  let lastRun = null;
+  // One block, so drawing it again replaces it rather than adding a second copy of the same run.
+  const drawLog = () => {
+    body.querySelectorAll(".sg-run").forEach((e) => e.remove());
+    if (!lastRun) return;
+    const cls = lastRun.ok ? "sg-ok" : "sg-err";
+    body.insertAdjacentHTML("beforeend",
+      `<div class="sg-run"><div class="sg-sec">last run</div>` +
+      lastRun.lines.map((l) => `<div class="${cls}">${esc(l)}</div>`).join("") + `</div>`);
+  };
+  /** Replace the readout, keeping the run log under it. */
+  const setBody = (html) => { body.innerHTML = html; drawLog(); };
 
   // Both rows span the node's widget grid. fitNode measures the node's rendered DOM, so one pass
   // after the browser has laid out is the answer and nothing predicts a height.
@@ -220,7 +245,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
       if (d && d.error) {
         t.innerHTML = esc(title);
         badgeEl.innerHTML = "";
-        body.innerHTML = `<div class="sg-err">${esc(d.error)}</div>`;
+        setBody(`<div class="sg-err">${esc(d.error)}</div>`);
         fold("");
         relayout();
         return;
@@ -233,7 +258,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
         // pill's explanation, not fine print. One full-width row per candidate, name then status —
         // the icon identifies the status (recipe 010) and a column of coloured pills would compete
         // with the names, which are what is being read.
-        body.innerHTML =
+        setBody(
           `<div class="sg-dim">${esc((d && d.why) || "No Version matches these fields yet.")}</div>` +
           (near.length
             ? `<div class="sg-sec">versions on this link</div>` + near.map((v) =>
@@ -241,7 +266,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
                 (v.status && v.status.label
                   ? `<span class="sg-cand-st">${iconHtml(v.status.icon, v.status.rgb)}` +
                     `${esc(v.status.label)}</span>` : "") + `</div>`).join("")
-            : "");
+            : ""));
         fold("");
         relayout();
         return;
@@ -270,48 +295,55 @@ export function addPanel(node, title = "SG", onLayout = null) {
         // `?? 0`, not `|| 0`: 0 is the value that means "all of them", and it is also the
         // declared default, so an absent widget and an explicit 0 have to read the same.
         const f = d.frames, ask = Number(d.frame_ask || 0), n = Number(d.count_ask ?? 0);
-        const span = f.first === f.last ? `${f.first}` : `${f.first}-${f.last}`;
-        let note = `${span}, ${f.count} frame${f.count === 1 ? "" : "s"}.`;
-        if (ask && (ask < f.first || ask > f.last)) {
-          note += ` Frame ${ask} is not in the sequence. Pick one between ${f.first} and ${f.last}.`;
+        // A movie answers with a count and no numbering, a sequence with both. The arithmetic is
+        // the same either way, and so is the batch the frames have to fit in.
+        const first = Number(f.first ?? 1);
+        const count = Number(f.count ?? 0);
+        const last = Number(f.last ?? first + Math.max(count, 1) - 1);
+        const span = first === last ? `${first}` : `${first}-${last}`;
+        let note = `${span}, ${count} frame${count === 1 ? "" : "s"}.`;
+        let got = 0;
+        if (ask && (ask < first || ask > last)) {
+          note += ` Frame ${ask} is not in the sequence. Pick one between ${first} and ${last}.`;
         } else {
-          const at = ask || f.first;
-          const got = n <= 0 ? f.last - at + 1 : Math.min(n, f.last - at + 1);
+          const at = ask || first;
+          got = n <= 0 ? last - at + 1 : Math.min(n, last - at + 1);
           note += got === 1 ? ` Reads frame ${at}.` : ` Reads ${got} frames from ${at}.`;
-          // Said before the Run, not after it: one batch is a single tensor, and a plate too big
-          // to hold is a refusal the operator can avoid by setting frame_count or raising the
-          // budget. The same numbers the run would use.
-          if (d.batch && got > d.batch.fits) {
-            over = `Set frame_count to ${d.batch.fits} or less, or raise batch_budget_gib in `
-              + `profile.local.json above ${d.batch.gib} GiB. `
-              + `${got} frames of ${d.batch.width}×${d.batch.height} do not fit in one batch.`;
-          }
         }
+        // Said before the Run, not after it: one batch is a single tensor, and a plate too big to
+        // hold is a refusal the operator can avoid by setting frame_count or raising the budget.
+        // The same numbers the run would use, whatever the frames are read from.
+        if (d.batch && got > d.batch.fits) over = budgetSentence(d.batch, got);
         rows.push(["frames", note]);
       }
       if (d.colour_space) rows.push(
         ["colour space", `${d.colour_space}. Declared on the file, not converted.`]);
       for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
-      // The one line that never folds: what is wrong with the name directly above it.
-      const alert = d.alert || over;
-      body.innerHTML = (alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") + plain(rows);
+      // The one line that never folds: what is wrong with the name directly above it. A notice
+      // about how this Version was resolved is not that line, and never takes its place — a pinned
+      // id and a batch too big to read are both true at once, and only one of them needs acting on.
+      const alert = over || d.alert || "";
+      const notice = over ? (d.alert || "") : "";
+      if (over) setState("warn");
+      setBody((alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") +
+        (notice ? `<div class="sg-dim">${esc(notice)}</div>` : "") + plain(rows));
       // The fold takes the reasoning behind a name the operator can already see, and the concepts
       // that are the same every publish: configuration-time reading, not pre-Run reading.
       fold((d.why ? `<div class="sg-why">${esc(d.why)}</div>` : "") +
         sourcesBlock(d) + writesBlock(d));
       relayout();
     },
-    /** What the node last did. Appended under the readout, not instead of it. */
+    /** What the node last did. Appended under the readout, and kept there through every later
+     *  redraw until `clearLog`. */
     log(lines, ok = true) {
-      const cls = ok ? "sg-ok" : "sg-err";
-      body.insertAdjacentHTML("beforeend",
-        `<div class="sg-sec">last run</div>` +
-        [].concat(lines).map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
+      lastRun = { lines: [].concat(lines), ok };
+      drawLog();
       relayout();
     },
     clearLog() {
-      body.querySelectorAll(".sg-sec, .sg-ok, .sg-err").forEach((e) => e.remove());
+      lastRun = null;
+      drawLog();
     },
   };
 }

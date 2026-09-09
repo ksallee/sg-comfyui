@@ -17,6 +17,9 @@ _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
 # The client's own line for a refused token request: `auth[ as 'x'] <status>: <body>`.
 _AUTH = re.compile(r"^auth\b[^:]*?(\d{3}): ", re.S)
+# The site's 404 for an entity that is not there: `Version: 1 not found`. Read as it stands it
+# looks like a field called Version, so it is said again in words before it is quoted.
+_NOT_FOUND = re.compile(r"^(\w+):\s*(\d+)\s+not found\.?$", re.I)
 
 # The widest id any query param may carry.
 _MAX_ID = 2 ** 31 - 1
@@ -48,6 +51,10 @@ def _sentence(e):
         out = json.loads(f'"{m.group(1)}"')[:200]   # the capture is still JSON-escaped
     except ValueError:
         out = m.group(1)[:200]
+    gone = _NOT_FOUND.match(out)
+    if gone:
+        return (f"{gone.group(1)} {gone.group(2)} does not exist on this site. Check the id, then "
+                f"run again. {out}")
     if "'sudo'" in out:
         out = f"{out.rstrip('.')}. Check Publish as under Settings, then SG."
     elif "authenticate script" in out:
@@ -80,17 +87,18 @@ def _batch_limit(v, key):
         return None
     budget = media.budget_bytes(site.profile().get("batch_budget_gib", 0))
     return {"width": size[0], "height": size[1],
-            "fits": media.frames_that_fit(size, budget), "gib": round(budget / 2 ** 30, 1)}
+            "fits": media.frames_that_fit(size, budget), "gib": media.gib(budget)}
 
 
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
-    """Where the files would land, resolved against the real storage row.
+    """(where the files would land, the sentence that stops them landing anywhere).
 
-    A publish that copies a sequence onto a shared volume is what an operator reads back before
-    pressing Run, and an unmounted root belongs here rather than at the end of a render.
+    Resolved against the real storage row, because a publish that copies a sequence onto a shared
+    volume is what an operator reads back before pressing Run. A storage that cannot be resolved is
+    the second half: it refuses the run, so it is the panel's alert rather than a line in the fold.
     """
     if not widgets.get("register_files"):
-        return []
+        return [], ""
     from . import publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
@@ -99,7 +107,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     want_frames = images
     want_movie = video and (not images or bool(pf.get("register_movie")))
     if not (want_frames or want_movie):
-        return []
+        return [], ""
     try:
         code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
                                                   link_type, target, task_id,
@@ -118,10 +126,10 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
             where.append(sequence.destination(pl, pl.movie_template, ext, version_no))
         if not os.path.isdir(pl.root):
             where.append(f"{pl.root} is not mounted. Mount it before you Run.")
-        return where
+        return where, ""
     except Exception as e:
-        return [f"Create Published Files is ticked, but the paths could not be worked out. "
-                f"{_sentence(e)}"]
+        return [], (f"Create Published Files is ticked, but the paths could not be worked out. "
+                    f"{_sentence(e)}")
 
 
 # The profile keys Settings may write, by their dotted path. Anything else stays a file edit.
@@ -646,7 +654,9 @@ def register():
                             if target and not described else sg_fields.CONCEPT_LABELS[concept],
                     "label": sg_fields.CONCEPT_LABELS[concept],
                     "value": show(v) if has else "",
-                    "present": True,
+                    # Where a value lands is the operator's own mapping, so a fact that goes into
+                    # the description says so beside its value rather than only where it has none.
+                    "into_description": described,
                     "note": note,
                 })
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
@@ -667,7 +677,7 @@ def register():
                      ("sg_task", f"Task {task_id}" if task_id else "",
                       "" if task_id else "No task picked.")]
             for name, val, note in plain:
-                rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
+                rows.append({"name": name, "value": str(val)[:160], "note": note})
 
             # Uploads are not fields, and a copy onto a shared volume is not an upload, so each is
             # its own list of what lands.
@@ -675,7 +685,7 @@ def register():
                        "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
-            writes = _files_preview(w, prof, pid, link_type, target, task_id)
+            writes, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
             # What this node will publish, from what is wired into it. The frame count and the
             # frame rate are run-time facts, so the panel states the rule and names the path
             # the run will take.
@@ -693,6 +703,8 @@ def register():
                 "fields": rows,
                 "uploads": uploads,
                 "writes": writes,
+                # A publish that cannot resolve its storage is not valid, whatever the name reads.
+                "alert": files_alert,
                 "media": media,
                 "sources": sources,
             })
