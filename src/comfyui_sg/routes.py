@@ -234,6 +234,38 @@ def _defaults():
             "path": str(site.profile_path())}
 
 
+# The provenance fields, for the Settings group that creates them. A site that refuses says so in
+# its own words; this sentence is what the operator does about it.
+FIELDS_REFUSED = ("Ask an admin to press this button, or run the command in INSTALL.md with a "
+                  "script key that can create fields.")
+
+
+def _fields_survey():
+    """Which provenance fields this site already has, by display and programmatic name."""
+    from . import fields as sg_fields
+    return sg_fields.survey(credentials.client())
+
+
+def _fields_create():
+    """Create whatever is missing: one row per field, the counts, and who to ask on a refusal."""
+    from . import fields as sg_fields
+    present, created, failed = sg_fields.ensure(credentials.client())
+    out = {"rows": sg_fields.outcome(present, created, failed), "present": len(present),
+           "created": len(created), "failed": len(failed), "total": len(sg_fields.FIELDS)}
+    if failed:
+        out["advice"] = FIELDS_REFUSED
+    return out
+
+
+def _fields_error(e):
+    """One sentence for a survey or a create that never started, plus who to ask on a refusal."""
+    from . import fields as sg_fields
+    sentence = _sentence(e)
+    if isinstance(e, sg_fields.Refused) and e.status in (401, 403):
+        return f"{sentence} {FIELDS_REFUSED}"
+    return sentence
+
+
 def register():
     try:
         from server import PromptServer  # only exists inside a running ComfyUI
@@ -700,6 +732,26 @@ def register():
                      "used": used.get(c, 0)}
                     for _, (l, c) in ordered]
         return items(rows)
+
+    @routes.get("/sg/fields")
+    async def fields_survey(request):
+        """How many of the provenance fields exist on this site, and which are missing."""
+        from . import fields as sg_fields
+        try:
+            return web.json_response(_fields_survey())
+        except Exception as e:
+            return web.json_response({"present": [], "missing": [],
+                                      "total": len(sg_fields.FIELDS), "error": _fields_error(e)})
+
+    @routes.post("/sg/fields")
+    async def fields_create(request):
+        """Create the provenance fields this site is missing, as whoever Settings is connected as."""
+        from . import fields as sg_fields
+        try:
+            return web.json_response(_fields_create())
+        except Exception as e:
+            return web.json_response({"rows": [], "present": 0, "created": 0, "failed": 0,
+                                      "total": len(sg_fields.FIELDS), "error": _fields_error(e)})
 
     site.warm()   # prime the setup caches now, not on the operator's first page load
     return True

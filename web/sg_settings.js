@@ -474,6 +474,102 @@ const colourRow = () => {
   return el;
 };
 
+// ---- Site setup: the provenance fields, and the one press that creates them -------------------
+
+const SETUP_CSS = `
+.sg-set .sg-rows { display: flex; flex-direction: column; gap: 2px; }
+`;
+
+let fieldsState = null;       // the last /sg/fields answer
+let loadingFields = null;
+
+function loadFields() {
+  loadingFields = loadingFields || call("/sg/fields").then((d) => {
+    fieldsState = d; loadingFields = null; redraw();
+  });
+  return loadingFields;
+}
+
+/** "A, B and C", so a list of missing names reads as a sentence. */
+const listed = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`);
+
+/** One field's outcome, in the colours the rest of the dialog uses: what is already there is dim,
+ *  what was just made is plain, and what the site refused is red with its own sentence. */
+function resultLine(f) {
+  const el = f.state === "failed" ? text("sg-bad") : f.state === "created" ? text() : note();
+  el.textContent = f.state === "failed" ? `${f.display} was not created. ${f.why}`
+    : f.state === "created" ? `${f.display} created.` : `${f.display} already exists.`;
+  return el;
+}
+
+/** How many provenance fields this site has, and the button that creates the rest. */
+function fieldsRow() {
+  styleOnce("sg-settings-setup", SETUP_CSS);
+  const value = text();
+  const btn = button("Create provenance fields");
+  const n = note();
+  // The result of a press, kept out of the note so a redraw of the readout leaves it standing.
+  const results = document.createElement("div");
+  results.className = "sg-rows";
+
+  const connected = (s) => s.how === "script" || (s.how === "person" && s.alive);
+
+  const say = (cls, sentence) => {
+    const el = cls ? text(cls) : note();
+    el.textContent = sentence;
+    results.replaceChildren(el);
+  };
+
+  const readout = () => {
+    const d = fieldsState;
+    value.className = "sg-text";
+    if (!d) { value.textContent = "Loading…"; n.textContent = ""; return; }
+    if (d.error) { value.textContent = d.error; value.classList.add("sg-bad"); n.textContent = ""; return; }
+    const missing = (d.missing || []).map((f) => f.display);
+    value.textContent = `${(d.present || []).length} of ${d.total} exist on this site.`;
+    n.textContent = missing.length
+      ? `${listed(missing)} ${missing.length === 1 ? "is" : "are"} missing. `
+        + "Press Create provenance fields to add them."
+      : "";
+  };
+
+  btn.addEventListener("click", async () => {
+    btn.disabled = true;
+    say("", "Asking the site…");
+    const d = await call("/sg/fields", { body: {} });
+    if (d.error) {
+      say("sg-bad", d.error);
+    } else {
+      results.replaceChildren(...(d.rows || []).map(resultLine));
+      if (d.advice) { const a = note(); a.textContent = d.advice; results.append(a); }
+      fieldsState = null;
+      await loadFields();   // the readout now says what the site holds, not what it held
+    }
+    btn.disabled = false;
+  });
+
+  const el = row(() => {
+    const s = status || {};
+    value.className = "sg-text";
+    if (!status) { value.textContent = "Checking…"; btn.disabled = true; return; }
+    if (!connected(s)) {
+      value.textContent = s.how === "person" ? "Your login has expired. Log in again."
+        : "Not connected. Log in, or enter a script name and application key.";
+      value.classList.add("sg-off");
+      btn.disabled = true;
+      n.textContent = "";
+      results.replaceChildren();
+      if (!loadingFields) fieldsState = null;
+      return;
+    }
+    btn.disabled = false;
+    if (!fieldsState && !loadingFields) loadFields();
+    readout();
+  });
+  el.append(line(value, btn), n, results);
+  return el;
+}
+
 // Every entry declares a value type ComfyUI never sees: `type` as a function draws the row, and
 // the setter it is handed is never called, so the settings store keeps its default and nothing
 // else. `defaultValue` is what addSetting insists on. The category path is three deep, the way
@@ -490,10 +586,16 @@ const GROUP_PERSON = "Log In As Yourself";
 const GROUP_SCRIPT = "Script Authentication";
 const GROUP_DEFAULTS = "SG Defaults";
 const GROUP_PUBLISH = "SG Publish Defaults";
+// Last of all: this group is pressed once per site and never again.
+const GROUP_SETUP = "SG Site Setup";
 
 app.registerExtension({
   name: "sg-comfyui.settings",
   settings: [
+    entry("Fields", "Provenance fields", GROUP_SETUP, fieldsRow,
+      "The nine AI fields on Version, so a publish records its prompt, model and seed where a "
+      + "filter or a page layout can read them. Without them the same facts go in the Version's "
+      + "description."),
     // Defaults, last row first. They edit the profile for the project the nodes open on; a graph
     // can still override the templates and the tick on the node itself.
     entry("ColourSpace", "Colour space", GROUP_PUBLISH, colourRow,
