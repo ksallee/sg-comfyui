@@ -116,12 +116,20 @@ def frame_numbers(pattern):
 
 
 def frame_range(v, key):
-    """(first, last, count) of the sequence this source reads, or None when it is not a sequence.
+    """(first, last, count) of what this source reads, or None where nothing on disk answers.
 
-    For the panel, so `frame` is a number the operator can see rather than one they guess at.
+    For the panel, so `frame` is a number the operator can see rather than one they guess at. A
+    sequence is numbered by its filenames; a movie is numbered from 1 and its length comes off the
+    container header, which is one file open and no decode.
     """
     nums = frame_numbers(pattern_of(v, key))
-    return (nums[0][0], nums[-1][0], len(nums)) if nums else None
+    if nums:
+        return (nums[0][0], nums[-1][0], len(nums))
+    if kind_of(v, key) == "movie":
+        h = _header(_first_file(v, key))
+        if h and h["frames"]:
+            return (1, h["frames"], h["frames"])
+    return None
 
 
 def frame_size(v, key):

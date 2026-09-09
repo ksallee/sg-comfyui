@@ -228,6 +228,19 @@ def test_frame_counts_decoded_frames_in_a_movie(tmp_path):
     assert torch.equal(images, whole[2:4])
 
 
+def test_a_movie_says_how_many_frames_it_has(tmp_path):
+    _, v = movie(tmp_path, frames=8)
+    # Off the container header, so the panel can warn about a batch before the run rather than
+    # after it. A movie is numbered from 1.
+    assert media.frame_range(v, "movie") == (1, 8, 8)
+
+
+def test_a_movie_on_no_machine_here_reports_no_range():
+    v = {"id": 1, "published_files": [],
+         "sg_uploaded_movie": {"url": "https://s3/x?sig", "name": "plate.mov"}}
+    assert media.frame_range(v, "uploaded") is None
+
+
 def test_a_movie_past_the_budget_is_refused_before_it_is_all_decoded(tmp_path, monkeypatch):
     _, v = movie(tmp_path, frames=64)
     seen = []
