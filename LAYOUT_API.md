@@ -21,43 +21,74 @@ Consequences you have to respect:
 
 | export | what it does |
 |---|---|
+| `call(url, {body, signal})` | one route, decoded; every failure is a sentence |
+| `cascade()` | one run of dependent reads at a time |
 | `searchPicker(node, target, opts)` | trigger + popup, writes into the declared widget `target` |
 | `chipSelect(node, target, opts)` | status chips in the control column |
 | `hideWidget(widget)` | hide a declared widget (`hidden` **and** `options.hidden`) |
 | `advancedWidget(widget)` | put a widget inside the editor's own "Show advanced inputs" fold |
 | `dontSerialize(widget)` | keep an injected widget out of `widgets_values` |
 | `restoreValue(widget, value)` | set a saved value **and** keep it selectable, so no red ring |
-| `restoreDeclaredWidgets(nodeType)` | chain an `onConfigure` that re-applies saved values correctly |
+| `restoreDeclaredWidgets(nodeType, declared)` | chain an `onConfigure` that re-applies saved values by name |
 | `domRow(node, name, {label, control, target})` | the raw row, for anything not a picker |
 | `fitNode(node)` | set `node.size` from what the node actually renders |
 | `iconHtml(icon, rgb)` | one status icon, three renderings (recipe 010) |
 | `vueNodesEnabled()` / `requireVueNodes(node)` | Nodes 2.0 detection, and the notice when it is off |
 
+### `call(url, {body, signal})`
+
+Every round trip in `web/` goes through it, the Settings rows included, and it never throws. A
+failure answers `{items: [], error}` — the shape a picker already reads — and the three failures are
+told apart: a server that did not answer, a **404**, and a body that is not JSON. A 404 is a
+ComfyUI that started before this version of the pack was installed, since the routes register when
+ComfyUI imports it, so it is its own sentence: *The running ComfyUI predates this version of the
+pack. Restart ComfyUI, then reload this page.* `body` makes it a POST. A request aborted by its
+caller answers `{aborted: true}` and no sentence, because that caller is about to stop anyway.
+
+### `cascade()`
+
+The sequence guard. `begin()` aborts what the previous cascade still has in flight and answers a
+token; the token's `live` is false from the moment a later `begin()` runs. Every step of
+`loadProject` → `loadLinks` → `loadTasks` takes the token its entry point began with and checks
+`live` after **every** await, before it writes anything — a widget's options, a picked id, the
+panel. Picking Chariot and then Barbarian would otherwise leave Barbarian's links beside Chariot's
+statuses, and a publish is filed against whatever the last answer wrote. A step that reads a
+sentence instead of rows stops the cascade there: the saved values stay, and the sentence goes to
+the panel.
+
 ### `searchPicker(node, target, opts)`
 
-Signature unchanged. Options:
+Options:
 
-| option | since | meaning |
-|---|---|---|
-| `search(q)` | — | async, returns items (below). Multi-word goes to the server |
-| `placeholder` | — | placeholder inside the popup's search box |
-| `onPick(item)` | — | after `target.value` is written and the popup closed |
-| `label` | — | the left column. **Lower case now** — it sits beside `task`, not above it |
-| `empty` | new | the sentence shown when a search matches nothing |
+| option | meaning |
+|---|---|
+| `search(q, {live, signal})` | async, returns items (below). Multi-word goes to the server |
+| `placeholder` | placeholder inside the popup's search box |
+| `onPick(item)` | after `target.value` is written and the popup closed |
+| `label` | the left column, lower case: it sits beside `task`, not above it |
+| `empty` | the sentence shown when a search matches nothing |
+
+A search has its own guard, the picker's rather than the node's: `signal` aborts the request a newer
+keystroke supersedes, and anything the search itself records — the ids a picked label is turned back
+into — goes behind `live()`.
 
 An **item** is `{value, name, type, code, image}`; only `value` and `name` are required.
 `code` is preferred over `type` on the right of a row. `image` draws a 22px thumbnail; the slot is
 reserved on every row as soon as one row has a picture, so names stay aligned.
 
-Returns `{refresh, relayout, close}`. `refresh(item?)` redraws the trigger; pass the current item to
+Returns `{refresh, relayout}`. `refresh(item?)` redraws the trigger; pass the current item to
 put its thumbnail on the trigger too.
 
 The popup is appended to `<body>` and positioned `fixed`, because a node lives inside a transformed,
-clipping ancestor. It closes on outside click, wheel, resize and Escape; ↑/↓ move, Enter picks.
+clipping ancestor. It closes on outside click, wheel, resize and Escape; ↑/↓ move, Enter picks —
+except while a keystroke's own answer is still coming, where Enter picks nothing, because the rows
+on screen are the previous search's.
 
 ### `chipSelect(node, target, opts)`
 
-Signature unchanged. Options: `load()` as before, plus `label` (new, left column) and `empty` (new).
+Options: `load()`, `label` (left column) and `empty`. It reads nothing when it is built: the chips
+are for one project, and which project that is arrives a round trip later, so the caller calls
+`reload()` once it knows. Returns `{reload}`.
 
 ### `domRow(node, name, {label, control, target})`
 
@@ -102,8 +133,10 @@ Worse, the frontend's save and restore disagree even when the property is set: `
 while `configure()` reads with a counter that only advances on serialized widgets.
 
 So: call `dontSerialize` on **every** widget you add (`addWidget("button", …)` included — litegraph
-never sets the flag itself), and call `restoreDeclaredWidgets(nodeType)` once per node type. It
-prefers `widgets_values_named`, which is always written, and falls back to the index the save used.
+never sets the flag itself), and call `restoreDeclaredWidgets(nodeType, declared)` once per node
+type, `declared` being the widget names in `INPUT_TYPES` order, derived from the definition the
+server sent. It maps by name: `widgets_values_named`, which the editor always writes, or an array
+exactly as long as `declared`. Any other shape is left to the frontend rather than guessed at.
 
 ### `fitNode(node)`
 
@@ -114,9 +147,10 @@ sets `node.size` to that.
 
 ### `requireVueNodes(node)`
 
-`if (!requireVueNodes(this)) return;` at the top of `onNodeCreated`. When Nodes 2.0 is off it adds a
-full-width button that opens Settings, suffixes the node title, and answers `false`. It never flips
-the setting: that changes the operator's whole editor.
+`if (!requireVueNodes(this)) return;` at the top of `onNodeCreated`. When Nodes 2.0 is off it adds
+two full-width buttons — the sentence naming the setting to turn on, and one line saying the lists
+on the node do not update on the classic canvas — suffixes the node title once, and answers `false`.
+Both buttons open Settings. It never flips the setting: that changes the operator's whole editor.
 
 ## `web/sg_panel.js`
 
@@ -125,13 +159,19 @@ the setting: that changes the operator's whole editor.
 | where | what is in it |
 |---|---|
 | head, always | the Version's name, its status pill, the state pill |
-| body, always | an error; `d.alert`; why nothing resolved and what IS there; `d.provenance`, `d.facts`, `d.generated_from`; the last run's log |
+| body, always | an error; `d.alert`; why nothing resolved and what IS there; `d.provenance`, `d.format`, `d.frames`, `d.facts`, `d.generated_from`; the last run's log |
 | the fold | `d.link`, `d.task`, `d.echo`, `d.why`, `d.sources`, `d.fields` and `d.uploads` |
+
+A field the site does not have is struck through in the fold, and nothing there says how to create
+one: that is the site's own job, not a node's.
 
 The line is what a widget already answers. `link`, `task` and everything in `d.echo` are the node's
 own combos read back — three rows higher, in the operator's own words — so the readout repeating
 them is noise where the name is supposed to be the signal. `d.facts` is what only the site knows
 about this Version and stays in front of them.
+
+`d.format` is one plain line under the image and video rows, from `/sg/resolve`: what the file the
+Load node will read IS. Nothing is drawn when the answer carries none.
 
 `d.alert` is the exception that never folds: one amber line saying the name above it is **not** the
 name a Run would write. `/sg/preview_code` answers it — a template renders what it can and drops
