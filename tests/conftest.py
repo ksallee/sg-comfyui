@@ -1,8 +1,10 @@
 """What every test needs before the first import: the package on the path, and the fakes.
 
-Nothing here reaches the site, ComfyUI or torch. `sg_groundtruth`, `numpy`, `Pillow` and
-`requests` are the only third-party imports the suite makes.
+Nothing here reaches the site. `sg_groundtruth`, `numpy`, `Pillow` and `requests` are the only
+third-party imports the suite requires; a machine that also has torch and a ComfyUI checkout runs the
+tests that decode real pixels, and every other machine skips those (`DECODES`).
 """
+import os
 import sys
 import types
 from pathlib import Path
@@ -12,9 +14,32 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
+# Reading a frame is ComfyUI's own decoder's job, so the tests that read one need a checkout of it.
+COMFYUI = os.environ.get("COMFYUI_PATH", os.path.expanduser("~/dev/ComfyUI"))
+if os.path.isdir(COMFYUI) and COMFYUI not in sys.path:
+    sys.path.append(COMFYUI)
+
 # The node modules import torch at module scope and call it only inside a run, so a bare module
 # object is enough to make every module importable on a machine that has no torch.
-sys.modules.setdefault("torch", types.ModuleType("torch"))
+try:
+    import torch                        # noqa: F401
+except ImportError:
+    sys.modules.setdefault("torch", types.ModuleType("torch"))
+
+
+def _can_decode():
+    try:
+        import comfy_api.latest._input_impl.video_types    # noqa: F401
+        import comfy_extras.nodes_images                   # noqa: F401
+    except Exception:
+        return False
+    return hasattr(sys.modules.get("torch"), "Tensor")
+
+
+CAN_DECODE = _can_decode()
+# For a test that decodes pixels rather than one that only names a file.
+DECODES = pytest.mark.skipif(not CAN_DECODE,
+                             reason="torch and a ComfyUI checkout read the pixels; set COMFYUI_PATH")
 
 # The repo root holds ComfyUI's entry point `__init__.py`, so pytest collects the root as a package
 # and imports that file under the name `__init__`, where its relative import cannot resolve. The

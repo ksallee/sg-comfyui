@@ -475,6 +475,10 @@ def register():
                 # big to read in one go before the Run rather than after it. Only a sequence
                 # answers: a movie's size would cost a decode.
                 "batch": _batch_limit(v, key),
+                # What the `image` output will actually read, off the first file's header: bit depth
+                # and channels are the difference between a plate and a preview, and neither is
+                # visible in a filename.
+                "format": media.describe_format(v, key),
                 "colour_space": media.colour_of(v, key)}
         return answer(read, {"id": 0, "media": []})
 

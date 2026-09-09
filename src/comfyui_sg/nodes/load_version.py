@@ -8,7 +8,6 @@ rather than a Version id. `pin_version_id` is the escape hatch and overrides eve
 """
 import json
 
-import numpy as np
 import torch
 
 from .. import lineage, media, resolve, site, widgets
@@ -109,11 +108,23 @@ class SGLoadVersion:
         """
         return True
 
+    # | output | what it carries |
+    # |---|---|
+    # | image | the frames read, float32 [N,H,W,3] |
+    # | version_id | the Version resolved, for a node downstream to name |
+    # | code | that Version's name |
+    # | colour_space | what the publisher declared, "" when nothing was |
+    # | video | the clip, or the frames wrapped at a stated rate |
+    # | mask | 1 - alpha, or a zero mask where the source has no alpha |
+    #
     # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
     # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
     # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
-    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO")
-    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video")
+    #
+    # `mask` is appended last, after `video`, because an output slot is additive: a graph saved
+    # before it existed keeps every link it had.
+    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO", "MASK")
+    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video", "mask")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
     DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "
@@ -164,12 +175,12 @@ class SGLoadVersion:
                            f"{allowed}.")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
                             newest_by, p.get("code_regex", ""), cls._filters(filters),
-                            where=site.unset(link) or "")
+                            where=site.unset(link) or "", template=p.get("code_template", ""))
 
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
-                   source=AUTO, frame=0, frame_count=1, **kw):
+                   source=AUTO, frame=0, frame_count=0, **kw):
         """The id this node WOULD load, so it re-executes when that changes and only then.
 
         ComfyUI otherwise caches on unchanged widgets, and a node resolving by rule keeps serving
@@ -187,7 +198,7 @@ class SGLoadVersion:
 
     def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-              frame=0, frame_count=1, unique_id=None, prompt=None):
+              frame=0, frame_count=0, unique_id=None, prompt=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:
@@ -208,9 +219,12 @@ class SGLoadVersion:
         v = media.version(sg, vid)
         available = media.sources(v)
         if not available:
+            # A site that answered with an error told us nothing about the storage, and saying the
+            # storage is unmounted would send the operator to the wrong place.
+            trouble = v.get("published_files_error") or \
+                "Check that the storage holding its files is mounted on this machine."
             raise ValueError(
-                f"Version {vid} ({v.get('code')}) has no media this node can read. Check that the "
-                f"storage holding its files is mounted on this machine.")
+                f"Version {vid} ({v.get('code')}) has no media this node can read. {trouble}")
 
         # Each output takes its own best; a picked source makes both read that one file.
         if source in (AUTO, UNSET):
@@ -231,19 +245,22 @@ class SGLoadVersion:
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0))
 
-        frames = media.load_frames(v, key, frame, frame_count,
-                                  site.profile().get("batch_budget_gib", 0))
-        a = np.stack([np.array(img, dtype=np.float32) / 255.0 for img in frames])
+        images, alpha = media.load_frames(v, key, frame, frame_count,
+                                          site.profile().get("batch_budget_gib", 0))
+        n = int(images.shape[0])
+        # ComfyUI's own convention (nodes.LoadImage): the mask is the inverse of the alpha channel,
+        # and a source carrying none gets a 64×64 zero mask rather than a shape every node
+        # downstream has to special-case.
+        mask = 1.0 - alpha[..., -1] if alpha is not None else torch.zeros((n, 64, 64))
         colour = media.colour_of(v, key)
         # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
         # line saying "from 0" would name a frame that does not exist.
         rng = media.frame_range(v, key)
         at = (rng[0] if rng else 1) if int(frame) <= 0 else int(frame)
-        got = f"{len(frames)} frames from {at}" if len(frames) > 1 else f"frame {at}"
+        got = f"{n} frames from {at}" if n > 1 else f"frame {at}"
         # A batch that came back short is a fact about the media, said out loud rather than left for
         # the graph downstream to discover as a wrong frame count.
-        short = f", short of the {frame_count} asked for" if len(frames) < int(frame_count) else ""
-        images = torch.from_numpy(a)
+        short = f", short of the {frame_count} asked for" if n < int(frame_count) else ""
         # The clip is fetched only when something reads it: a download nobody asked for is a cost,
         # and the frames wrapped at a stated rate are a video too.
         if clip_key and _wired(prompt, unique_id, 4):
@@ -253,7 +270,7 @@ class SGLoadVersion:
             video, clip_why = _wrap(images, fps), f"the frames at {fps:g} fps, {fps_why}"
         print(f"[SG] Loaded Version {vid}: {why}. Source {key}, {got}{short}. Video: {clip_why}."
               + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
-        return (images, vid, v.get("code") or "", colour, video)
+        return (images, vid, v.get("code") or "", colour, video, mask)
 
 
 def _wired(prompt, node_id, slot):

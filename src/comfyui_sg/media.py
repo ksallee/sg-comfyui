@@ -44,8 +44,8 @@ TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
 
 STILL = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".exr")
 
-# docs/quirks — the frame-pattern field is free text with no validation, and printf padding, Shake
-# `#` and `@` all occur in the wild. Assuming `%04d` would silently mis-read half of them.
+# The frame-pattern field is free text with no validation, and printf padding, Shake `#` and `@` all
+# occur in the wild. Assuming `%04d` would silently mis-read half of them.
 SEQ = re.compile(r"%0?(\d*)d|(#+)|(@+)")
 
 # recipe 004 — a LocalStorage root is per platform and a row may define only one, so the other two
@@ -119,19 +119,72 @@ def frame_range(v, key):
 def frame_size(v, key):
     """(width, height) of this source's first frame, or None where nothing on disk answers.
 
-    PIL reads the header and stops, so this costs a file open rather than a decode. Only a sequence
-    answers: a movie's size needs the container opened, which the panel must not pay for.
+    Only a sequence answers: a movie's size needs the container opened, which the panel must not pay
+    for.
     """
-    from PIL import Image
-
     nums = frame_numbers(pattern_of(v, key))
-    if not nums:
+    h = _header(nums[0][1]) if nums else None
+    return (h["width"], h["height"]) if h else None
+
+
+def _header(path):
+    """What a file's container header says, or None when it will not open.
+
+    PyAV parses the header and stops, so this costs a file open rather than a decode.
+    """
+    import av
+
+    if not path:
         return None
     try:
-        with Image.open(nums[0][1]) as im:
-            return im.size
-    except OSError:
+        with av.open(path) as container:
+            s = container.streams.video[0]
+            fmt = s.format
+            comps = list(fmt.components) if fmt else []
+            return {"container": (os.path.splitext(path)[1].lstrip(".")
+                                  or container.format.name).upper(),
+                    "width": s.width, "height": s.height,
+                    "bits": max((c.bits for c in comps), default=8),
+                    "float": "f32" in (fmt.name if fmt else ""),
+                    "channels": len(comps),
+                    "alpha": any(c.is_alpha for c in comps),
+                    "frames": int(s.frames or 0)}
+    except Exception:
         return None
+
+
+CHANNELS = {1: "greyscale", 3: "RGB", 4: "RGBA"}
+
+
+def describe_format(v, key):
+    """What this source is, in one line: "16-bit PNG, RGBA, 1920x1080, 48 frames."
+
+    Read off the first file's container header, so a sequence costs one file open and nothing is
+    decoded. The declared colour space follows as its own sentence when the publisher recorded one.
+    Empty where the file is not on this machine: an upload would have to be fetched to be described.
+    """
+    nums = frame_numbers(pattern_of(v, key))
+    h = _header(nums[0][1] if nums else _first_file(v, key))
+    if not h:
+        return ""
+    # A still image container reports no frame count of its own, and one file is one frame.
+    count = len(nums) or h["frames"] or (1 if kind_of(v, key) == "still" else 0)
+    parts = [f'{h["bits"]}-bit float {h["container"]}' if h["float"]
+             else f'{h["bits"]}-bit {h["container"]}',
+             CHANNELS.get(h["channels"], f'{h["channels"]} channels'),
+             f'{h["width"]}x{h["height"]}']
+    if count:
+        parts.append(f"{count} frames" if count > 1 else "1 frame")
+    colour = colour_of(v, key)
+    return ", ".join(parts) + "." + (f" Colour space declared {colour}." if colour else "")
+
+
+def _first_file(v, key):
+    """The one file this source's format can be read off, or "" when nothing local answers."""
+    pf = pf_of(v, key)
+    if pf:
+        return pf["path"]
+    return v.get("sg_path_to_movie") or "" if key == "movie" else ""
 
 
 def _frames_on_disk(pattern):
@@ -143,35 +196,65 @@ def _frames_on_disk(pattern):
 # --- one Version ---------------------------------------------------------------------------------
 
 def published_files(sg, version_id):
-    """Every PublishedFile on this Version, flattened to what a picker and a loader need.
+    """Every readable PublishedFile on this Version, as a plain list for a picker.
 
-    recipe 004 — `path` comes back with the LocalStorage join already done, so nothing here reads
-    LocalStorage or reassembles a root. A row whose path this platform has no root for reads null,
-    which is the storage row's configuration and not something a reader can fix.
+    What stopped a read is dropped here and kept by `version`, because the caller that has nothing to
+    show is the one that has to explain why.
+    """
+    return _published_files(sg, version_id)[0]
+
+
+def _published_files(sg, version_id):
+    """(rows, why) — the read itself, with what stopped it.
+
+    recipe 004 — a `local` path comes back with the LocalStorage join already done, so nothing here
+    reads LocalStorage or reassembles a root. A row whose path this platform has no root for reads
+    null, which is the storage row's configuration and not something a reader can fix.
+
+    field_types/url — read `link_type` first. A `local` value has no `url` key at all and an
+    `upload` one (probe 013, the three-call flow) has no local path, so a reader that indexes one
+    shape drops every row of the other. A `web` row is skipped: it names a file on a machine that is
+    not this one.
 
     Never raises: a Version whose files cannot be read must still offer its path fields and its
-    upload, the same way an unreachable site still lets a graph open.
+    upload, the same way an unreachable site still lets a graph open. `why` is what stopped the read,
+    so a caller says that rather than blaming the storage.
     """
     from .site import ARRAY_JSON
     try:
         r = sg.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
             "filters": [["version", "is", {"type": "Version", "id": int(version_id)}]],
             "fields": ["path", "description", "published_file_type"], "page": {"size": 200}})
-        if not r.ok:
-            return []
+    except Exception as e:
+        return [], (f"The published files could not be read. Check the connection in "
+                    f"Settings, then run again. {e}")
+    if not r.ok:
+        return [], (f"The published files could not be read. Try again. The site answered "
+                    f"{r.status_code}. {r.text[:200]}")
+    try:
         rows = r.json().get("data", [])
-    except Exception:
-        return []
+    except ValueError:
+        return [], ("The published files could not be read. Try again. The site's answer was "
+                    "not JSON.")
     out = []
     for d in rows:
         a = d.get("attributes") or {}
+        path = a.get("path") or {}
+        link = path.get("link_type") or "local"
+        if link == "web":
+            continue
         pft = ((d.get("relationships") or {}).get("published_file_type") or {}).get("data") or {}
         m = COLOUR.search(a.get("description") or "")
-        out.append({"id": d["id"], "path": (a.get("path") or {}).get(LOCAL_PATH) or "",
+        local = path.get(LOCAL_PATH) or "" if link == "local" else ""
+        out.append({"id": d["id"], "link": link, "path": local,
+                    "url": path.get("url") or "" if link == "upload" else "",
+                    # The stored `source` value is built from this, so a local row is named by its
+                    # file on disk and an uploaded one by the name the site holds.
+                    "name": os.path.basename(local) if link == "local" else path.get("name") or "",
                     # A file whose type this site never labelled is still a file (probe 021).
                     "type": pft.get("name") or "published file",
                     "colour": m.group(1).strip() if m else ""})
-    return out
+    return out, ""
 
 
 def version(sg, version_id):
@@ -186,8 +269,9 @@ def version(sg, version_id):
                        f"it still exists, then run again. The site answered {r.status_code}. "
                        f"{r.text[:200]}")
     d = r.json()["data"]
+    files, why = _published_files(sg, version_id)
     return {**d.get("attributes", {}), "id": d["id"],
-            "published_files": published_files(sg, version_id)}
+            "published_files": files, "published_files_error": why}
 
 
 def provenance_state(attrs, sources):
@@ -246,7 +330,7 @@ def pf_key(pf):
     never the label. It is also the stored widget value, so a file later renamed or re-typed stops
     matching and the node says so by name rather than loading the wrong file.
     """
-    return f'{pf["type"]} · {os.path.basename(pf["path"])} #{pf["id"]}'
+    return f'{pf["type"]} · {pf["name"]} #{pf["id"]}'
 
 
 def pf_of(v, key):
@@ -272,7 +356,7 @@ def sources(v):
     for pf in v.get("published_files") or []:
         detail = _pf_detail(pf)
         if detail:
-            out.append((pf_key(pf), f'{pf["type"]} — {os.path.basename(pf["path"])}, {detail}'))
+            out.append((pf_key(pf), f'{pf["type"]} — {pf["name"]}, {detail}'))
     for key, label in TIERS:
         detail = _resolve(v, key)
         if detail:
@@ -281,8 +365,16 @@ def sources(v):
 
 
 def kind_of(v, key):
-    """"sequence", "still" or "movie": the shape of what one source delivers."""
+    """"sequence", "still", "movie" or "zip": the shape of what one source delivers.
+
+    Only "zip" cannot be read. It is still offered, because a person who published a sequence as one
+    upload should see it named rather than wonder where it went.
+    """
     pf = pf_of(v, key)
+    if pf and pf["link"] != "local":
+        # An uploaded sequence is one zip, so a frame pattern in the name means nothing here.
+        name = pf["name"].lower()
+        return "zip" if name.endswith(".zip") else "still" if name.endswith(STILL) else "movie"
     if pf:
         name = pf["path"]
     elif key == "frames":
@@ -324,13 +416,16 @@ def best(v, want, available=None):
 def clip(v, key):
     """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
     in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
-    from comfy_api.input_impl import VideoFromFile
+    import io
+
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
     pf = pf_of(v, key)
+    if pf and pf["link"] == "upload":
+        return VideoFromFile(io.BytesIO(_download(pf["url"])))
     path = pf["path"] if pf else v.get("sg_path_to_movie") if key == "movie" else ""
     if path:
         return VideoFromFile(path)
     if key == "uploaded":
-        import io
         return VideoFromFile(io.BytesIO(_download(v["sg_uploaded_movie"]["url"])))
     raise FPTError(f"{key} is not a clip this node can hand on as a video.")
 
@@ -344,8 +439,11 @@ def frame_rate(v):
 
 
 def _pf_detail(pf):
-    """What one PublishedFile would deliver, or "" if it would deliver nothing here."""
-    path = pf.get("path") or ""
+    """What one PublishedFile would deliver, by kind, or "" if it would deliver nothing here."""
+    if pf["link"] == "upload":
+        # Bytes on the site: nothing local can say how many frames are inside.
+        return "zip on the site" if pf["name"].lower().endswith(".zip") else "uploaded file"
+    path = pf["path"]
     if not path:
         return ""            # probe 021 — a PublishedFile need not carry a path at all
     if SEQ.search(path):
@@ -387,10 +485,14 @@ def load(v, key, frame=1):
     """(bytes, filename) for one source. Raises with the reason rather than returning something wrong."""
     pf = pf_of(v, key)
     if pf:
+        if pf["link"] == "upload":
+            if pf["name"].lower().endswith(".zip"):
+                raise FPTError("This file is a zip and cannot be read yet. Pick another source.")
+            return _download(pf["url"]), pf["name"]
         if not pf["path"]:
             raise FPTError(f'Published File {pf["id"]} has no path this machine can open. Pick '
-                           f'another source, or set this platform\'s path on the storage in Flow '
-                           f'PT. The empty field is {LOCAL_PATH}.')
+                           f'another source, or set this platform\'s path on the storage in SG. '
+                           f'The empty field is {LOCAL_PATH}.')
         return _at_frame(pf["path"], frame)
     if key == "frames":
         return _at_frame(v.get("sg_path_to_frames"), frame)
@@ -437,7 +539,9 @@ def _download(url):
 
 
 def load_frames(v, key, start=0, count=1, budget=0):
-    """`count` PIL images from frame `start`. One item is exactly what a single-frame read returns.
+    """(images, alpha) for `count` frames from frame `start`, as ComfyUI's own decoder returns them.
+
+    `images` is float32 [N,H,W,3]; `alpha` is [N,H,W,1] or None where the source carries none.
 
     `start` is the frame NUMBER — the one in the filename and the one SG shows — not a position
     in the list. `start` 0 is the first frame the source actually has, and `count` 0 is every frame
@@ -463,44 +567,117 @@ def load_frames(v, key, start=0, count=1, budget=0):
                 f"the sequence itself starts at.")
         chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
-        # never has to refuse frame_count 500, and a 500-frame one still does.
-        return _stack(_stills(chosen), len(chosen),
-                      f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
-                      budget_bytes(budget))
+        # never has to refuse frame_count 500, and a 500-frame one still does. The first file's
+        # header carries the size, so a batch too big is refused before one frame is decoded.
+        head = _header(chosen[0])
+        if head:
+            _budget((head["width"], head["height"]), len(chosen), budget_bytes(budget))
+        return _batch(_stack(
+            _stills(chosen), len(chosen),
+            f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
+            budget_bytes(budget)))
     # Not a sequence: one blob, and a movie's frames come out of decoding it. A container carries no
     # frame numbers, so here `start` counts decoded frames from 1 and 0 means the same as 1.
     at = max(start, 1)
     data, filename = load(v, key, at)
-    return _stack(_decode(data, filename, at), count,
-                  f"{filename} has no frame {at}. Pick a lower frame number.",
-                  budget_bytes(budget))
+    return _batch(_stack(_decode(data, filename, at), count,
+                         f"{filename} has no frame {at}. Pick a lower frame number.",
+                         budget_bytes(budget)))
+
+
+def _components(source, filename):
+    """(images, alpha) out of one image file or blob, through ComfyUI's own decoder.
+
+    `VideoFromFile(...).get_components()` is the call core Load Image makes. Frames come back float32
+    [N,H,W,3] with the alpha channel separate, so a 16-bit PNG keeps its levels and a 32-bit float
+    EXR keeps its range and its values above 1. Pillow reads the first as two levels and cannot open
+    the second at all, which is why nothing on this path goes through it.
+
+    One image at a time: it reads a whole container into memory, and a movie is read by `_frames_of`
+    for that reason.
+    """
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
+
+    try:
+        got = VideoFromFile(source).get_components()
+    except Exception as e:
+        raise FPTError(f"{filename} could not be decoded. Check that the file is complete, then run "
+                       f"again. {e}")
+    if got.images.shape[0] == 0:
+        raise FPTError(f"{filename} holds no image this node can read. Pick another source.")
+    return got.images, got.alpha
 
 
 def _stills(paths):
-    from PIL import Image
+    """(image, alpha, name) for each file of a sequence — one frame per file, which is what a
+    sequence is."""
     for p in paths:
-        yield Image.open(p).convert("RGB"), os.path.basename(p)
+        name = os.path.basename(p)
+        images, alpha = _components(p, name)
+        yield images[0], None if alpha is None else alpha[0], name
+
+
+# The pixel formats ComfyUI's decoder reads as 8-bit and scales, rather than converting to planar
+# float (video_types.get_components_internal).
+EIGHT_BIT = ("yuvj420p", "yuvj422p", "yuvj444p", "rgb24", "rgba", "pal8")
 
 
 def _decode(data, filename, start=1):
-    """Frames out of one blob: a still is itself, a movie is decoded from `start` to its end."""
+    """(image, alpha, name) out of one blob: a still is itself, a movie is every frame from `start`.
+
+    A still is read whole, because one file is one image. A movie is decoded frame by frame, so the
+    ceiling below refuses a long plate before all of it is in memory rather than after.
+    """
     import io
 
-    from PIL import Image
-
     if filename.lower().endswith(STILL):
-        yield Image.open(io.BytesIO(data)).convert("RGB"), filename
+        images, alpha = _components(io.BytesIO(data), filename)
+        single = images.shape[0] == 1
+        for i in range(int(start) - 1, images.shape[0]):
+            yield images[i], None if alpha is None else alpha[i], \
+                filename if single else f"{filename} frame {i + 1}"
         return
-    try:
-        import av   # ships with ComfyUI for its video nodes; see DESIGN
-    except ImportError:
-        raise FPTError(f"{filename} is a movie, and decoding one needs PyAV. Install av into the "
-                       f"Python that runs ComfyUI, or pick a still image source.")
-    with av.open(io.BytesIO(data)) as container:
+    yield from _frames_of(io.BytesIO(data), filename, int(start))
+
+
+def _frames_of(blob, filename, start=1):
+    """(image, alpha, name) for every frame of a container from `start`, one decode at a time.
+
+    The pixel format is the one ComfyUI's decoder picks for that stream: an 8-bit RGB or full-range
+    JPEG stream converts to `rgb24`/`rgba` and scales by 255, and everything else converts straight
+    to planar float, which is what keeps a 10-bit or float stream at its own precision. The alpha
+    channel comes off the same conversion and is handed back separately, as core hands it back.
+
+    Core pads a frame whose width is not a multiple of 32 before converting, against an ffmpeg
+    alignment artefact at the right and bottom edge. Nothing here does, and an h264 stream at such a
+    width reads identically either way.
+    """
+    import av
+    import torch
+
+    fmt = alpha_channel = eight_bit = None
+    with av.open(blob) as container:
         stream = container.streams.video[0]
-        for i, got in enumerate(container.decode(stream), start=1):
-            if i >= int(start):
-                yield got.to_image().convert("RGB"), f"{filename} frame {i}"
+        stream.thread_type = "AUTO"
+        for n, frame in enumerate(container.decode(stream), start=1):
+            if fmt is None:
+                alpha_channel = frame.format.name == "pal8" or \
+                    any(c.is_alpha for c in frame.format.components)
+                eight_bit = frame.format.name in EIGHT_BIT
+                fmt = ("rgba" if alpha_channel else "rgb24") if eight_bit else \
+                      ("gbrapf32le" if alpha_channel else "gbrpf32le")
+            if n < start:
+                continue
+            a = torch.from_numpy(frame.to_ndarray(format=fmt))
+            if eight_bit:
+                a = a.float() / 255.0
+            yield (a[..., :-1], a[..., -1:], f"{filename} frame {n}") if alpha_channel \
+                else (a, None, f"{filename} frame {n}")
+
+
+def _size(image):
+    """(width, height) of one decoded frame, which arrives height first."""
+    return int(image.shape[1]), int(image.shape[0])
 
 
 def _stack(frames, count, empty, budget):
@@ -511,21 +688,21 @@ def _stack(frames, count, empty, budget):
     torch's reply to a size change mid-sequence names two shapes and no filename.
     """
     out = []
-    for img, name in frames:
+    for img, alpha, name in frames:
         if not out:
-            _budget(img.size, max(count, 1), budget)
-        elif img.size != out[0].size:
-            w, h = img.size
-            w0, h0 = out[0].size
+            _budget(_size(img), max(count, 1), budget)
+        elif _size(img) != _size(out[0][0]):
+            w, h = _size(img)
+            w0, h0 = _size(out[0][0])
             raise FPTError(
                 f"{name} is {w}×{h} but this batch started {w0}×{h0}. Frames of different sizes "
                 f"cannot go into one IMAGE. Load the runs separately, or resize before the batch.")
-        out.append(img)
+        out.append((img, alpha))
         # `count` 0 is "everything there is". A sequence knows how many that is before it reads
         # anything and arrives here with a real number; a movie does not, so the budget is checked
         # against what has accumulated.
         if count <= 0:
-            _budget(out[0].size, len(out), budget)
+            _budget(_size(out[0][0]), len(out), budget)
         elif len(out) >= count:
             break
     if not out:
@@ -533,13 +710,26 @@ def _stack(frames, count, empty, budget):
     return out
 
 
+def _batch(frames):
+    """(images, alpha) as two tensors. A batch mixing files with and without an alpha channel has no
+    one alpha, and says so by returning None."""
+    import torch
+
+    images = torch.stack([img for img, _ in frames])
+    alpha = None if any(a is None for _, a in frames) else torch.stack([a for _, a in frames])
+    return images, alpha
+
+
 def budget_bytes(gib=0):
-    """Bytes one IMAGE batch may cost. 0 means the built-in fallback."""
+    """Bytes one IMAGE batch may cost. Anything that is not a positive number is the fallback.
+
+    A negative budget would refuse every batch there is, with a sentence naming a negative ceiling.
+    """
     try:
-        gib = float(gib or 0) or DEFAULT_BUDGET_GIB
+        gib = float(gib or 0)
     except (TypeError, ValueError):
-        gib = DEFAULT_BUDGET_GIB
-    return int(gib * 2 ** 30)
+        gib = 0
+    return int((gib if gib > 0 else DEFAULT_BUDGET_GIB) * 2 ** 30)
 
 
 def frames_that_fit(size, budget):
