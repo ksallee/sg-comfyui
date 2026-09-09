@@ -49,9 +49,14 @@ const CSS = `
 .sg-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .sg-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   color: #b9c0c8; white-space: nowrap; }
-.sg-body > .sg-run, .sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
+.sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
 .sg-body > .sg-dim, .sg-body > .sg-err, .sg-body > .sg-ok, .sg-body > .sg-alert,
-.sg-body > .sg-full, .sg-body > .sg-v:only-child { grid-column: 1 / -1; }
+.sg-body > .sg-full, .sg-body > .sg-v:only-child,
+.sg-run > .sg-sec, .sg-run > .sg-dim, .sg-run > .sg-err, .sg-run > .sg-ok, .sg-run > .sg-full
+  { grid-column: 1 / -1; }
+/* The run block is one removable node in the DOM and no box in the grid, so its rows sit on the
+   same two columns as the readout above them. */
+.sg-run { display: contents; }
 /* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
    a width so a site's own field names still widen the column. The two boxes are two widgets and so
    two grids; the shared floor is what keeps them from sitting six characters apart. */
