@@ -20,7 +20,8 @@ import os
 from PIL import Image
 
 from .. import fields as sg_fields
-from .. import lineage, movie, naming, provenance, publish, sequence, site, widgets
+from .. import (lineage, movie, naming, provenance, publish, sequence, site,
+                version_name, widgets)
 
 MAX_ID = 2 ** 31 - 1
 # The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
@@ -125,51 +126,6 @@ class SGPublishVersion:
                 "unique_id": "UNIQUE_ID",
             },
         }
-
-    @classmethod
-    def missing_fields(cls, template, root_template, project_id, link_id, task_id):
-        """The pickers a name needs and does not have, by their on-screen names, in order.
-
-        A template renders what it can and drops the rest, so a bare `v004` would come back looking
-        finished. Both templates are read, because `{root_name}` hides whatever the root asks for.
-        The panel and the run share this, so the alert and the refusal are one sentence.
-        """
-        p = site.for_project(project_id)
-        template = (template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip()
-        root_t = (root_template or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
-        needs = {f.split(".")[0] for f in
-                 naming.template_fields(template) + naming.template_fields(root_t)}
-        return [name for name, filled in (("link", "entity" not in needs or link_id),
-                                          ("task", "task" not in needs or task_id)) if not filled]
-
-    @classmethod
-    def next_name(cls, template, project_id, link_type, link_id, task_id, root_template=""):
-        """(code, version number) this node would publish next.
-
-        The number comes back because the path template needs the same one: a Version called v003
-        and a sequence written to `v001/` would be two answers to one question. `{root_name}` is
-        rendered first and handed to the version template as a value, because that template is
-        `{root_name}_v{version:03d}` — the stream composed, then versioned.
-        """
-        # An empty widget means the profile's default, the same rule `_stage` applies to the
-        # folder, so the name and the folder cannot come from two different templates.
-        p = site.for_project(project_id)
-        template = (template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip()
-        if not naming.template_fields(template) and "{version" not in naming.normalise_template(template):
-            return template, 1       # a literal name, used as-is
-        root_t = (root_template or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
-        fields = set(naming.template_fields(template)) | set(naming.template_fields(root_t))
-        vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
-        vals["root_name"] = naming.render(root_t, vals)
-        codes = [c for c, _, _ in site.find_versions(project_id, link_type, link_id)]
-        n = naming.next_version(codes, template, vals)
-        return naming.render(template, vals, n), n
-
-    @classmethod
-    def next_code(cls, template, project_id, link_type, link_id, task_id, root_template=""):
-        """The code this node would publish next. Shared with /sg/preview_code and `seed.py`."""
-        return cls.next_name(template, project_id, link_type, link_id, task_id,
-                             root_template)[0]
 
     @classmethod
     def VALIDATE_INPUTS(cls, project=None, link=None, task=None, status=None):
@@ -367,7 +323,8 @@ class SGPublishVersion:
                              f"the list.")
         task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
         # The same sentence the panel shows, refused before the site is written to.
-        missing = self.missing_fields(code_template, root_name, project_id, target, task_id)
+        missing = version_name.missing_fields(code_template, root_name, project_id, target,
+                                              task_id)
         if missing:
             raise ValueError(f"Fill in the required fields ({', '.join(missing)}).")
         status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
@@ -407,8 +364,8 @@ class SGPublishVersion:
         # The template decides the name, rendered from the entity and task it is actually linked to.
         # A real version-number field is authoritative where the site has one (Toolkit sites usually
         # do); the template's own {version} is the fallback for the many sites that do not.
-        code, version_no = self.next_name(code_template, project_id, link_type, target, task_id,
-                                          root_name)
+        code, version_no = version_name.next_name(code_template, project_id, link_type, target,
+                                                  task_id, root_name)
         vnum_field = p.get("version_number_field", "")
         next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
                     if vnum_field and target else None)

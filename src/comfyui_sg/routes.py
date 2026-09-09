@@ -95,8 +95,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """
     if not widgets.get("register_files"):
         return []
-    from . import naming, publish, sequence
-    from .nodes.publish_version import SGPublishVersion as PV
+    from . import naming, publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
@@ -113,8 +112,8 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
         root_t = (widgets.get("root_name", "") or prof.get("root_name")
                   or naming.DEFAULT_ROOT_TEMPLATE)
-        code, version_no = PV.next_name(widgets.get("code_template", ""), project_id, link_type,
-                                        target, task_id, root_t)
+        code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
+                                                  link_type, target, task_id, root_t)
         # `{root_name}` and `{version_name}` are rendered here, never looked up: resolve_paths knows
         # neither, and the run hands the path these same two names (publish_version._stage).
         fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
@@ -489,8 +488,7 @@ def register():
         q = request.rel_url.query
 
         def read():
-            from . import naming
-            from .nodes.publish_version import SGPublishVersion as PV
+            from . import naming, version_name
             site.client()     # nothing to preview until someone is connected: the sentence names Settings
             project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
             p = site.for_project(project_id)
@@ -502,11 +500,12 @@ def register():
             task_id = _id_for(site.tasks_for(lt, target), q.get("task", "")) \
                 if (q.get("task") and target) else 0
             root_t = q.get("root_name", "")            # the ROOT template, not the version's name
-            code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id, root_t)
+            code = version_name.next_code(q.get("code_template", ""), project_id, lt, target,
+                                          task_id, root_t)
             # Name the fields to fill in, never the consequence of leaving them empty. The run
             # refuses on the same list, so the alert is a promise.
-            missing = PV.missing_fields(q.get("code_template", ""), root_t, project_id, target,
-                                        task_id)
+            missing = version_name.missing_fields(q.get("code_template", ""), root_t, project_id,
+                                                  target, task_id)
             if q.get("link") and not target:
                 alert = f"No {lt} named {picked_name} on this project. Pick one from the list."
             elif missing:

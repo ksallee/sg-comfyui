@@ -4,8 +4,9 @@ Setup path. A chain has to start somewhere: a graph that reads its plate from Co
 cannot be pointed at SG until that plate is *in* SG, so `/track-workflow` offers this
 before it replaces a loader.
 
-Naming, link, task and version-number resolution are the publish node's own — `next_code` is called
-here rather than reimplemented, so a seeded Version follows the show's convention like any other.
+Naming, link, task and version-number resolution are the publish node's own — `version_name` is
+called here rather than reimplemented, so a seeded Version follows the show's convention like any
+other.
 
 It writes no AI fields by design: a file on disk does not say how it was made, so the Version reads
 as `unrecorded` (media.provenance_state) rather than claiming a provenance nobody measured.
@@ -13,8 +14,7 @@ as `unrecorded` (media.provenance_state) rather than claiming a provenance nobod
 import argparse
 from pathlib import Path
 
-from . import naming, publish, site
-from .nodes.publish_version import SGPublishVersion
+from . import naming, publish, site, version_name
 
 
 def _pick(pairs, label):
@@ -22,7 +22,8 @@ def _pick(pairs, label):
     return next((i for name, i in pairs if name == label), 0)
 
 
-def seed(path, project="", link="", task="", code="", template="", status="", note="", output=""):
+def seed(path, project="", link="", task="", code="", template="", status="", note="",
+         root_name=""):
     """Create one Version from a local file. Returns (version_id, code)."""
     data = Path(path).read_bytes()
     sg = site.client()
@@ -46,9 +47,9 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     task_id = _pick(site.tasks_for(link_type, target), task) if (task and target) else 0
     status_code = next((c for label, c in site.statuses(project_id) if label == status), "")
 
-    name = code or SGPublishVersion.next_code(
-        template or p.get("code_template", ""), project_id, link_type, target, task_id,
-        output or Path(path).stem)
+    name = code or version_name.next_code(
+        template, project_id, link_type, target, task_id,
+        root_name or Path(path).stem)
 
     fields = {}
     if note:
@@ -69,7 +70,7 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     publish.upload(sg, vid, data, filename, field="image")
     publish.upload(sg, vid, data, filename, field="sg_uploaded_movie")
     # Seeding several files in one run must re-read the codes it just wrote, or every one numbers v001.
-    site.forget("find", "versions_on", "vnums", "paths")
+    site.forget("find", "versions", "vnums", "paths")
     return vid, name
 
 
@@ -85,16 +86,18 @@ def _cli(argv=None):
     ap.add_argument("--code", default="",
                     help="the exact name to use. Leave it out to follow the show's convention.")
     ap.add_argument("--template", default="", help="a name template to use instead of the "
-                                                   "project's code_template.")
+                                                   "Version name under Settings, then SG.")
     ap.add_argument("--status", default="")
     ap.add_argument("--note", default="", help="a note for the Version description. Say what "
                                                "this file is a stand-in for.")
-    ap.add_argument("--output", default="", help="what this file is, for example depth or matte. "
-                                                 "It fills {output} in the name template.")
+    ap.add_argument("--root-name", default="", dest="root_name",
+                    help="the name every version of this publish shares, as a template or a plain "
+                         'word, for example "{entity}_depth" or "depth". Leave it out to use the '
+                         "file's own name.")
     a = ap.parse_args(argv)
     for path in a.path:
         vid, name = seed(path, a.project, a.link, a.task, a.code, a.template, a.status, a.note,
-                         a.output)
+                         a.root_name)
         print(f"  {Path(path).name} -> Version {vid}  {name}")
     return 0
 
