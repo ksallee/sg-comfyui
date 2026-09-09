@@ -134,6 +134,8 @@ def _header(path):
     """
     import av
 
+    if not path:
+        return None
     try:
         with av.open(path) as container:
             s = container.streams.video[0]
@@ -149,6 +151,40 @@ def _header(path):
                     "frames": int(s.frames or 0)}
     except Exception:
         return None
+
+
+CHANNELS = {1: "greyscale", 3: "RGB", 4: "RGBA"}
+
+
+def describe_format(v, key):
+    """What this source is, in one line: "16-bit PNG, RGBA, 1920x1080, 48 frames."
+
+    Read off the first file's container header, so a sequence costs one file open and nothing is
+    decoded. The declared colour space follows as its own sentence when the publisher recorded one.
+    Empty where the file is not on this machine: an upload would have to be fetched to be described.
+    """
+    nums = frame_numbers(pattern_of(v, key))
+    h = _header(nums[0][1] if nums else _first_file(v, key))
+    if not h:
+        return ""
+    # A still image container reports no frame count of its own, and one file is one frame.
+    count = len(nums) or h["frames"] or (1 if kind_of(v, key) == "still" else 0)
+    parts = [f'{h["bits"]}-bit float {h["container"]}' if h["float"]
+             else f'{h["bits"]}-bit {h["container"]}',
+             CHANNELS.get(h["channels"], f'{h["channels"]} channels'),
+             f'{h["width"]}x{h["height"]}']
+    if count:
+        parts.append(f"{count} frames" if count > 1 else "1 frame")
+    colour = colour_of(v, key)
+    return ", ".join(parts) + "." + (f" Colour space declared {colour}." if colour else "")
+
+
+def _first_file(v, key):
+    """The one file this source's format can be read off, or "" when nothing local answers."""
+    pf = pf_of(v, key)
+    if pf:
+        return pf["path"]
+    return v.get("sg_path_to_movie") or "" if key == "movie" else ""
 
 
 def _frames_on_disk(pattern):
