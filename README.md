@@ -188,9 +188,8 @@ loaded clip a real input to a video graph.
 1003rd file. Leave it at **0** and it starts wherever the sequence starts, which is what a 1001-based
 plate wants and why it usually needs no typing at all. The panel shows the range the source actually
 has, so you are not guessing. Ask for a frame that is not there and it is refused, naming the range;
-it will never quietly hand back a different frame. `frame_count` **0** reads to the end, and defaults
-to `1`, the single image the node always returned, so nothing already saved changes. The ceiling is a
-size rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
+it will never quietly hand back a different frame. `frame_count` **0**, the default, reads to the
+end. The ceiling is a size rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
 resolution, instead of running out of VRAM. Frames of differing resolution cannot stack and are
 refused by name.
 

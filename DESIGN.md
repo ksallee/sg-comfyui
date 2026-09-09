@@ -309,7 +309,7 @@ these widgets are the ones in this repo, and they move in the same commit. After
 the rule is the old one — append, never insert, never remove.
 
 A node's real widget array is longer than `INPUT_TYPES` declares, because the editor extension injects
-its own: 14 slots against 11 declared inputs on SG Publish, 15 against 10 on SG Load. That is why
+its own pickers, chips and panel between the declared widgets. That is why
 `instrument.py`, `tools/smoke.py` and `web/sg_entity_picker.js` write values against one declared
 order instead of counting inputs. A value written by position without it lands in the wrong widget and
 nothing reports it.
