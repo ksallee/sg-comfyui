@@ -243,7 +243,7 @@ class SGLoadVersion:
         # came off a PublishedFile makes the downstream dependency that one file rather than every
         # file the ancestor ever published.
         pf = media.pf_of(v, key)
-        lineage.record(unique_id, vid, (pf or {}).get("id", 0))
+        lineage.record(unique_id, vid, (pf or {}).get("id", 0), prompt)
 
         images, alpha = media.load_frames(v, key, frame, frame_count,
                                           site.profile().get("batch_budget_gib", 0))

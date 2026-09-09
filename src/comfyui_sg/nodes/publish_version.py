@@ -365,7 +365,7 @@ class SGPublishVersion:
         # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
         upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
         for vid in (provenance.loaded_versions(prompt or {}, unique_id)
-                    + lineage.for_nodes(upstream)):
+                    + lineage.for_nodes(upstream, prompt)):
             if vid not in src_ids:
                 src_ids.append(vid)
         # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
@@ -471,7 +471,7 @@ class SGPublishVersion:
 
             file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
                                         task_id, count, note, colour_space, src_ids,
-                                        lineage.files_for_nodes(upstream))
+                                        lineage.files_for_nodes(upstream, prompt))
         except Exception as e:
             raise RuntimeError(" ".join(x for x in (
                 str(e),
