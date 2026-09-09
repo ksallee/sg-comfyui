@@ -451,13 +451,13 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## 07 — Retime / fill dropped frames\n\n24 fps in, 48 fps out, with FILM synthesising every second frame. Non-generative: no sampler, no\nseed, no prompt — the model interpolates the plate it was given.\n\n**Model:** `film_net_fp16.safetensors` (0.06 GB) in `ComfyUI/models/frame_interpolation/`, from\n[Comfy-Org/frame_interpolation](https://huggingface.co/Comfy-Org/frame_interpolation). FILM is\nGoogle Research's frame-interpolation, Apache-2.0. RIFE also loads here and is smaller, but\nupstream Practical-RIFE disclaims its pretrained weights, so FILM is the one to demo.\n\nCore nodes only (`comfy_extras/nodes_frame_interpolation.py`). Do not install\nComfyUI-Frame-Interpolation — it pulls in `cupy-wheel`.\n\nThe Flow PT Version is published from **one synthesised in-between frame**: the publish path makes\none Version per frame, so tapping all 23 would make 23 Versions. The conformed clip itself is\nSaveVideo's output on disk."
+        "## 07 — Retime / fill dropped frames\n\n24 fps in, 48 fps out, with FILM synthesising every second frame. Non-generative: no sampler, no\nseed, no prompt — the model interpolates the plate it was given.\n\n**Model:** `film_net_fp16.safetensors` (0.06 GB) in `ComfyUI/models/frame_interpolation/`, from\n[Comfy-Org/frame_interpolation](https://huggingface.co/Comfy-Org/frame_interpolation). FILM is\nGoogle Research's frame-interpolation, Apache-2.0. RIFE also loads here and is smaller, but\nupstream Practical-RIFE disclaims its pretrained weights, so FILM is the one to demo.\n\nCore nodes only (`comfy_extras/nodes_frame_interpolation.py`). Do not install\nComfyUI-Frame-Interpolation — it pulls in `cupy-wheel`.\n\nThe Flow Production Tracking Version is published from **one synthesised in-between frame**: the publish path makes\none Version per frame, so tapping all 23 would make 23 Versions. The conformed clip itself is\nSaveVideo's output on disk."
       ],
       "title": "Retime — what this is"
     },
     {
       "id": 12,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1100,
         -300
@@ -483,7 +483,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -499,7 +499,7 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — retime"
+      "title": "SG Publish — retime"
     }
   ],
   "links": [

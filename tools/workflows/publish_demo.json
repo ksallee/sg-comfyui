@@ -295,7 +295,7 @@
     },
     {
       "id": 10,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1700,
         180
@@ -321,7 +321,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -331,13 +331,13 @@
         "{entity}_beauty",
         "{entity}_beauty_v{version:03d}",
         false,
-        "generated here, published straight to Flow PT",
+        "generated here, published straight to Flow Production Tracking",
         "",
         "",
         0,
         true
       ],
-      "title": "Flow PT Publish Version"
+      "title": "SG Publish"
     }
   ],
   "links": [

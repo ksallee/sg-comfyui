@@ -24,7 +24,7 @@ Requirements this imposes:
 ## Architecture
 
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
-    src/comfyui_fpt/
+    src/comfyui_sg/
       credentials.py who the nodes publish as: the signed-in person, else the script key
       site.py        profile.local.json, a connected client, the cached lookups
       publish.py     create Version, three-step upload, attach, register PublishedFile
@@ -117,14 +117,14 @@ them, which entities they have touched most recently, and what the codes on thos
 An agent setting the pack up — or the node itself — could propose a link, a task and a root name from
 that and be right most of the time.
 
-The pieces exist. `site.resolve_paths` already walks Flow PT's own field paths, `naming` already
+The pieces exist. `site.resolve_paths` already walks Flow Production Tracking's own field paths, `naming` already
 infers a convention from real codes, and the profile is already the place per-site answers live.
 What is missing is the read of recent activity and a decision about how a proposal is shown, since a
 guessed value that looks typed is worse than an empty field.
 
 ### Which fields a house wants in front of it
 
-`src/comfyui_fpt/widgets.py` declares each widget's `advanced` flag, and that is a default rather
+`src/comfyui_sg/widgets.py` declares each widget's `advanced` flag, and that is a default rather
 than a rule. A profile may move any field either way:
 
     "widgets": {
@@ -160,7 +160,7 @@ operator edits layered on top.
 
 `Version.entity` is not one type. The schema lists **15** valid ones — Asset, Level, MocapTake, Reel,
 ShootDay, Shot, Sequence, Delivery, Launch, Camera, Slate, SourceClip and three `CustomEntity` slots —
-identical on every project. So a single `link_type` was never Flow PT's model: one show hangs Versions
+identical on every project. So a single `link_type` was never Flow Production Tracking's model: one show hangs Versions
 off Shots, another off Assets, and plenty use several at once (the reference show links 99 Shots and 1
 Asset; another links Assets, Shots and Sequences).
 
@@ -183,7 +183,7 @@ show can disagree about:
     }
 
 This is what lets two graphs open in one ComfyUI publish into two shows that link Versions differently. The
-node resolves `link_type` from the project the operator picked on that node, and `/fpt/profile` tells the
+node resolves `link_type` from the project the operator picked on that node, and `/sg/profile` tells the
 editor the same thing so the link picker searches the right entity type. One ComfyUI, one profile, many shows.
 - Plain JSON, human-editable, regenerable. Operator edits win over inference.
 - Gitignored. Field naming and pipeline conventions are potentially confidential — unlike `probes/findings/`,
@@ -194,9 +194,9 @@ deterministic, offline, and costs no tokens.
 
 ## Nodes (v0)
 
-- `Flow PT Publish Version` — an image or a video in, Version created, media uploaded, provenance attached.
+- `SG Publish` — an image or a video in, Version created, media uploaded, provenance attached.
   Inputs are built from the site profile: link target and exposed fields are resolved, not hardcoded.
-- `Flow PT Load Version` — a Version's media back into the graph, and the link recorded
+- `SG Load` — a Version's media back into the graph, and the link recorded
 
 `av` (PyAV) joins `requests` and `Pillow` as a dependency ComfyUI already ships — it backs ComfyUI's own
 video nodes. Imported lazily wherever a frame has to be decoded — `media.py` reading a Version's movie back,
@@ -328,7 +328,7 @@ re-publish from, and a second attempt costs a copy rather than a re-render.
 
 Everything that touches disk happens *before* the Version is created — root resolved, frames written, copies
 made — for the same reason the movie is encoded first: a Version pointing at frames nobody wrote is worse than
-a run that refused. An unmounted share stops the publish, and `/fpt/preview_publish` says so before the Run.
+a run that refused. An unmounted share stops the publish, and `/sg/preview_publish` says so before the Run.
 
 ### The path template is the template language that already exists
 
@@ -340,7 +340,7 @@ The storage root and the path template are profile data, per project like every 
       "colour_space":  "sRGB"
     }
 
-`naming.render` already speaks Flow PT's dotted field paths and Python's whole format spec, so a path template
+`naming.render` already speaks Flow Production Tracking's dotted field paths and Python's whole format spec, so a path template
 is the same language as a code template and no second vocabulary was invented. Two things are particular to a
 path:
 
@@ -390,10 +390,10 @@ one, so no folder holds frames and a movie together. Two templates, each sayable
 sentence, where there was one plus an implicit `single()` that stripped the frame token out to invent
 the movie's path.
 
-**Tokens are Flow PT's own syntax, to any depth.** `{entity.Shot.code}` still works, and so does
+**Tokens are Flow Production Tracking's own syntax, to any depth.** `{entity.Shot.code}` still works, and so does
 `{sg_task.Task.entity.Shot.code}` — the server does the traversal and answers under the literal
 dotted key (probe 003), so the client hands over everything after the hop it already holds an id for
-rather than parsing the chain itself. A **bare** token is that link's own name, the way Flow PT
+rather than parsing the chain itself. A **bare** token is that link's own name, the way Flow Production Tracking
 returns one in a relationship dict: `{entity}` is the Shot's code, `{sg_task}` the Task's `content`
 (never its code — entity_types/Task).
 
@@ -497,7 +497,7 @@ a probe of what the front end actually sends on a selective run. That probe does
 A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already in the
 prompt graph — the branch walk that scopes provenance answers "what did this come from" for free, and the
 operator never types an id. A plate becomes a previs; several Versions become one output; the chain lives in
-Flow PT.
+Flow Production Tracking.
 
 Which media a Version can deliver is a property of that Version, not of the site (probe 021), so the editor
 asks per pick and offers only sources that resolve to a real file.
@@ -527,13 +527,36 @@ Tier 2 also resolves on anything this node published: a sequence publish writes 
 filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until there was a shared
 root to point at, there was nothing to write.
 
+### Two outputs, one rule each
+
+A Version carries up to four representations of one piece of media, and on the sandbox they are
+filled unevenly: Published Files with a path on 27 of 110 Versions, path fields on 27, an upload on
+107, the site's transcode on 106, a thumbnail on 106. On the probed studio site (probe 021) most
+Versions have only the upload and the thumbnail. So the node has two outputs and each takes the best
+it can on its own: `image` a sequence, else a clip decoded, else a still, else the thumbnail; `video`
+a Movie Published File, else the movie on the storage, else the uploaded mp4 untouched, else the
+frames wrapped at the rate the site measured on the upload, or 24 fps said out loud. A Published File
+beats a path field of the same shape: it carries a type, a path per platform and the colour space.
+
+`sg_uploaded_movie_mp4` is never a source. It is derived from the upload, lands later, keeps
+describing a replaced file while the status reads done, and its frame rate is wrong for a still
+(probe 022). Nothing it offers is better than the upload it came from. The thumbnail is the last
+fallback of `image` and not a choice: a Version that only ever had a still image stays loadable, and
+nobody picks a 240px reference on purpose.
+
+`source` stays, in the fold, as the override: two sequence Published Files on one Version, or exactly
+the clip a reviewer saw. Picking one feeds both outputs from that file. Storage versus cloud is not a
+preference but a fact of the machine, and which Published File type is the deliverable is already
+the profile's `TYPE_CANDIDATES` order, so there is no Load setting. The clip is fetched only when the
+`video` output is wired: the hidden `PROMPT` says who reads which slot.
+
 ### A clip, not a frame
 
 A sequence that comes back one frame at a time is not an input to a video graph, so a source can deliver a
 **batch of N frames** — a sequence off disk, or a movie decoded. `frame` is the first frame of the range and
 kept that meaning; `frame_count` beside it says how many.
 
-`frame` is a frame **number**, the one in the filename and the one Flow PT shows. It was a *position* in the
+`frame` is a frame **number**, the one in the filename and the one Flow Production Tracking shows. It was a *position* in the
 sorted list, and only in the batch path: `_at_frame` substituted the number into the pattern while
 `load_frames` — which is what the node actually calls — indexed. On a 1001-based plate that made `frame` 1003
 hand back frame 1008, the last one, silently clamped. Both read the numbers off the filenames now
@@ -602,7 +625,7 @@ Measured on three real projects: the reference show scores 100/100, this sandbox
 ad-hoc test names 0/53. **The coverage number is the point** — 0% is the honest answer, and the
 operator sees it rather than getting a confident wrong guess.
 
-There is deliberately **no "approved" concept**. Flow PT has no such thing — approved is one status
+There is deliberately **no "approved" concept**. Flow Production Tracking has no such thing — approved is one status
 code among many, the codes differ per project (probe 009), and a show may care about `rev`, `ip`, a
 custom code, or none. So a Load node takes a status the operator picks from that project's real list,
 and empty means any. An earlier version of this hardcoded "latest approved", which was this project
@@ -610,7 +633,7 @@ inventing vocabulary the API does not have.
 
 ### Which makes two nodes a pipeline
 
-`code = auto` numbers per link. `select = newest matching` resolves at run time using Flow PT's own
+`code = auto` numbers per link. `select = newest matching` resolves at run time using Flow Production Tracking's own
 rule — order newest-first (`id` or `created_at`), optionally require a status, optionally require a
 substring in the code. Ordering by the convention's version number is offered as a third option,
 because a re-published v002 is newer by id but older by intent. So step N publishes and step N+1
@@ -629,7 +652,7 @@ Captured per publish:
 | prompt | text that reached a conditioning input in this branch — see below; not "text near a seed" |
 | workflow JSON | attachment — best effort, see below |
 | submitting client | whoever POSTed `/prompt` said so — see below |
-| input Version ids | upstream `Flow PT Load Version` nodes, or typed by hand |
+| input Version ids | upstream `SG Load` nodes, or typed by hand |
 | user, timestamp | client |
 
 ### The workflow attachment is best effort
@@ -681,7 +704,7 @@ folds everything into the note. That is the difference between one word and nine
 
 The concepts — generator, model, prompt, negative_prompt, seed, sampler, steps, cfg,
 generated_from — are what the graph knows. `fields.concepts` produces them, `fields.targets`
-resolves the operator's decision once, and both the publish path and `/fpt/preview_publish` read
+resolves the operator's decision once, and both the publish path and `/sg/preview_publish` read
 that same resolution, so the panel shows where a value will actually land rather than where this
 repo would have put it.
 
@@ -694,7 +717,7 @@ forever (probe 019).
 
 ### Typed fields, not a JSON blob
 
-`fields.py` defines nine fields on Version and creates them idempotently (`python -m comfyui_fpt.fields`).
+`fields.py` defines nine fields on Version and creates them idempotently (`python -m comfyui_sg.fields`).
 `description` is then the operator's note, and the complete structure still rides up as a
 `.provenance.json` attachment — the fields are the queryable summary, the attachment is the record.
 
@@ -890,7 +913,7 @@ React review surface showing iteration lineage, extracted into an MIT component 
 
 A custom node is a Python class registered from `__init__.py`. Verified against docs.comfy.org, 2026-09-02.
 
-    class FPTPublishVersion:
+    class SGPublishVersion:
         @classmethod
         def INPUT_TYPES(cls):
             return {
@@ -903,8 +926,8 @@ A custom node is a Python class registered from `__init__.py`. Verified against 
         CATEGORY = "Flow Production Tracking"
         OUTPUT_NODE = True         # terminal node: always executes
 
-    NODE_CLASS_MAPPINGS = {"FPTPublishVersion": FPTPublishVersion}
-    NODE_DISPLAY_NAME_MAPPINGS = {"FPTPublishVersion": "Flow PT Publish Version"}
+    NODE_CLASS_MAPPINGS = {"SGPublishVersion": SGPublishVersion}
+    NODE_DISPLAY_NAME_MAPPINGS = {"SGPublishVersion": "SG Publish"}
 
 `INPUT_TYPES` is a classmethod evaluated at load, which is what lets the mapping drive the inputs.
 
@@ -937,10 +960,10 @@ the wrong place for it.
 
 **The person.** The operator enters the site address under Settings and clicks Log in. The server
 asks the site for an approval page (`POST /internal_api/app_session_request`, probe 052), the dialog
-opens it in a new tab, where the operator is already logged into Flow PT through Autodesk Identity,
+opens it in a new tab, where the operator is already logged into Flow Production Tracking through Autodesk Identity,
 and they click approve. The site hands back a session token, which spends at the token
 endpoint as `grant_type=session_token` and mints a bearer for that `HumanUser`. Every Version is then
-created by the person, and Flow PT's Artist field is them, with no script key, no password and no
+created by the person, and Flow Production Tracking's Artist field is them, with no script key, no password and no
 impersonation. `credentials.py` owns this; `sg_groundtruth.launcher` speaks the protocol.
 
 **The script.** A script name and application key entered under Settings, else `FPT_API_SITE_URL`,
@@ -950,7 +973,7 @@ from the People page, makes the script act as that person (`sudo_as_login`, prob
 refusal, when the person cannot be impersonated, is read from Test under Settings rather than on the
 first Run.
 
-**Where they live.** `user/__comfyui_flow_production_tracking/session.local.json` and
+**Where they live.** `user/__sg_comfyui/session.local.json` and
 `settings.local.json` beside it, mode 600.
 ComfyUI serves a `__` directory over no HTTP route (`folder_paths.get_system_user_directory`, v0.3.76
 and later), it sits outside `custom_nodes/` so a Manager update leaves it alone, and it follows
@@ -1000,33 +1023,45 @@ Two ways in, and they are not the same thing:
 
 `[project].name` on the Registry is immutable, so it is decided here rather than in passing:
 
-    [project].name                comfyui-flow-production-tracking   permanent
+    [project].name                sg-comfyui   permanent
     [tool.comfy].DisplayName      Flow Production Tracking
-    repo, custom_nodes directory  comfyui-flow-production-tracking
+    repo, custom_nodes directory  sg-comfyui
     CATEGORY                      Flow Production Tracking
-    node titles                   Flow PT Publish Version, Flow PT Load Version
-    Python package                comfyui_fpt
+    Settings category             SG
+    node titles                   SG Publish, SG Load
+    NODE_CLASS_MAPPINGS keys      SGPublishVersion, SGLoadVersion   permanent
+    Python package                comfyui_sg
+    routes                        /sg/*
+    protected user directory      __sg_comfyui
 
-The long form goes in the slots that are searched — a TD looks for the product, not an abbreviation, and
-half of them still search "shotgrid", which belongs in the registry keywords and the README where it can
-be changed later. Node titles stay short because they render on the node body. The Python package stays
-`comfyui_fpt`: it is internal, every import is relative, and `python -m comfyui_fpt.fields` has to be
-typable.
+SG is the short name everywhere a short name is needed, the full product name everywhere else, and
+"Flow PT" nowhere. SG is what people type into the node search and it lands instantly; the full name
+is slow to type and half the audience still searches "shotgrid". The full name stays in the slots a
+Registry search reads — `DisplayName`, the description and the keywords, which also carry "shotgrid"
+— and those can be changed later.
 
-`Publish`/`Load` is both vocabularies at once — `tk-multi-publish2`/`tk-multi-loader2` on the Flow PT
-side, and on the ComfyUI side `Load` is what a node is called when it is where the pixels come from.
-`Fetch` was neither.
+The `custom_nodes` directory name is shown verbatim on two chips: the Templates browser labels a
+pack's collection with it (`title: e` in the frontend bundle) and the node's footer badge is
+`python_module` split on `.`, the same string. Neither reads `DisplayName`, and the only override is a
+frontend i18n key (`templateWorkflows.category.<name>`) that ships with the frontend and not with a
+pack. So the directory name is the product's chip, and `sg-comfyui` rather than `comfyui-sg`: in a
+sidebar of `comfyui-*` packs it sorts under S and the chip reads SG first.
 
-`NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the moment
-anyone outside this repo saves a graph: `FPTPublishVersion`, `FPTLoadVersion`.
+`NODE_CLASS_MAPPINGS` keys are written into every saved workflow, so they are permanent from the
+moment anyone outside this repo saves a graph. Nothing had shipped when they became `SGPublishVersion`
+and `SGLoadVersion`, so the old keys were renamed outright rather than kept as deprecated aliases,
+and the shipped graphs moved in the same commit.
 
-The cost of the long form is paid twice in the editor, and it is accepted rather than unnoticed: the
-Templates browser labels a pack's collection with the `custom_nodes` directory name verbatim
-(`title: e` in the frontend bundle) and the node's footer badge is `python_module` split on `.` —
-the same string. Neither reads `DisplayName`, and the only override is a frontend i18n key
-(`templateWorkflows.category.<name>`) that ships with the frontend and not with a pack. Registry
-names allow no spaces, so a short label was reachable only by renaming the repo, which trades a
-searched slot for a cosmetic one. `comfyui-flow-production-tracking` on two chips is the price.
+The internals followed — package, routes, web files, the protected directory — so no surface says
+`fpt`. The Python package is internal, every import is relative, and `python -m comfyui_sg.fields`
+has to be typable.
+
+Operator sentences use the full name or SG. Before a status code they say "The site answered", which
+names the thing that answered without naming the product a third time.
+
+`Publish`/`Load` is both vocabularies at once — `tk-multi-publish2`/`tk-multi-loader2` on the
+Flow Production Tracking side, and on the ComfyUI side `Load` is what a node is called when it is
+where the pixels come from. `Fetch` was neither.
 
 ### The dependency problem
 

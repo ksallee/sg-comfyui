@@ -36,12 +36,12 @@ honest upgrade" below.
   `Pan Left`, `ClockWise (CW)` — into a per-frame camera path and encodes it as a Plücker embedding.
   `WanCameraImageToVideo` conditions Wan 2.1 Fun Camera on that path with the still pinned as the
   first frame. Changing the move is changing one combo and one float.
-- **The still comes out of Flow PT, not off disk.** `Flow PT Load Version` resolves *the newest
+- **The still comes out of Flow Production Tracking, not off disk.** `SG Load` resolves *the newest
   Version on `demo_06_camera` whose name contains `plate`* — a rule an artist would say out loud —
   and hands its media to the graph.
 - **The clip goes back as a clip.** 33 frames become **one** Version carrying one h264 movie in
   `sg_uploaded_movie`, at the rate the graph states. Not 33 Versions; see "One Version, one movie".
-- **The result goes back with its lineage.** `Flow PT Publish Version` records the model, prompt,
+- **The result goes back with its lineage.** `SG Publish` records the model, prompt,
   seed, sampler, steps and CFG, attaches the graph, and fills `sg_ai_generated_from` with the plate
   Version the Load node resolved. Nobody typed an id at either end.
 
@@ -51,10 +51,10 @@ MIT). **Core nodes only — no third-party packs.**
 ## The graph
 
 ```
-Flow PT Load Version ──┬─► CLIPVisionEncode ──┐
+SG Load ──┬─► CLIPVisionEncode ──┐
   (newest *plate* on   │                      ├─► WanCameraImageToVideo ─► KSampler ─► VAEDecode ─┬─► CreateVideo ─► SaveVideo
    demo_06_camera)     └──── start_image ─────┤        ▲                                          │
-                                              │        │                                          └─► Flow PT Publish Version
+                                              │        │                                          └─► SG Publish
         CLIPTextEncode (pos/neg) ─────────────┘   WanCameraEmbedding
                                                   ("Zoom In", 832×480, 33f, speed 0.6)
 ```
@@ -125,7 +125,7 @@ node's `video`, and the rate is read off the clip rather than off a widget or a 
     review media: 33 frames at 16 fps — encoded by ComfyUI — VideoInput.save_to
 
 Read back off the Version, `sg_uploaded_movie_frame_rate` is `16.0`. The seeded plate on the same
-Shot reads `25.0`, which is what Flow PT stamps on a still it transcoded — so the two are
+Shot reads `25.0`, which is what Flow Production Tracking stamps on a still it transcoded — so the two are
 distinguishable on the site, which is the whole point of not writing the transcoder's fields
 ourselves.
 
@@ -134,7 +134,7 @@ PublishedFiles under a LocalStorage root, alongside the Version carrying the cli
 graph publishes the clip only, which for a previs board is the right deliverable anyway — wire the
 IMAGE batch into `images` as well and tick **Create Published Files** to keep the frames too.
 
-## Flow PT, as run
+## Flow Production Tracking, as run
 
 | | |
 |---|---|
@@ -168,13 +168,13 @@ resolved it from *newest plate on this shot* and the publish node carried it for
 The plate was seeded with:
 
 ```sh
-PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
+PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
   --project 1180 --link "demo_06_camera (Shot)" --output plate --note "..."
 ```
 
 A seeded Version carries **no generation record** — a file on disk does not say how it was made — and
 the Load panel says so. That is the chicken-and-egg escape: the first graph in a chain has to get its
-plate into Flow PT before it can read it back out.
+plate into Flow Production Tracking before it can read it back out.
 
 ## Running it
 

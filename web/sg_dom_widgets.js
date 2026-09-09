@@ -36,72 +36,72 @@ const CSS = `
 /* Under Nodes 2.0 each widget is wrapped in "flex flex-col *:flex-1 col-span-2", itself one item of
    the node's own "grid-cols-subgrid" row. Turning that wrapper into a subgrid hands our label and
    our control straight to the node's label and control columns, so our rows line up with the native
-   ones because they are in the same two tracks. display:contents also takes .fpt-dom out of the
+   ones because they are in the same two tracks. display:contents also takes .sg-dom out of the
    flow, so "*:flex-1" can no longer stretch it — and leaves it with no box to measure. */
-.lg-node-widget > :has(> .fpt-dom) { display: grid; grid-template-columns: subgrid;
+.lg-node-widget > :has(> .sg-dom) { display: grid; grid-template-columns: subgrid;
   align-items: start; gap: 0 8px; }
-.lg-node-widget > :has(> .fpt-dom) > .fpt-dom { display: contents; }
-.fpt-dom > .fpt-lab { min-height: 24px; display: flex; align-items: center; }
+.lg-node-widget > :has(> .sg-dom) > .sg-dom { display: contents; }
+.sg-dom > .sg-lab { min-height: 24px; display: flex; align-items: center; }
 /* A row with nothing to label (the panel) takes both tracks. */
-.fpt-dom.fpt-wide > .fpt-ctl { grid-column: 1 / -1; }
+.sg-dom.sg-wide > .sg-ctl { grid-column: 1 / -1; }
 /* A column, so the one child fills a row given more than its content. */
-.fpt-dom > .fpt-ctl { min-width: 0; display: flex; flex-direction: column; }
-.fpt-dom > .fpt-ctl > * { flex: 1 1 auto; min-height: 0; }
+.sg-dom > .sg-ctl { min-width: 0; display: flex; flex-direction: column; }
+.sg-dom > .sg-ctl > * { flex: 1 1 auto; min-height: 0; }
 
 /* Surplus height pools at the bottom rather than between rows: every DOM widget gets an "auto" grid
    track (hasLayoutSize), and align-content:normal would stretch all of them. */
-.lg-node:has(.fpt-dom) .lg-node-widgets { align-content: start; }
+.lg-node:has(.sg-dom) .lg-node-widgets { align-content: start; }
 
-.fpt-val { min-width: 4ch; flex: 1; padding: 0 4px 0 8px; text-align: left; font-size: 12px;
+.sg-val { min-width: 4ch; flex: 1; padding: 0 4px 0 8px; text-align: left; font-size: 12px;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fpt-val.is-empty { opacity: .55; font-style: italic; }
-.fpt-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none;
+.sg-val.is-empty { opacity: .55; font-style: italic; }
+.sg-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none;
   margin-left: 6px; background: rgba(128,128,128,.15); }
 
 /* The popup lives on <body>: a node sits inside a transformed, clipping ancestor, where a fixed
    position resolves against the transform and an overflowing menu is cut off. The frontend's own
    combo teleports for the same reason. */
-.fpt-pop { position: fixed; }
-.fpt-pop-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
+.sg-pop { position: fixed; }
+.sg-pop-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
   border-bottom: 1px solid var(--color-border-default, rgba(128,128,128,.3)); }
-.fpt-pop-input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
+.sg-pop-input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   font: 12px Inter, ui-sans-serif, system-ui, sans-serif; color: inherit; }
-.fpt-pop-note { padding: 8px; opacity: .6; font-size: 11px; }
+.sg-pop-note { padding: 8px; opacity: .6; font-size: 11px; }
 /* The thumbnail slot is reserved on every row and tinted only where there is a picture, so names
    stay aligned without an empty grey tile on every project that has none. */
-.fpt-pop-thumb { width: 22px; height: 22px; border-radius: 3px; flex: none;
+.sg-pop-thumb { width: 22px; height: 22px; border-radius: 3px; flex: none;
   background: none center/cover no-repeat; }
-.fpt-pop-thumb.on { background-color: rgba(128,128,128,.15); }
-.fpt-pop-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.fpt-pop-meta { opacity: .55; flex: none; font-size: 10px; }
+.sg-pop-thumb.on { background-color: rgba(128,128,128,.15); }
+.sg-pop-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.sg-pop-meta { opacity: .55; flex: none; font-size: 10px; }
 
 /* One neutral chip: "chosen" reads as chosen rather than as a slightly brighter colour, and the
    status colour stays a dot to recognise. */
-.fpt-chips { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
+.sg-chips { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
   padding: 2px 0; font: 11px Inter, ui-sans-serif, system-ui, sans-serif; }
-.fpt-more { font-style: italic; opacity: .75; }
-.fpt-more .fpt-tick { display: none; }
-.fpt-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; cursor: pointer;
+.sg-more { font-style: italic; opacity: .75; }
+.sg-more .sg-tick { display: none; }
+.sg-chip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 6px; cursor: pointer;
   font-size: 11px;
   border-radius: 9px; font-size: 10px; color: var(--color-node-component-slot-text, #b9c0c8);
   background: var(--color-component-node-widget-background, #23272d);
   border: 1px solid transparent; }
-.fpt-chip:hover { border-color: currentColor; }
+.sg-chip:hover { border-color: currentColor; }
 /* Never font-weight: a bolder label is a wider chip, so picking one reflows the row under the
    cursor. text-shadow thickens the same glyphs at the same metrics. */
-.fpt-chip.on { color: #10131a; background: #cfd6de;
+.sg-chip.on { color: #10131a; background: #cfd6de;
   text-shadow: 0 0 .3px currentColor, 0 0 .3px currentColor; }
-.fpt-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
+.sg-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
 /* The stock icons are one sheet cropped by background-position (recipe 010). Scaled to the chip's
    line, never stretched: the sheet is served at 1x and a fractional crop blurs. */
-.fpt-ico { flex: none; display: inline-block; background-repeat: no-repeat; }
-.fpt-ico-img { flex: none; height: 11px; width: auto; display: inline-block; }
-.fpt-ico-txt { flex: none; font-size: 9px; opacity: .85; }
-.fpt-pop-busy { flex: none; font-size: 11px; opacity: .7; white-space: nowrap; margin-left: 6px; }
-.fpt-pop-list.is-busy { opacity: .5; transition: opacity .15s; }
-.fpt-tick { width: 8px; flex: none; opacity: 0; }
-.fpt-chip.on .fpt-tick { opacity: 1; }
+.sg-ico { flex: none; display: inline-block; background-repeat: no-repeat; }
+.sg-ico-img { flex: none; height: 11px; width: auto; display: inline-block; }
+.sg-ico-txt { flex: none; font-size: 9px; opacity: .85; }
+.sg-pop-busy { flex: none; font-size: 11px; opacity: .7; white-space: nowrap; margin-left: 6px; }
+.sg-pop-list.is-busy { opacity: .5; transition: opacity .15s; }
+.sg-tick { width: 8px; flex: none; opacity: 0; }
+.sg-chip.on .sg-tick { opacity: 1; }
 `;
 
 const styled = new Set();
@@ -115,13 +115,13 @@ export function styleOnce(key, css) {
   document.head.appendChild(el);
 }
 
-const ensureCss = () => styleOnce("fpt-widgets", CSS);
+const ensureCss = () => styleOnce("sg-widgets", CSS);
 
 /** Text safe to interpolate into markup, quotes included: every string here comes off the site. */
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
-/** Flow PT's `bg_color` ("179,179,179") as three numbers, or null (probe 010). */
+/** SG's `bg_color` ("179,179,179") as three numbers, or null (probe 010). */
 export function rgbParts(rgb) {
   const s = String(rgb ?? "");
   return /^\d+,\d+,\d+$/.test(s) ? s.split(",").map(Number) : null;
@@ -327,22 +327,22 @@ export function fitNode(node) {
 export function domRow(node, name, { label, control, target }) {
   ensureCss();
   const root = document.createElement("div");
-  root.className = label ? "fpt-dom" : "fpt-dom fpt-wide";
+  root.className = label ? "sg-dom" : "sg-dom sg-wide";
   if (label) {
     const lab = document.createElement("div");
-    lab.className = `fpt-lab ${NATIVE.label}`;
+    lab.className = `sg-lab ${NATIVE.label}`;
     lab.textContent = label;
     root.appendChild(lab);
   }
   const ctl = document.createElement("div");
-  ctl.className = "fpt-ctl";
+  ctl.className = "sg-ctl";
   ctl.appendChild(control);
   root.appendChild(ctl);
 
   (node.__fptRoots = node.__fptRoots || []).push(root);
 
   const widget = node.addDOMWidget(name, name, root, {
-    // .fpt-dom is display:contents and has no box; the control block is what has a height, and it
+    // .sg-dom is display:contents and has no box; the control block is what has a height, and it
     // is never stretched (align-items: start).
     getMinHeight: () => Math.max(ctl.offsetHeight, 24),
   });
@@ -363,17 +363,17 @@ export function domRow(node, name, { label, control, target }) {
 export function iconHtml(icon, rgb) {
   if (icon && icon.kind === "sprite" && cssUrl(icon.url)) {
     const [ox, oy] = icon.offset, [w, h] = icon.size;
-    return `<span class="fpt-ico" style="width:${Number(w)}px;height:${Number(h)}px;
+    return `<span class="sg-ico" style="width:${Number(w)}px;height:${Number(h)}px;
       background-image:url('${esc(cssUrl(icon.url))}');
       background-position:${Number(ox)}px ${Number(oy)}px"></span>`;
   }
   if (icon && icon.kind === "data_uri" && safeUrl(icon.url)) {
-    return `<img class="fpt-ico-img" src="${esc(safeUrl(icon.url))}" alt="">`;
+    return `<img class="sg-ico-img" src="${esc(safeUrl(icon.url))}" alt="">`;
   }
   if (icon && icon.kind === "text" && icon.html) {
-    return `<span class="fpt-ico-txt">${safeHtml(icon.html)}</span>`;
+    return `<span class="sg-ico-txt">${safeHtml(icon.html)}</span>`;
   }
-  return `<span class="fpt-dot" style="background:${rgbCss(rgb, "#5a626b")}"></span>`;
+  return `<span class="sg-dot" style="background:${rgbCss(rgb, "#5a626b")}"></span>`;
 }
 
 const svg = (paths) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="none"
@@ -400,15 +400,15 @@ export function searchPicker(node, target, {
   field.className = NATIVE.ring;
   field.innerHTML = `<div class="${NATIVE.field}">
       <button type="button" class="${NATIVE.trigger}" aria-haspopup="listbox" aria-expanded="false">
-        <img class="fpt-thumb" alt="" hidden>
-        <span class="fpt-val"></span>
+        <img class="sg-thumb" alt="" hidden>
+        <span class="sg-val"></span>
       </button>
       <button type="button" tabindex="-1" aria-hidden="true" class="${NATIVE.chev}">${CHEVRON}</button>
     </div>`;
   const trigger = field.querySelector("button");
   const chevron = field.querySelectorAll("button")[1];
-  const valEl = field.querySelector(".fpt-val");
-  const thumbEl = field.querySelector(".fpt-thumb");
+  const valEl = field.querySelector(".sg-val");
+  const thumbEl = field.querySelector(".sg-thumb");
   const { relayout } = domRow(node, `${target.name}_pick`, { label, control: field, target });
 
   // "None" rather than blank: an empty line does not say whether it is unset or still loading.
@@ -424,15 +424,15 @@ export function searchPicker(node, target, {
   showCurrent();
 
   const pop = document.createElement("div");
-  pop.className = `fpt-pop ${NATIVE.pop}`;
+  pop.className = `sg-pop ${NATIVE.pop}`;
   pop.setAttribute("role", "listbox");
-  pop.innerHTML = `<div class="fpt-pop-head">${MAGNIFIER}
-      <input class="fpt-pop-input" spellcheck="false" autocomplete="off">
-      <span class="fpt-pop-busy" hidden>Searching…</span></div>
-    <div class="fpt-pop-list ${NATIVE.viewport}"></div>`;
-  const input = pop.querySelector(".fpt-pop-input");
-  const list = pop.querySelector(".fpt-pop-list");
-  const busyEl = pop.querySelector(".fpt-pop-busy");
+  pop.innerHTML = `<div class="sg-pop-head">${MAGNIFIER}
+      <input class="sg-pop-input" spellcheck="false" autocomplete="off">
+      <span class="sg-pop-busy" hidden>Searching…</span></div>
+    <div class="sg-pop-list ${NATIVE.viewport}"></div>`;
+  const input = pop.querySelector(".sg-pop-input");
+  const list = pop.querySelector(".sg-pop-list");
+  const busyEl = pop.querySelector(".sg-pop-busy");
   input.placeholder = placeholder;
   // Every search runs on the site, so it takes as long as the site takes: the rows already shown
   // dim and the head says so, rather than the list going blank on each keystroke.
@@ -462,7 +462,7 @@ export function searchPicker(node, target, {
   const render = (rows) => {
     items = rows;
     if (!rows.length) {
-      list.innerHTML = `<div class="fpt-pop-note">${esc(empty)}</div>`;
+      list.innerHTML = `<div class="sg-pop-note">${esc(empty)}</div>`;
       at = -1;
       return;
     }
@@ -472,11 +472,11 @@ export function searchPicker(node, target, {
     list.innerHTML = rows.map((it, i) => {
       const img = cssUrl(it.image);
       return `<div class="${NATIVE.item}" role="option" data-i="${i}">
-        <span class="fpt-pop-name">${thumbs
-          ? `<span class="fpt-pop-thumb${img ? " on" : ""}"${img
+        <span class="sg-pop-name">${thumbs
+          ? `<span class="sg-pop-thumb${img ? " on" : ""}"${img
               ? ` style="background-image:url('${esc(img)}')"` : ""}></span>` : ""
         }<span class="truncate">${esc(it.name)}</span></span>
-        <span class="fpt-pop-meta">${esc(it.code || it.type || "")}</span></div>`;
+        <span class="sg-pop-meta">${esc(it.code || it.type || "")}</span></div>`;
     }).join("");
     [...list.children].forEach((el, i) => {
       el.onmouseenter = () => highlight(i);
@@ -558,12 +558,12 @@ export function chipSelect(node, target,
                            { load, label, empty = "This project has no statuses." }) {
   ensureCss();
   const root = document.createElement("div");
-  root.className = "fpt-chips";
+  root.className = "sg-chips";
   const { relayout } = domRow(node, `${target.name}_chips`, { label, control: root, target });
 
   const chosen = () => new Set(String(target.value || "").split(",").map((s) => s.trim()).filter(Boolean));
 
-  // A show allows twenty statuses and uses two. `/fpt/statuses` returns them most-used-first
+  // A show allows twenty statuses and uses two. `/sg/statuses` returns them most-used-first
   // (probe 020), so the first few are the answer and the rest are the long tail.
   const KEEP = 4;
   let expanded = false;
@@ -576,15 +576,15 @@ export function chipSelect(node, target,
     const shown = expanded ? items : head;
     const hidden = items.length - shown.length;
     const chip = (it) =>
-      `<span class="fpt-chip${on.has(it.label) ? " on" : ""}" data-label="${esc(it.label)}">
-        <span class="fpt-tick">✓</span>
+      `<span class="sg-chip${on.has(it.label) ? " on" : ""}" data-label="${esc(it.label)}">
+        <span class="sg-tick">✓</span>
         ${iconHtml(it.icon, it.rgb)}${esc(it.label)}</span>`;
     root.innerHTML = (shown.map(chip).join("")
-      + (hidden > 0 ? `<span class="fpt-chip fpt-more" data-more="1">+${hidden} more</span>` : "")
+      + (hidden > 0 ? `<span class="sg-chip sg-more" data-more="1">+${hidden} more</span>` : "")
       + (expanded && items.length > head.length
-         ? `<span class="fpt-chip fpt-more" data-more="0">less</span>` : ""))
-      || `<span class="fpt-pop-note">${esc(empty)}</span>`;
-    root.querySelectorAll(".fpt-chip").forEach((el) => {
+         ? `<span class="sg-chip sg-more" data-more="0">less</span>` : ""))
+      || `<span class="sg-pop-note">${esc(empty)}</span>`;
+    root.querySelectorAll(".sg-chip").forEach((el) => {
       el.onclick = () => {
         if (el.dataset.more !== undefined) { expanded = el.dataset.more === "1"; return draw(items); }
         const set = chosen();

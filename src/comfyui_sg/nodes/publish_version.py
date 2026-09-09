@@ -1,4 +1,4 @@
-"""Flow PT Publish Version — what the graph made becomes a Version carrying its provenance.
+"""SG Publish — what the graph made becomes a Version carrying its provenance.
 
 One run is one Version, because a Version's media is single-valued (probe 022). What that Version
 carries follows from what is wired in, never from a combo asking the operator to say it again: a
@@ -19,7 +19,7 @@ import os
 
 from PIL import Image
 
-from .. import fields as fpt_fields
+from .. import fields as sg_fields
 from .. import lineage, movie, naming, provenance, publish, sequence, site, widgets
 
 MAX_ID = 2 ** 31 - 1
@@ -50,7 +50,21 @@ def _wants_files(pf):
     return bool(d) and d != site.NO_VALUE
 
 
-class FPTPublishVersion:
+def settings_defaults(project_id):
+    """The values a publish node takes from Settings, as widget values: the templates written out."""
+    p = site.for_project(project_id)
+    pf = p.get("published_files") or {}
+    statuses = site.statuses(project_id)
+    return {
+        "root_name": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
+        "code_template": p.get("code_template") or naming.DEFAULT_TEMPLATE,
+        "status": next((l for l, c in statuses if c == p.get("status")), site.NO_VALUE),
+        "register_files": _wants_files(pf),
+        "colour_space": pf.get("colour_space") or "",
+    }
+
+
+class SGPublishVersion:
     @classmethod
     def INPUT_TYPES(cls):
         # Re-evaluated on every /object_info request (server.py:756), so a profile edit or a new Shot
@@ -94,10 +108,10 @@ class FPTPublishVersion:
                                           (p.get("widgets") or {}).get("publish")),
                         "project": {"default": site.project_name(project_id)},
                         "status": {"default": status_label},
-                        "code_template": {"default": p.get("code_template")
-                                          or naming.DEFAULT_TEMPLATE},
-                        "root_name": {"default": p.get("root_name")
-                                      or naming.DEFAULT_ROOT_TEMPLATE},
+                        # Empty means the Settings default names it, so a Settings change reaches
+                        # every saved graph. `settings_defaults` is what a node copies in on request.
+                        "code_template": {"default": ""},
+                        "root_name": {"default": ""},
                         "colour_space": {"default": (p.get("published_files") or {})
                                          .get("colour_space") or ""},
                         "register_files": {"default": _wants_files(p.get("published_files") or {})},
@@ -111,6 +125,22 @@ class FPTPublishVersion:
                 "unique_id": "UNIQUE_ID",
             },
         }
+
+    @classmethod
+    def missing_fields(cls, template, root_template, project_id, link_id, task_id):
+        """The pickers a name needs and does not have, by their on-screen names, in order.
+
+        A template renders what it can and drops the rest, so a bare `v004` would come back looking
+        finished. Both templates are read, because `{root_name}` hides whatever the root asks for.
+        The panel and the run share this, so the alert and the refusal are one sentence.
+        """
+        p = site.for_project(project_id)
+        template = (template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip()
+        root_t = (root_template or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
+        needs = {f.split(".")[0] for f in
+                 naming.template_fields(template) + naming.template_fields(root_t)}
+        return [name for name, filled in (("link", "entity" not in needs or link_id),
+                                          ("task", "task" not in needs or task_id)) if not filled]
 
     @classmethod
     def next_name(cls, template, project_id, link_type, link_id, task_id, root_template=""):
@@ -137,7 +167,7 @@ class FPTPublishVersion:
 
     @classmethod
     def next_code(cls, template, project_id, link_type, link_id, task_id, root_template=""):
-        """The code this node would publish next. Shared with /fpt/preview_code and `seed.py`."""
+        """The code this node would publish next. Shared with /sg/preview_code and `seed.py`."""
         return cls.next_name(template, project_id, link_type, link_id, task_id,
                              root_template)[0]
 
@@ -156,19 +186,19 @@ class FPTPublishVersion:
 
     @staticmethod
     def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
-               p, fpt, project_id, link_type, target, task_id, root_name=""):
+               p, sg, project_id, link_type, target, task_id, root_name=""):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
         The storage root and the path templates are profile data, per project like every other
         site-specific decision (DESIGN). A path template is the language the code template already
-        speaks — dotted Flow PT paths and Python's format spec (`naming.render`) — plus the frame
+        speaks — dotted SG paths and Python's format spec (`naming.render`) — plus the frame
         token `sg_path_to_frames` uses. A sequence earns a folder and a movie does not, which is why
         there are two templates.
         """
         if not (want_frames or want_movie):
             return None
         pf = p.get("published_files") or {}
-        storages = publish.storages(fpt)
+        storages = publish.storages(sg)
         storage_id, root = sequence.root_for(storages, pf.get("storage", ""))
         sequence.check_root(root)
         # The Version's path fields hold one absolute path each, written for the platform the
@@ -223,7 +253,7 @@ class FPTPublishVersion:
         return out
 
     @staticmethod
-    def _register(fpt, staged, project_id, vid, version_no, link_type, target, task_id, count,
+    def _register(sg, staged, project_id, vid, version_no, link_type, target, task_id, count,
                   note, colour_space, src_ids, src_files=None):
         """One PublishedFile per registered file, linked to the Version carrying the review media.
 
@@ -238,7 +268,7 @@ class FPTPublishVersion:
         """
         if not staged:
             return []
-        upstream = publish.published_files_of(fpt, src_ids, src_files)
+        upstream = publish.published_files_of(sg, src_ids, src_files)
         common = {"version": {"type": "Version", "id": int(vid)}, "version_number": int(version_no)}
         if target:
             common["entity"] = {"type": link_type, "id": int(target)}
@@ -269,13 +299,13 @@ class FPTPublishVersion:
             # it misses every row published this way (entity_types/PublishedFile). It is a plain
             # text field and takes a write, so the client writes what it already knows.
             body["path_cache"] = sequence.relative(staged["root"], path)
-            pft = publish.published_file_type(fpt, sequence.TYPE_CANDIDATES[kind])
+            pft = publish.published_file_type(sg, sequence.TYPE_CANDIDATES[kind])
             if pft:
                 body["published_file_type"] = pft
             else:
                 notes.append(f"This site has no Published File Type for {kind}, so the file was "
                              f"registered without one. Creating one would add it to all projects.")
-            pf_id, resolved = publish.create_published_file(fpt, project_id, code, name, path, body)
+            pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path, body)
             # The 201 already carries the resolved path, so this reports what the SERVER stored
             # rather than what was sent — the two differ the moment a root is ambiguous (recipe 004).
             notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
@@ -294,8 +324,8 @@ class FPTPublishVersion:
     FUNCTION = "publish"
     CATEGORY = "Flow Production Tracking"
     OUTPUT_NODE = True
-    DESCRIPTION = ("Create a Flow PT Version from this image or video, carrying the graph that "
-                   "made it.")
+    DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, carrying "
+                   "the graph that made it.")
 
     def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
                 note="", code_template=UNSET,
@@ -329,13 +359,17 @@ class FPTPublishVersion:
         picked_type, picked_name = site.split_link(link)
         link_type = picked_type or p.get("link_type", "Shot")
 
-        # Combos carry labels; Flow PT wants ids. Resolve narrowly rather than trusting a cached list.
+        # Combos carry labels; SG wants ids. Resolve narrowly rather than trusting a cached list.
         target = int(link_id) or (_id_for(site.entities(link_type, project_id, q=picked_name),
                                           picked_name) if link else 0)
         if link and not target:
             raise ValueError(f"No {link_type} named {picked_name} on this project. Pick one from "
                              f"the list.")
         task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
+        # The same sentence the panel shows, refused before the site is written to.
+        missing = self.missing_fields(code_template, root_name, project_id, target, task_id)
+        if missing:
+            raise ValueError(f"Fill in the required fields ({', '.join(missing)}).")
         status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
 
         # unique_id scopes provenance to this node's branch (provenance.ancestors).
@@ -347,12 +381,12 @@ class FPTPublishVersion:
             prov["colour_space"] = colour_space.strip()
         wf = provenance.workflow(extra_pnginfo)
 
-        fpt = site.client()
+        sg = site.client()
         # One schema read answers two questions: which provenance fields exist (absent until
-        # `python -m comfyui_fpt.fields` has run, so the blob fallback is the honest default) and
+        # `python -m comfyui_sg.fields` has run, so the blob fallback is the honest default) and
         # whether this site carries the frame range a movie wants.
-        schema = fpt_fields.schema_names(fpt)
-        have = set(fpt_fields.names().values()) & schema
+        schema = sg_fields.schema_names(sg)
+        have = set(sg_fields.names().values()) & schema
         # Typed ids first, then whatever a Load node upstream already proves. The operator can add a
         # source the graph cannot see; they never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
@@ -364,7 +398,7 @@ class FPTPublishVersion:
                 src_ids.append(vid)
         # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
         mapping, prov_mode = site.provenance_map(project_id)
-        routed, prov_lines = fpt_fields.route(prov, src_ids, mapping, prov_mode)
+        routed, prov_lines = sg_fields.route(prov, src_ids, mapping, prov_mode)
         typed = {k: v for k, v in routed.items() if k in have}
         # A target the operator named that this site does not have. Dropping it silently would hide
         # a typo in their profile behind a Version that looks fine (corpus 028: loud, never silent).
@@ -403,7 +437,7 @@ class FPTPublishVersion:
         # place BEFORE the Version exists, so an unmounted share refuses the run rather than leaving
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
-                             want_frames, want_movie, p, fpt, project_id, link_type, target,
+                             want_frames, want_movie, p, sg, project_id, link_type, target,
                              task_id, root_name)
 
         fields = dict(typed)
@@ -436,26 +470,26 @@ class FPTPublishVersion:
             if value and field in schema:
                 fields[field] = value
 
-        vid = publish.create_version(fpt, project_id, code, fields)
+        vid = publish.create_version(sg, project_id, code, fields)
         # Every lookup a name depends on. `find` is the one the template reads, and a stale one lets
         # two publish nodes in one run propose the same version again.
         site.forget("find", "versions_on", "vnums", "paths")
         # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie too,
         # but not until the transcode lands, and a Version with no picture until then is worse.
-        publish.upload(fpt, vid, png, f"{code}.png", field="image")
+        publish.upload(sg, vid, png, f"{code}.png", field="image")
         if media_path:
             # Streamed off disk. A clip is the one payload here with no ceiling, and the file that
             # goes up is the file that was registered.
-            publish.upload_file(fpt, vid, media_path,
+            publish.upload_file(sg, vid, media_path,
                                 f"{code}{os.path.splitext(media_path)[1].lower() or '.mp4'}",
                                 field="sg_uploaded_movie")
         else:
-            publish.upload(fpt, vid, png, f"{code}.png", field="sg_uploaded_movie")
-        publish.attach_json(fpt, vid, prov, f"{code}.provenance.json")
+            publish.upload(sg, vid, png, f"{code}.png", field="sg_uploaded_movie")
+        publish.attach_json(sg, vid, prov, f"{code}.provenance.json")
         if attach_workflow and wf is not None:
-            publish.attach_json(fpt, vid, wf, f"{code}.workflow.json")
+            publish.attach_json(sg, vid, wf, f"{code}.workflow.json")
 
-        file_notes = self._register(fpt, staged, project_id, vid, version_no, link_type, target,
+        file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
                                     task_id, count, note, colour_space, src_ids,
                                     lineage.files_for_nodes(upstream))
 
@@ -478,7 +512,7 @@ class FPTPublishVersion:
                              + ". Check the provenance mapping in profile.local.json.")
         if not typed and not prov_lines:
             published.append("This site has no provenance fields yet. Run "
-                             "python -m comfyui_fpt.fields to create them.")
+                             "python -m comfyui_sg.fields to create them.")
 
         # The panel turns these into links. `site_url` comes off the client rather than the profile
         # because the run already authenticated against it — a second source could disagree. Paths
@@ -492,7 +526,7 @@ class FPTPublishVersion:
                 staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
                  "status": status_code, "outputs": sorted(typed), "media": media_note,
-                 "site_url": fpt.site, "files": staged_files}]
+                 "site_url": sg.site, "files": staged_files}]
         # `text` is the plain readout ComfyUI shows anywhere; `published` is what the node's own
         # panel renders — the same run, described rather than printed.
         return {"ui": {"text": published, "published": done}}

@@ -758,14 +758,14 @@
       "title": "Read me",
       "properties": {},
       "widgets_values": [
-        "## demo 06 — camera move on a still\n\n**TD line:** *\"give the matte painting a push-in that matches the shot's camera.\"*\n\nCore nodes only. `WanCameraEmbedding` builds a named trajectory (Plucker embedding) and\n`WanCameraImageToVideo` conditions the Wan 2.1 Fun Camera model on it, with the still as the\nfirst frame.\n\n**The trajectory is the knob.** `camera_pose` picks the move (Static / Pan Up / Pan Down /\nPan Left / Pan Right / Zoom In / Zoom Out / ACW / CW), `speed` scales how far it travels over\n`length` frames. `WanCameraEmbedding`'s width/height/length outputs are wired into\n`WanCameraImageToVideo`, so the embedding node is where resolution and duration are set — the\nnumbers on the video node are overridden by those links.\n\n**Models — nothing new to download.**\n- diffusion: `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`\n- text encoder: `umt5_xxl_fp16.safetensors` — the stock template asks for\n  `umt5_xxl_fp8_e4m3fn_scaled` (6.27 GB). The template's own model list offers fp16 as the\n  alternative, so the `CLIPLoader` is repointed at the fp16 already on disk. No download.\n- clip vision: `clip_vision_h.safetensors`\n- vae: `wan_2.1_vae.safetensors`\n\n**The honest upgrade.** This is a *named* trajectory, not a shot camera. When the TD means the\nreal Maya camera, `WanUni3CControlnetApply` is the path — core, in\n`comfy_extras/nodes_model_patch.py`, fed by `ModelPatchLoader`. Its guidance input is an\nIMAGE sequence rendered from the camera trajectory, not a preset word, so a real camera\nfits. It costs a Uni3C checkpoint and a guidance render, which is why it is not here.\n\n**Flow PT.** The plate comes in through `Flow PT Load Version`, the frames go out through\n`Flow PT Publish Version`, and the published Versions record the plate in\n`sg_ai_generated_from`. A batch publishes as one Version per frame — there is no\nmovie-as-a-Version path yet.\n"
+        "## demo 06 — camera move on a still\n\n**TD line:** *\"give the matte painting a push-in that matches the shot's camera.\"*\n\nCore nodes only. `WanCameraEmbedding` builds a named trajectory (Plucker embedding) and\n`WanCameraImageToVideo` conditions the Wan 2.1 Fun Camera model on it, with the still as the\nfirst frame.\n\n**The trajectory is the knob.** `camera_pose` picks the move (Static / Pan Up / Pan Down /\nPan Left / Pan Right / Zoom In / Zoom Out / ACW / CW), `speed` scales how far it travels over\n`length` frames. `WanCameraEmbedding`'s width/height/length outputs are wired into\n`WanCameraImageToVideo`, so the embedding node is where resolution and duration are set — the\nnumbers on the video node are overridden by those links.\n\n**Models — nothing new to download.**\n- diffusion: `wan2.1_fun_camera_v1.1_1.3B_bf16.safetensors`\n- text encoder: `umt5_xxl_fp16.safetensors` — the stock template asks for\n  `umt5_xxl_fp8_e4m3fn_scaled` (6.27 GB). The template's own model list offers fp16 as the\n  alternative, so the `CLIPLoader` is repointed at the fp16 already on disk. No download.\n- clip vision: `clip_vision_h.safetensors`\n- vae: `wan_2.1_vae.safetensors`\n\n**The honest upgrade.** This is a *named* trajectory, not a shot camera. When the TD means the\nreal Maya camera, `WanUni3CControlnetApply` is the path — core, in\n`comfy_extras/nodes_model_patch.py`, fed by `ModelPatchLoader`. Its guidance input is an\nIMAGE sequence rendered from the camera trajectory, not a preset word, so a real camera\nfits. It costs a Uni3C checkpoint and a guidance render, which is why it is not here.\n\n**Flow Production Tracking.** The plate comes in through `SG Load`, the frames go out through\n`SG Publish`, and the published Versions record the plate in\n`sg_ai_generated_from`. A batch publishes as one Version per frame — there is no\nmovie-as-a-Version path yet.\n"
       ],
       "color": "#222",
       "bgcolor": "#000"
     },
     {
       "id": 63,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1580,
         430
@@ -791,7 +791,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -807,11 +807,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — push_in"
+      "title": "SG Publish — push_in"
     },
     {
       "id": 64,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -170,
         620
@@ -845,7 +845,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -860,7 +860,7 @@
         "",
         0
       ],
-      "title": "the matte painting, from Flow PT"
+      "title": "the matte painting, from Flow Production Tracking"
     }
   ],
   "links": [
@@ -1065,7 +1065,7 @@
     },
     {
       "id": 2,
-      "title": "Step 2 - Start Image (from Flow PT)",
+      "title": "Step 2 - Start Image (from Flow Production Tracking)",
       "bounding": [
         -190,
         560,

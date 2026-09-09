@@ -1,11 +1,11 @@
-# comfyui-flow-production-tracking
+# sg-comfyui
 
 ComfyUI nodes that publish generations to Flow Production Tracking with provenance.
 
 ## Clean room
 
 Never read: `~/dev/fpt-ai`, `~/dev/flow-data-api-docs`, `~/dev/flow-data-sdk-python`, `~/dev/tk-*`.
-Derive only from public Flow PT REST docs and this repo's probe findings.
+Derive only from public Flow Production Tracking REST docs and this repo's probe findings.
 
 Out of scope, permanently: charts, dashboards, scheduled reports, webhooks, automations. Do not add them.
 
@@ -32,7 +32,7 @@ The sibling checkout is still expected for the *corpus* and for `inspect_site.py
 
 ## Running it
 
-Everything runs from the repo root. Every `-m comfyui_fpt.*` needs `PYTHONPATH=src` — the package
+Everything runs from the repo root. Every `-m comfyui_sg.*` needs `PYTHONPATH=src` — the package
 lives under `src/` and nothing installs it. `instrument.py` is run as a file on purpose: `-m` would
 import the package `__init__` and therefore torch, and a graph must stay analysable on a machine with
 neither torch nor a route to the site.
@@ -54,11 +54,11 @@ Node classes register through `NODE_CLASS_MAPPINGS` in `__init__.py`. `INPUT_TYP
 at load — that is the hook the site mapping drives. Provenance comes from the hidden `PROMPT` and
 `EXTRA_PNGINFO` inputs, never from asking the user.
 
-Where each piece of provenance lands in Flow PT is the operator's mapping, not a default. See DESIGN.md.
+Where each piece of provenance lands in Flow Production Tracking is the operator's mapping, not a default. See DESIGN.md.
 
 **`widgets_values` is positional.** A widget inserted, removed or reordered displaces every value below it
 in every graph already saved, silently — so append, never insert, and never remove. One declared order is
-shared by `INPUT_TYPES`, `instrument.PUBLISH_WIDGETS`/`LOAD_WIDGETS`, `web/fpt_entity_picker.js` `DECLARED`
+shared by `INPUT_TYPES`, `instrument.PUBLISH_WIDGETS`/`LOAD_WIDGETS`, `web/sg_entity_picker.js` `DECLARED`
 and every `*.json` under `example_workflows/` and `tools/workflows/`; all five move together or none do.
 `tools/smoke.py` is what proves it, because only loading a saved graph in a real ComfyUI shows the shift.
 An input *slot* is different: adding one is additive and safe.

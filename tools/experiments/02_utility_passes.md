@@ -3,7 +3,7 @@
 **The plate never went through 3D and comp still gets a Z and an N.**
 
 Depth, normals and an alpha off one photographic still. No render layers, no CG, no 3D package
-anywhere in the chain — and the three passes come out of Flow PT as three Versions that all cite the
+anywhere in the chain — and the three passes come out of Flow Production Tracking as three Versions that all cite the
 plate they were derived from.
 
 Studios care because it unlocks relight, atmos-by-depth, defocus and depth holdouts on plates that
@@ -22,7 +22,7 @@ Version names Depth Anything 3 and nothing else; the normals Version names MoGe-
 the alpha Version names the SAM3 checkpoint and nothing else. Three models are loaded in the same
 graph and none of the three Versions claims another's.
 
-**Lineage nobody types.** The plate is read back out of Flow PT by a Load node — the rule is
+**Lineage nobody types.** The plate is read back out of Flow Production Tracking by a Load node — the rule is
 "newest Version on `demo_02_passes` whose name contains `plate`", not an id — so all three Versions
 record `sg_ai_generated_from` pointing at that same source Version.
 
@@ -81,15 +81,15 @@ Two notes on the alpha:
 
 ## How it was made
 
-    python3 src/comfyui_fpt/instrument.py 02_base.json \
+    python3 src/comfyui_sg/instrument.py 02_base.json \
       --publish 11:0 --publish 21:0 --publish 42:0 --load 4 \
       --project "comfyui-fpt sandbox" --link "demo_02_passes (Shot)" \
       --out example_workflows/02_utility_passes.json
 
-The plate was seeded first, because a graph that reads from disk cannot be pointed at Flow PT until
-what it reads is *in* Flow PT:
+The plate was seeded first, because a graph that reads from disk cannot be pointed at Flow Production Tracking until
+what it reads is *in* Flow Production Tracking:
 
-    PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
+    PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
       --project 1180 --link "demo_02_passes (Shot)" --output plate --note "..."
 
 `instrument.py` leaves the replaced `LoadImage` in place but unwired, so an operator can see what was

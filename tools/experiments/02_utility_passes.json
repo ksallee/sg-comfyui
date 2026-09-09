@@ -645,7 +645,7 @@
     },
     {
       "id": 51,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1660,
         40
@@ -671,7 +671,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -687,11 +687,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — depth"
+      "title": "SG Publish — depth"
     },
     {
       "id": 52,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1660,
         620
@@ -717,7 +717,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -733,11 +733,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — normal_opengl"
+      "title": "SG Publish — normal_opengl"
     },
     {
       "id": 53,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1660,
         1140
@@ -763,7 +763,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -779,11 +779,11 @@
         0,
         true
       ],
-      "title": "Flow PT Publish — alpha"
+      "title": "SG Publish — alpha"
     },
     {
       "id": 54,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         40,
         500
@@ -819,7 +819,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "comfyui-fpt sandbox",
@@ -834,7 +834,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load — plate"
+      "title": "SG Load — plate"
     }
   ],
   "links": [

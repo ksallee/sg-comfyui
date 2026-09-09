@@ -11,7 +11,7 @@ import re
 
 from . import credentials, resolve, site
 
-# Flow PT answers an error as a JSON:API envelope whose useful half is one `detail` sentence, or
+# SG answers an error as a JSON:API envelope whose useful half is one `detail` sentence, or
 # `title` where `detail` is null, which is what a refused impersonation carries (probe 027).
 _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
@@ -34,7 +34,8 @@ def _sentence(e):
     """
     text = str(e)
     if _SESSION_DEAD in text:
-        return "Your Flow Production Tracking login has expired. Open Settings, then SG, and log in again."
+        return ("Your Flow Production Tracking login has expired. Open Settings, then SG, and log in "
+                "again.")
     m = _DETAIL.search(text) or _TITLE.search(text)
     if not m:
         # A token request that never reached the API: a wrong address answers with a web page.
@@ -95,7 +96,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     if not widgets.get("register_files"):
         return []
     from . import naming, publish, sequence
-    from .nodes.publish_version import FPTPublishVersion as PV
+    from .nodes.publish_version import SGPublishVersion as PV
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
@@ -259,12 +260,12 @@ def register():
         """`items` built from (label, id) pairs."""
         return items(lambda: [{"label": l, "id": i} for l, i in fn()])
 
-    @routes.get("/fpt/session")
+    @routes.get("/sg/session")
     async def session(request):
-        """Who this ComfyUI talks to Flow PT as, and whether the site still agrees."""
+        """Who this ComfyUI talks to SG as, and whether the site still agrees."""
         return answer(credentials.status, {"how": "none", "alive": False})
 
-    @routes.post("/fpt/settings")
+    @routes.post("/sg/settings")
     async def save_settings(request):
         """The Settings dialog wrote a value. The key is written, never echoed."""
         body = await request.json()
@@ -275,18 +276,18 @@ def register():
             return credentials.status()
         return answer(out, {"how": "none", "alive": False})
 
-    @routes.post("/fpt/test")
+    @routes.post("/sg/test")
     async def test(request):
         """One round trip as whoever the nodes would publish as, so a wrong key or a refused login
         is read in Settings rather than on the first Run."""
         return answer(credentials.test, {"ok": False})
 
-    @routes.get("/fpt/defaults")
+    @routes.get("/sg/defaults")
     async def defaults(request):
         """The publish defaults Settings edits, for the project the nodes open on."""
         return answer(_defaults, {"values": {}, "projects": []})
 
-    @routes.post("/fpt/defaults")
+    @routes.post("/sg/defaults")
     async def save_default(request):
         """One profile value from Settings: {key, value}, dotted keys into nested blocks."""
         body = await request.json()
@@ -299,26 +300,26 @@ def register():
             return _defaults()
         return answer(out, {"values": {}, "projects": []})
 
-    @routes.get("/fpt/preview_template")
+    @routes.get("/sg/preview_template")
     async def preview_template(request):
         """A template rendered on sample values, so a setting shows what it produces."""
         q = request.rel_url.query
         return answer(lambda: {"example": _example(q.get("kind", ""), q.get("template", ""))},
                       {"example": ""})
 
-    @routes.post("/fpt/login")
+    @routes.post("/sg/login")
     async def login(request):
         """Start a sign-in: the site issues an approval page for the person's browser."""
         body = await request.json()
         return answer(lambda: credentials.begin(body.get("site", "")), {})
 
-    @routes.get("/fpt/login")
+    @routes.get("/sg/login")
     async def login_poll(request):
         """Has the person approved yet. `approved` has already written the session."""
         rid = request.rel_url.query.get("request_id", "")
         return answer(lambda: credentials.finish(rid), {"state": "gone"})
 
-    @routes.post("/fpt/logout")
+    @routes.post("/sg/logout")
     async def logout(request):
         def out():
             credentials.clear_session()
@@ -326,7 +327,7 @@ def register():
             return {"how": "none"}
         return answer(out, {})
 
-    @routes.get("/fpt/projects")
+    @routes.get("/sg/projects")
     async def projects(request):
         """label and id as everywhere else, plus what a picker row draws: code and thumbnail, and
         the project a graph that picked none opens on."""
@@ -335,14 +336,14 @@ def register():
                       for p in site.project_cards()],
             "default": site.default_project()}, {"items": []})
 
-    @routes.get("/fpt/link_types")
+    @routes.get("/sg/link_types")
     async def link_types(request):
         """Entity types this project links Versions to. Empty choice means all of them."""
         q = request.rel_url.query
         return items(lambda: [{"label": t, "id": t}
                               for t in site.link_type_choices(_int(q, "project_id"))])
 
-    @routes.get("/fpt/entities")
+    @routes.get("/sg/entities")
     async def entities(request):
         """Every type this project links Versions to, not one. Version.entity accepts 15 types."""
         q = request.rel_url.query
@@ -354,12 +355,12 @@ def register():
             return [{"label": l, "type": t, "id": i} for l, t, i in found]
         return items(rows)
 
-    @routes.get("/fpt/tasks")
+    @routes.get("/sg/tasks")
     async def tasks(request):
         q = request.rel_url.query
         return pairs(lambda: site.tasks_for(q.get("type", ""), _int(q, "id")))
 
-    @routes.get("/fpt/profile")
+    @routes.get("/sg/profile")
     async def profile(request):
         """What the profile says for ONE project. `link_type` decides which entity type the link
         picker searches, and it is per project, not per site."""
@@ -370,13 +371,13 @@ def register():
             return {k: p.get(k) for k in ("link_type", "link_field", "code_prefix", "status")}
         return answer(read, {})
 
-    @routes.get("/fpt/versions")
+    @routes.get("/sg/versions")
     async def versions(request):
         q = request.rel_url.query
         return pairs(lambda: site.versions(_int(q, "project_id"), q.get("type", ""),
                                            _int(q, "link_id"), q.get("q", "")))
 
-    @routes.get("/fpt/version_sources")
+    @routes.get("/sg/version_sources")
     async def version_sources(request):
         """What THIS Version can actually deliver (probe 021). A filled path field is not a file on
         disk, and neither is a PublishedFile on a root this machine has not mounted.
@@ -393,7 +394,7 @@ def register():
                     for key, label in media.sources(v)]
         return items(rows)
 
-    @routes.get("/fpt/resolve")
+    @routes.get("/sg/resolve")
     async def resolve_one(request):
         """What the Load node WOULD pull, and what that Version is.
 
@@ -404,21 +405,21 @@ def register():
 
         def read():
             from . import media
-            from .nodes.load_version import FPTLoadVersion
+            from .nodes.load_version import SGLoadVersion
             site.client()     # nothing resolves until someone is connected: the sentence names Settings
             pin = _int(q, "pin_version_id")
             typed = [t.strip() for x in q.getall("statuses", [])
                      for t in x.split(",") if t.strip()]
             # `filters` holds EXTRA conditions only, ANDed onto the fields.
             raw = q.get("filters", "")
-            pid, lt, target, task_id = FPTLoadVersion._context(
+            pid, lt, target, task_id = SGLoadVersion._context(
                 q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
             codes, _ = site.resolve_statuses(pid, typed)
             terms = [t for t in (q.get("name_contains", "") or "").split() if t]
             if pin:
                 vid, code, why = pin, "", "pinned by id"
             else:
-                vid, code, why = FPTLoadVersion._resolve(
+                vid, code, why = SGLoadVersion._resolve(
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), raw)
@@ -426,7 +427,7 @@ def register():
             # the panel shows what is actually being asked rather than half of it.
             built = resolve.combine(
                 site.version_filters(pid, lt, target, task_id, terms, codes),
-                FPTLoadVersion._filters(raw))
+                SGLoadVersion._filters(raw))
 
             if not vid:
                 # A rule that matches nothing is the moment what IS there matters most, so the same
@@ -440,25 +441,32 @@ def register():
                         for c, st, i in site.find_versions(pid, lt, target, task_id)[:12]]
                 return {"id": 0, "why": why, "media": [], "candidates": near, "filters": built}
 
-            fpt = site.client()
+            sg = site.client()
             project_id = _int(q, "project_id") or pid
-            desc = media.describe(fpt, vid, site.statuses(project_id), site.status_colors(),
+            desc = media.describe(sg, vid, site.statuses(project_id), site.status_colors(),
                                   site.status_icons())
-            v = media.version(fpt, vid)
+            v = media.version(sg, vid)
             available = media.sources(v)
             # What the node itself would pick: `auto` is a rule, and only the site knows what it
             # lands on.
             picked = q.get("source", "") or "auto"
-            key = available[0][0] if (picked in ("auto", "") and available) \
-                else picked.split(" — ")[0].strip()
+            if picked == "auto":
+                key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
+            else:
+                key = picked.split(" — ")[0].strip()
+                clip_key = key if media.kind_of(v, key) == "movie" else ""
+            label = dict(available)
+            fps, fps_why = media.frame_rate(v)
             # `media`, not `sources`: the publish panel spends `sources` on the Versions a publish
-            # came from.
+            # came from. The thumbnail is a fallback, never a choice.
             return {
                 **desc, "why": why, "filters": built,
-                "media": [k for k, _ in available],
-                # The label of what will actually be read: the type, the file and the count that the
-                # bare key cannot say.
-                "source_label": next((l for k, l in available if k == key), ""),
+                "media": [k for k, _ in available if k != "thumbnail"],
+                # What each output will take: the type, the file and the count that the bare key
+                # cannot say.
+                "image_label": label.get(key, ""),
+                "video_label": label.get(clip_key) if clip_key
+                else f"the frames at {fps:g} fps, {fps_why}",
                 # The frame numbers this source has, so `frame` is read off the panel rather than
                 # guessed. Only a sequence has them; a movie carries no numbering.
                 "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
@@ -470,7 +478,7 @@ def register():
                 "colour_space": media.colour_of(v, key)}
         return answer(read, {"id": 0, "media": []})
 
-    @routes.get("/fpt/preview_code")
+    @routes.get("/sg/preview_code")
     async def preview_code(request):
         """The name this publish node would write next. The node's own renderer, so the panel cannot
         promise something the run does not deliver."""
@@ -478,7 +486,7 @@ def register():
 
         def read():
             from . import naming
-            from .nodes.publish_version import FPTPublishVersion as PV
+            from .nodes.publish_version import SGPublishVersion as PV
             site.client()     # nothing to preview until someone is connected: the sentence names Settings
             project_id = _id_for(site.projects(), q.get("project", "")) or site.default_project()
             p = site.for_project(project_id)
@@ -491,16 +499,10 @@ def register():
                 if (q.get("task") and target) else 0
             root_t = q.get("root_name", "")            # the ROOT template, not the version's name
             code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id, root_t)
-            # A template renders what it can and drops the rest, so `corridor_depth_v004` and a bare
-            # `v004` come back looking equally finished. Both templates are read, because
-            # `{root_name}` hides whatever the root template asks for.
-            needs = {f.split(".")[0] for f in
-                     naming.template_fields(q.get("code_template", "") or naming.DEFAULT_TEMPLATE)
-                     + naming.template_fields(root_t or naming.DEFAULT_ROOT_TEMPLATE)}
-            # Name the fields to fill in, never the consequence of leaving them empty.
-            missing = [name for name, filled in
-                       (("link", "entity" not in needs or target), ("task", "task" not in needs or task_id))
-                       if not filled]
+            # Name the fields to fill in, never the consequence of leaving them empty. The run
+            # refuses on the same list, so the alert is a promise.
+            missing = PV.missing_fields(q.get("code_template", ""), root_t, project_id, target,
+                                        task_id)
             if q.get("link") and not target:
                 alert = f"No {lt} named {picked_name} on this project. Pick one from the list."
             elif missing:
@@ -520,11 +522,32 @@ def register():
                                        for f in site.cached_published_files(lid) if f.get("path")]
                 except Exception:
                     pass                      # a Version whose files cannot be read still has a link
+            # An empty field on the node means Settings names it, and the panel is where that
+            # shows: the template in force, tagged with where it came from.
+            templates = [{"label": label, "value": value, "source": "Settings"}
+                         for label, own, value in
+                         (("root name", root_t, p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
+                          ("version name", q.get("code_template", ""),
+                           p.get("code_template") or naming.DEFAULT_TEMPLATE))
+                         if not own.strip()]
             return {"code": code, "link": f"{lt} {picked_name}".strip(),
-                    "task": q.get("task", ""), "alert": alert, "latest": latest}
+                    "task": q.get("task", ""), "alert": alert, "latest": latest,
+                    "templates": templates}
         return answer(read, {"code": ""})
 
-    @routes.post("/fpt/preview_publish")
+    @routes.get("/sg/node_defaults")
+    async def node_defaults(request):
+        """What a publish node copies in from Settings, for the picked project."""
+        q = request.rel_url.query
+
+        def read():
+            from .nodes.publish_version import settings_defaults
+            site.client()
+            pid = _id_for(site.projects(), q.get("project", "")) or site.default_project()
+            return settings_defaults(pid)
+        return answer(read, {})
+
+    @routes.post("/sg/preview_publish")
     async def preview_publish(request):
         """Everything this publish node would write, from the graph as it stands.
 
@@ -532,8 +555,8 @@ def register():
         frontend already builds for Run (`graphToPrompt`). Nothing is written.
         """
         try:
-            from . import fields as fpt_fields, provenance
-            from .nodes.load_version import FPTLoadVersion as FV
+            from . import fields as sg_fields, provenance
+            from .nodes.load_version import SGLoadVersion as FV
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
@@ -548,7 +571,7 @@ def register():
             scope = provenance.ancestors(prompt, node_id)
             for nid in sorted(scope, key=lambda n: (0, int(n)) if str(n).isdigit() else (1, str(n))):
                 node = prompt.get(nid) or {}
-                if node.get("class_type") != "FPTLoadVersion":
+                if node.get("class_type") != "SGLoadVersion":
                     continue
                 i = node.get("inputs") or {}
                 pinned = i.get("pin_version_id") or i.get("version_id") or 0
@@ -563,14 +586,14 @@ def register():
                 if not any(x["id"] == vid for x in sources):
                     sources.append({"id": vid, "code": code, "why": why})
 
-            fpt = site.client()
-            have = fpt_fields.available(fpt)
+            sg = site.client()
+            have = sg_fields.available(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
             pid = next((n for l, n in site.projects() if l == w.get("project")), 0) \
                 or site.default_project()
-            where = fpt_fields.targets(*site.provenance_map(pid))
-            values = fpt_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
+            where = sg_fields.targets(*site.provenance_map(pid))
+            values = sg_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
 
             def show(v):
                 if isinstance(v, list):     # multi_entity: names, not a dict repr
@@ -586,7 +609,7 @@ def register():
                 has = v not in (None, "", [])
                 if target is None:
                     note = "not mapped to a field"
-                elif target == fpt_fields.DESCRIPTION:
+                elif target == sg_fields.DESCRIPTION:
                     note = "into the description"
                 elif target in have:
                     note = "" if has else "not in this graph"
@@ -594,10 +617,10 @@ def register():
                     note = "this site has no such field"
                 rows.append({
                     "name": (target[3:] if target.startswith("sg_") else target) if target
-                            else fpt_fields.CONCEPT_LABELS[concept],
-                    "label": fpt_fields.CONCEPT_LABELS[concept],
+                            else sg_fields.CONCEPT_LABELS[concept],
+                    "label": sg_fields.CONCEPT_LABELS[concept],
                     "value": show(v) if has else "",
-                    "present": target is None or target == fpt_fields.DESCRIPTION or target in have,
+                    "present": target is None or target == sg_fields.DESCRIPTION or target in have,
                     "note": note,
                 })
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
@@ -638,6 +661,8 @@ def register():
                 media = "the clip"
                 if _wired(w, "images"):
                     media += ". The frames become Published Files."
+            elif _wired(w, "images") and w.get("register_files"):
+                media = "frame 1, as a still. Every frame becomes a Published File."
             elif _wired(w, "images"):
                 media = "frame 1, as a still. Tick Create Published Files to publish all frames."
             else:
@@ -649,14 +674,14 @@ def register():
                 "media": media,
                 "sources": sources,
                 "missing_fields": sorted({t for t in where.values()
-                                          if t and t != fpt_fields.DESCRIPTION and t not in have}),
+                                          if t and t != sg_fields.DESCRIPTION and t not in have}),
             })
         except Exception as e:
             return web.json_response({"error": _sentence(e), "fields": [], "sources": []})
 
-    @routes.get("/fpt/statuses")
+    @routes.get("/sg/statuses")
     async def statuses(request):
-        """Labels, codes and how to draw each one. The picker shows what the Flow PT UI shows."""
+        """Labels, codes and how to draw each one. The picker shows what the SG UI shows."""
         q = request.rel_url.query
 
         def rows():

@@ -1,7 +1,7 @@
-"""Read someone else's ComfyUI workflow and put Flow PT tracking into it.
+"""Read someone else's ComfyUI workflow and put SG into it.
 
-    python src/comfyui_fpt/instrument.py WORKFLOW.json                     # analyse only
-    python src/comfyui_fpt/instrument.py WORKFLOW.json --out COPY.json --publish 306/296
+    python src/comfyui_sg/instrument.py WORKFLOW.json                     # analyse only
+    python src/comfyui_sg/instrument.py WORKFLOW.json --out COPY.json --publish 306/296
 
 Run as a file, never `python -m`: `-m` imports the package `__init__` and therefore torch, and a
 graph must stay analysable on a machine with neither torch nor a route to the site. Setup path — it
@@ -34,8 +34,8 @@ SINK_HINTS = ("save", "preview", "combine", "output", "write")
 ASSEMBLED = ("VIDEO",)
 LOADER_HINTS = ("loadimage", "load_image", "imageload")
 
-PUBLISH = "FPTPublishVersion"
-LOAD = "FPTLoadVersion"
+PUBLISH = "SGPublishVersion"
+LOAD = "SGLoadVersion"
 
 # The declared order, read from the one table rather than repeated. Positional serialisation means
 # an off-by-one silently writes a value into the field next door, which is why nothing here is
@@ -475,7 +475,7 @@ def _add_sub_output(wf, d, inner_id, inner_slot, name):
     return j
 
 
-def add_publish(wf, origin_path, origin_slot, widgets, title="Flow PT Publish Version", name="image"):
+def add_publish(wf, origin_path, origin_slot, widgets, title="SG Publish", name="image"):
     """Tap an existing IMAGE stream. Additive — whatever already consumed it still does.
 
     A stream inside a subgraph is taken at the instance's output first — the one it already leaves
@@ -497,8 +497,8 @@ def add_publish(wf, origin_path, origin_slot, widgets, title="Flow PT Publish Ve
     return nid
 
 
-def replace_loader(wf, loader_path, widgets, title="Flow PT Load Version"):
-    """Feed what a loader fed, from Flow PT instead. The loader is left in place but unwired, so the
+def replace_loader(wf, loader_path, widgets, title="SG Load"):
+    """Feed what a loader fed, from SG instead. The loader is left in place but unwired, so the
     operator can see what was replaced and put it back.
 
     The rewiring happens in whatever container the loader sits in, so a loader inside a subgraph is
@@ -570,7 +570,7 @@ def report(wf, name="", template=""):
 
 
 def _cli(argv=None):
-    ap = argparse.ArgumentParser(prog="comfyui_fpt.instrument", description=__doc__.split("\n")[0])
+    ap = argparse.ArgumentParser(prog="comfyui_sg.instrument", description=__doc__.split("\n")[0])
     ap.add_argument("workflow")
     ap.add_argument("--out", help="write an instrumented copy here; omit to only analyse")
     ap.add_argument("--publish", action="append", default=[], metavar="NODE[:SLOT]",
@@ -605,7 +605,7 @@ def _cli(argv=None):
         crossed = SEP in path
         was = len(_flatten(wf).subs[top][0].get("outputs") or []) if crossed else 0
         # Every tap re-reads the graph, because promoting a stream out of a subgraph changes it.
-        new = add_publish(wf, path, slot, w, title=f"Flow PT Publish — {d}", name=d)
+        new = add_publish(wf, path, slot, w, title=f"SG Publish — {d}", name=d)
         note = ""
         if crossed:
             grew = len(_flatten(wf).subs[top][0].get("outputs") or []) > was

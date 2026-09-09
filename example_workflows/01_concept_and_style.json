@@ -1,5 +1,5 @@
 {
-  "id": "fpt-01-plates",
+  "id": "sg-01-plates",
   "last_node_id": 17,
   "last_link_id": 24,
   "nodes": [
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Concept and style plates\n\nOne Run, two Versions: a **scene concept** and a **style plate**. They are two streams on the same\nentity — `{entity}_concept` and `{entity}_style` — which is what **root name** decides.\n\n**02 needs both of these**, so run this first. 02 pulls the newest of each and fuses them.\n\n**Just looking?** Run it. Both images appear in the Previews and nothing is sent anywhere until the\nPublish nodes have a **project** and a **link**. Ctrl-B mutes a node.\n\nEach Version records what made it — **prompt, seed, model, sampler, steps, cfg** — read off the\ngraph, not typed. Change a **seed** and Run again for v002 on the same stream, so variations line up\nas versions of one idea.\n\nFlux dev at 20 steps, 1280x720. **guidance** on the Flux Guidance nodes is how hard the prompt\npulls; cfg stays 1.0 because Flux is guidance-distilled. The style plate is smaller on purpose:\nRedux resizes it to 384 before it ever sees it."
+        "## Concept and style plates\n\nOne Run, two Versions: a scene concept and a style plate. Root name makes them two streams on one\nentity, `{entity}_concept` and `{entity}_style`.\n\nRun this before 02. 02 loads the newest of each.\n\nRun as it is: both images preview, nothing is sent until each Publish has a project and a link.\n\nEach Version records prompt, seed, model, sampler, steps and cfg off the graph. Change a seed, Run\nagain: v002 on the same stream.\n\nFlux dev, 20 steps, 1280x720. Guidance is how hard the prompt pulls; cfg stays 1.0. The style\nplate is small on purpose: Redux resizes it to 384."
       ]
     },
     {
@@ -457,7 +457,7 @@
     },
     {
       "id": 13,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1300,
         0
@@ -491,7 +491,7 @@
         "{entity}_concept",
         "",
         false,
-        "Scene concept from the Flow PT example.",
+        "Scene concept from the Flow Production Tracking example.",
         "sRGB",
         "",
         0,
@@ -500,10 +500,10 @@
     },
     {
       "id": 14,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1300,
-        680
+        800
       ],
       "size": [
         430,

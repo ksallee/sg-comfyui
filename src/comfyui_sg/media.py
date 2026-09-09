@@ -18,7 +18,10 @@ import requests
 from sg_groundtruth.client import FPTError
 
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
-          "sg_first_frame", "sg_last_frame"]
+          "sg_first_frame", "sg_last_frame", "sg_uploaded_movie_frame_rate"]
+
+# When no clip exists anywhere, the frames are wrapped at this rate and the log says so.
+DEFAULT_FPS = 24
 
 # Provenance the publish node writes (fields.py). Shown on the Load node so an artist can see what
 # they are building on before they run anything.
@@ -139,7 +142,7 @@ def _frames_on_disk(pattern):
 
 # --- one Version ---------------------------------------------------------------------------------
 
-def published_files(fpt, version_id):
+def published_files(sg, version_id):
     """Every PublishedFile on this Version, flattened to what a picker and a loader need.
 
     recipe 004 — `path` comes back with the LocalStorage join already done, so nothing here reads
@@ -151,7 +154,7 @@ def published_files(fpt, version_id):
     """
     from .site import ARRAY_JSON
     try:
-        r = fpt.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
+        r = sg.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
             "filters": [["version", "is", {"type": "Version", "id": int(version_id)}]],
             "fields": ["path", "description", "published_file_type"], "page": {"size": 200}})
         if not r.ok:
@@ -171,19 +174,20 @@ def published_files(fpt, version_id):
     return out
 
 
-def version(fpt, version_id):
+def version(sg, version_id):
     """One Version's media fields plus its PublishedFiles.
 
     The files are folded in here (the second call probe 021 named) so `sources` and `load` stay pure
     functions of one dict and no caller has to remember to fetch them separately.
     """
-    r = fpt.get(f"/entity/versions/{int(version_id)}", params={"fields": ",".join(FIELDS)})
+    r = sg.get(f"/entity/versions/{int(version_id)}", params={"fields": ",".join(FIELDS)})
     if not r.ok:
-        raise FPTError(f"Could not read Version {version_id} from Flow PT. Check that it still "
-                       f"exists, then run again. Flow PT answered {r.status_code}. {r.text[:200]}")
+        raise FPTError(f"Could not read Version {version_id} from Flow Production Tracking. Check that "
+                       f"it still exists, then run again. The site answered {r.status_code}. "
+                       f"{r.text[:200]}")
     d = r.json()["data"]
     return {**d.get("attributes", {}), "id": d["id"],
-            "published_files": published_files(fpt, version_id)}
+            "published_files": published_files(sg, version_id)}
 
 
 def provenance_state(attrs, sources):
@@ -199,18 +203,18 @@ def provenance_state(attrs, sources):
     return "derived" if sources else "unrecorded"
 
 
-def describe(fpt, version_id, statuses=(), colors=None, icons=None):
+def describe(sg, version_id, statuses=(), colors=None, icons=None):
     """One Version as structured fields, for the editor to render rather than a wall of text.
 
     Absent fields are omitted rather than shown empty: a site with no provenance fields gets a short
     honest summary, not a column of blanks.
     """
-    r = fpt.get(f"/entity/versions/{int(version_id)}",
+    r = sg.get(f"/entity/versions/{int(version_id)}",
                 params={"fields": ",".join(SUMMARY_FIELDS + RELATED_FIELDS)})
     if not r.ok:
         return {"code": f"Version {version_id}",
-                "error": f"Could not read this Version from Flow PT. Check that it still exists. "
-                         f"Flow PT answered {r.status_code}."}
+                "error": f"Could not read this Version from Flow Production Tracking. Check that it "
+                         f"still exists. The site answered {r.status_code}."}
     d = r.json()["data"]
     a, rel = d.get("attributes", {}), d.get("relationships", {})
     code = a.get("sg_status_list")
@@ -274,6 +278,69 @@ def sources(v):
         if detail:
             out.append((key, f"{label} — {detail}"))
     return out
+
+
+def kind_of(v, key):
+    """"sequence", "still" or "movie": the shape of what one source delivers."""
+    pf = pf_of(v, key)
+    if pf:
+        name = pf["path"]
+    elif key == "frames":
+        name = v.get("sg_path_to_frames") or ""
+    elif key == "movie":
+        name = v.get("sg_path_to_movie") or ""
+    elif key == "uploaded":
+        name = (v.get("sg_uploaded_movie") or {}).get("name") or ""
+    else:
+        return "still"
+    if SEQ.search(name):
+        return "sequence"
+    return "still" if name.lower().endswith(STILL) else "movie"
+
+
+# The Published File types a site publishes its deliverable as lead, then the rest by shape.
+_FRAMES_ORDER = ("sequence", "movie", "still")
+
+
+def best(v, want, available=None):
+    """The source the `image` or the `video` output takes on its own, or "" when nothing serves.
+
+    `image` takes frames from a sequence first, then a clip decoded, then a still, then the
+    thumbnail. `video` takes a clip only: a Movie Published File, the movie on the storage, the
+    uploaded mp4. A Published File beats a path field of the same shape because it carries a type,
+    per-platform paths and the declared colour space. The site's own transcode is never offered: it
+    is derived from the upload, lags it, and can describe a file that was replaced (probe 022).
+    """
+    keys = [k for k, _ in (available if available is not None else sources(v))]
+    if want == "video":
+        return next((k for k in keys if kind_of(v, k) == "movie"), "")
+    for shape in _FRAMES_ORDER:
+        for k in keys:
+            if k != "thumbnail" and kind_of(v, k) == shape:
+                return k
+    return "thumbnail" if "thumbnail" in keys else ""
+
+
+def clip(v, key):
+    """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
+    in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
+    from comfy_api.input_impl import VideoFromFile
+    pf = pf_of(v, key)
+    path = pf["path"] if pf else v.get("sg_path_to_movie") if key == "movie" else ""
+    if path:
+        return VideoFromFile(path)
+    if key == "uploaded":
+        import io
+        return VideoFromFile(io.BytesIO(_download(v["sg_uploaded_movie"]["url"])))
+    raise FPTError(f"{key} is not a clip this node can hand on as a video.")
+
+
+def frame_rate(v):
+    """(fps, why) for wrapping frames: the rate the site measured on an uploaded clip, else 24."""
+    fps = v.get("sg_uploaded_movie_frame_rate")
+    if fps and kind_of(v, "uploaded") == "movie":
+        return float(fps), "the uploaded clip's rate"
+    return float(DEFAULT_FPS), "the Version records no frame rate"
 
 
 def _pf_detail(pf):
@@ -363,7 +430,7 @@ def _at_frame(pattern, frame):
 
 def _download(url):
     """probe 021 — the field value IS a presigned S3 URL, so this is an unauthenticated GET.
-    Sending the Flow PT bearer token here would leak it to S3."""
+    Sending the SG bearer token here would leak it to S3."""
     r = requests.get(url, timeout=120)
     r.raise_for_status()
     return r.content
@@ -372,7 +439,7 @@ def _download(url):
 def load_frames(v, key, start=0, count=1, budget=0):
     """`count` PIL images from frame `start`. One item is exactly what a single-frame read returns.
 
-    `start` is the frame NUMBER — the one in the filename and the one Flow PT shows — not a position
+    `start` is the frame NUMBER — the one in the filename and the one SG shows — not a position
     in the list. `start` 0 is the first frame the source actually has, and `count` 0 is every frame
     from there to the end.
 

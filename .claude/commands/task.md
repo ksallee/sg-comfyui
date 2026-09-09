@@ -1,5 +1,5 @@
 ---
-description: Do a job against the Flow PT API, grounded in the corpus
+description: Do a job against the Flow Production Tracking API, grounded in the corpus
 ---
 
 Job: $ARGUMENTS

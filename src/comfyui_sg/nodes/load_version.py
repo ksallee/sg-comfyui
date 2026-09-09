@@ -1,4 +1,4 @@
-"""Flow PT Load Version — a Version's media comes back into the graph, and the link is recorded.
+"""SG Load — a Version's media comes back into the graph, and the link is recorded.
 
 The pixels are half of it. A Version loaded here is remembered as an ancestor (`lineage`), so
 anything published downstream records what it came from without the operator typing an id.
@@ -57,7 +57,7 @@ def _as_list(v):
     return [x.strip() for x in str(v or "").split(",") if x.strip()]
 
 
-class FPTLoadVersion:
+class SGLoadVersion:
     @classmethod
     def INPUT_TYPES(cls):
         project_id = site.default_project()
@@ -93,7 +93,7 @@ class FPTLoadVersion:
                                  + " This project allows: "
                                  + ", ".join(l for l, _ in statuses)},
                 }),
-            "hidden": {"unique_id": "UNIQUE_ID"},
+            "hidden": {"unique_id": "UNIQUE_ID", "prompt": "PROMPT"},
         }
 
     @classmethod
@@ -112,11 +112,12 @@ class FPTLoadVersion:
     # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
     # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
     # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
-    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING")
-    RETURN_NAMES = ("image", "version_id", "code", "colour_space")
+    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO")
+    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
-    DESCRIPTION = "Read a Flow PT Version's media into the graph, recording it as a source."
+    DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "
+                   "as a source.")
 
     @classmethod
     def _context(cls, project, link_type, link, task):
@@ -139,7 +140,7 @@ class FPTLoadVersion:
             v = json.loads(raw)
         except json.JSONDecodeError as e:
             raise ValueError(f"Extra filters is not valid JSON. {e}")
-        # Both shapes, because Flow PT takes both under different Content-Types (probe 030). An
+        # Both shapes, because SG takes both under different Content-Types (probe 030). An
         # array is a flat implicit `and`; a dict is {"logical_operator", "conditions"} and is the
         # only way to express `or`, nested up to 265 groups deep.
         if isinstance(v, dict):
@@ -186,7 +187,7 @@ class FPTLoadVersion:
 
     def load(self, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
               statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0, source=AUTO,
-              frame=0, frame_count=1, unique_id=None):
+              frame=0, frame_count=1, unique_id=None, prompt=None):
         if int(pin_version_id):
             vid, why = int(pin_version_id), "pinned by id"
         else:
@@ -203,20 +204,25 @@ class FPTLoadVersion:
                                         else "\nThere are no Versions on this link."))
             why = f"{code} ({why})"
 
-        fpt = site.client()
-        v = media.version(fpt, vid)
+        sg = site.client()
+        v = media.version(sg, vid)
         available = media.sources(v)
         if not available:
             raise ValueError(
                 f"Version {vid} ({v.get('code')}) has no media this node can read. Check that the "
                 f"storage holding its files is mounted on this machine.")
 
-        key = available[0][0] if source in (AUTO, UNSET) else source.split(" — ")[0].strip()
-        if key not in [k for k, _ in available]:
-            # The labels, not the keys: a PublishedFile that has been renamed or re-typed no longer
-            # matches the saved value, and the listing is what tells you which.
-            raise ValueError(f"Version {vid} has no {key} to read. Pick one of these instead:\n  "
-                             + "\n  ".join(label for _, label in available))
+        # Each output takes its own best; a picked source makes both read that one file.
+        if source in (AUTO, UNSET):
+            key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
+        else:
+            key = source.split(" — ")[0].strip()
+            if key not in [k for k, _ in available]:
+                # The labels, not the keys: a PublishedFile that has been renamed or re-typed no
+                # longer matches the saved value, and the listing is what tells you which.
+                raise ValueError(f"Version {vid} has no {key} to read. Pick one of these "
+                                 f"instead:\n  " + "\n  ".join(label for _, label in available))
+            clip_key = key if media.kind_of(v, key) == "movie" else ""
 
         # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
         # Version is not in the prompt graph, only the rule is. The file goes with it: a read that
@@ -237,6 +243,33 @@ class FPTLoadVersion:
         # A batch that came back short is a fact about the media, said out loud rather than left for
         # the graph downstream to discover as a wrong frame count.
         short = f", short of the {frame_count} asked for" if len(frames) < int(frame_count) else ""
-        print(f"[Flow PT] Loaded Version {vid}: {why}. Source {key}, {got}{short}."
+        images = torch.from_numpy(a)
+        # The clip is fetched only when something reads it: a download nobody asked for is a cost,
+        # and the frames wrapped at a stated rate are a video too.
+        if clip_key and _wired(prompt, unique_id, 4):
+            video, clip_why = media.clip(v, clip_key), f"the file, {clip_key}"
+        else:
+            fps, fps_why = media.frame_rate(v)
+            video, clip_why = _wrap(images, fps), f"the frames at {fps:g} fps, {fps_why}"
+        print(f"[SG] Loaded Version {vid}: {why}. Source {key}, {got}{short}. Video: {clip_why}."
               + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
-        return (torch.from_numpy(a), vid, v.get("code") or "", colour)
+        return (images, vid, v.get("code") or "", colour, video)
+
+
+def _wired(prompt, node_id, slot):
+    """Whether any node in the prompt reads this node's output `slot`."""
+    for node in (prompt or {}).values():
+        for val in (node.get("inputs") or {}).values():
+            if isinstance(val, list) and len(val) == 2 and str(val[0]) == str(node_id) \
+                    and int(val[1]) == slot:
+                return True
+    return False
+
+
+def _wrap(images, fps):
+    """An IMAGE batch as ComfyUI's own VIDEO object. Nothing is encoded until a node saves it."""
+    from fractions import Fraction
+
+    from comfy_api.input_impl import VideoFromComponents
+    from comfy_api.util import VideoComponents
+    return VideoFromComponents(VideoComponents(images=images, frame_rate=Fraction(fps)))

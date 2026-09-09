@@ -1,9 +1,9 @@
-"""Who the nodes talk to Flow PT as, and where that is kept.
+"""Who the nodes talk to SG as, and where that is kept.
 
 Two ways in, and a person wins over a machine:
 
 - **A person, signed in through the App Session Launcher** (probe 052). The operator clicks Log in
-  under Settings, approves the request in the browser where they are already logged into Flow PT,
+  under Settings, approves the request in the browser where they are already logged into SG,
   and the session token the site hands back is kept in ComfyUI's protected user directory. Every
   Version is then created by that person, with no script key and no impersonation.
 - **A script**: a script name and application key entered under Settings, else `FPT_API_SITE_URL`,
@@ -26,8 +26,8 @@ from sg_groundtruth.client import FPT, FPTError
 from sg_groundtruth.env import load as load_env
 
 ROOT = Path(__file__).resolve().parents[2]
-PACK = "comfyui_flow_production_tracking"          # get_system_user_directory allows no hyphen
-APP_NAME = "ComfyUI Flow Production Tracking"      # what the person sees on the approval page
+PACK = "sg_comfyui"          # get_system_user_directory allows no hyphen
+APP_NAME = "ComfyUI SG"      # what the person sees on the approval page
 SESSION_FILE = "session.local.json"
 SETTINGS_FILE = "settings.local.json"
 SETTINGS_KEYS = ("site", "script_name", "api_key", "login")

@@ -108,7 +108,7 @@ argument for the deterministic path.
 Standalone, the input is seeded from disk:
 
 ```sh
-PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
+PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
   --project 1180 --link "demo_05_upres (Shot)" --output gen480 --status Approved --note "..."
 ```
 
@@ -128,7 +128,7 @@ The graph is single-frame: one image in, one Version out per branch. The contras
 is what each upres does to *pixels*, and a frame carries that as well as a clip does — while costing
 one sampler step instead of one per frame.
 
-**The video path is the same wiring.** Swap `LoadImage`/`FPTLoadVersion` for `LoadVideo` +
+**The video path is the same wiring.** Swap `LoadImage`/`SGLoadVersion` for `LoadVideo` +
 `GetVideoComponents` and the frames flow through both branches unchanged; the publish node taps an
 IMAGE stream and decides for itself what a batch becomes. Nothing between the loader and the publish
 node moves. The core `utility-gan_upscaler` and `utility_seedvr2_3b_int8_upscale_video` templates
@@ -148,4 +148,4 @@ this is derived from are exactly that shape.
 - `crop: center` on both resizes. 832x480 is 1.733:1 and HD is 1.778:1 — a 2.5% side crop, which is
   what a comp would do anyway.
 - The original `LoadImage` is left in the graph, unwired, exactly as `/track-workflow` leaves it, so
-  it is visible what was swapped for Flow PT.
+  it is visible what was swapped for Flow Production Tracking.

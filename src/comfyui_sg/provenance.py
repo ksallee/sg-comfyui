@@ -162,7 +162,7 @@ def ancestors(prompt, node_id):
 
 
 def loaded_versions(prompt, node_id):
-    """Version ids pulled from Flow PT upstream of node_id, in graph order.
+    """Version ids pulled from SG upstream of node_id, in graph order.
 
     Only a PINNED id is in the prompt; a Load node resolving by rule records its Version in
     `lineage` instead, and both are read. `version_id` is an older spelling of the same widget and
@@ -173,7 +173,7 @@ def loaded_versions(prompt, node_id):
         if nid not in scope:
             continue
         node = prompt.get(nid) or {}
-        if node.get("class_type") != "FPTLoadVersion":
+        if node.get("class_type") != "SGLoadVersion":
             continue
         inputs = node.get("inputs") or {}
         vid = inputs.get("pin_version_id", inputs.get("version_id"))

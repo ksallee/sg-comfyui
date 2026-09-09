@@ -12,10 +12,12 @@ studio's conventions are hardcoded.
 ## What it needs
 
 - **ComfyUI**, and Python 3.11.
-- **A Flow PT site and a script key.** Auth is `client_credentials`: a Script Name and its Application
-  Key, made in the Flow PT web UI under Admin > Scripts. The script needs to read Projects, Versions,
-  Tasks and whatever entities you link to, to create Versions and upload media, and — for the one-off
-  field setup — to create fields on Version.
+- **A Flow Production Tracking site you can log into.** On a workstation the nodes publish as you:
+  click Log in under Settings, then SG, and approve the request in your browser. A render farm, a
+  machine nobody signs in on, and the command-line tools below take a script key instead: a Script
+  Name and its Application Key, made under Admin > Scripts. That script needs to read Projects,
+  Versions, Tasks and whatever entities you link to, to create Versions and upload media, and — for
+  the one-off field setup — to create fields on Version.
 - **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
   names it, and ComfyUI-Manager installs that file. Nothing to clone to *run* the nodes.
 - **A checkout of `sg-groundtruth` beside this one, to *set up*.** Step 1 below measures your site with
@@ -26,8 +28,8 @@ studio's conventions are hardcoded.
 
 ```sh
 cd ComfyUI/custom_nodes
-git clone git@github.com:ksallee/comfyui-flow-production-tracking.git
-cd comfyui-flow-production-tracking
+git clone git@github.com:ksallee/sg-comfyui.git
+cd sg-comfyui
 <comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
 ```
 
@@ -39,19 +41,26 @@ login to publish as. **Test** proves the connection before the first Run. The sa
 publish defaults: the project the nodes open on, Version name, root name, status, and where
 Published Files land.
 
-A checkout can carry the script key in `.env.local` instead, for the command-line tools below:
-
 `<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
 launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
 imports, the site never answers.
+
+What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a Manager
+update leaves it alone. The command-line tools below do not read Settings; a checkout carries a script
+key for them in `.env.local`:
 
 ```sh
 cp .env.local.example .env.local                    # then fill in the three keys
 ```
 
 `.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
-value. What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a
-Manager update leaves it alone.
+value.
+
+**Colour management is opt-in.** The shipped templates use core nodes only, so anyone can open them,
+and core ComfyUI has no colour management at all. A colour-managed pipeline installs the
+[ComfyUI-OCIO](https://github.com/SlavaSexton/ComfyUI-OCIO) pack, sets `OPENCV_IO_ENABLE_OPENEXR=1`
+in the environment that launches ComfyUI, and has ffmpeg on the path. `/setup` asks that question
+and walks the rest of a first run.
 
 ## Set up, in this order
 
@@ -66,11 +75,11 @@ particular the link field, which is the one it most often gets wrong.
 **2. Create the provenance fields.** Once per site:
 
 ```sh
-PYTHONPATH=src python -m comfyui_fpt.fields
+PYTHONPATH=src python -m comfyui_sg.fields
 ```
 
 It reads the schema first and creates only what is missing, so re-running is safe. (Python prints a
-`RuntimeWarning` about `comfyui_fpt.fields` already being in `sys.modules`; it is cosmetic.)
+`RuntimeWarning` about `comfyui_sg.fields` already being in `sys.modules`; it is cosmetic.)
 
 Field names are permanent — deleting a field frees the field but never its name, and trashed fields
 cannot be listed, so a name spent here is spent site-wide forever (probe 019). Pointing the profile's
@@ -81,8 +90,9 @@ use, says where a Version would come out of it and where one could go in, and wr
 copy. It never overwrites the original.
 
 Then restart ComfyUI and open the instrumented workflow. Two nodes appear under the category **Flow
-Production Tracking**. If `http://127.0.0.1:8188/fpt/projects` lists your shows, the credentials, the
-client and the profile are all working.
+Production Tracking**, and typing **SG** into the node search finds both. If
+`http://127.0.0.1:8188/sg/projects` lists your shows, the credentials, the client and the profile
+are all working.
 
 Restarting is only for installing or upgrading the pack. A later edit to `profile.local.json` reaches
 the editor on a **browser refresh**: `INPUT_TYPES` is re-evaluated on every `/object_info` request.
@@ -93,26 +103,30 @@ Everything runs from the repo root.
 
 | command | needs |
 |---|---|
-| `python src/comfyui_fpt/instrument.py <wf.json>` | nothing — no site, no profile, no torch |
-| `PYTHONPATH=src python -m comfyui_fpt.fields` | `.env.local` |
-| `PYTHONPATH=src python -m comfyui_fpt.seed <file> ...` | `.env.local`, `profile.local.json` |
+| `python src/comfyui_sg/instrument.py <wf.json>` | nothing — no site, no profile, no torch |
+| `PYTHONPATH=src python -m comfyui_sg.fields` | `.env.local` |
+| `PYTHONPATH=src python -m comfyui_sg.seed <file> ...` | `.env.local`, `profile.local.json` |
 | `python ../sg-groundtruth/inspect_site.py --project <id> --out profile.local.json` | `../sg-groundtruth/.env.local` |
 
-`PYTHONPATH=src` is required for every `-m comfyui_fpt.*`: the package lives under `src/` and nothing
+`PYTHONPATH=src` is required for every `-m comfyui_sg.*`: the package lives under `src/` and nothing
 installs it. `instrument.py` is deliberately run as a file instead — `-m` would import the package
 `__init__`, which imports the nodes and therefore torch, and a graph should be analysable on a machine
-that has neither torch nor a route to Flow PT.
+that has neither torch nor a route to Flow Production Tracking.
 
 The inspector reads credentials from **its own** `.env.local`, in the `sg-groundtruth` checkout, not
 this one. Same three keys either way.
 
 ## The two nodes
 
-**Flow PT Publish Version** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
+**SG Publish** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
 provenance attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a
 project, what the Version hangs off, optionally a Task and a status, and what the stream *is*
 (`depth`, `normals`, `mask`). The project, link, Task and status lists are your site's real ones,
 read live. `code = auto` numbers per link, so two graphs chain without anyone copying an id.
+
+An empty root name or version name means Settings names it, so a Settings change reaches every
+saved graph and every shipped template. The panel shows the template in force, tagged Settings.
+Press **Reset fields to Settings Defaults** to write those values into the node and edit from them.
 
 Two inputs, `images` and `video`, and at least one of them wired. What you wire is what the Version
 carries — there is no combo asking you to say it again:
@@ -138,16 +152,28 @@ rest. Tick the box to register the sequence, or send the batch through `CreateVi
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
 
-**Flow PT Load Version** — a Version's media back into the graph, and the link recorded. The inputs
+**SG Load** — a Version's media back into the graph, and the link recorded. The inputs
 are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
 
-`source` lists what that Version can actually deliver, best first, and published files lead. Where a
-Version published several, each is its own choice named by type and filename —
+Two media outputs, and each takes the best the Version has on its own:
+
+| output | takes, in order |
+|---|---|
+| `image` | the sequence, as a Published File then as path to frames; else a clip decoded; else the uploaded still; else the thumbnail |
+| `video` | a Movie Published File; else path to movie; else the uploaded mp4, untouched; else the frames wrapped at the Version's frame rate, or 24 fps when it records none |
+
+A Published File beats a path field of the same shape because it carries a type, a path per
+platform and the declared colour space. A file on a root this machine has not mounted does not
+count, so a laptop without the storage falls through to the upload by itself. The site's own
+transcode is never read: it is derived from the upload, lags it, and can describe a file that was
+replaced. The panel shows what each output will take before you run.
+
+`source`, in the fold, is the override: pick one file and both outputs read it. Where a Version
+published several, each is its own choice named by type and filename —
 `Rendered Image · sh010_comp_v003.%04d.png #6843` beside `Movie · sh010_comp_v003.mp4 #6844` — so the
-rendered sequence and the mp4 are told apart at a glance. A file whose path is on a root this machine
-has not mounted is not offered at all.
+rendered sequence and the mp4 are told apart at a glance.
 
 `frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
 loaded clip a real input to a video graph.
@@ -232,7 +258,7 @@ Two profile keys per project, beside every other per-show decision:
     }
 
 `storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
-template — Flow PT's dotted field paths and Python's format spec — with two rules of its own:
+template — Flow Production Tracking's dotted field paths and Python's format spec — with two rules of its own:
 
 - `{version}` is the publish revision; `%04d` (or `####`, or `@@@@`) is the frame. They are different
   numbers, so in a *path* template the printf form always means the frame.
@@ -265,8 +291,9 @@ Both gitignored, both yours to edit:
 
 ## Driving it with an agent
 
-Two slash commands, in `.claude/commands/`. They are the interface, not a shortcut around one:
+Three slash commands, in `.claude/commands/`. They are the interface, not a shortcut around one:
 
+    /setup               walk a first run: connection, profile, colour management, the example
     /inspect-site        measure a project and write the profile
     /track-workflow      add tracking to a workflow you already use
 
@@ -279,7 +306,7 @@ returned:
 
 ```sh
 pip install playwright && playwright install chromium     # once
-tools/qa_node.py --start --node FPTLoadVersion --drive drive.js --shot out.png
+tools/qa_node.py --start --node SGLoadVersion --drive drive.js --shot out.png
 ```
 
 `--start` launches an instance of its own: its own port, and its own `--base-directory`, which
@@ -297,8 +324,8 @@ lets the agent read back only its own answer.
 
 ## Not ready yet
 
-- **`sg_groundtruth` is not installable.** A sibling checkout is required. Until that is resolved a
-  Comfy Registry install would not run, so this is not on the Registry.
+- **Not on the Registry yet.** `requirements.txt` installs everything a Registry install needs, but
+  the pack has not been published there.
 - **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
   rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
 - **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to

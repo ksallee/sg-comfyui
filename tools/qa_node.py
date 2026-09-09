@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Drive one node in a real ComfyUI, headless, and print only what was asked for.
 
-    tools/qa_node.py --start --port 8189 --node FPTLoadVersion --drive drive.js --shot out.png
+    tools/qa_node.py --start --port 8189 --node SGLoadVersion --drive drive.js --shot out.png
 
 --start launches an isolated ComfyUI: its own port AND its own --user-directory, so two agents never
 share settings, workflows or a queue. Without it, an already-running instance on --port is used.
@@ -11,7 +11,7 @@ returns is printed as JSON. Nothing else is printed, so the agent pays for its o
 
 Needs playwright, which ComfyUI's own venv does not have:
 
-    uv run --with playwright --python 3.11 python tools/qa_node.py --start --node FPTLoadVersion
+    uv run --with playwright --python 3.11 python tools/qa_node.py --start --node SGLoadVersion
 """
 import argparse
 import json
@@ -26,7 +26,7 @@ import urllib.request
 from pathlib import Path
 
 COMFY = Path(os.environ.get("COMFYUI_PATH", Path.home() / "dev" / "ComfyUI"))
-READY = "/object_info/FPTLoadVersion"
+READY = "/object_info/SGLoadVersion"
 
 
 def free_port(start):
@@ -35,6 +35,13 @@ def free_port(start):
             if s.connect_ex(("127.0.0.1", p)) != 0:
                 return p
     raise SystemExit("no free port")
+
+
+def pack_name(repo):
+    """`[project].name` from the checkout's pyproject.toml."""
+    import tomllib
+    with open(repo / "pyproject.toml", "rb") as fh:
+        return tomllib.load(fh)["project"]["name"]
 
 
 def start_comfy(port, vue=True, repo=None):
@@ -50,7 +57,9 @@ def start_comfy(port, vue=True, repo=None):
     base = Path(tempfile.mkdtemp(prefix=f"comfyqa-{port}-"))
     repo = Path(repo or Path(__file__).resolve().parents[1])
     (base / "custom_nodes").mkdir(parents=True, exist_ok=True)
-    (base / "custom_nodes" / repo.name).symlink_to(repo)
+    # The Templates browser and the node footer show this directory name verbatim, so it is the
+    # Registry name from pyproject and not whatever the checkout is called.
+    (base / "custom_nodes" / pack_name(repo)).symlink_to(repo)
     userdir = base / "user"
     (userdir / "default").mkdir(parents=True, exist_ok=True)
     # Nodes 2.0 is opt-in and per user directory, so a fresh one starts with it off. The onboarding
@@ -134,7 +143,7 @@ BOOT = """async ({node_type, drive}) => {
 }"""
 
 
-USAGE_SOURCE = "comfyui-fpt qa_node.py"
+USAGE_SOURCE = "sg-comfyui qa_node.py"
 
 
 def _identify(route):

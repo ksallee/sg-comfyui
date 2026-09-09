@@ -41,8 +41,8 @@ It is a clean plate you would put up for review, not one you would ship without 
   the publish node's `video`, uploaded rather than re-encoded, at the rate it states itself.
 - The output Version records what made it: model, prompt, seed, sampler, steps, CFG, the workflow
   JSON, **and `sg_ai_generated_from` pointing back at the plate Version the graph read**.
-- The graph never names a Version id. `Flow PT Load Version` resolves *the newest plate on this
-  Shot*, and `Flow PT Publish Version` records what it resolved. That is the whole point of the
+- The graph never names a Version id. `SG Load` resolves *the newest plate on this
+  Shot*, and `SG Publish` records what it resolved. That is the whole point of the
   pair.
 
 ## What made it work
@@ -134,7 +134,7 @@ standard frontend does and several other clients do not (README).
 `provenance.extract` walks the branch and reports every model the branch loaded, and the matte is
 part of what made this image.
 
-The seeded plate on the same Shot reads `sg_uploaded_movie_frame_rate` **25.0** — what Flow PT
+The seeded plate on the same Shot reads `sg_uploaded_movie_frame_rate` **25.0** — what Flow Production Tracking
 stamps on a still it transcoded. 16.0 against 25.0 is how you tell a real movie from a transcoded
 frame on the site, which is why the node never writes the transcoder's own fields (probe 022).
 
@@ -144,9 +144,9 @@ Flattened from the core `video_wan_vace_inpainting` template, which ships the sa
 subgraph. Flat on purpose: `instrument.py` does not walk into subgraphs (README, "Not ready yet"),
 so the template as shipped reports no publishable stream and `/track-workflow` has nothing to offer.
 
-    Flow PT Load Version ──► RepeatImageBatch ──┬──► SAM3_Detect ──► GrowMask ──┬──► WanVaceToVideo
+    SG Load ──► RepeatImageBatch ──┬──► SAM3_Detect ──► GrowMask ──┬──► WanVaceToVideo
       (the plate, from        (locked-off clip, │    ("car")             │      │      │
-       Flow PT, not disk)      17 frames)       │                       │      │      ▼
+       Flow Production Tracking, not disk)      17 frames)       │                       │      │      ▼
                        │                        └──► ImageCompositeMasked ─────┘   KSampler
                        │                             (blank out the car)              │
                        │                                                              ▼
@@ -158,7 +158,7 @@ so the template as shipped reports no publishable stream and `/track-workflow` h
                                                       │        └───────────────────────┘
                                                       │            (source: the fill)
                                                       ├──► CreateVideo ──► SaveVideo
-                                                      └──► Flow PT Publish Version
+                                                      └──► SG Publish
 
 Core nodes only. No third-party packs.
 
@@ -208,8 +208,8 @@ CausVid before assuming 14B is a free upgrade.
     hf download Comfy-Org/Wan_2.1_ComfyUI_repackaged split_files/diffusion_models/wan2.1_vace_1.3B_fp16.safetensors
     hf download Comfy-Org/sam3.1 checkpoints/sam3.1_multiplex_fp16.safetensors
 
-    # the plate, into Flow PT, so the graph has something to read
-    PYTHONPATH=src python -m comfyui_fpt.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
+    # the plate, into Flow Production Tracking, so the graph has something to read
+    PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
       --project 1180 --link "demo_03_cleanplate (Shot)" --output plate
 
 Then open `example_workflows/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
