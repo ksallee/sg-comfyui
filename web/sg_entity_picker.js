@@ -387,7 +387,7 @@ function publishPickers(nodeType, nodeData) {
 
     // domRow marks every row we add; a button is the one widget litegraph never marks itself, and
     // an injected widget that serializes shifts every declared value after it.
-    dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, loadProject));
     // The Settings values written into the widgets, as a starting point to edit or to bring an
     // older node up to date. An emptied root name or version name follows Settings again.
     const copyDefaults = async () => {
@@ -402,7 +402,7 @@ function publishPickers(nodeType, nodeData) {
       relayout();
       preview();
     };
-    dontSerialize(this.addWidget("button", "copy Settings defaults here", null, copyDefaults));
+    dontSerialize(this.addWidget("button", "Reset fields to Settings Defaults", null, copyDefaults));
     // Who this publishes as is set under Settings, and a change there changes what every picker
     // reads (probe 027), so the node reloads.
     onSession(this, () => loadProject());
@@ -560,7 +560,7 @@ function loadPickers(nodeType) {
       typing = setTimeout(() => refresh({ filters: value }), 400);
     });
 
-    dontSerialize(this.addWidget("button", "refresh from site", null, loadProject));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, loadProject));
     onSession(this, () => loadProject());
     loadProject();
   };

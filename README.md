@@ -126,7 +126,7 @@ read live. `code = auto` numbers per link, so two graphs chain without anyone co
 
 An empty root name or version name means Settings names it, so a Settings change reaches every
 saved graph and every shipped template. The panel shows the template in force, tagged Settings.
-Press **copy Settings defaults here** to write those values into the node and edit from them.
+Press **Reset fields to Settings Defaults** to write those values into the node and edit from them.
 
 Two inputs, `images` and `video`, and at least one of them wired. What you wire is what the Version
 carries — there is no combo asking you to say it again:

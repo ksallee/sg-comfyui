@@ -35,7 +35,7 @@ HASH_JSON = {"Content-Type": "application/vnd+shotgun.api3_hash+json"}
 # Setup-path data — projects, entities, statuses, schema — changes when someone edits the site, not
 # while a graph is open. Every lookup here runs inside INPUT_TYPES, which ComfyUI re-runs on every
 # /object_info, so the TTL is long: the largest endpoint in the app costs ~4s cold, and paying that
-# on a page load reads as ComfyUI hanging. The "refresh from site" button forces a read.
+# on a page load reads as ComfyUI hanging. The "Sync from SG" button forces a read.
 TTL = 600.0
 _cache = {}
 
