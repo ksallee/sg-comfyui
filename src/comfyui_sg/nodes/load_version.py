@@ -189,7 +189,7 @@ class SGLoadVersion:
         if int(pin_version_id):
             return f"{int(pin_version_id)}:{source}:{frame}:{frame_count}"
         try:
-            site.forget("find", "versions_on")   # a status flipped a moment ago must be visible
+            site.forget("find", "versions")   # a status flipped a moment ago must be visible
             vid, _, _ = cls._resolve(project, link_type, link, task, name_contains, statuses,
                                      newest_by, filters)
             return f"{vid}:{source}:{frame}:{frame_count}"

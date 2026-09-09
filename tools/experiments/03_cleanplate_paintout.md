@@ -210,7 +210,7 @@ CausVid before assuming 14B is a free upgrade.
 
     # the plate, into Flow Production Tracking, so the graph has something to read
     PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
-      --project 1180 --link "demo_03_cleanplate (Shot)" --output plate
+      --project 1180 --link "demo_03_cleanplate (Shot)" --root-name plate
 
 Then open `example_workflows/03_cleanplate_paintout.json` and run it. **1262 s end to end** on an M4 Pro sharing
 the machine with other work: SAM3 over 17 frames, 20 VACE steps at 832×480 (about 45 s/step), the
