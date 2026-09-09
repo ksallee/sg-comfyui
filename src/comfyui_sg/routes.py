@@ -17,6 +17,9 @@ _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
 # The client's own line for a refused token request: `auth[ as 'x'] <status>: <body>`.
 _AUTH = re.compile(r"^auth\b[^:]*?(\d{3}): ", re.S)
+# The site's 404 for an entity that is not there: `Version: 1 not found`. Read as it stands it
+# looks like a field called Version, so it is said again in words before it is quoted.
+_NOT_FOUND = re.compile(r"^(\w+):\s*(\d+)\s+not found\.?$", re.I)
 
 # The widest id any query param may carry.
 _MAX_ID = 2 ** 31 - 1
@@ -48,6 +51,10 @@ def _sentence(e):
         out = json.loads(f'"{m.group(1)}"')[:200]   # the capture is still JSON-escaped
     except ValueError:
         out = m.group(1)[:200]
+    gone = _NOT_FOUND.match(out)
+    if gone:
+        return (f"{gone.group(1)} {gone.group(2)} does not exist on this site. Check the id, then "
+                f"run again. {out}")
     if "'sudo'" in out:
         out = f"{out.rstrip('.')}. Check Publish as under Settings, then SG."
     elif "authenticate script" in out:

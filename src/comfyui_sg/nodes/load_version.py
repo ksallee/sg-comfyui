@@ -219,12 +219,7 @@ class SGLoadVersion:
         v = media.version(sg, vid)
         available = media.sources(v)
         if not available:
-            # A site that answered with an error told us nothing about the storage, and saying the
-            # storage is unmounted would send the operator to the wrong place.
-            trouble = v.get("published_files_error") or \
-                "Check that the storage holding its files is mounted on this machine."
-            raise ValueError(
-                f"Version {vid} ({v.get('code')}) has no media this node can read. {trouble}")
+            raise ValueError(media.no_media(v))
 
         # Each output takes its own best; a picked source makes both read that one file.
         if source in (AUTO, UNSET):
@@ -243,7 +238,7 @@ class SGLoadVersion:
         # came off a PublishedFile makes the downstream dependency that one file rather than every
         # file the ancestor ever published.
         pf = media.pf_of(v, key)
-        lineage.record(unique_id, vid, (pf or {}).get("id", 0))
+        lineage.record(unique_id, vid, (pf or {}).get("id", 0), prompt)
 
         images, alpha = media.load_frames(v, key, frame, frame_count,
                                           site.profile().get("batch_budget_gib", 0))

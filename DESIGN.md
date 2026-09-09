@@ -679,6 +679,13 @@ publish node links that one file. Ancestors that were read through a path field 
 PublishedFile, so they still get the search — approximate is the honest answer where nothing narrower is
 known, and the two cases are decided per ancestor rather than per run.
 
+What `lineage.py` remembers is keyed by node id, and one ComfyUI server runs many graphs: node 1 of the graph
+open now is a different node from node 1 of the graph before it. So an entry carries a fingerprint of the Load
+node as it ran — its class and its inputs, off the PROMPT it was given — and is credited only where the node
+at that id is still that Load with those inputs. ComfyUI hands a node no prompt id, so the fingerprint is the
+guarantee and clearing stale entries is only hygiene. Crediting the wrong one writes provenance that is
+plausible and false, which is the failure this repo exists to make impossible.
+
 ## Where the version number lives is site-specific
 
 A Toolkit-driven site usually carries a real numeric field on Version — `sg_version_number` or
@@ -793,6 +800,11 @@ forever (probe 019).
 `fields.py` defines nine fields on Version and creates them idempotently (`python -m comfyui_sg.fields`).
 `description` is then the operator's note, and the complete structure still rides up as a
 `.provenance.json` attachment — the fields are the queryable summary, the attachment is the record.
+
+A site that has none of the nine takes the same facts in the description instead: the note, a blank line,
+then one `label: value` line per fact. Which means the description is provenance, and the Load panel parses
+those lines back into the same facts a typed field produces and counts them the same way. Reading only the
+fields would call a Version's own record absent and print the whole paragraph as a truncated note.
 
 Three constraints came out of probe 019 and are not negotiable:
 
