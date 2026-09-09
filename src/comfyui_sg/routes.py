@@ -160,7 +160,7 @@ def _example(kind, template):
     pf = p.get("published_files") or {}
     root_t = ((template if kind == "root" else p.get("root_name"))
               or naming.DEFAULT_ROOT_TEMPLATE).strip()
-    root_name = version_name.root_of(root_t, _sample_values(root_t))
+    root_name = version_name.root_of(root_t, _sample_values(root_t), 3)
     if kind == "root":
         return root_name
     name_t = (template if kind == "name" else p.get("code_template")) or naming.DEFAULT_TEMPLATE

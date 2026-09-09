@@ -32,14 +32,14 @@ def missing_fields(template, root_template, project_id, link_id, task_id):
                                       ("task", "task" not in needs or task_id)) if not filled]
 
 
-def root_of(root_template, values):
-    """The stream's name.
+def root_of(root_template, values, version=None):
+    """The stream's name, rendered once and read by the version name, the path and the panel alike.
 
-    Rendered without a version number, in the name, on the path and in the panel alike: the root is
-    what every version of this publish shares, so a `{version}` token in it has nothing to fill and
-    drops out with its separator.
+    A root that carries a `{version}` token is unusual — the root is what every version of this
+    publish shares — but it must render the same wherever it is read, or the Version's code and the
+    folder its frames landed in name two different things.
     """
-    return naming.render(root_template, values)
+    return naming.render(root_template, values, version)
 
 
 def next_name(template, project_id, link_type, link_id, task_id, root_template=""):
@@ -55,9 +55,12 @@ def next_name(template, project_id, link_type, link_id, task_id, root_template="
         return name_t, 1       # a literal name, used as-is
     fields = set(naming.template_fields(name_t)) | set(naming.template_fields(root_t))
     vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
+    # Two passes, because the number is counted from codes the root is pinned in and the root may
+    # itself ask for that number. The count uses the root without one; the name uses the root with.
     vals["root_name"] = root_of(root_t, vals)
     codes = [c for c, _, _ in site.find_versions(project_id, link_type, link_id)]
     n = naming.next_version(codes, name_t, vals)
+    vals["root_name"] = root_of(root_t, vals, n)
     return naming.render(name_t, vals, n), n
 
 

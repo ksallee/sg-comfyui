@@ -321,8 +321,11 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
     # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
     # probe 028: a 200 proves nothing, and neither does a path that rendered.
-    blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
-    name = version_name.root_of(root_t, vals)
+    # `root_name`, `version_name` and `ext` are filled below rather than looked up, so a template
+    # asking for them has not left anything unresolved.
+    blank = sorted(k for k in fields - {"root_name", "version_name", "ext"}
+                   if not str(vals.get(k, "")).strip())
+    name = version_name.root_of(root_t, vals, version_no)
     return Plan(root, storage_id, row, platform, seq_t, mov_t,
                 dict(vals, version_name=code, root_name=name), blank, name)
 
