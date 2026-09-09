@@ -31,3 +31,9 @@ Icon = ""
 # MIT, because a studio's legal review of a node pack should take no time and the repo is meant to be
 # forked. Nothing is vendored from ComfyUI's GPL-3.0 frontend, which is the constraint that would
 # have forced otherwise.
+
+# The offline suite. `tests/conftest.py` puts `src/` on the path and stubs torch, so the whole run
+# needs pytest, numpy and what requirements.txt already installs — no ComfyUI, no site.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+xfail_strict = false
