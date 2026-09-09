@@ -108,11 +108,23 @@ class SGLoadVersion:
         """
         return True
 
+    # | output | what it carries |
+    # |---|---|
+    # | image | the frames read, float32 [N,H,W,3] |
+    # | version_id | the Version resolved, for a node downstream to name |
+    # | code | that Version's name |
+    # | colour_space | what the publisher declared, "" when nothing was |
+    # | video | the clip, or the frames wrapped at a stated rate |
+    # | mask | 1 - alpha, or a zero mask where the source has no alpha |
+    #
     # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
     # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
     # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
-    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO")
-    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video")
+    #
+    # `mask` is appended last, after `video`, because an output slot is additive: a graph saved
+    # before it existed keeps every link it had.
+    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO", "MASK")
+    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video", "mask")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
     DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "
@@ -230,9 +242,13 @@ class SGLoadVersion:
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0))
 
-        images, _ = media.load_frames(v, key, frame, frame_count,
-                                      site.profile().get("batch_budget_gib", 0))
+        images, alpha = media.load_frames(v, key, frame, frame_count,
+                                          site.profile().get("batch_budget_gib", 0))
         n = int(images.shape[0])
+        # ComfyUI's own convention (nodes.LoadImage): the mask is the inverse of the alpha channel,
+        # and a source carrying none gets a 64×64 zero mask rather than a shape every node
+        # downstream has to special-case.
+        mask = 1.0 - alpha[..., -1] if alpha is not None else torch.zeros((n, 64, 64))
         colour = media.colour_of(v, key)
         # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
         # line saying "from 0" would name a frame that does not exist.
@@ -251,7 +267,7 @@ class SGLoadVersion:
             video, clip_why = _wrap(images, fps), f"the frames at {fps:g} fps, {fps_why}"
         print(f"[SG] Loaded Version {vid}: {why}. Source {key}, {got}{short}. Video: {clip_why}."
               + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
-        return (images, vid, v.get("code") or "", colour, video)
+        return (images, vid, v.get("code") or "", colour, video, mask)
 
 
 def _wired(prompt, node_id, slot):

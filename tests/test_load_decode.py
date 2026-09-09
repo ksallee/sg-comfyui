@@ -1,0 +1,177 @@
+"""SG Load reads what is in the file: 16-bit levels, float range, and the alpha behind the mask.
+
+The fixtures are written at test time by ComfyUI's own encoder rather than committed, so what is
+read back is exactly what core writes. Everything here needs ComfyUI on the path; without it the
+whole module skips.
+"""
+import os
+import sys
+import types
+
+import pytest
+
+# pytest makes the repo root a package because ComfyUI's entry point lives in `__init__.py` there,
+# and that file's relative import fails outside ComfyUI. A bare module under the name it would be
+# imported as keeps the collector from running it. Belongs in tests/conftest.py once there is one.
+sys.modules.setdefault("__init__", types.ModuleType("__init__"))
+
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if os.path.join(_ROOT, "src") not in sys.path:
+    sys.path.insert(0, os.path.join(_ROOT, "src"))
+_COMFY = os.environ.get("COMFYUI_PATH", os.path.expanduser("~/dev/ComfyUI"))
+if os.path.isdir(_COMFY) and _COMFY not in sys.path:
+    sys.path.append(_COMFY)
+
+torch = pytest.importorskip("torch")
+pytest.importorskip("comfy_api.latest._input_impl.video_types")
+_encode_image = pytest.importorskip("comfy_extras.nodes_images")._encode_image
+
+from comfyui_sg import media  # noqa: E402
+
+# Wide enough that the decoder's 32-pixel alignment path is not the thing under test.
+W, H = 256, 8
+# 256 columns two 16-bit codes apart: every value is inside the first 8-bit code, so a read that
+# quantises to 8 bits has nothing left to tell them apart.
+STEP = 2 / 65535.0
+
+
+def ramp(step=STEP, channels=1):
+    """A [H,W,channels] ramp whose neighbouring columns differ by `step`."""
+    one = (torch.arange(W, dtype=torch.float32) * step).view(1, W, 1).repeat(H, 1, 1)
+    return torch.cat([one] * channels, dim=-1)
+
+
+def write(tmp_path, name, tensor, fmt, depth):
+    p = str(tmp_path / name)
+    with open(p, "wb") as fh:
+        fh.write(_encode_image(tensor, fmt, depth, "linear"))
+    return p
+
+
+def sequence(tmp_path, tensor=None, count=3, fmt="png", depth="16-bit", first=1001):
+    """A `.%04d.png` sequence on disk, and the Version dict that names it."""
+    tensor = ramp() if tensor is None else tensor
+    for i in range(count):
+        write(tmp_path, f"plate.{first + i:04d}.{fmt}", tensor, fmt, depth)
+    return {"id": 1, "published_files": [],
+            "sg_path_to_frames": str(tmp_path / f"plate.%04d.{fmt}")}
+
+
+def levels(images):
+    return len(torch.unique(images[..., 0]))
+
+
+# --- precision ------------------------------------------------------------------------------------
+
+def test_16_bit_grey_keeps_every_level(tmp_path):
+    p = write(tmp_path, "g16.png", ramp(), "png", "16-bit")
+    images, alpha = media._components(p, "g16.png")
+    assert images.dtype is torch.float32
+    assert tuple(images.shape) == (1, H, W, 3)
+    assert levels(images) == 256
+    assert float(images.max()) == pytest.approx((W - 1) * STEP, abs=1e-6)
+    assert alpha is None
+
+
+def test_16_bit_rgb_keeps_every_level(tmp_path):
+    images, _ = media._components(write(tmp_path, "rgb16.png", ramp(channels=3), "png", "16-bit"),
+                                  "rgb16.png")
+    assert levels(images) == 256
+    assert float(images.max()) == pytest.approx((W - 1) * STEP, abs=1e-6)
+
+
+def test_pillow_loses_what_the_decoder_keeps(tmp_path):
+    """The same two files through Pillow, which is why it is not on this path."""
+    np = pytest.importorskip("numpy")
+    Image = pytest.importorskip("PIL.Image")
+    rgb = write(tmp_path, "rgb16.png", ramp(channels=3), "png", "16-bit")
+    with Image.open(rgb) as im:
+        assert len(np.unique(np.array(im.convert("RGB"))[..., 0])) == 2
+    grey = write(tmp_path, "g16.png", ramp(), "png", "16-bit")
+    with Image.open(grey) as im:
+        # Not merely coarser: the brightest pixel reads full white where the file says 510/65535.
+        assert np.array(im.convert("RGB")).max() == 255
+
+
+def test_exr_reads_values_above_one(tmp_path):
+    steps = torch.tensor([0.0, 0.25, 0.5, 1.0, 2.0, 4.0, 8.0])
+    row = steps.repeat(W // len(steps) + 1)[:W].view(1, W, 1).repeat(H, 1, 1)
+    p = write(tmp_path, "hdr.exr", torch.cat([row] * 3, dim=-1), "exr", "32-bit float")
+    images, _ = media._components(p, "hdr.exr")
+    assert float(images.max()) == 8.0
+    assert images[0, 0, :7, 0].tolist() == steps.tolist()
+
+
+def test_pillow_cannot_open_an_exr(tmp_path):
+    Image = pytest.importorskip("PIL.Image")
+    p = write(tmp_path, "hdr.exr", ramp(channels=3), "exr", "32-bit float")
+    with pytest.raises(Exception):
+        Image.open(p).load()
+
+
+# --- alpha and the mask ---------------------------------------------------------------------------
+
+def test_rgba_comes_back_with_its_alpha(tmp_path):
+    rgba = torch.cat([ramp(1 / 255.0, 3), torch.full((H, W, 1), 0.25)], dim=-1)
+    images, alpha = media._components(write(tmp_path, "a.png", rgba, "png", "8-bit"), "a.png")
+    assert tuple(images.shape) == (1, H, W, 3)
+    assert tuple(alpha.shape) == (1, H, W, 1)
+    # The node's own rule, which is ComfyUI's convention.
+    mask = 1.0 - alpha[..., -1]
+    assert tuple(mask.shape) == (1, H, W)
+    assert float(mask.mean()) == pytest.approx(0.75, abs=1 / 255.0)
+
+
+def test_a_source_with_no_alpha_reports_none(tmp_path):
+    v = sequence(tmp_path)
+    images, alpha = media.load_frames(v, "frames", 0, 0)
+    assert tuple(images.shape) == (3, H, W, 3)
+    assert alpha is None
+
+
+def test_the_node_appends_mask_last():
+    node = pytest.importorskip("comfyui_sg.nodes.load_version").SGLoadVersion
+    assert node.RETURN_NAMES == ("image", "version_id", "code", "colour_space", "video", "mask")
+    assert node.RETURN_TYPES == ("IMAGE", "INT", "STRING", "STRING", "VIDEO", "MASK")
+    # Appended, never inserted: every earlier slot keeps its index in graphs already saved.
+    assert node.RETURN_NAMES[:5] == ("image", "version_id", "code", "colour_space", "video")
+
+
+# --- a sequence off disk --------------------------------------------------------------------------
+
+def test_a_16_bit_sequence_stacks_at_full_precision(tmp_path):
+    v = sequence(tmp_path, count=3)
+    images, _ = media.load_frames(v, "frames", 0, 0)
+    assert tuple(images.shape) == (3, H, W, 3)
+    assert levels(images) == 256
+
+
+def test_frame_is_the_number_in_the_filename(tmp_path):
+    v = sequence(tmp_path, count=3, first=1001)
+    images, _ = media.load_frames(v, "frames", 1002, 2)
+    assert tuple(images.shape) == (2, H, W, 3)
+    with pytest.raises(Exception) as e:
+        media.load_frames(v, "frames", 1010, 1)
+    assert "1001" in str(e.value) and "1003" in str(e.value)
+
+
+def test_frame_size_reads_the_header(tmp_path):
+    v = sequence(tmp_path)
+    assert media.frame_size(v, "frames") == (W, H)
+
+
+def test_frames_of_different_sizes_are_refused_by_name(tmp_path):
+    v = sequence(tmp_path, count=2)
+    odd = torch.zeros((H * 2, W, 1))
+    write(tmp_path, "plate.1003.png", odd, "png", "16-bit")
+    with pytest.raises(Exception) as e:
+        media.load_frames(v, "frames", 0, 0)
+    assert "plate.1003.png" in str(e.value)
+
+
+def test_the_budget_refuses_and_says_how_many_fit(tmp_path):
+    v = sequence(tmp_path, count=3)
+    one = W * H * 3 * 4
+    with pytest.raises(Exception) as e:
+        media.load_frames(v, "frames", 0, 0, budget=2 * one / 2 ** 30)
+    assert f"{W}×{H}" in str(e.value)
