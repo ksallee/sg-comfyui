@@ -649,7 +649,7 @@
         "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
@@ -695,7 +695,7 @@
         "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_05_upres (Shot)",
         "(none)",
         "Pending Review",
@@ -749,7 +749,7 @@
         "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_05_upres (Shot)",
         "(none)",
         "Approved",

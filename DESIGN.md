@@ -108,6 +108,9 @@ node to somebody's graph faces exactly these choices.
   its input is doing work the node has already done.
 - **`Create Published Files` is the other half.** Off means review media only. A house that hands
   files to the next department wants it on, and it needs a storage the machine can see.
+- **A new entity reaches the link picker once a Version points at it.** Seeding the file the graph
+  already reads (`comfyui_sg.seed`) is the way out of that chicken-and-egg, and the picker's lookups
+  are cached for 600 seconds, so the seed is followed by Sync from SG or a page reload.
 
 ### Prefilling a node from what the operator is already doing
 
@@ -304,6 +307,12 @@ every value below them in every saved graph. That is normally forbidden here, an
 purpose: at 0.1.0 with an empty `PublisherId` and nothing published, the only graphs in the world carrying
 these widgets are the ones in this repo, and they move in the same commit. After the first Registry release
 the rule is the old one — append, never insert, never remove.
+
+A node's real widget array is longer than `INPUT_TYPES` declares, because the editor extension injects
+its own pickers, chips and panel between the declared widgets. That is why
+`instrument.py`, `tools/smoke.py` and `web/sg_entity_picker.js` write values against one declared
+order instead of counting inputs. A value written by position without it lands in the wrong widget and
+nothing reports it.
 
 ## The frames are files, not media
 
@@ -1014,10 +1023,24 @@ Two ways in, and they are not the same thing:
 
 - **Git clone into `ComfyUI/custom_nodes/`** — what a developer does. `requirements.txt` is installed by
   ComfyUI-Manager.
-- **The Comfy Registry** — what everyone else does, reached through ComfyUI-Manager or `comfy node install`.
-  Publishing needs a `pyproject.toml` with a PEP 621 `[project]` block plus `[tool.comfy]` carrying
-  `PublisherId`, `DisplayName` and `Icon`. Publish with `comfy node publish`, or a GitHub Action on
-  `REGISTRY_ACCESS_TOKEN` triggered by a version bump.
+- **The Comfy Registry** — what everyone else does, reached through ComfyUI-Manager or
+  `comfy node install sg-comfyui`. Publishing needs a `pyproject.toml` with a PEP 621 `[project]` block
+  plus `[tool.comfy]` carrying `PublisherId`, `DisplayName` and `Icon`. Publish with
+  `comfy node publish`, or a GitHub Action on `REGISTRY_ACCESS_TOKEN` triggered by a version bump.
+  Nothing is published there yet, so the README says to clone until it is.
+
+`[tool.comfy].requires-comfyui` is `0.34.0`, and that is a hard floor rather than a preference: the
+frames are written by ComfyUI's own encoder and read back by its own decoder, which is where 16-bit
+PNG and EXR come from, and an older ComfyUI has neither that nor the routes the Settings dialog calls.
+
+The operator's documentation is three files and one script, and they do not overlap. `README.md` is
+what the nodes do and the first run. `INSTALL.md` is where every local file lives per install type,
+which interpreter runs which command, the profile key by key, and what to do when something does not
+answer. `AGENTS.md` is a page for an agent, pointing at both and at `.claude/commands/*.md`, which are
+plain markdown procedures any harness can follow. `tools/doctor.py` is the offline check: run as a
+file so it needs no torch, one line per check with the fix appended, non-zero on anything that would
+fail a publish. `CLAUDE.md` and this file are for whoever changes the code, and an operator never
+needs either.
 
 ### Names
 
@@ -1065,17 +1088,22 @@ where the pixels come from. `Fetch` was neither.
 
 ### The dependency problem
 
-**Closed 2026-09-05.** `sg-groundtruth` 0.1.1 is on PyPI and this repo depends on it normally, in
-`requirements.txt` (what ComfyUI-Manager installs) and in `pyproject.toml` (what the Registry reads).
-`_deps.py`, which put a sibling checkout on `sys.path`, is gone, and with it `SG_GROUNDTRUTH_PATH`.
+**Closed.** `sg-groundtruth` is on PyPI and this repo depends on it normally, in `requirements.txt`
+(what ComfyUI-Manager installs) and in `pyproject.toml` (what the Registry reads). The floor is the
+first release carrying `FPT.from_session` and the launcher module the Log in button needs. Nothing
+puts a sibling checkout on `sys.path`, and there is no `SG_GROUNDTRUTH_PATH`.
 
-Until then a registry install got this repo and nothing else, and `sg-groundtruth` was private. Three ways
-out were weighed, and the first was **chosen** (2026-09-04) and is now done:
+The checkout is still expected for two things the PyPI package does not ship: the corpus, and
+`inspect_site.py`, which `/inspect-site` drives. Neither is needed to run the nodes, and INSTALL.md
+says the checkout goes anywhere except `custom_nodes`, where ComfyUI would try to load it as a pack.
+
+A Registry install otherwise got this repo and nothing else. Three ways out were weighed, and the
+first was chosen:
 
 1. **Publish the *client* half of `sg-groundtruth` to PyPI as a slim package** and depend on it normally. The
    corpus stays private; only the client ships.
 2. Vendor the client into this repo. Rejected: it forks, and a client fix would have to land twice.
-3. Declare a git dependency. Rejected: fragile, and impossible while the repo is private.
+3. Declare a git dependency. Rejected: fragile, and it pins every install to one host.
 
 The surface is small enough that the choice was never about effort — 99 lines across two files, `FPT` and
 `FPTError` from `client.py` and `load` from `env.py`, with `mcp.py`, `naming.py` and `schema.py` unused and
