@@ -9,7 +9,7 @@ import { app } from "../../scripts/app.js";
 import { addPanel } from "./sg_panel.js";
 import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets, restoreValue, textRows } from "./sg_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows, cascade } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 const ALL_TYPES = "(all types)";
@@ -42,12 +42,14 @@ function typeFromLabel(label) {
 /** The same label without its trailing type. */
 const withoutType = (label) => String(label ?? "").replace(/\s\([^()]+\)$/, "");
 
-/** One route, decoded. A failed request answers in the shape every picker reads. */
-async function get(url) {
+/** One route, decoded. A failed request answers in the shape every picker reads; a request the
+ *  cascade aborted answers nothing at all, because its caller is about to stop anyway. */
+async function get(url, tok) {
   try {
-    const r = await fetch(url);
+    const r = await fetch(url, { signal: tok?.signal });
     return await r.json();
   } catch (e) {
+    if (e?.name === "AbortError") return { aborted: true, items: [] };
     return { items: [], error: `The ComfyUI server did not answer. ${e}` };
   }
 }
@@ -84,8 +86,10 @@ function projectPicker(node, widget, state, onPick) {
     label: "project",
     placeholder: "search projects",
     empty: "No project matches those words.",
-    search: async (q) => {
-      state.projects = (await get("/sg/projects")).items || [];
+    search: async (q, { live, signal }) => {
+      const d = await get("/sg/projects", { signal });
+      if (!live()) return [];      // a superseded search records nothing
+      state.projects = d.items || [];
       const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
       const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
       return state.projects.filter((x) => terms.every((t) => hay(x).includes(t))).map(projectCard);
@@ -100,8 +104,9 @@ function projectPicker(node, widget, state, onPick) {
  * this is in flight, so a value captured before the await is stale and writing it back reverts the
  * node to the default project.
  */
-async function selectProject(widget, state, picked) {
-  const d = await get("/sg/projects");
+async function selectProject(widget, state, picked, tok) {
+  const d = await get("/sg/projects", tok);
+  if (!tok.live) return;
   state.projects = d.items || [];
   let chosen = picked ?? widget.value;
   // "(none)" in a saved graph is no choice, and no choice means the project under Settings, the
@@ -127,9 +132,10 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
     label: "link",
     placeholder: "search links",
     empty,
-    search: async (q) => {
+    search: async (q, { live, signal }) => {
       const d = await get(`/sg/entities?project_id=${state.projectId}` +
-        `&q=${encodeURIComponent(q)}${narrow()}`);
+        `&q=${encodeURIComponent(q)}${narrow()}`, { signal });
+      if (!live()) return [];      // a superseded search records no ids
       for (const x of d.items || []) state.linkIds[x.label] = x.id;
       return (d.items || []).map((x) => ({
         name: withoutType(x.label), type: x.type, value: x.label,
@@ -141,16 +147,18 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
 
 /** Every link on the project, into the hidden combo. Hidden, it still holds the value, so its
  *  options must stay legal for a saved graph whose link this project does not have. */
-async function loadLinkOptions(widget, state, narrow = "") {
-  const d = await get(`/sg/entities?project_id=${state.projectId}${narrow}`);
-  state.linkIds = Object.fromEntries(d.items.map((x) => [x.label, x.id]));
-  setOptions(widget, d.items.map((x) => x.label));
+async function loadLinkOptions(widget, state, tok, narrow = "") {
+  const d = await get(`/sg/entities?project_id=${state.projectId}${narrow}`, tok);
+  if (!tok.live) return;
+  state.linkIds = Object.fromEntries((d.items || []).map((x) => [x.label, x.id]));
+  setOptions(widget, (d.items || []).map((x) => x.label));
 }
 
 /** The tasks on one link, into the `task` combo. */
-async function loadTaskOptions(widget, type, id) {
-  const d = await get(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`);
-  if (widget) setOptions(widget, d.items.map((x) => x.label));
+async function loadTaskOptions(widget, type, id, tok) {
+  const d = await get(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`, tok);
+  if (!tok.live) return;
+  if (widget) setOptions(widget, (d.items || []).map((x) => x.label));
 }
 
 app.registerExtension({
@@ -348,32 +356,41 @@ function publishPickers(nodeType, nodeData) {
       empty: "No link on this project matches those words.",
     });
 
-    const loadTasks = async (picked) => {
+    // Picking a second project supersedes every read the first one started: one cascade at a time,
+    // and each step of it carries the token the entry point began with.
+    const chain = cascade();
+
+    const loadTasks = async (picked, tok = chain.begin()) => {
       // The picked value, not the widget's: a widget's own .value is not always assigned yet when
       // its callback fires, and reading it here asks about the PREVIOUS link.
       const chosen = picked ?? link.value;
-      await loadTaskOptions(task, typeOf(chosen), state.linkIds[chosen]);
+      await loadTaskOptions(task, typeOf(chosen), state.linkIds[chosen], tok);
+      if (!tok.live) return;
       await preview();
     };
 
-    const loadLinks = async () => {
-      await loadLinkOptions(link, state);
+    const loadLinks = async (tok = chain.begin()) => {
+      await loadLinkOptions(link, state, tok);
+      if (!tok.live) return;
       linkPick.refresh();
-      await loadTasks();
+      await loadTasks(undefined, tok);
     };
 
-    const loadProject = async (picked) => {
-      await selectProject(project, state, picked);
+    const loadProject = async (picked, tok = chain.begin()) => {
+      await selectProject(project, state, picked, tok);
+      if (!tok.live) return;
       // Per project, because one show hangs Versions off Shots and the next off Assets.
-      const prof = await get(`/sg/profile?project_id=${state.projectId}`);
+      const prof = await get(`/sg/profile?project_id=${state.projectId}`, tok);
+      if (!tok.live) return;
       linkType = prof.link_type || "Shot";
       if (status) {
-        const s = await get(`/sg/statuses?project_id=${state.projectId}`);
+        const s = await get(`/sg/statuses?project_id=${state.projectId}`, tok);
+        if (!tok.live) return;
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
-        setOptions(status, s.items.map((x) => x.label));
+        setOptions(status, (s.items || []).map((x) => x.label));
       }
       projectPick.refresh(currentProject(project, state));
-      await loadLinks();
+      await loadLinks(tok);
     };
 
     wrap(project, loadProject);
@@ -386,8 +403,10 @@ function publishPickers(nodeType, nodeData) {
       wrap(w(n), previewSoon));
 
     // domRow marks every row we add; a button is the one widget litegraph never marks itself, and
-    // an injected widget that serializes shifts every declared value after it.
-    dontSerialize(this.addWidget("button", "Sync from SG", null, loadProject));
+    // an injected widget that serializes shifts every declared value after it. The callback takes
+    // no arguments: litegraph hands a button's callback the canvas and the node, and the cascade
+    // token is the second parameter.
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
     // The Settings values written into the widgets, as a starting point to edit or to bring an
     // older node up to date. An emptied root name or version name follows Settings again.
     const copyDefaults = async () => {
@@ -514,32 +533,40 @@ function loadPickers(nodeType) {
       app.graph.setDirtyCanvas(true, true);
     };
 
-    const loadTasks = async (picked) => {
+    // Picking a second project supersedes every read the first one started: one cascade at a time,
+    // and each step of it carries the token the entry point began with.
+    const chain = cascade();
+
+    const loadTasks = async (picked, tok = chain.begin()) => {
       const chosen = picked ?? link.value;
-      await loadTaskOptions(task, typeFromLabel(chosen), state.linkIds[chosen]);
+      await loadTaskOptions(task, typeFromLabel(chosen), state.linkIds[chosen], tok);
+      if (!tok.live) return;
       await refresh();
     };
 
-    const loadLinks = async (picked) => {
+    const loadLinks = async (picked, tok = chain.begin()) => {
       const chosen = picked ?? linkTypeW?.value;
       const narrow = (chosen && chosen !== ALL_TYPES)
         ? `&type=${encodeURIComponent(chosen)}` : "";
-      await loadLinkOptions(link, state, narrow);
+      await loadLinkOptions(link, state, tok, narrow);
+      if (!tok.live) return;
       linkPick.refresh();
-      await loadTasks();
+      await loadTasks(undefined, tok);
     };
 
-    const loadProject = async (picked) => {
-      await selectProject(project, state, picked);
+    const loadProject = async (picked, tok = chain.begin()) => {
+      await selectProject(project, state, picked, tok);
+      if (!tok.live) return;
       if (linkTypeW) {
-        const t = await get(`/sg/link_types?project_id=${state.projectId}`);
-        const vals = t.items.map((x) => x.label);
+        const t = await get(`/sg/link_types?project_id=${state.projectId}`, tok);
+        if (!tok.live) return;
+        const vals = (t.items || []).map((x) => x.label);
         linkTypeW.options.values = vals;
         if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
       }
       projectPick.refresh(currentProject(project, state));
       statusChips?.reload();
-      await loadLinks();
+      await loadLinks(undefined, tok);
     };
 
     wrap(project, loadProject);
@@ -560,7 +587,7 @@ function loadPickers(nodeType) {
       typing = setTimeout(() => refresh({ filters: value }), 400);
     });
 
-    dontSerialize(this.addWidget("button", "Sync from SG", null, loadProject));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
     onSession(this, () => loadProject());
     loadProject();
   };

@@ -265,6 +265,26 @@ export function restoreDeclaredWidgets(nodeType) {
   };
 }
 
+/** One cascade of reads at a time.
+ *
+ * `begin()` aborts whatever the previous cascade still has in flight and answers a token. A token's
+ * `live` is false from the moment a later `begin()` runs, so an answer that arrives after a second
+ * project was picked writes nothing: the links of one project beside the statuses of another is a
+ * publish filed against the wrong show. Every step of one cascade shares the token it was handed,
+ * and checks `live` after every await before it writes anything.
+ */
+export function cascade() {
+  let current = null;
+  return {
+    begin() {
+      current?.abort();
+      const ctl = new AbortController();
+      current = ctl;
+      return { signal: ctl.signal, get live() { return ctl === current; } };
+    },
+  };
+}
+
 /** True when Nodes 2.0 is on. It is opt-in and per user directory, so it is off by default. */
 export function vueNodesEnabled() {
   for (const read of [() => app.extensionManager.setting.get("Comfy.VueNodes.Enabled"),
@@ -384,10 +404,12 @@ const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
 
 /** A select-shaped trigger whose popup holds the search.
  *
- * `search(q)` is async and answers with items — `{value, name, type, code, image}`, of which only
- * `value` and `name` are required. Multi-word queries go straight to the site (site.entities ANDs a
- * `contains` per word), which is the search an artist expects: `gir rul` finds `giraffe_ruler`.
- * Filtering here would only ever see the page the server already sent.
+ * `search(q, {live, signal})` is async and answers with items — `{value, name, type, code, image}`,
+ * of which only `value` and `name` are required. Multi-word queries go straight to the site
+ * (site.entities ANDs a `contains` per word), which is the search an artist expects: `gir rul` finds
+ * `giraffe_ruler`. Filtering here would only ever see the page the server already sent.
+ * `signal` aborts the request when a newer keystroke supersedes it; `live()` is false for a
+ * superseded search, and anything the search itself records goes behind that check.
  *
  * Returns `{refresh, relayout, close}`; pass the current item to `refresh` to put its thumbnail on
  * the trigger.
@@ -438,7 +460,7 @@ export function searchPicker(node, target, {
   // dim and the head says so, rather than the list going blank on each keystroke.
   const busy = (on) => { busyEl.hidden = !on; list.classList.toggle("is-busy", on); };
 
-  let items = [], at = -1, seq = 0, timer, open = false;
+  let items = [], at = -1, seq = 0, timer, open = false, inflight = null;
 
   const place = () => {
     const r = trigger.getBoundingClientRect();
@@ -496,13 +518,19 @@ export function searchPicker(node, target, {
     relayout();
   };
 
+  // `live` is handed to `search` as well as read here: a search that records what it read — the
+  // ids a picked label is turned back into — must not record an older answer's rows.
   const run = () => {
     const mine = ++seq;
     clearTimeout(timer);
+    inflight?.abort();
+    const ctl = new AbortController();
+    inflight = ctl;
     busy(true);
     timer = setTimeout(async () => {
-      const rows = await search(input.value.trim());
-      if (mine !== seq || !open) return;   // an older answer must never replace a newer one
+      const live = () => mine === seq && open;
+      const rows = await search(input.value.trim(), { live, signal: ctl.signal });
+      if (!live()) return;                 // an older answer must never replace a newer one
       render(rows || []);
       busy(false);
     }, 180);
@@ -515,6 +543,8 @@ export function searchPicker(node, target, {
   const close = () => {
     if (!open) return;
     open = false;
+    clearTimeout(timer);
+    inflight?.abort();
     pop.remove();
     trigger.setAttribute("aria-expanded", "false");
     document.removeEventListener("pointerdown", onDocDown, true);
