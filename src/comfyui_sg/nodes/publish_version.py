@@ -14,7 +14,6 @@ file, copied under a LocalStorage root the site can resolve (recipe 004). `seque
 happens on disk.
 """
 import io
-import json
 import os
 
 from PIL import Image
@@ -34,6 +33,37 @@ def _png(frame):
     buf = io.BytesIO()
     Image.fromarray(movie.to_u8(frame)).save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _as_line(concept, value):
+    """One concept as a line of the description. Only `generated_from` is not already a scalar."""
+    if concept == "generated_from":
+        return ", ".join(f'Version {v["id"]}' for v in value)
+    return str(value)
+
+
+def _split(values, where, absent_targets):
+    """({field: value}, [line]) — each concept typed where this site has the field, else a line.
+
+    The operator's mapping decides the target; the schema decides only whether that target can hold
+    a value. A concept whose field is absent is written out in full — the whole prompt, every source
+    Version — because a fact recorded nowhere is the one thing this project exists to prevent.
+    """
+    fields, lines = {}, []
+    for concept, value in values.items():
+        target = where.get(concept)
+        if not target:
+            continue
+        if target == sg_fields.DESCRIPTION or target in absent_targets:
+            lines.append(f"{sg_fields.CONCEPT_LABELS[concept]}: {_as_line(concept, value)}")
+        else:
+            fields[target] = value
+    return fields, lines
+
+
+def _description(note, lines):
+    """The note, a blank line, then one line per fact. Either half alone is that half."""
+    return "\n".join([x for x in (note,) if x] + ([""] if note and lines else []) + lines)
 
 
 def _labels(pairs):
@@ -343,11 +373,9 @@ class SGPublishVersion:
         wf = provenance.workflow(extra_pnginfo)
 
         sg = site.client()
-        # One schema read answers two questions: which provenance fields exist (absent until
-        # `python -m comfyui_sg.fields` has run, so the blob fallback is the honest default) and
-        # whether this site carries the frame range a movie wants.
+        # One schema read answers two questions: which of the operator's targets this site actually
+        # has, and whether it carries the frame range a movie wants.
         schema = sg_fields.schema_names(sg)
-        have = set(sg_fields.names().values()) & schema
         # Typed ids first, then whatever a Load node upstream already proves. The operator can add a
         # source the graph cannot see; they never have to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
@@ -358,12 +386,15 @@ class SGPublishVersion:
             if vid not in src_ids:
                 src_ids.append(vid)
         # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
+        # The schema decides only whether that target can be written, per concept: a field this site
+        # has takes the value, and everything else — a target mapped to the description, and a target
+        # this site does not have — becomes a line of the description instead. Nothing is dropped and
+        # nothing is a JSON blob, so the same nine facts are readable either way.
         mapping, prov_mode = site.provenance_map(project_id)
-        routed, prov_lines = sg_fields.route(prov, src_ids, mapping, prov_mode)
-        typed = {k: v for k, v in routed.items() if k in have}
-        # A target the operator named that this site does not have. Dropping it silently would hide
-        # a typo in their profile behind a Version that looks fine (corpus 028: loud, never silent).
-        missing = sorted(set(routed) - set(have))
+        where = sg_fields.targets(mapping, prov_mode)
+        absent_targets = {t for t in where.values()
+                          if t and t != sg_fields.DESCRIPTION and t not in schema}
+        typed, prov_lines = _split(sg_fields.concepts(prov, src_ids), where, absent_targets)
 
         # The template decides the name, rendered from the entity and task it is actually linked to.
         # A real version-number field is authoritative where the site has one (Toolkit sites usually
@@ -402,15 +433,9 @@ class SGPublishVersion:
                              task_id, root_name, format)
 
         fields = dict(typed)
-        # description is the human note, plus whatever the operator routed into it. The full graph
-        # goes up as an attachment either way, so the blob fallback is only for a site that has no
-        # provenance fields and asked for nothing in the description.
-        if prov_lines:
-            fields["description"] = "\n".join(([note] if note else []) + prov_lines)
-        elif typed:
-            fields["description"] = note
-        else:
-            fields["description"] = json.dumps({"note": note, "provenance": prov}, indent=2)
+        # The note first, then a blank line, then one line per fact this site has no field for. The
+        # full graph and the full provenance go up as attachments either way.
+        fields["description"] = _description(note, prov_lines)
         if status_code:
             fields["sg_status_list"] = status_code
         if target:
@@ -455,11 +480,6 @@ class SGPublishVersion:
                                     lineage.files_for_nodes(upstream))
 
         published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
-        if count > 1:
-            skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
-            if skipped:
-                published.append("No frame range was recorded. This site has no "
-                                 + ", ".join(skipped) + ".")
         # Frames wired in that nobody asked to keep are not an error — the clip is the review and
         # carries the same picture — but they are not silent either.
         if images is not None and video is not None and not want_frames:
@@ -468,12 +488,6 @@ class SGPublishVersion:
         published += file_notes
         if attach_workflow and wf is None:
             published.append("No workflow was attached. This client did not send one with the run.")
-        if missing:
-            published.append("This site has no fields called " + ", ".join(missing)
-                             + ". Check the provenance mapping in profile.local.json.")
-        if not typed and not prov_lines:
-            published.append("This site has no provenance fields yet. Run "
-                             "python -m comfyui_sg.fields to create them.")
 
         # The panel turns these into links. `site_url` comes off the client rather than the profile
         # because the run already authenticated against it — a second source could disagree. Paths

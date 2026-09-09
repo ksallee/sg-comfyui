@@ -562,6 +562,12 @@ def register():
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
+            # The client that will submit the Run, named the same way the run names it, so the
+            # panel's "made by" line and the Version's agree. ComfyUI's own frontend puts
+            # `comfy_usage_source: "comfyui-frontend"` in extra_data on /prompt and sends no header
+            # here, and this route is only ever called from it.
+            prov["comfy_usage_source"] = (request.headers.get("Comfy-Usage-Source")
+                                          or "comfyui-frontend")
 
             # Typed ids first, then upstream Load nodes — the order the node itself uses.
             own = (prompt.get(node_id) or {}).get("inputs") or {}
@@ -589,7 +595,9 @@ def register():
                     sources.append({"id": vid, "code": code, "why": why})
 
             sg = site.client()
-            have = sg_fields.available(sg)
+            # The whole schema, not the nine this repo declares: a mapping onto a field the studio
+            # already has is the preferred move, and intersecting the nine would strike it through.
+            schema = sg_fields.schema_names(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
             pid = next((n for l, n in site.projects() if l == w.get("project")), 0) \
@@ -605,24 +613,24 @@ def register():
             rows = []
             # Every concept, not only the ones with a value: an empty seed on a graph with no
             # sampler is information. The row is named for where the value LANDS, because that is
-            # the operator's decision; the concept is the label beside it.
+            # the operator's decision; the concept is the label beside it. The same split the run
+            # makes: a field this site has takes the value, everything else is a description line.
             for concept, target in where.items():
                 v = values.get(concept)
                 has = v not in (None, "", [])
+                described = target == sg_fields.DESCRIPTION or (target and target not in schema)
                 if target is None:
                     note = "not mapped to a field"
-                elif target == sg_fields.DESCRIPTION:
+                elif described:
                     note = "into the description"
-                elif target in have:
-                    note = "" if has else "not in this graph"
                 else:
-                    note = "this site has no such field"
+                    note = "" if has else "not in this graph"
                 rows.append({
-                    "name": (target[3:] if target.startswith("sg_") else target) if target
-                            else sg_fields.CONCEPT_LABELS[concept],
+                    "name": (target[3:] if target.startswith("sg_") else target)
+                            if target and not described else sg_fields.CONCEPT_LABELS[concept],
                     "label": sg_fields.CONCEPT_LABELS[concept],
                     "value": show(v) if has else "",
-                    "present": target is None or target == sg_fields.DESCRIPTION or target in have,
+                    "present": True,
                     "note": note,
                 })
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
@@ -675,8 +683,6 @@ def register():
                 "writes": writes,
                 "media": media,
                 "sources": sources,
-                "missing_fields": sorted({t for t in where.values()
-                                          if t and t != sg_fields.DESCRIPTION and t not in have}),
             })
         except Exception as e:
             return web.json_response({"error": _sentence(e), "fields": [], "sources": []})
