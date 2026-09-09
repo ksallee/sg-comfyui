@@ -46,15 +46,13 @@ def stage(n, storage, profile=None):
 
 def test_one_frame_registers_the_file_that_is_on_disk(storage, wrote):
     staged = stage(1, storage)
-    assert staged["frames_pattern"] == str(
-        storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png")
+    assert staged["frames_pattern"] == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png").as_posix()
     assert staged["frames_code"] == "sh010_matte_v001.0001.png"
 
 
 def test_a_sequence_keeps_the_pattern(storage, wrote):
     staged = stage(3, storage)
-    assert staged["frames_pattern"] == str(
-        storage / "sh010/sh010_matte_v001/sh010_matte_v001.%04d.png")
+    assert staged["frames_pattern"] == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()
 
 
 def test_one_frame_writes_no_frame_path_on_the_version_and_says_so(storage, wrote):
@@ -82,7 +80,7 @@ def test_path_cache_holds_the_registered_path(storage, wrote, monkeypatch):
     notes = SGPublishVersion._register(None, staged, 1, 32002, 1, "Shot", 2, 0, 1, "", "", [])
 
     path, body = sent[0]
-    assert path == str(storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png")
+    assert path == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png").as_posix()
     assert body["path_cache"] == "sh010/sh010_matte_v001/sh010_matte_v001.0001.png"
     assert notes[-1] == ("Registered 1 frame as sh010_matte_v001.0001.png, "
                          "PublishedFile 7021. " + path)
