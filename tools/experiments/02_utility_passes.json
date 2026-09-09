@@ -685,9 +685,10 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
-      "title": "SG Publish — depth"
+      "title": "SG Publish \u2014 depth"
     },
     {
       "id": 52,
@@ -731,9 +732,10 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
-      "title": "SG Publish — normal_opengl"
+      "title": "SG Publish \u2014 normal_opengl"
     },
     {
       "id": 53,
@@ -777,9 +779,10 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
-      "title": "SG Publish — alpha"
+      "title": "SG Publish \u2014 alpha"
     },
     {
       "id": 54,
@@ -834,7 +837,7 @@
         "",
         0
       ],
-      "title": "SG Load — plate"
+      "title": "SG Load \u2014 plate"
     }
   ],
   "links": [
@@ -1009,7 +1012,7 @@
   ],
   "groups": [
     {
-      "title": "depth  ·  Depth Anything 3",
+      "title": "depth  \u00b7  Depth Anything 3",
       "bounding": [
         440,
         -40,
@@ -1021,7 +1024,7 @@
       "flags": {}
     },
     {
-      "title": "normals  ·  MoGe-2, and the same geometry as a mesh",
+      "title": "normals  \u00b7  MoGe-2, and the same geometry as a mesh",
       "bounding": [
         440,
         560,
@@ -1033,7 +1036,7 @@
       "flags": {}
     },
     {
-      "title": "alpha  ·  SAM3 from a text prompt",
+      "title": "alpha  \u00b7  SAM3 from a text prompt",
       "bounding": [
         440,
         1080,

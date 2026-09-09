@@ -130,6 +130,6 @@ anything `instrument.py` writes have the same problem and the same fix.
 ## Running it
 
     PYTHONPATH=src python -m comfyui_sg.seed ComfyUI/input/fpt_plate_setext.png \
-        --project 1180 --link "demo_04_setext (Shot)" --output plate
+        --project 1180 --link "demo_04_setext (Shot)" --root-name plate
 
 then open `example_workflows/04_set_extension.json` in ComfyUI and run it.

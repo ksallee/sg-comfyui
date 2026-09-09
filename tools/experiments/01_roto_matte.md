@@ -118,7 +118,7 @@ is not the whole sentence.
 ## What it publishes
 
 One Version on Shot `demo_01_roto` in project 1180 (`comfyui-fpt sandbox`), named by the show's
-convention `{entity.code}_{output}_v{version:03d}`:
+convention `{root_name}_v{version:03d}`:
 
 | | |
 |---|---|
@@ -168,7 +168,7 @@ The plate it reads is seeded once, by hand, because a chain has to start somewhe
 
 ```sh
 PYTHONPATH=src python -m comfyui_sg.seed <frame1.png> --project 1180 \
-  --link "demo_01_roto (Shot)" --output plate --note "..."
+  --link "demo_01_roto (Shot)" --root-name plate --note "..."
 ```
 
 That Version carries **no AI fields** and reads as `unrecorded` in the Load panel — a file on disk

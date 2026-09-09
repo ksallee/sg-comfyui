@@ -109,7 +109,7 @@ Standalone, the input is seeded from disk:
 
 ```sh
 PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
-  --project 1180 --link "demo_05_upres (Shot)" --output gen480 --status Approved --note "..."
+  --project 1180 --link "demo_05_upres (Shot)" --root-name gen480 --status Approved --note "..."
 ```
 
 832x480 — model resolution, which is what a generative step produces. A seeded Version carries **no
@@ -118,7 +118,7 @@ generation record**, and says so: a file on disk does not know how it was made.
 **Wired into the chain, that seed goes away.** The Load node already resolves by rule —
 `statuses: Approved`, `name_contains: gen480`, newest by version number in the name — so the real
 upstream is whatever the paint-out step published, on whatever Shot the chain runs on. Point `link`
-at that Shot and change `name_contains` to the paint-out's `{output}` token; nothing else in the graph
+at that Shot and change `name_contains` to the paint-out's stream name; nothing else in the graph
 moves. That is the join: no id is copied between graphs, and `sg_ai_generated_from` records it by
 itself.
 

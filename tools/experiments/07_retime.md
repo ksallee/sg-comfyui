@@ -113,7 +113,7 @@ lying quietly, in a field somebody would later quote.
 The plate is seeded into Flow Production Tracking first, so the chain starts somewhere:
 
     PYTHONPATH=src python -m comfyui_sg.seed input/fpt_retime_plate_f001.png \
-      --project 1180 --link "demo_07_retime (Shot)" --output plate --note "..."
+      --project 1180 --link "demo_07_retime (Shot)" --root-name plate --note "..."
 
 The graph then names that Version in the publish node's `source_versions`, and it lands in
 `sg_ai_generated_from`. The **Load node is deliberately absent**: this graph's input is a movie, and
@@ -254,8 +254,8 @@ a PNG to seed. The one used here is a 12-frame push-in cropped out of `fpt_plate
 Then the ordinary path — seed the plate, check what the analyser sees, open the graph:
 
     PYTHONPATH=src python -m comfyui_sg.seed <frame>.png --project 1180 \
-      --link "demo_07_retime (Shot)" --output plate --note "..."
+      --link "demo_07_retime (Shot)" --root-name plate --note "..."
     python src/comfyui_sg/instrument.py example_workflows/07_retime.json \
-      --template "{entity.code}_{output}_v{version:03d}"
+      --template "{root_name}_v{version:03d}"
 
 `source_versions` on the publish node holds the seeded Version id and will need repointing at yours.

@@ -143,7 +143,7 @@ IMAGE batch into `images` as well and tick **Create Published Files** to keep th
 | plate in | `demo_06_camera_plate_v001` — Version **31751**, seeded from `input/fpt_plate_paris.png` |
 | clip out | `demo_06_camera_push_in_v001` — Version **31851**, one `.mp4`, 33 frames at 16 fps |
 | status | Pending Review (`rev`) |
-| name template | `{entity.code}_{output}_v{version:03d}` |
+| name template | `{root_name}_v{version:03d}` |
 
 Read back off Version 31851:
 
@@ -169,7 +169,7 @@ The plate was seeded with:
 
 ```sh
 PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_paris.png \
-  --project 1180 --link "demo_06_camera (Shot)" --output plate --note "..."
+  --project 1180 --link "demo_06_camera (Shot)" --root-name plate --note "..."
 ```
 
 A seeded Version carries **no generation record** — a file on disk does not say how it was made — and

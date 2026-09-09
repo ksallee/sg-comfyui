@@ -50,7 +50,7 @@ moment. It publishes nothing; it is there to make the point that the geometry is
 ## What it publishes
 
 Three Versions on Shot `demo_02_passes` in project 1180, named by the show's convention
-(`{entity.code}_{output}_v{version:03d}`), each `Pending Review`:
+(`{root_name}_v{version:03d}`), each `Pending Review`:
 
 | stream | Version | `sg_ai_model` |
 |---|---|---|
@@ -90,7 +90,7 @@ The plate was seeded first, because a graph that reads from disk cannot be point
 what it reads is *in* Flow Production Tracking:
 
     PYTHONPATH=src python -m comfyui_sg.seed ~/dev/ComfyUI/input/fpt_plate_figure.png \
-      --project 1180 --link "demo_02_passes (Shot)" --output plate --note "..."
+      --project 1180 --link "demo_02_passes (Shot)" --root-name plate --note "..."
 
 `instrument.py` leaves the replaced `LoadImage` in place but unwired, so an operator can see what was
 swapped. It is deleted here: in a demo file an unwired loader reads as a fourth publishable stream.
