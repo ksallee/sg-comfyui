@@ -23,6 +23,9 @@ from .. import (lineage, movie, naming, provenance, publish, sequence, site,
                 version_name, widgets)
 
 MAX_ID = 2 ** 31 - 1
+# What a registered file is, in the words on screen. `sequence.TYPE_CANDIDATES` keys this repo's
+# own three kinds; an operator has never read one.
+WHAT = {"frames": "an image sequence", "still": "a still image", "movie": "a movie"}
 # The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
 # "(none)" — and the two must stay distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
@@ -231,9 +234,9 @@ class SGPublishVersion:
             common["task"] = {"type": "Task", "id": int(task_id)}
         if upstream:
             common["upstream_published_files"] = upstream
-        # sg_status_list is deliberately absent. PublishedFile carries its own status list — `wtg`,
-        # `ip`, `cmpt` here — and the Version's codes are a different set entirely (probe 009), so
-        # copying one across writes a code this field never allowed. The field's default applies.
+        # sg_status_list is deliberately absent. PublishedFile carries a status list of its own,
+        # and no entry covers whether a Version's codes are valid in it, so copying one across
+        # could write a code this field never allowed. The field's own default applies.
         common["description"] = "\n".join(x for x in (
             note, sequence.describe_colour(colour_space.strip()),
             f"frames 1-{count}" if count > 1 else "") if x)
@@ -266,8 +269,9 @@ class SGPublishVersion:
             elif problem:
                 notes.append(problem)
             else:
-                notes.append(f"This site has no Published File Type for {kind}, so the file was "
-                             f"registered without one. Creating one would add it to all projects.")
+                notes.append(f"This site has no Published File Type for {WHAT[kind]}, so it was "
+                             f"registered without one. Ask an admin to add one, on the site rather "
+                             f"than on this project.")
             try:
                 pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path,
                                                                 body)

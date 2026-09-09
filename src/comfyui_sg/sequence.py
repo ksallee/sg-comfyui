@@ -123,14 +123,13 @@ def storage_row(storages, code=""):
                            "it. Add one in Flow Production Tracking, under Site Preferences then "
                            "File Management.")
     if not code and len(storages) != 1:
-        raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
-                           f"site has {len(storages)} storages to choose from. Set it to one of "
-                           f"these: {have}.")
+        raise RuntimeError(f"No storage is chosen, and this site has {len(storages)} to choose "
+                           f"from. Pick Storage under Settings, then SG: {have}.")
     rows = [s for s in storages
             if not code or s["code"].strip().lower() == code.strip().lower()]
     if not rows:
-        raise RuntimeError(f"No storage called {code} on this site. Set published_files.storage "
-                           f"in profile.local.json to one of these: {have}.")
+        raise RuntimeError(f"No storage called {code} on this site. Pick Storage under Settings, "
+                           f"then SG: {have}.")
     return rows[0]
 
 
@@ -179,7 +178,8 @@ def root_for(storages, code=""):
     if not root:
         raise RuntimeError(f"The storage {row['code']} has no {key} set, so nothing can be "
                            f"published to it from this machine. Set that path on the storage in "
-                           f"Flow Production Tracking, or name another storage in profile.local.json.")
+                           f"Flow Production Tracking, or pick another Storage under Settings, "
+                           f"then SG.")
     return row["id"], root
 
 
@@ -259,7 +259,8 @@ def pattern(root, template, values, version, ext):
     out = _clean(swap_ext(f"{root}/{rel}", ext))
     if not _under(root, out):
         raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to sit "
-                           f"under the root, so fix path_template in profile.local.json.")
+                           f"under the root. Fix Sequence path or Movie path under Settings, "
+                           f"then SG.")
     return out
 
 

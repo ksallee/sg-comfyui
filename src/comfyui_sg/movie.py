@@ -37,7 +37,7 @@ def source_file(video):
     `VideoFromFile.get_stream_source()` returns the whole source path even for a trimmed or cropped
     clip: `as_trimmed` and `as_cropped` answer with a new `VideoFromFile` over that same file with
     the window kept beside it. Trusting the class alone would silently file a ten-second plate as
-    the two-second selection a supervisor asked for (corpus 028). So the test is whether the object
+    the two-second selection a supervisor asked for (probe 028). So the test is whether the object
     and the file are the same video — same dimensions, same duration as a plain `VideoFromFile` over
     that path. Both are container metadata reads; neither decodes.
     """

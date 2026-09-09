@@ -371,7 +371,8 @@ def links(project_id, q="", types=None):
     return out
 
 
-# endpoint post_entity_text_search — the page is capped at 25 rows, which is a typeahead's worth.
+# What this client asks for: a typeahead's worth. The endpoint's own ceiling is not measured, so
+# this is a cap we set and not one the site imposes.
 TEXT_SEARCH_ROWS = 25
 
 

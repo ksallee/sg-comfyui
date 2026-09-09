@@ -604,11 +604,11 @@ def register():
                 has = v not in (None, "", [])
                 described = target == sg_fields.DESCRIPTION or (target and target not in schema)
                 if target is None:
-                    note = "not mapped to a field"
+                    note = "Recorded nowhere."
                 elif described:
-                    note = "into the description"
+                    note = "Into the description."
                 else:
-                    note = "" if has else "not in this graph"
+                    note = "" if has else "Not in this graph."
                 rows.append({
                     "name": (target[3:] if target.startswith("sg_") else target)
                             if target and not described else sg_fields.CONCEPT_LABELS[concept],
@@ -626,14 +626,14 @@ def register():
             prof, link_type, picked_name = ctx.profile, ctx.link_type, ctx.link_name
             link_field = prof.get("link_field", "entity")
             target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
-            plain = [("description", w.get("note") or "", "from the note field"),
-                     ("sg_status_list", status_code, "" if status_code else "no status picked"),
+            plain = [("description", w.get("note") or "", "From the note field."),
+                     ("sg_status_list", status_code, "" if status_code else "No status picked."),
                      (link_field, f"{link_type} {target}" if target else "",
                       "" if target else
-                      (f"no {link_type} named {picked_name} on this project" if link
-                       else "no link picked")),
+                      (f"No {link_type} named {picked_name} on this project." if link
+                       else "No link picked.")),
                      ("sg_task", f"Task {task_id}" if task_id else "",
-                      "" if task_id else "no task picked")]
+                      "" if task_id else "No task picked.")]
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
 
@@ -644,18 +644,19 @@ def register():
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
             writes = _files_preview(w, prof, pid, link_type, target, task_id)
-            # Which row of the truth table this node is on. The frame count and the frame rate are
-            # run-time facts, so the panel states the rule and names the path the run will take.
+            # What this node will publish, from what is wired into it. The frame count and the
+            # frame rate are run-time facts, so the panel states the rule and names the path
+            # the run will take.
             if _wired(w, "video"):
-                media = "the clip"
+                media = "The clip."
                 if _wired(w, "images"):
-                    media += ". The frames become Published Files."
+                    media += " The frames become Published Files."
             elif _wired(w, "images") and w.get("register_files"):
-                media = "frame 1, as a still. Every frame becomes a Published File."
+                media = "Frame 1, as a still. Every frame becomes a Published File."
             elif _wired(w, "images"):
-                media = "frame 1, as a still. Tick Create Published Files to publish all frames."
+                media = "Frame 1, as a still. Tick Create Published Files to publish all frames."
             else:
-                media = "nothing. Wire an image or a video into this node."
+                media = "Nothing. Wire an image or a video into this node."
             return web.json_response({
                 "fields": rows,
                 "uploads": uploads,
