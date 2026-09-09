@@ -38,8 +38,13 @@ import the package `__init__` and therefore torch, and a graph must stay analysa
 neither torch nor a route to the site.
 
 Operation is `README.md`. The recurring jobs are slash commands: `/inspect-site` writes
-`profile.local.json`, which is gitignored and which every picker reads, so nothing works before it;
-`/track-workflow` puts the nodes into a graph the operator already uses.
+`profile.local.json`, which is gitignored and which every picker reads; without it the pickers run
+on the site's defaults, which carry a Shot-linked show. `/track-workflow` puts the nodes into a
+graph the operator already uses. `tools/doctor.py` is the offline check, run as a file.
+
+`tests/` runs with no site, no ComfyUI and no torch: `uv run --with pytest --with numpy --with Pillow
+--with requests --with sg-groundtruth --python 3.11 python -m pytest -q`. CI runs it on three
+platforms on every push.
 
 ## Secrets
 
@@ -57,15 +62,18 @@ at load — that is the hook the site mapping drives. Provenance comes from the 
 Where each piece of provenance lands in Flow Production Tracking is the operator's mapping, not a default. See DESIGN.md.
 
 **`widgets_values` is positional.** A widget inserted, removed or reordered displaces every value below it
-in every graph already saved, silently — so append, never insert, and never remove. One declared order is
-shared by `INPUT_TYPES`, `instrument.PUBLISH_WIDGETS`/`LOAD_WIDGETS`, `web/sg_entity_picker.js` `DECLARED`
-and every `*.json` under `example_workflows/` and `tools/workflows/`; all five move together or none do.
-`tools/smoke.py` is what proves it, because only loading a saved graph in a real ComfyUI shows the shift.
-An input *slot* is different: adding one is additive and safe.
+in every graph already saved, silently — so append, never insert, and never remove. The order is declared
+once, in `widgets.py`; `INPUT_TYPES`, `instrument.py` and the editor's `DECLARED` derive from it, and every
+`*.json` under `example_workflows/` and `tools/workflows/` carries one value per declared widget, so a new
+widget means a new value in every shipped graph in the same commit. `tests/test_widget_order.py` proves
+the order and the fixtures offline; `tools/smoke.py` proves the round trip, because only loading a saved
+graph in a real ComfyUI shows the shift. An input *slot* or an output is different: adding one is
+additive and safe.
 
 **This node records; it does not make media.** Review media is derived and may be transcoded; a deliverable
-file is never transformed. Nothing here encodes — `VideoInput.save_to()` is ComfyUI's own encoder and owns
-that side.
+file is never transformed. Nothing here has an encoder or a decoder of its own: frames are written by
+ComfyUI's image encoder in the format the operator picked, clips by `VideoInput.save_to()`, and both are
+read back by ComfyUI's decoder. Pillow writes the 8-bit review still and nothing else.
 
 ## Agent-operable
 
