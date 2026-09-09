@@ -329,17 +329,23 @@ export function vueNodesEnabled() {
   return false;
 }
 
+const NEEDS_VUE = " (needs Nodes 2.0)";
+
 /** Say so on the node when Nodes 2.0 is off, and answer false. Never flips the setting: that
  *  changes the operator's whole editor, so it is their call. */
 export function requireVueNodes(node) {
   if (vueNodesEnabled()) return true;
-  // A button, because on the classic canvas it is the one widget whose text is drawn full width and
-  // legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
-  // placeholder, which names the widget type rather than what the operator has to do.
+  // Two buttons, because on the classic canvas a button is the one widget whose text is drawn full
+  // width and legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
+  // placeholder, which names the widget type rather than what the operator has to do. Both open
+  // Settings, which is the fix for either line.
+  const settings = () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog");
+  dontSerialize(node.addWidget("button", "Nodes 2.0 is off. Click to open Settings, then "
+    + "Nodes 2.0, and turn on Modern Node Design.", null, settings));
   dontSerialize(node.addWidget(
-    "button", "⚠ Nodes 2.0 is off. Click to open Settings › Lite Graph.", null,
-    () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog")));
-  node.title = `${node.title} (needs Nodes 2.0)`;
+    "button", "The lists on this node do not update on the classic canvas.", null, settings));
+  // Copying a node copies its title and runs onNodeCreated again, so the suffix is applied once.
+  if (!node.title.endsWith(NEEDS_VUE)) node.title = `${node.title}${NEEDS_VUE}`;
   return false;
 }
 
