@@ -44,18 +44,40 @@ def names():
     return {display: programmatic_name(display) for display, _, _ in FIELDS}
 
 
+class Refused(RuntimeError):
+    """The site would not answer. `status` is what it answered, for a caller that says who can."""
+
+    def __init__(self, sentence, status):
+        super().__init__(sentence)
+        self.status = status
+
+
+def _schema(sg, entity_type):
+    """Every field on the type. probe 002 — the expensive call, so it is made once per run."""
+    r = sg.get(f"/schema/{entity_type}/fields")
+    if not r.ok:
+        raise Refused(f"Could not read the {entity_type} fields from Flow Production Tracking. "
+                      f"Check that the script key is allowed to read the schema, then run again. "
+                      f"The site answered {r.status_code}. {r.text[:200]}", r.status_code)
+    return r.json()["data"]
+
+
+def survey(sg, entity_type="Version"):
+    """{present, missing, total} by display and programmatic name, from one schema read."""
+    existing = _schema(sg, entity_type)
+    rows = [{"display": d, "name": n} for d, n in names().items()]
+    return {"present": [f for f in rows if f["name"] in existing],
+            "missing": [f for f in rows if f["name"] not in existing],
+            "total": len(FIELDS)}
+
+
 def ensure(sg, entity_type="Version"):
     """Create whatever is missing. Returns (present, created, failed) for the caller to report.
 
     probe 019 — reading /schema first is mandatory, not an optimisation: POSTing a display name that
     already exists does NOT error, it silently creates <name>_1 and every later run adds another.
     """
-    r = sg.get(f"/schema/{entity_type}/fields")
-    if not r.ok:
-        raise RuntimeError(f"Could not read the {entity_type} fields from Flow Production Tracking. "
-                           f"Check that the script key is allowed to read the schema, then run again. "
-                           f"The site answered {r.status_code}. {r.text[:200]}")
-    existing = r.json()["data"]
+    existing = _schema(sg, entity_type)
 
     present, created, failed = [], [], []
     for display, data_type, extra in FIELDS:
@@ -115,6 +137,14 @@ def report(present, created, failed):
         lines.append(f"\n{len(present)} present, {len(created)} created, {len(failed)} failed. "
                      f"The facts those fields would hold go into the attached JSON file instead.")
     return "\n".join(lines)
+
+
+def outcome(present, created, failed):
+    """`ensure`'s three buckets as one row per field: {display, name, state, why}."""
+    rows = [{"display": d, "name": n, "state": "ok"} for d, n, _ in present]
+    rows += [{"display": d, "name": programmatic_name(d), "state": "created"} for d, _ in created]
+    rows += [{"display": d, "name": n, "state": "failed", "why": why} for d, n, _, why in failed]
+    return rows
 
 
 def schema_names(sg, entity_type="Version"):
