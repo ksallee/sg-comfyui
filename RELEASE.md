@@ -166,9 +166,40 @@ Found by that pass and fixed the same day: the single-still path; the run log cl
 0.0; an unresolvable storage reading VALID before the Run; "1 frames" on the panel; dead
 strike-through code. Left: the pre-Run panel names `comfyui-frontend` whatever client will submit.
 
-**SG Load, templates and `/track-workflow`.**
+**SG Load, the templates and `/track-workflow`, from a second isolated instance.**
 
-(pending)
+- 16-bit PNG (Version 31991) and EXR (31992) read back bit-exact through Save Image (Advanced) and
+  ComfyUI's decoder; the 16-bit still decodes to 12,329 distinct values where an 8-bit path gives
+  256. The panel reads `16-bit PNG, RGB, 512x512, 1 frame.` and `32-bit float EXR, ...`. An RGBA
+  publish (31995) comes back with a real 512x512 mask; the others give the 64x64 zero mask.
+- `00_example` run node by node: Version 31999 (the still) and 32001 (24 frames and the mp4,
+  PublishedFiles 7019 and 7020, first and last frame 1 and 24), both loaded back, the `video`
+  output reaching Save Video. `01_concept_and_style`: 32008 and 32009. `02_style_from_a_reference`:
+  32010 with `sg_ai_generated_from` exactly the two Versions 01 made.
+- The movie budget: with 0.05 GiB an uploaded mp4 is refused at frame 8 of 24, naming the seven
+  that fit; the clip was not decoded whole and ComfyUI survived.
+- An `upload` PublishedFile (7022, created by probe 013's four calls on 31995) downloads and
+  decodes bit-exact, alpha intact, and the panel names it as an upload.
+- `/track-workflow` on `video_ltx2_i2v`, a template with a 41-node subgraph: the stream is tapped
+  at the subgraph's new output, SG Publish lands at the top level, `smoke.py` reports 13 widgets
+  over the copy, the original is untouched.
+- A Version that does not exist and one with no media each refuse with a sentence; a thumbnail-only
+  Version (32004) loads its 480x480 preview.
+
+Found by that pass and fixed the same day: a Load result cached by node id and credited to a
+different graph's node (Version 31995 carried a lineage it never had; the fingerprint of the Load
+node now has to match); provenance written to the description never read back; the pre-run panel
+silent about the budget for a movie; the sentences for a missing Version, a Version with nothing
+published, a thumbnail fallback and an upload row; "1 frames".
+
+**Tainted by the two passes sharing one profile:** 32001's path fields are in Windows notation and
+32008 and 32009 differ in provenance treatment, because the other pass was editing
+`profile.local.json` at that minute. Neither is a defect; neither Version should be cited.
+
+**For Kevin's checkpoint, not a defect:** the shipped SG Load nodes carry link `(none)`, so
+`name_contains` searches the whole project and can resolve to another entity's stream, and Run on a
+freshly opened `00_example` fails on both Loads and publishes nothing until a link is picked, which
+the note says but a first click does not read.
 
 ---
 
