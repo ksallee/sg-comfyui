@@ -266,11 +266,12 @@ function publishPickers(nodeType, nodeData) {
         // link would otherwise read as a bare "Shot" that had been decided.
         link: bare(link?.value) ? d.link : "",
         status: statusOf(status?.value),
-        // Why the name is not the name a Run would write. Never folded — the name is the readout.
-        alert: d.alert || "",
+        // What stops this Run: a name that cannot be written, or files that cannot land. Never
+        // folded — the name is the readout, and neither of these is about the name.
+        alert: d.alert || rest.alert || "",
         // The reason lives in the fold, so the pill carries it: a publish that cannot read its
         // provenance, or that would drop a mapped value, is not VALID however good the name is.
-        state: (error || missing || d.alert) ? "warn" : "ok",
+        state: (error || missing || d.alert || rest.alert) ? "warn" : "ok",
         why: error ? `Provenance could not be read. ${error}`
           : missing ? `${missing} field(s) below are missing from this site, struck through.`
           : "This is what the next Run will create.",

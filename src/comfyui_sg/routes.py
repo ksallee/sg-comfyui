@@ -84,13 +84,14 @@ def _batch_limit(v, key):
 
 
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
-    """Where the files would land, resolved against the real storage row.
+    """(where the files would land, the sentence that stops them landing anywhere).
 
-    A publish that copies a sequence onto a shared volume is what an operator reads back before
-    pressing Run, and an unmounted root belongs here rather than at the end of a render.
+    Resolved against the real storage row, because a publish that copies a sequence onto a shared
+    volume is what an operator reads back before pressing Run. A storage that cannot be resolved is
+    the second half: it refuses the run, so it is the panel's alert rather than a line in the fold.
     """
     if not widgets.get("register_files"):
-        return []
+        return [], ""
     from . import publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish): the wires decide which files
     # follow, and the profile decides whether the house also keeps its review movie.
@@ -99,7 +100,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     want_frames = images
     want_movie = video and (not images or bool(pf.get("register_movie")))
     if not (want_frames or want_movie):
-        return []
+        return [], ""
     try:
         code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
                                                   link_type, target, task_id,
@@ -118,10 +119,10 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
             where.append(sequence.destination(pl, pl.movie_template, ext, version_no))
         if not os.path.isdir(pl.root):
             where.append(f"{pl.root} is not mounted. Mount it before you Run.")
-        return where
+        return where, ""
     except Exception as e:
-        return [f"Create Published Files is ticked, but the paths could not be worked out. "
-                f"{_sentence(e)}"]
+        return [], (f"Create Published Files is ticked, but the paths could not be worked out. "
+                    f"{_sentence(e)}")
 
 
 # The profile keys Settings may write, by their dotted path. Anything else stays a file edit.
@@ -675,7 +676,7 @@ def register():
                        "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
-            writes = _files_preview(w, prof, pid, link_type, target, task_id)
+            writes, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
             # What this node will publish, from what is wired into it. The frame count and the
             # frame rate are run-time facts, so the panel states the rule and names the path
             # the run will take.
@@ -693,6 +694,8 @@ def register():
                 "fields": rows,
                 "uploads": uploads,
                 "writes": writes,
+                # A publish that cannot resolve its storage is not valid, whatever the name reads.
+                "alert": files_alert,
                 "media": media,
                 "sources": sources,
             })
