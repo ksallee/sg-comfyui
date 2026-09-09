@@ -196,35 +196,56 @@ def _frames_on_disk(pattern):
 # --- one Version ---------------------------------------------------------------------------------
 
 def published_files(sg, version_id):
-    """Every PublishedFile on this Version, flattened to what a picker and a loader need.
+    """(rows, why) — every readable PublishedFile on this Version, flattened for a picker.
 
-    recipe 004 — `path` comes back with the LocalStorage join already done, so nothing here reads
-    LocalStorage or reassembles a root. A row whose path this platform has no root for reads null,
-    which is the storage row's configuration and not something a reader can fix.
+    recipe 004 — a `local` path comes back with the LocalStorage join already done, so nothing here
+    reads LocalStorage or reassembles a root. A row whose path this platform has no root for reads
+    null, which is the storage row's configuration and not something a reader can fix.
+
+    field_types/url — read `link_type` first. A `local` value has no `url` key at all and an
+    `upload` one (probe 013, the three-call flow) has no local path, so a reader that indexes one
+    shape drops every row of the other. A `web` row is skipped: it names a file on a machine that is
+    not this one.
 
     Never raises: a Version whose files cannot be read must still offer its path fields and its
-    upload, the same way an unreachable site still lets a graph open.
+    upload, the same way an unreachable site still lets a graph open. `why` is what stopped the read,
+    so a caller says that rather than blaming the storage.
     """
     from .site import ARRAY_JSON
     try:
         r = sg.post("/entity/published_files/_search", headers=ARRAY_JSON, json={
             "filters": [["version", "is", {"type": "Version", "id": int(version_id)}]],
             "fields": ["path", "description", "published_file_type"], "page": {"size": 200}})
-        if not r.ok:
-            return []
+    except Exception as e:
+        return [], (f"The published files could not be read. Check the connection in "
+                    f"Settings, then run again. {e}")
+    if not r.ok:
+        return [], (f"The published files could not be read. Try again. The site answered "
+                    f"{r.status_code}. {r.text[:200]}")
+    try:
         rows = r.json().get("data", [])
-    except Exception:
-        return []
+    except ValueError:
+        return [], ("The published files could not be read. Try again. The site's answer was "
+                    "not JSON.")
     out = []
     for d in rows:
         a = d.get("attributes") or {}
+        path = a.get("path") or {}
+        link = path.get("link_type") or "local"
+        if link == "web":
+            continue
         pft = ((d.get("relationships") or {}).get("published_file_type") or {}).get("data") or {}
         m = COLOUR.search(a.get("description") or "")
-        out.append({"id": d["id"], "path": (a.get("path") or {}).get(LOCAL_PATH) or "",
+        local = path.get(LOCAL_PATH) or "" if link == "local" else ""
+        out.append({"id": d["id"], "link": link, "path": local,
+                    "url": path.get("url") or "" if link == "upload" else "",
+                    # The stored `source` value is built from this, so a local row is named by its
+                    # file on disk and an uploaded one by the name the site holds.
+                    "name": os.path.basename(local) if link == "local" else path.get("name") or "",
                     # A file whose type this site never labelled is still a file (probe 021).
                     "type": pft.get("name") or "published file",
                     "colour": m.group(1).strip() if m else ""})
-    return out
+    return out, ""
 
 
 def version(sg, version_id):
@@ -239,8 +260,9 @@ def version(sg, version_id):
                        f"it still exists, then run again. The site answered {r.status_code}. "
                        f"{r.text[:200]}")
     d = r.json()["data"]
+    files, why = published_files(sg, version_id)
     return {**d.get("attributes", {}), "id": d["id"],
-            "published_files": published_files(sg, version_id)}
+            "published_files": files, "published_files_error": why}
 
 
 def provenance_state(attrs, sources):
@@ -299,7 +321,7 @@ def pf_key(pf):
     never the label. It is also the stored widget value, so a file later renamed or re-typed stops
     matching and the node says so by name rather than loading the wrong file.
     """
-    return f'{pf["type"]} · {os.path.basename(pf["path"])} #{pf["id"]}'
+    return f'{pf["type"]} · {pf["name"]} #{pf["id"]}'
 
 
 def pf_of(v, key):
@@ -325,7 +347,7 @@ def sources(v):
     for pf in v.get("published_files") or []:
         detail = _pf_detail(pf)
         if detail:
-            out.append((pf_key(pf), f'{pf["type"]} — {os.path.basename(pf["path"])}, {detail}'))
+            out.append((pf_key(pf), f'{pf["type"]} — {pf["name"]}, {detail}'))
     for key, label in TIERS:
         detail = _resolve(v, key)
         if detail:
@@ -334,8 +356,16 @@ def sources(v):
 
 
 def kind_of(v, key):
-    """"sequence", "still" or "movie": the shape of what one source delivers."""
+    """"sequence", "still", "movie" or "zip": the shape of what one source delivers.
+
+    Only "zip" cannot be read. It is still offered, because a person who published a sequence as one
+    upload should see it named rather than wonder where it went.
+    """
     pf = pf_of(v, key)
+    if pf and pf["link"] != "local":
+        # An uploaded sequence is one zip, so a frame pattern in the name means nothing here.
+        name = pf["name"].lower()
+        return "zip" if name.endswith(".zip") else "still" if name.endswith(STILL) else "movie"
     if pf:
         name = pf["path"]
     elif key == "frames":
@@ -377,13 +407,16 @@ def best(v, want, available=None):
 def clip(v, key):
     """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
     in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
+    import io
+
     from comfy_api.latest._input_impl.video_types import VideoFromFile
     pf = pf_of(v, key)
+    if pf and pf["link"] == "upload":
+        return VideoFromFile(io.BytesIO(_download(pf["url"])))
     path = pf["path"] if pf else v.get("sg_path_to_movie") if key == "movie" else ""
     if path:
         return VideoFromFile(path)
     if key == "uploaded":
-        import io
         return VideoFromFile(io.BytesIO(_download(v["sg_uploaded_movie"]["url"])))
     raise FPTError(f"{key} is not a clip this node can hand on as a video.")
 
@@ -397,8 +430,11 @@ def frame_rate(v):
 
 
 def _pf_detail(pf):
-    """What one PublishedFile would deliver, or "" if it would deliver nothing here."""
-    path = pf.get("path") or ""
+    """What one PublishedFile would deliver, by kind, or "" if it would deliver nothing here."""
+    if pf["link"] == "upload":
+        # Bytes on the site: nothing local can say how many frames are inside.
+        return "zip on the site" if pf["name"].lower().endswith(".zip") else "uploaded file"
+    path = pf["path"]
     if not path:
         return ""            # probe 021 — a PublishedFile need not carry a path at all
     if SEQ.search(path):
@@ -440,10 +476,14 @@ def load(v, key, frame=1):
     """(bytes, filename) for one source. Raises with the reason rather than returning something wrong."""
     pf = pf_of(v, key)
     if pf:
+        if pf["link"] == "upload":
+            if pf["name"].lower().endswith(".zip"):
+                raise FPTError("This file is a zip and cannot be read yet. Pick another source.")
+            return _download(pf["url"]), pf["name"]
         if not pf["path"]:
             raise FPTError(f'Published File {pf["id"]} has no path this machine can open. Pick '
-                           f'another source, or set this platform\'s path on the storage in Flow '
-                           f'PT. The empty field is {LOCAL_PATH}.')
+                           f'another source, or set this platform\'s path on the storage in SG. '
+                           f'The empty field is {LOCAL_PATH}.')
         return _at_frame(pf["path"], frame)
     if key == "frames":
         return _at_frame(v.get("sg_path_to_frames"), frame)

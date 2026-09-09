@@ -219,9 +219,12 @@ class SGLoadVersion:
         v = media.version(sg, vid)
         available = media.sources(v)
         if not available:
+            # A site that answered with an error told us nothing about the storage, and saying the
+            # storage is unmounted would send the operator to the wrong place.
+            trouble = v.get("published_files_error") or \
+                "Check that the storage holding its files is mounted on this machine."
             raise ValueError(
-                f"Version {vid} ({v.get('code')}) has no media this node can read. Check that the "
-                f"storage holding its files is mounted on this machine.")
+                f"Version {vid} ({v.get('code')}) has no media this node can read. {trouble}")
 
         # Each output takes its own best; a picked source makes both read that one file.
         if source in (AUTO, UNSET):
