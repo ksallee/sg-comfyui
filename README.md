@@ -11,125 +11,118 @@ studio's conventions are hardcoded.
 
 ## What it needs
 
-- **ComfyUI**, and Python 3.11.
-- **A Flow Production Tracking site you can log into.** On a workstation the nodes publish as you:
-  click Log in under Settings, then SG, and approve the request in your browser. A render farm, a
-  machine nobody signs in on, and the command-line tools below take a script key instead: a Script
-  Name and its Application Key, made under Admin > Scripts. That script needs to read Projects,
-  Versions, Tasks and whatever entities you link to, to create Versions and upload media, and — for
-  the one-off field setup — to create fields on Version.
-- **`sg-groundtruth`**, the API client, from PyPI. It is an ordinary dependency now — `requirements.txt`
-  names it, and ComfyUI-Manager installs that file. Nothing to clone to *run* the nodes.
-- **A checkout of `sg-groundtruth` beside this one, to *set up*.** Step 1 below measures your site with
-  `../sg-groundtruth/inspect_site.py`, and that inspector is in the corpus repo, not in the PyPI
-  package. Without it there is no `profile.local.json`, and no picker has anything to read.
+- **ComfyUI 0.34.0 or newer.** The nodes read and write media through ComfyUI's own encoder and
+  decoder, which is where 16-bit PNG and EXR come from. An older ComfyUI has neither, so the format
+  widget has nothing to write with.
+- **Python 3.11**, which is the interpreter ComfyUI itself runs on. You do not install a second one.
+- **A Flow Production Tracking site you can log into.** At a workstation the nodes publish as you:
+  click Log in under Settings, then SG, and approve the request in your browser. A render farm, and a
+  machine nobody signs in on, takes a script name and application key instead, made under Admin >
+  Scripts. That script needs to read Projects, Versions, Tasks and whatever entities you link to, and
+  to create Versions and upload media.
+- **`sg-groundtruth`**, the API client, from PyPI. `requirements.txt` names it, and both install paths
+  below install that file.
 
 ## Install
 
+Two paths. Both end in a restart of ComfyUI.
+
+**ComfyUI-Manager, or the command line.** The pack is not on the Comfy Registry yet. It will be
+published there as `sg-comfyui`, and this is the path once it is:
+
+```sh
+comfy node install sg-comfyui
+```
+
+Until then it says the node was not found, and you clone it instead.
+
+**A git clone into `custom_nodes`.**
+
 ```sh
 cd ComfyUI/custom_nodes
-git clone git@github.com:ksallee/sg-comfyui.git
+git clone https://github.com/ksallee/sg-comfyui.git
 cd sg-comfyui
-<comfy-python> -m pip install -r requirements.txt   # ComfyUI-Manager does this for you
+<comfy-python> -m pip install -r requirements.txt
 ```
 
-Then restart ComfyUI, open **Settings, then SG**, enter the site address and click **Log in**.
-Approve the request in the browser tab that opens, where you are already logged into Flow
-Production Tracking, and every Version you publish is created by you. A render farm, or a machine
-nobody signs in on, takes a script name and application key in the same place, with an optional
-login to publish as. **Test** proves the connection before the first Run. The same dialog holds the
-publish defaults: the project the nodes open on, Version name, root name, status, and where
-Published Files land.
+`<comfy-python>` is the interpreter ComfyUI itself runs on, `ComfyUI/venv/bin/python` or whatever
+launches `main.py`. Installing into the wrong one is the single way this fails quietly: the pack
+imports and the site never answers. `tools/doctor.py` names the interpreter it is run with and says
+whether the client is importable there. INSTALL.md has the one command that proves it.
 
-`<comfy-python>` is the interpreter ComfyUI itself runs on — `ComfyUI/venv/bin/python`, or whatever
-launches `main.py`. Installing into the wrong environment is the one way this fails silently: the pack
-imports, the site never answers.
+## First run
 
-What Settings holds lives in ComfyUI's protected user directory, outside `custom_nodes`, so a Manager
-update leaves it alone. The command-line tools below do not read Settings; a checkout carries a script
-key for them in `.env.local`:
+1. **Connect.** Restart ComfyUI, open **Settings, then SG**, and put your site address under
+   Connection. Then either click **Log in** under Log In As Yourself and approve the request in the
+   browser tab that opens, or enter a Script name and Application key under Script Authentication.
+   **Test** asks the site to confirm who the nodes publish as.
+2. **Pick the project.** Under SG Defaults, choose the project both nodes open on. The publish
+   defaults below it are for that project: root name, version name, status, storage, and where
+   Published Files land.
+3. **Open the example.** In the Templates browser, category **sg-comfyui**, open `00_example`. Typing
+   **SG** into the node search finds both nodes on their own, under the category Flow Production
+   Tracking.
+
+The example opens with a still on the top row and a sequence on the bottom. Each SG Publish node
+shows a panel: the Version name it would create, where the files would land, and what provenance it
+found on its branch. It sends nothing until a project and a link are picked, and Create Published
+Files is off on the top row, so nothing is written to disk. Each SG Load node names the Version it
+would read, its format and its frame range, before you run it.
+
+Restart ComfyUI only to install or upgrade the pack. A later edit to the profile reaches the editor on
+a **browser refresh**, because `INPUT_TYPES` is re-evaluated on every `/object_info` request.
+
+## Optional setup
+
+Three things, each worth doing when the sentence below it describes you.
+
+**Measure your site.** Do this when your show names its Versions to a convention, hangs them off
+something other than a Shot, or hides statuses the site's schema still lists. `/inspect-site` drives
+the inspector in the `sg-groundtruth` checkout, prints what it measured with the evidence beside it,
+and writes `profile.local.json`. Without it the pickers run on the site's own defaults, which suit a
+Shot-linked show. INSTALL.md says where the checkout goes and how to run the inspector without an
+agent. You do not need this to publish.
+
+**Create the provenance fields.** Do this when you want the nine AI fields queryable on Version, in
+a filter or a page layout. Open **Settings, then SG, SG Site Setup**: it reads how many of the nine
+exist on this site and creates the rest at one press. It reads the schema first and creates only what
+is missing, so pressing it twice is safe. A farm, or a checkout with no browser on it, runs the same
+thing from the command line:
 
 ```sh
-cp .env.local.example .env.local                    # then fill in the three keys
+PYTHONPATH=src <comfy-python> -m comfyui_sg.fields
 ```
 
-`.env.local` is gitignored and never printed or logged. A missing key is reported by name, never by
-value.
+It needs no torch, so any Python with `requirements.txt` installed runs it, and it reads a script key
+from `.env.local` rather than from Settings. That key has to be allowed to create fields on Version,
+which most artist accounts are not.
+Without the fields a publish records everything anyway, in the Version's description. Field names are
+permanent: deleting a field frees the field but never its name, and trashed fields cannot be listed,
+so a name spent here is spent site-wide forever (probe 019). Pointing the profile's `provenance.map`
+at fields your studio already has is the preferred move. You do not need this to publish.
 
-**Colour management is opt-in.** The shipped templates use core nodes only, so anyone can open them,
-and core ComfyUI has no colour management at all. A colour-managed pipeline installs the
-[ComfyUI-OCIO](https://github.com/SlavaSexton/ComfyUI-OCIO) pack, sets `OPENCV_IO_ENABLE_OPENEXR=1`
-in the environment that launches ComfyUI, and has ffmpeg on the path. `/setup` asks that question
-and walks the rest of a first run.
+**Colour management.** Do this when your pipeline is colour managed. Core ComfyUI has none, and the
+shipped templates use core nodes only so that anyone can open them. Install the
+[ComfyUI-OCIO](https://github.com/SlavaSexton/ComfyUI-OCIO) pack, set `OPENCV_IO_ENABLE_OPENEXR=1` in
+the environment that launches ComfyUI, and put `ffmpeg` on the path. You do not need this to publish.
 
-## Set up, in this order
-
-Each step needs the one before it.
-
-**1. Measure your site.** `/inspect-site` — drives `../sg-groundtruth/inspect_site.py`, prints what it
-measured with the evidence beside it, and writes `profile.local.json`. Nothing here works without that
-file: it is gitignored, so a fresh clone has none, and every picker in both nodes reads it. Run the
-slash command rather than the script directly — the report is inference and needs reading back, in
-particular the link field, which is the one it most often gets wrong.
-
-**2. Create the provenance fields.** Once per site:
-
-```sh
-PYTHONPATH=src python -m comfyui_sg.fields
-```
-
-It reads the schema first and creates only what is missing, so re-running is safe. (Python prints a
-`RuntimeWarning` about `comfyui_sg.fields` already being in `sys.modules`; it is cosmetic.)
-
-Field names are permanent — deleting a field frees the field but never its name, and trashed fields
-cannot be listed, so a name spent here is spent site-wide forever (probe 019). Pointing the profile's
-`provenance.map` at fields your studio already has is the preferred move.
-
-**3. Put the nodes into a graph.** `/track-workflow <workflow.json>` — reads a workflow you already
-use, says where a Version would come out of it and where one could go in, and writes an instrumented
-copy. It never overwrites the original.
-
-Then restart ComfyUI and open the instrumented workflow. Two nodes appear under the category **Flow
-Production Tracking**, and typing **SG** into the node search finds both. If
-`http://127.0.0.1:8188/sg/projects` lists your shows, the credentials, the client and the profile
-are all working.
-
-Restarting is only for installing or upgrading the pack. A later edit to `profile.local.json` reaches
-the editor on a **browser refresh**: `INPUT_TYPES` is re-evaluated on every `/object_info` request.
-
-## Running the commands
-
-Everything runs from the repo root.
-
-| command | needs |
-|---|---|
-| `python src/comfyui_sg/instrument.py <wf.json>` | nothing — no site, no profile, no torch |
-| `PYTHONPATH=src python -m comfyui_sg.fields` | `.env.local` |
-| `PYTHONPATH=src python -m comfyui_sg.seed <file> ...` | `.env.local`, `profile.local.json` |
-| `python ../sg-groundtruth/inspect_site.py --project <id> --out profile.local.json` | `../sg-groundtruth/.env.local` |
-
-`PYTHONPATH=src` is required for every `-m comfyui_sg.*`: the package lives under `src/` and nothing
-installs it. `instrument.py` is deliberately run as a file instead — `-m` would import the package
-`__init__`, which imports the nodes and therefore torch, and a graph should be analysable on a machine
-that has neither torch nor a route to Flow Production Tracking.
-
-The inspector reads credentials from **its own** `.env.local`, in the `sg-groundtruth` checkout, not
-this one. Same three keys either way.
+`/setup` walks all of this with an agent and asks only what it cannot find out.
 
 ## The two nodes
 
-**SG Publish** — an IMAGE or a VIDEO in, a Version out: created, media uploaded,
-provenance attached. You give it a name template (`{entity.code}_{output}_v{version:03d}`), a
-project, what the Version hangs off, optionally a Task and a status, and what the stream *is*
-(`depth`, `normals`, `mask`). The project, link, Task and status lists are your site's real ones,
-read live. `code = auto` numbers per link, so two graphs chain without anyone copying an id.
+**SG Publish** — an IMAGE or a VIDEO in, a Version out: created, media uploaded, provenance attached.
+You give it a project, what the Version hangs off, optionally a Task and a status, the root name that
+says what the stream *is* (`{entity}_depth`, `{entity}_matte`), and a version name built on it
+(`{root_name}_v{version:03d}`). The project, link, Task and status lists are your site's real ones,
+read live. The version number is picked per link and per root name, so two graphs chain without
+anyone copying an id.
 
-An empty root name or version name means Settings names it, so a Settings change reaches every
-saved graph and every shipped template. The panel shows the template in force, tagged Settings.
-Press **Reset fields to Settings Defaults** to write those values into the node and edit from them.
+An empty root name or version name means Settings names it, so a Settings change reaches every saved
+graph and every shipped template. The panel shows the template in force, tagged Settings. Press
+**Reset fields to Settings Defaults** to write those values into the node and edit from them.
 
 Two inputs, `images` and `video`, and at least one of them wired. What you wire is what the Version
-carries — there is no combo asking you to say it again:
+carries, so there is no combo asking you to say it again:
 
 | `images` | `video` | the Version's media | registered as files, when the box is ticked |
 |---|---|---|---|
@@ -138,24 +131,34 @@ carries — there is no combo asking you to say it again:
 | wired | wired | the clip | the frames, and the clip where your profile keeps it |
 | — | — | the run refuses, and says so | — |
 
-**The clip is never re-encoded when it does not have to be.** A `VIDEO` off `LoadVideo` — or any
-node that hands you a file — goes up as that file, byte for byte, at its own extension. Anything
-else (a `CreateVideo` assembling a batch, a hosted model answering with frames) is written by
+**`format`** decides how the frames are written: 8-bit PNG, 16-bit PNG, or EXR 32-bit float. They are
+written by ComfyUI's own encoder, and the extension follows the format rather than the template.
+Review media stays 8-bit PNG whatever the frames are, because it is what a browser shows. EXR pixels
+are written through unchanged and nothing converts them; the `colour_space` widget is the record of
+what they already are, and the Version's description says what was declared.
+
+**The clip is never re-encoded when it does not have to be.** A `VIDEO` off `LoadVideo`, or off any
+node that hands you a file, goes up as that file, byte for byte, at its own extension. Anything else,
+such as a `CreateVideo` assembling a batch or a hosted model answering with frames, is written by
 ComfyUI's own `VideoInput.save_to()`, which carries the colour space, the bit depth and the audio.
 The panel says which of the two happened. There is no `fps` widget: a `VIDEO` states its own rate,
 and `CreateVideo` is where you set one.
 
-An IMAGE batch of more than one frame is not media — a Version's media is single-valued (probe 022) —
-so with **Create Published Files** off the run refuses rather than uploading frame 1 and dropping the
-rest. Tick the box to register the sequence, or send the batch through `CreateVideo`.
+An IMAGE batch of more than one frame is not media, because a Version's media is single-valued
+(probe 022). With **Create Published Files** off the run refuses rather than uploading frame 1 and
+dropping the rest. Tick the box to register the sequence, or send the batch through `CreateVideo`.
 
 Provenance is scoped per branch, not per graph: the node walks back through its own inputs, so three
 lookdev variants off a shared depth pass each record only what produced their own image.
 
-**SG Load** — a Version's media back into the graph, and the link recorded. The inputs
-are a rule an artist would say out loud — *the newest approved depth on this shot* — not an id. An id
+**SG Load** — a Version's media back into the graph, and the link recorded. The inputs are a rule an
+artist would say out loud, *the newest approved depth on this shot*, rather than an id. An id
 (`pin_version_id`) is the escape hatch. Anything published downstream records the Version it came
 from, without anyone typing an id.
+
+Media is decoded by ComfyUI's own decoder, so 16-bit PNG and EXR come back at full precision. The
+panel states the format of what it will read before you run it, for example `16-bit PNG, RGBA,
+1920x1080, 48 frames`, with the colour space the publisher declared.
 
 Two media outputs, and each takes the best the Version has on its own:
 
@@ -164,36 +167,39 @@ Two media outputs, and each takes the best the Version has on its own:
 | `image` | the sequence, as a Published File then as path to frames; else a clip decoded; else the uploaded still; else the thumbnail |
 | `video` | a Movie Published File; else path to movie; else the uploaded mp4, untouched; else the frames wrapped at the Version's frame rate, or 24 fps when it records none |
 
-A Published File beats a path field of the same shape because it carries a type, a path per
-platform and the declared colour space. A file on a root this machine has not mounted does not
-count, so a laptop without the storage falls through to the upload by itself. The site's own
-transcode is never read: it is derived from the upload, lags it, and can describe a file that was
-replaced. The panel shows what each output will take before you run.
+`mask` is the last output and comes off the alpha channel, on ComfyUI's own convention of `1 - alpha`.
+A source with no alpha gives a 64x64 zero mask, which is what core Load Image gives.
+
+A Published File beats a path field of the same shape because it carries a type, a path per platform
+and the declared colour space. A file on a root this machine has not mounted does not count, so a
+laptop without the storage falls through to the upload by itself. The site's own transcode is never
+read: it is derived from the upload, lags it, and can describe a file that was replaced. The panel
+shows what each output will take before you run.
 
 `source`, in the fold, is the override: pick one file and both outputs read it. Where a Version
-published several, each is its own choice named by type and filename —
-`Rendered Image · sh010_comp_v003.%04d.png #6843` beside `Movie · sh010_comp_v003.mp4 #6844` — so the
+published several, each is its own choice named by type and filename,
+`Rendered Image · sh010_comp_v003.%04d.png #6843` beside `Movie · sh010_comp_v003.mp4 #6844`, so the
 rendered sequence and the mp4 are told apart at a glance.
 
-`frame` is the first frame and `frame_count` is how many, as one IMAGE batch — which is what makes a
+`frame` is the first frame and `frame_count` is how many, as one IMAGE batch, which is what makes a
 loaded clip a real input to a video graph.
 
-`frame` is the frame **number**, the one in the filename: `1003` means `plate.1003.exr`, not the 1003rd
-file. Leave it at **0** and it starts wherever the sequence starts, which is what a 1001-based plate
-wants and why it usually needs no typing at all; the panel shows the range the source actually has, so
-you are not guessing. Ask for a frame that is not there and it is refused, naming the range — it will
-never quietly hand back a different frame. `frame_count` **0** reads to the end; it defaults to `1`,
-the single image the node always returned, so nothing already saved changes. The ceiling is a size
-rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
+`frame` is the frame **number**, the one in the filename: `1003` means `plate.1003.exr`, not the
+1003rd file. Leave it at **0** and it starts wherever the sequence starts, which is what a 1001-based
+plate wants and why it usually needs no typing at all. The panel shows the range the source actually
+has, so you are not guessing. Ask for a frame that is not there and it is refused, naming the range;
+it will never quietly hand back a different frame. `frame_count` **0** reads to the end, and defaults
+to `1`, the single image the node always returned, so nothing already saved changes. The ceiling is a
+size rather than a count: past 4 GiB of float32 the node refuses and says how many frames fit at that
 resolution, instead of running out of VRAM. Frames of differing resolution cannot stack and are
 refused by name.
 
-`colour_space` comes back as a fourth output and on the panel when the publisher declared one. Read
-back, never applied — nothing here converts, and a Version that declared nothing says nothing.
+`colour_space` comes back as an output and on the panel when the publisher declared one. Read back,
+never applied: nothing here converts, and a Version that declared nothing says nothing.
 
 ## Where provenance lands
 
-Nine typed fields on Version, created by step 2 above:
+Nine typed fields on Version, created under Settings, then SG, SG Site Setup:
 
 | field | programmatic name | from |
 |---|---|---|
@@ -207,21 +213,26 @@ Nine typed fields on Version, created by step 2 above:
 | AI CFG | `sg_ai_cfg` | the last sampler on the branch |
 | AI Generated From | `sg_ai_generated_from` | multi-entity of Version: what this was made from |
 
-Alongside them: `description` is your note, the whole structure rides up as a `.provenance.json`
-attachment, and the workflow is attached when the client sent one. The fields are the queryable
-summary; the attachment is the record.
+**A site with none of these fields still records everything.** The Version's description carries your
+note first, then a blank line, then one line per fact, lineage and the whole prompt included. Where
+some of the fields exist, those take their values and the description carries the rest. The nodes say
+nothing about creating fields, because a publish never depends on them.
 
-The workflow attachment is **best effort and says so**. `PROMPT` is guaranteed — execution cannot
-happen without it — but `EXTRA_PNGINFO` is whatever the client put in `extra_data`. The standard
-frontend sends it; the `comfy` CLI, the ComfyUI MCP server and wrapper UIs that build their own
-API-format prompt do not. A publish never depends on it, and reports when it is missing.
+Alongside the fields: `description` is your note, the whole structure rides up as a
+`.provenance.json` attachment, and the workflow is attached when the client sent one. The fields are
+the queryable summary; the attachment is the record.
+
+The workflow attachment is **best effort and says so**. `PROMPT` is guaranteed, because execution
+cannot happen without it, but `EXTRA_PNGINFO` is whatever the client put in `extra_data`. The
+standard frontend sends it; the `comfy` CLI, the ComfyUI MCP server and wrapper UIs that build their
+own API-format prompt do not. A publish never depends on it, and reports when it is missing.
 
 The client's name is **the client's own claim, not an environment variable.** It is
 `extra_data.comfy_usage_source` on whatever POSTed `/prompt`; ComfyUI passes it to the node under the
 hidden name `COMFY_USAGE_SOURCE`, which is where the misreading starts. The standard frontend puts
 `comfyui-frontend` in the body of every Run. A script of your own that omits it publishes Versions
-reading `ComfyUI (unknown client)` — set it, and the field explains a missing workflow later instead
-of shrugging:
+reading `ComfyUI (unknown client)`. Set it, and the field explains a missing workflow later instead of
+shrugging:
 
     POST /prompt  {"prompt": {...}, "extra_data": {"comfy_usage_source": "my-farm-submitter"}}
 
@@ -230,104 +241,107 @@ left the key out (`server.py:1120`).
 
 Where each piece lands is yours, not ours. A studio that already records seeds in `sg_render_seed`, or
 that wants nothing but a readable paragraph, sets `provenance` in the profile rather than forking the
-node. See DESIGN.md, "Where each piece lands is the operator's, not ours".
+node. See DESIGN.md, "Where each piece lands is the operator's, not ours", and INSTALL.md for the
+profile on one page.
 
 ## Keeping the frames
 
 `Version` media is single-valued, so a sequence cannot BE a Version's media (probe 022). The frames
 are a `PublishedFile` instead, and a PublishedFile's path has to sit under one of your site's
-LocalStorage roots — the server refuses anything else.
+LocalStorage roots, because the server refuses anything else.
 
 **Create Published Files** on the node is one question and it is not about media: is this publish a
-deliverable, or only review? What gets registered follows from what is wired — the frames where
-`images` is, the clip where `video` is. Whether your house *also* keeps the review clip as a file
-beside a sequence is a convention rather than a per-publish call, so it is `register_movie` in the
-profile below; a clip published on its own is the deliverable and is registered either way.
+deliverable, or only review? What gets registered follows from what is wired, the frames where
+`images` is and the clip where `video` is. Whether your house *also* keeps the review clip as a file
+beside a sequence is a convention rather than a per-publish call, so it is Review movie under
+Settings, then SG, SG Publish Defaults. A clip published on its own is the deliverable and is
+registered either way.
 
 **Nothing has to change about where ComfyUI writes.** The frames land in ComfyUI's own output
 directory as usual, and the node *copies* them into place under the root. The copy is what a failed
-publish is recovered from, so the originals are never moved.
+publish is recovered from, so the originals are never moved. A publish that fails after the frames
+were copied leaves the copies where they are and names their paths.
 
-Two profile keys per project, beside every other per-show decision:
+Settings, then SG, SG Publish Defaults holds every key of this, per project: Storage, Operating
+system, Sequence path, Movie path, Review movie, Path to Frames, Path to Movie and Colour space. They
+are written into `profile.local.json`, which is plain JSON and yours to edit. INSTALL.md lists every
+key with its default and who writes it.
 
-    "published_files": {
-      "storage":        "primary",
-      "path_template":  "{entity.code}/{output}/v{version:03d}/{entity.code}_{output}_v{version:03d}.%04d.png",
-      "colour_space":   "sRGB",
-      "register_movie": false
-    }
+A path template is the same language as the name template, Flow Production Tracking's dotted field
+paths and Python's format spec, with two rules of its own:
 
-`storage` is a LocalStorage `code` from your site. `path_template` is the same language as the name
-template — Flow Production Tracking's dotted field paths and Python's format spec — with two rules of its own:
-
-- `{version}` is the publish revision; `%04d` (or `####`, or `@@@@`) is the frame. They are different
+- `{version}` is the publish revision; `%04d`, `####` and `@@@@` are the frame. They are different
   numbers, so in a *path* template the printf form always means the frame.
-- The extension follows the files, not the template. The node writes PNG, so a template ending
-  `.exr` registers `.png` and says so. Nothing is transcoded.
-
-`register_movie` says whether the review clip is registered as a file too, beside the frames. It is
-false by default: most shows deliver the sequence and review the clip.
+- The extension follows the files, not the template. It comes from the `format` widget, so a template
+  ending `.png` on an EXR publish registers `.exr` and says so. Nothing is transcoded.
 
 `colour_space` is recorded and never applied: it goes in the PublishedFile's description and in the
-provenance record, and the node's own `colour_space` widget overrides the profile per output. This
-site has no colour space field on `PublishedFile` and none was created for it — a field name is spent
-site-wide forever (probe 019).
+provenance record, and the node's own `colour_space` widget overrides the profile per publish.
 
 Where an upstream Version published files of its own, they are linked through
-`upstream_published_files` — the file-level twin of `sg_ai_generated_from`, written from the same
+`upstream_published_files`, the file-level twin of `sg_ai_generated_from`, written from the same
 ancestors the node already walked. Where a Load node upstream read one of those files, the link is
 that one file rather than every file the ancestor published; where it read a path field or an upload
 there is no file to name, and the whole ancestor is linked as before.
 
-A sequence publish also fills `sg_path_to_frames` on the Version with the `%04d` pattern, so the Load
+A sequence publish also fills `sg_path_to_frames` on the Version with the frame pattern, so the Load
 node resolves the real frames even on a site that never looks at published files.
-
-## Files this repo writes on your machine
-
-Both gitignored, both yours to edit:
-
-    .env.local           site URL, script name, script key
-    profile.local.json   what your site practices, per project — written by /inspect-site
 
 ## Driving it with an agent
 
-Three slash commands, in `.claude/commands/`. They are the interface, not a shortcut around one:
+Three procedures, in `.claude/commands/`. They are plain markdown, so an agent that does not read
+slash commands can follow the file:
 
     /setup               walk a first run: connection, profile, colour management, the example
     /inspect-site        measure a project and write the profile
     /track-workflow      add tracking to a workflow you already use
 
-`CLAUDE.md` holds the conventions, `DESIGN.md` the reasoning behind them.
-
-## QA harness
-
-`tools/qa_node.py` drives one node in a real, headless ComfyUI and prints only what the drive script
-returned:
+`tools/doctor.py` is the check to run first: it prints one line per thing a publish needs, with the
+fix appended where it fails.
 
 ```sh
-pip install playwright && playwright install chromium     # once
-tools/qa_node.py --start --node SGLoadVersion --drive drive.js --shot out.png
+<comfy-python> tools/doctor.py            # the interpreter, the paths, the profile
+<comfy-python> tools/doctor.py --site     # also the connection, the fields, the storage and the link types
 ```
 
-`--start` launches an instance of its own: its own port, and its own `--base-directory`, which
-relocates `custom_nodes`, `input`, `output`, `temp` and `user`. That isolation is the point —
-`ComfyUI/custom_nodes/<pack>` is normally a symlink to your main checkout, so without it every
-instance loads main's code and you verify someone else's work instead of your own. Nodes 2.0 is seeded
-on, the onboarding coachmarks are seeded off (otherwise the Templates browser opens over the canvas
-and every selector queries a node nobody can see), and the "leave site?" dialog is auto-accepted.
+`AGENTS.md` is the entry point for an agent, `CLAUDE.md` holds the conventions for changing this
+code, and `DESIGN.md` the reasoning behind them.
 
-It exists instead of a browser MCP because an MCP returns an accessibility snapshot and a console log
-on every call, which is most of what a UI session costs. This shape is a CLI that writes to disk and
-lets the agent read back only its own answer.
+`tools/qa_node.py` drives one node in a real, headless ComfyUI and prints only what the drive script
+returned. `--start` launches an instance with its own port and its own `--base-directory`, which
+relocates `custom_nodes`, `input`, `output`, `temp` and `user`. That isolation is the point:
+`ComfyUI/custom_nodes/<pack>` is normally a symlink to a checkout, so without it every instance loads
+that checkout's code. `COMFYUI_PATH` overrides where ComfyUI is, and defaults to `~/dev/ComfyUI`.
 
-`COMFYUI_PATH` overrides where ComfyUI is (default `~/dev/ComfyUI`).
+## What's next, tell us
 
-## Not ready yet
+This is the list we know about, and the order is not decided. If one of these is what stands between
+you and using the pack, say so in an issue; if the one you need is not here, that is the more useful
+issue.
 
-- **Not on the Registry yet.** `requirements.txt` installs everything a Registry install needs, but
-  the pack has not been published there.
-- **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
-  rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
+- A `mask` input on SG Publish, so an RGBA publish carries its alpha.
+- Registering files another node wrote, such as Save Image (Advanced) or an OCIO Write.
+- Publishing where there is no shared storage, by uploading a zip.
+- Publishing on someone's behalf, and naming the artist on a farm.
+- Updating the Task's status when a Version is published.
+- Newest per stream, rather than newest on the link.
+- Any Version field on the node, in one line.
+- A colour-managed template.
+- Windows as a first-class publisher.
+
+## Known limits
+
 - **A loader inside a ComfyUI subgraph** is replaced inside that subgraph rather than promoted out to
   the top level, because a definition's interior is shared by every instance of it and rewiring it
   would break the others. Output streams inside a subgraph are found and tapped normally.
+- **A zip uploaded to a Version is not unpacked.** SG Load shows and downloads what someone attached
+  as an upload, and hands a zip back as the file it is.
+- **`pyproject.toml` has no `PublisherId` or `Icon`.** Both are per-publisher and are left empty
+  rather than guessed; `comfy node publish` will not accept an empty `PublisherId`.
+
+## Where to read next
+
+- **INSTALL.md** — which interpreter, where every local file lives, running the command-line tools,
+  the profile on one page, and what to do when something does not answer.
+- **AGENTS.md** — the entry point for an agent working on or with this pack.
+- **DESIGN.md** — why each of these decisions is the one that was made.
