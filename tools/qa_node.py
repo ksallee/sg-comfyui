@@ -128,6 +128,12 @@ BOOT = """async ({node_type, drive}) => {
   // lands drops its default on top of the node under test.
   for (let i = 0; i < 40; i++) { if (app.graph._nodes?.length) break; await wait(250); }
   await wait(500);
+  // The minimap sits over the bottom-right of every screenshot and is not a seeded setting.
+  if (!document.getElementById("sg-qa-style")) {
+    const st = document.createElement("style"); st.id = "sg-qa-style";
+    st.textContent = ".minimap-main-container { display: none !important; }";
+    document.head.appendChild(st);
+  }
   app.graph.clear();
   let node = null;
   if (node_type) {
