@@ -215,7 +215,7 @@ function publishPickers(nodeType, nodeData) {
       ...(r.site_url ? [{ label: "latest", value: `${r.code || "Version " + r.id}`,
                           href: `${r.site_url}/detail/Version/${r.id}` }] : []),
       ...(r.files || []).map((f) => ({
-        label: f.kind === "frames" ? `${f.count} frames` : f.kind,
+        label: f.kind === "frames" ? `${f.count} frame${f.count === 1 ? "" : "s"}` : f.kind,
         value: f.path,
         href: "file://" + f.path.replace(/[^/]*$/, ""),
       })),
