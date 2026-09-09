@@ -347,13 +347,11 @@ still never run from a template.
 
 In the order they block each other. State at the end of 2026-09-08.
 
-1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. `main` carries 0.1.3 in `pyproject.toml` but the
-   latest GitHub release is v0.1.2, so PyPI has 0.1.2. Cutting the v0.1.3 release is what
-   publishes it. Until then no install outside this machine works.
-2. **PR #80**, the rename and everything built on it today, waits on Kevin's merge. He clicked
-   through it on his own ComfyUI on 2026-09-08. After the merge, Kevin:
-   `mv ~/dev/comfyui-flow-production-tracking ~/dev/sg-comfyui` and re-point
-   `~/dev/ComfyUI/custom_nodes/sg-comfyui` at the new path.
+1. ~~`sg-groundtruth` 0.1.3 on PyPI~~ **released 2026-09-08**, v0.1.3 cut from `main`; the
+   release workflow publishes it.
+2. ~~PR #80, the rename and everything built on it today~~ **merged 2026-09-08**, granted by
+   Kevin. The checkout is `~/dev/sg-comfyui` and `~/dev/ComfyUI/custom_nodes/sg-comfyui` points at
+   it.
 3. ~~One live publish from `00_example` with Create Published Files ticked~~ **done 2026-09-08**,
    by Kevin from the template: `sbx_0020_example_sequence_v001`, twelve frames under
    `/Volumes/FPT`, PublishedFile 6933, `sg_path_to_frames` written, read back by SG Load. This machine's profile had the sequence template as
