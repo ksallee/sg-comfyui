@@ -68,7 +68,6 @@ const CSS = `
 .sg-ok { color: #7fd18b; }
 .sg-err { color: #f08a8a; white-space: pre-wrap; }
 .sg-dim { color: #7f868f; }
-.sg-gone { text-decoration: line-through; opacity: .5; }
 .sg-code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #f2f5f8;
   letter-spacing: .01em; overflow-wrap: anywhere; min-width: 0; }
 .sg-badge { display: inline-flex; align-items: center; gap: 3px; }
@@ -114,19 +113,19 @@ function pill(label, rgb) {
     `${label}</span>`;
 }
 
-/** What the run would record, field by field. A field the site does not have is struck through
- *  rather than hidden, and a field with no value is dimmed rather than dropped: an absent seed on a
- *  graph with no sampler is worth knowing before you publish. */
+/** What the run would record, field by field. A field with no value is dimmed rather than dropped:
+ *  an absent seed on a graph with no sampler is worth knowing before you publish. Where a value
+ *  lands is said beside it, because a fact in the description is not a fact in a field. */
 function writesBlock(d) {
   const f = d && d.fields;
   if (!f || !f.length) return "";
   const row = (x) => {
-    const dead = !x.present;
     const empty = !x.value;
-    return `<div class="sg-row"><span class="sg-k${dead ? " sg-gone" : ""}">${
-      esc(x.name.replace(/^ai_/, ""))}</span><span class="sg-v${
-      dead ? " sg-gone" : empty ? " sg-dim" : ""}">${
-      esc(x.value || x.note || "—")}</span></div>`;
+    const where = x.into_description && !empty
+      ? ` <span class="sg-dim">into the description</span>` : "";
+    return `<div class="sg-row"><span class="sg-k">${
+      esc(x.name.replace(/^ai_/, ""))}</span><span class="sg-v${empty ? " sg-dim" : ""}">${
+      esc(x.value || x.note || "—")}${where}</span></div>`;
   };
   // sg-full, not a .sg-row with one child: the grid rule reads the DOM tree, so a lone .sg-v
   // inside a display:contents row does not match it and two filenames sit side by side.

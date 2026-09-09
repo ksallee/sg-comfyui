@@ -647,7 +647,9 @@ def register():
                             if target and not described else sg_fields.CONCEPT_LABELS[concept],
                     "label": sg_fields.CONCEPT_LABELS[concept],
                     "value": show(v) if has else "",
-                    "present": True,
+                    # Where a value lands is the operator's own mapping, so a fact that goes into
+                    # the description says so beside its value rather than only where it has none.
+                    "into_description": described,
                     "note": note,
                 })
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
@@ -668,7 +670,7 @@ def register():
                      ("sg_task", f"Task {task_id}" if task_id else "",
                       "" if task_id else "No task picked.")]
             for name, val, note in plain:
-                rows.append({"name": name, "value": str(val)[:160], "present": True, "note": note})
+                rows.append({"name": name, "value": str(val)[:160], "note": note})
 
             # Uploads are not fields, and a copy onto a shared volume is not an upload, so each is
             # its own list of what lands.

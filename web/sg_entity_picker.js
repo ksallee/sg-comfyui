@@ -251,7 +251,6 @@ function publishPickers(nodeType, nodeData) {
       // given replaces the whole readout, and the name must not be lost because the provenance call
       // failed. It becomes the line under the name instead.
       const { error, ...rest } = extra || {};
-      const missing = (rest.missing_fields || []).length;
       // Which row of the truth table this node is on, in front of the operator rather than in the
       // fold: one run is one Version, and what that Version carries is decided by what is wired.
       // An empty root name or version name is named by Settings, and this is where the operator
@@ -271,9 +270,8 @@ function publishPickers(nodeType, nodeData) {
         alert: d.alert || rest.alert || "",
         // The reason lives in the fold, so the pill carries it: a publish that cannot read its
         // provenance, or that would drop a mapped value, is not VALID however good the name is.
-        state: (error || missing || d.alert || rest.alert) ? "warn" : "ok",
+        state: (error || d.alert || rest.alert) ? "warn" : "ok",
         why: error ? `Provenance could not be read. ${error}`
-          : missing ? `${missing} field(s) below are missing from this site, struck through.`
           : "This is what the next Run will create.",
       });
     };
