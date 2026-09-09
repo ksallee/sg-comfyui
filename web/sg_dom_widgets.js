@@ -344,6 +344,9 @@ export function requireVueNodes(node) {
   // placeholder, which names the widget type rather than what the operator has to do. Both open
   // Settings, which is the fix for either line.
   const settings = () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog");
+  // The classic canvas centres a button's text and does not wrap it, so the node is widened to the
+  // sentence rather than the sentence shortened to the node.
+  node.size[0] = Math.max(node.size[0], 520);
   dontSerialize(node.addWidget("button", "Nodes 2.0 is off. Click to open Settings, then "
     + "Nodes 2.0, and turn on Modern Node Design.", null, settings));
   dontSerialize(node.addWidget(
