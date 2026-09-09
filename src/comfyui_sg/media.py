@@ -732,6 +732,11 @@ def budget_bytes(gib=0):
     return int((gib if gib > 0 else DEFAULT_BUDGET_GIB) * 2 ** 30)
 
 
+def gib(n):
+    """Bytes as GiB. Three significant digits, so a budget under a tenth of a GiB still reads."""
+    return f"{float(f'{n / 2 ** 30:.3g}'):g}"
+
+
 def frames_that_fit(size, budget):
     """How many frames of this size one batch can hold."""
     w, h = size
@@ -744,7 +749,7 @@ def _budget(size, count, budget):
     need = w * h * 3 * 4 * int(count)     # float32 RGB, which is what an IMAGE tensor holds
     if need > budget:
         raise FPTError(
-            f"{count} frames of {w}×{h} would need {need / 2 ** 30:.1f} GiB as one IMAGE batch. "
-            f"This machine is set to build at most {budget / 2 ** 30:.1f} GiB in one go. Set "
+            f"{count} frames of {w}×{h} would need {gib(need)} GiB as one IMAGE batch. "
+            f"This machine is set to build at most {gib(budget)} GiB in one go. Set "
             f"frame_count to {frames_that_fit(size, budget)} or less at this resolution, or raise "
             f"batch_budget_gib in profile.local.json.")

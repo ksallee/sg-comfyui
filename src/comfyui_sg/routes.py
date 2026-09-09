@@ -80,7 +80,7 @@ def _batch_limit(v, key):
         return None
     budget = media.budget_bytes(site.profile().get("batch_budget_gib", 0))
     return {"width": size[0], "height": size[1],
-            "fits": media.frames_that_fit(size, budget), "gib": round(budget / 2 ** 30, 1)}
+            "fits": media.frames_that_fit(size, budget), "gib": media.gib(budget)}
 
 
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
