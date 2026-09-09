@@ -499,16 +499,10 @@ def register():
                 if (q.get("task") and target) else 0
             root_t = q.get("root_name", "")            # the ROOT template, not the version's name
             code = PV.next_code(q.get("code_template", ""), project_id, lt, target, task_id, root_t)
-            # A template renders what it can and drops the rest, so `corridor_depth_v004` and a bare
-            # `v004` come back looking equally finished. Both templates are read, because
-            # `{root_name}` hides whatever the root template asks for.
-            needs = {f.split(".")[0] for f in
-                     naming.template_fields(q.get("code_template", "") or naming.DEFAULT_TEMPLATE)
-                     + naming.template_fields(root_t or naming.DEFAULT_ROOT_TEMPLATE)}
-            # Name the fields to fill in, never the consequence of leaving them empty.
-            missing = [name for name, filled in
-                       (("link", "entity" not in needs or target), ("task", "task" not in needs or task_id))
-                       if not filled]
+            # Name the fields to fill in, never the consequence of leaving them empty. The run
+            # refuses on the same list, so the alert is a promise.
+            missing = PV.missing_fields(q.get("code_template", ""), root_t, project_id, target,
+                                        task_id)
             if q.get("link") and not target:
                 alert = f"No {lt} named {picked_name} on this project. Pick one from the list."
             elif missing:

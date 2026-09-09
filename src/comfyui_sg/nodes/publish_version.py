@@ -127,6 +127,22 @@ class SGPublishVersion:
         }
 
     @classmethod
+    def missing_fields(cls, template, root_template, project_id, link_id, task_id):
+        """The pickers a name needs and does not have, by their on-screen names, in order.
+
+        A template renders what it can and drops the rest, so a bare `v004` would come back looking
+        finished. Both templates are read, because `{root_name}` hides whatever the root asks for.
+        The panel and the run share this, so the alert and the refusal are one sentence.
+        """
+        p = site.for_project(project_id)
+        template = (template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip()
+        root_t = (root_template or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
+        needs = {f.split(".")[0] for f in
+                 naming.template_fields(template) + naming.template_fields(root_t)}
+        return [name for name, filled in (("link", "entity" not in needs or link_id),
+                                          ("task", "task" not in needs or task_id)) if not filled]
+
+    @classmethod
     def next_name(cls, template, project_id, link_type, link_id, task_id, root_template=""):
         """(code, version number) this node would publish next.
 
@@ -350,6 +366,10 @@ class SGPublishVersion:
             raise ValueError(f"No {link_type} named {picked_name} on this project. Pick one from "
                              f"the list.")
         task_id = _id_for(site.tasks_for(link_type, target), task) if (task and target) else 0
+        # The same sentence the panel shows, refused before the site is written to.
+        missing = self.missing_fields(code_template, root_name, project_id, target, task_id)
+        if missing:
+            raise ValueError(f"Fill in the required fields ({', '.join(missing)}).")
         status_code = next((c for l, c in site.statuses(project_id) if l == status), "")
 
         # unique_id scopes provenance to this node's branch (provenance.ancestors).
