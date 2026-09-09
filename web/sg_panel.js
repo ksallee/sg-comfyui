@@ -96,6 +96,17 @@ const PROVENANCE = {
   unrecorded: "no generation record",
 };
 
+/** Bytes as GiB, the way the node's own refusal prints them: three significant digits, and a
+ *  budget under a tenth of a GiB still reads as itself. */
+const gib = (bytes) => String(Number((bytes / 2 ** 30).toPrecision(3)));
+
+/** The refusal the run would raise, said before the Run: what to set, then why. A batch is one
+ *  float32 RGB tensor, so N frames of W×H cost N·W·H·12 bytes to build. */
+const budgetSentence = (b, frames) =>
+  `Set frame_count to ${b.fits} or less at this resolution. ${frames} frames of `
+  + `${b.width}×${b.height} would need ${gib(frames * b.width * b.height * 12)} GiB as one batch; `
+  + `the limit is ${b.gib} GiB, batch_budget_gib in profile.local.json.`;
+
 /** A destination this panel will link to. Everything else is drawn as plain text, so a path or a
  *  URL that came off the site cannot carry a `javascript:` scheme into an href. */
 const linkable = (u) => /^(?:https?|file):/i.test(String(u ?? "").replace(/[\t\n\r]/g, "").trim());
@@ -293,11 +304,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
           // Said before the Run, not after it: one batch is a single tensor, and a plate too big
           // to hold is a refusal the operator can avoid by setting frame_count or raising the
           // budget. The same numbers the run would use.
-          if (d.batch && got > d.batch.fits) {
-            over = `Set frame_count to ${d.batch.fits} or less, or raise batch_budget_gib in `
-              + `profile.local.json above ${d.batch.gib} GiB. `
-              + `${got} frames of ${d.batch.width}×${d.batch.height} do not fit in one batch.`;
-          }
+          if (d.batch && got > d.batch.fits) over = budgetSentence(d.batch, got);
         }
         rows.push(["frames", note]);
       }

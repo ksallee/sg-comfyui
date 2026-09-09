@@ -12,7 +12,7 @@ const RESOLVE = {
   image_label: "chr_010_comp_v006.%04d.exr, 120 frames",
   video_label: "the frames at 25 fps, from the Version",
   frames: { first: 1, last: 120, count: 120 },
-  batch: { width: 3840, height: 2160, fits: 43, gib: 4 },
+  batch: { width: 3840, height: 2160, fits: 43, gib: "4" },
   format: "EXR 32-bit float, RGB, 3840x2160, 120 frames",
   colour_space: "ACEScg",
 };

@@ -97,7 +97,9 @@ def test_a_small_budget_reads_as_itself_rather_than_as_zero():
 def test_a_budget_under_a_tenth_of_a_gib_is_named_in_the_refusal():
     with pytest.raises(FPTError) as e:
         media._budget((1920, 1080), 20, media.budget_bytes(0.05))
-    assert "at most 0.05 GiB" in str(e.value)
+    assert str(e.value) == ("Set frame_count to 2 or less at this resolution. 20 frames of "
+                            "1920×1080 would need 0.463 GiB as one batch; the limit is 0.05 GiB, "
+                            "batch_budget_gib in profile.local.json.")
 
 
 def test_no_budget_set_is_the_built_in_fallback():
