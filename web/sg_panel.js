@@ -306,9 +306,14 @@ export function addPanel(node, title = "SG", onLayout = null) {
         ["colour space", `${d.colour_space}. Declared on the file, not converted.`]);
       for (const f of d.facts || []) rows.push([f.label, f.value, f.href]);
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
-      // The one line that never folds: what is wrong with the name directly above it.
-      const alert = d.alert || over;
-      setBody((alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") + plain(rows));
+      // The one line that never folds: what is wrong with the name directly above it. A notice
+      // about how this Version was resolved is not that line, and never takes its place — a pinned
+      // id and a batch too big to read are both true at once, and only one of them needs acting on.
+      const alert = over || d.alert || "";
+      const notice = over ? (d.alert || "") : "";
+      if (over) setState("warn");
+      setBody((alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") +
+        (notice ? `<div class="sg-dim">${esc(notice)}</div>` : "") + plain(rows));
       // The fold takes the reasoning behind a name the operator can already see, and the concepts
       // that are the same every publish: configuration-time reading, not pre-Run reading.
       fold((d.why ? `<div class="sg-why">${esc(d.why)}</div>` : "") +
