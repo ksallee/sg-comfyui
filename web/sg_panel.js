@@ -137,10 +137,7 @@ function writesBlock(d) {
   return `<div class="sg-sec">fields that will populate</div>` + f.map(row).join("") +
     list("uploads", d.uploads) +
     // Copies onto a shared volume are not uploads, and are the ones worth reading twice.
-    list("copied to", d.writes) +
-    ((d.missing_fields || []).length
-      ? `<div class="sg-why">${d.missing_fields.length} field(s) below are missing from this ` +
-        `site. Run python -m comfyui_sg.fields to add them.</div>` : "");
+    list("copied to", d.writes);
 }
 
 /** The Versions this publish would say it came from. The reason goes under the name, not beside it:
@@ -264,6 +261,9 @@ export function addPanel(node, title = "SG", onLayout = null) {
       // artist about to comp must see before the pixels reach a node that assumes sRGB.
       if (d.image_label) rows.push(["image", d.image_label]);
       if (d.video_label) rows.push(["video", d.video_label]);
+      // What the file this will read IS, in the site's own words: bit depth, channels and size are
+      // what decide whether these pixels reach a comp untouched.
+      if (typeof d.format === "string" && d.format) rows.push(["format", d.format]);
       // The frame numbers this source has: `frame` is a number in a filename, and 0 means "wherever
       // the sequence starts", so the range belongs beside the widgets that ask for it.
       if (d.frames) {
