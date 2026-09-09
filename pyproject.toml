@@ -3,14 +3,15 @@
 
 [project]
 name = "sg-comfyui"
-description = "Publish ComfyUI generations to Flow Production Tracking as Versions, with their provenance."
+description = "Publish a ComfyUI generation to Flow Production Tracking as a Version, with the model, prompt, seed and workflow that made it, and load a Version's media back into a graph."
 readme = "README.md"
 requires-python = ">=3.11"
 # 0.1.0 because nothing has been published yet: this is a starting point, not a release. The Registry
 # rejects a re-publish of a version it already has, so bump it in the same commit that publishes.
 version = "0.1.0"
 # Half the audience still searches "shotgrid", and the Registry searches keywords (DESIGN: Names).
-keywords = ["sg", "flow production tracking", "shotgrid", "shotgun", "vfx", "provenance", "version", "pipeline"]
+keywords = ["sg", "flow production tracking", "shotgrid", "shotgun", "autodesk", "vfx", "animation",
+            "provenance", "version", "publish", "pipeline", "production", "studio", "exr"]
 license = "MIT"
 license-files = ["LICENSE"]
 # sg-groundtruth is the corpus repo's client half, on PyPI since 0.1.1 (DESIGN: "The dependency
@@ -23,6 +24,9 @@ Repository = "https://github.com/ksallee/sg-comfyui"
 
 [tool.comfy]
 DisplayName = "Flow Production Tracking"
+# The frames are written by ComfyUI's own encoder and read back by its own decoder, which is where
+# 16-bit PNG and EXR come from, and the Settings dialog calls routes an older server does not have.
+requires-comfyui = "0.34.0"
 # The publisher's own Registry handle, and an icon URL. Both are per-publisher, not per-repo, so they
 # are left empty rather than guessed; `comfy node publish` will not accept an empty PublisherId.
 PublisherId = ""
