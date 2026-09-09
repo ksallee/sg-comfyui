@@ -516,7 +516,7 @@ def replace_loader(wf, loader_path, widgets, title="SG Load"):
     # Every output the class declares, in order: a slot missing here is a wire the operator cannot
     # make without deleting the node and adding it again.
     nid = _add_node(wf, container, LOAD, (lx, ly - 40), widgets, title,
-                    outs=[{"name": "images", "type": "IMAGE", "links": []},
+                    outs=[{"name": "image", "type": "IMAGE", "links": []},
                           {"name": "version_id", "type": "INT", "links": []},
                           {"name": "code", "type": "STRING", "links": []},
                           {"name": "colour_space", "type": "STRING", "links": []},
