@@ -1,4 +1,4 @@
-// Load one saved graph (GRAPH, the workflow JSON as a string, is prepended: see tools/smoke.py for the shape), close every toast, hide the minimap, and frame the whole graph with room
+// Load one saved graph, close every toast, hide the minimap, and frame the whole graph with room
 // around it. Nothing is run. GRAPH is prepended: the JSON text of the workflow.
 const pause = (ms) => wait(ms);
 // The open workflow is marked modified by the harness's own setup, and loading over a modified
@@ -8,6 +8,20 @@ const closeAnyway = () => [...document.querySelectorAll("button")]
 const loading = app.loadGraphData(JSON.parse(GRAPH));
 for (let i = 0; i < 20; i++) { await pause(250); closeAnyway(); }
 await loading; await pause(4000); closeAnyway();
+// A stock template names an example file this machine does not have; point every Load Image at
+// a plate that exists, so the graph reads as a graph and not as a red node.
+for (const n of app.graph.nodes.filter((n) => n.type === "LoadImage")) {
+  const w = n.widgets?.find((x) => x.name === "image");
+  if (w) { w.value = "sh010_plate_f0001.png"; w.callback?.(w.value); }
+}
+// The red badge is the validation of the first load, which a widget change does not clear.
+for (const n of app.graph.nodes) n.has_errors = false;
+app.canvas.setDirty(true, true);
+// Toasts arrive on their own clock; keep closing them until the shot.
+for (let i = 0; i < 10; i++) {
+  await pause(400);
+  document.querySelectorAll(".p-toast button, .p-toast [role=button]").forEach((b) => b.click());
+}
 // Toasts only: a generic Close matches the workflow tabs, and closing one empties the graph.
 document.querySelectorAll(".p-toast-close-button").forEach((b) => b.click());
 const mini = document.querySelector("[aria-label*='minimap' i], button[title*='minimap' i]");
