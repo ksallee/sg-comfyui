@@ -12,7 +12,7 @@
       ],
       "size": [
         440,
-        420
+        460
       ],
       "flags": {},
       "order": 0,
@@ -21,7 +21,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## SG — start here\n\nTwo rows. Run one node at a time.\n\n**Top row, a still.** Run Publish as it is: the card previews, nothing is sent. Pick a project and\na link, Run again: a Version. Then the same project and link on Load, Run: it comes back.\n\n**Bottom row, a sequence.** Twenty-four frames of grain, and a clip from Create Video as the\nreview movie. Create Published Files is on, so the frames land on your storage as a Published File.\nLoad reads them back as images; its video output feeds Save Video.\n\nNo storage on the site: the bottom row stops and says so. No model, no download. Ctrl-B mutes a\nnode."
+        "## SG — start here\n\n**First, connect.** Open Settings (the gear, bottom left), then SG. Log in, or enter a script name\nand key, and press Test. Under SG Defaults, pick the project the nodes open on.\n\n**Top row: publish a still, load it back.**\n\n1. Run. The card appears in the Preview. Nothing is sent yet.\n2. On SG Publish, pick a link: the Shot or Asset the Version belongs to. No task is needed here.\n3. Read the Version Name on the panel. It comes from the root name on the node and the version\n   name template under Settings, SG Publish Defaults. The version number is picked for you.\n4. Run. The panel shows the Version, with a link to it on the site.\n5. On SG Load, pick the same link. The panel names the Version it will read. Run: it comes back in\n   the Preview.\n\n**Bottom row: publish a sequence and its files.**\n\n1. Twenty-four frames and a clip from Create Video go into SG Publish. The clip is the review\n   movie. Create Published Files is on, so the frames are written to your storage and registered\n   as a Published File.\n2. Pick a link. Run.\n3. On SG Load, pick the same link. Run. The frames come back in the Preview and the clip goes to\n   Save Video.\n\nNo storage on the site: the bottom row stops and says so. Ctrl-B mutes a node."
       ]
     },
     {
