@@ -567,8 +567,13 @@ the profile's `TYPE_CANDIDATES` order, so there is no Load setting. The clip is 
 makes. Frames arrive float32 `[N,H,W,3]` with the alpha channel separate, so a 16-bit PNG keeps its
 levels and a 32-bit float EXR keeps values above 1. Pillow reads the first as two levels and cannot
 open the second at all, and it is off this path entirely: the frame size on the panel is a PyAV header
-read. A container is decoded whole, so the batch ceiling refuses a movie after its decode rather than
-before it; a sequence is still checked before the first file is opened.
+read.
+
+That call reads a whole container into memory, so it is for one image. A **movie is decoded frame by
+frame**, in the pixel format core picks for that stream — an 8-bit RGB or full-range JPEG stream to
+`rgb24`/`rgba` scaled by 255, everything else straight to planar float — because the ceiling has to
+refuse a long plate before all of it is in memory rather than after. A **sequence** is refused off the
+first file's header, before one frame is decoded at all.
 
 Which is why there is a sixth output, `mask`, appended last: the alpha the decoder hands back, as
 `1 - alpha` and a 64×64 zero mask where there is none, which is ComfyUI's own convention. An output

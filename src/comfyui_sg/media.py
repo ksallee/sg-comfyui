@@ -567,7 +567,11 @@ def load_frames(v, key, start=0, count=1, budget=0):
                 f"the sequence itself starts at.")
         chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for: a 6-frame sequence
-        # never has to refuse frame_count 500, and a 500-frame one still does.
+        # never has to refuse frame_count 500, and a 500-frame one still does. The first file's
+        # header carries the size, so a batch too big is refused before one frame is decoded.
+        head = _header(chosen[0])
+        if head:
+            _budget((head["width"], head["height"]), len(chosen), budget_bytes(budget))
         return _batch(_stack(
             _stills(chosen), len(chosen),
             f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
@@ -582,12 +586,15 @@ def load_frames(v, key, start=0, count=1, budget=0):
 
 
 def _components(source, filename):
-    """(images, alpha) out of one file path or blob, through ComfyUI's own decoder.
+    """(images, alpha) out of one image file or blob, through ComfyUI's own decoder.
 
     `VideoFromFile(...).get_components()` is the call core Load Image makes. Frames come back float32
     [N,H,W,3] with the alpha channel separate, so a 16-bit PNG keeps its levels and a 32-bit float
     EXR keeps its range and its values above 1. Pillow reads the first as two levels and cannot open
     the second at all, which is why nothing on this path goes through it.
+
+    One image at a time: it reads a whole container into memory, and a movie is read by `_frames_of`
+    for that reason.
     """
     from comfy_api.latest._input_impl.video_types import VideoFromFile
 
@@ -610,19 +617,62 @@ def _stills(paths):
         yield images[0], None if alpha is None else alpha[0], name
 
 
+# The pixel formats ComfyUI's decoder reads as 8-bit and scales, rather than converting to planar
+# float (video_types.get_components_internal).
+EIGHT_BIT = ("yuvj420p", "yuvj422p", "yuvj444p", "rgb24", "rgba", "pal8")
+
+
 def _decode(data, filename, start=1):
     """(image, alpha, name) out of one blob: a still is itself, a movie is every frame from `start`.
 
-    A container is decoded whole, so the ceiling below refuses a batch after the decode rather than
-    before it.
+    A still is read whole, because one file is one image. A movie is decoded frame by frame, so the
+    ceiling below refuses a long plate before all of it is in memory rather than after.
     """
     import io
 
-    images, alpha = _components(io.BytesIO(data), filename)
-    single = images.shape[0] == 1
-    for i in range(int(start) - 1, images.shape[0]):
-        yield images[i], None if alpha is None else alpha[i], \
-            filename if single else f"{filename} frame {i + 1}"
+    if filename.lower().endswith(STILL):
+        images, alpha = _components(io.BytesIO(data), filename)
+        single = images.shape[0] == 1
+        for i in range(int(start) - 1, images.shape[0]):
+            yield images[i], None if alpha is None else alpha[i], \
+                filename if single else f"{filename} frame {i + 1}"
+        return
+    yield from _frames_of(io.BytesIO(data), filename, int(start))
+
+
+def _frames_of(blob, filename, start=1):
+    """(image, alpha, name) for every frame of a container from `start`, one decode at a time.
+
+    The pixel format is the one ComfyUI's decoder picks for that stream: an 8-bit RGB or full-range
+    JPEG stream converts to `rgb24`/`rgba` and scales by 255, and everything else converts straight
+    to planar float, which is what keeps a 10-bit or float stream at its own precision. The alpha
+    channel comes off the same conversion and is handed back separately, as core hands it back.
+
+    Core pads a frame whose width is not a multiple of 32 before converting, against an ffmpeg
+    alignment artefact at the right and bottom edge. Nothing here does, and an h264 stream at such a
+    width reads identically either way.
+    """
+    import av
+    import torch
+
+    fmt = alpha_channel = eight_bit = None
+    with av.open(blob) as container:
+        stream = container.streams.video[0]
+        stream.thread_type = "AUTO"
+        for n, frame in enumerate(container.decode(stream), start=1):
+            if fmt is None:
+                alpha_channel = frame.format.name == "pal8" or \
+                    any(c.is_alpha for c in frame.format.components)
+                eight_bit = frame.format.name in EIGHT_BIT
+                fmt = ("rgba" if alpha_channel else "rgb24") if eight_bit else \
+                      ("gbrapf32le" if alpha_channel else "gbrpf32le")
+            if n < start:
+                continue
+            a = torch.from_numpy(frame.to_ndarray(format=fmt))
+            if eight_bit:
+                a = a.float() / 255.0
+            yield (a[..., :-1], a[..., -1:], f"{filename} frame {n}") if alpha_channel \
+                else (a, None, f"{filename} frame {n}")
 
 
 def _size(image):

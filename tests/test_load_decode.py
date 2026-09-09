@@ -4,29 +4,17 @@ The fixtures are written at test time by ComfyUI's own encoder rather than commi
 read back is exactly what core writes. Everything here needs ComfyUI on the path; without it the
 whole module skips.
 """
-import os
-import sys
-import types
-
 import pytest
+from conftest import CAN_DECODE
 
-# pytest makes the repo root a package because ComfyUI's entry point lives in `__init__.py` there,
-# and that file's relative import fails outside ComfyUI. A bare module under the name it would be
-# imported as keeps the collector from running it. Belongs in tests/conftest.py once there is one.
-sys.modules.setdefault("__init__", types.ModuleType("__init__"))
+from comfyui_sg import media
 
-_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-if os.path.join(_ROOT, "src") not in sys.path:
-    sys.path.insert(0, os.path.join(_ROOT, "src"))
-_COMFY = os.environ.get("COMFYUI_PATH", os.path.expanduser("~/dev/ComfyUI"))
-if os.path.isdir(_COMFY) and _COMFY not in sys.path:
-    sys.path.append(_COMFY)
+if not CAN_DECODE:                       # nothing below this line imports without the decoder
+    pytest.skip("torch and a ComfyUI checkout read the pixels; set COMFYUI_PATH",
+                allow_module_level=True)
 
-torch = pytest.importorskip("torch")
-pytest.importorskip("comfy_api.latest._input_impl.video_types")
-_encode_image = pytest.importorskip("comfy_extras.nodes_images")._encode_image
-
-from comfyui_sg import media  # noqa: E402
+import torch                                                 # noqa: E402
+from comfy_extras.nodes_images import _encode_image          # noqa: E402
 
 # Wide enough that the decoder's 32-pixel alignment path is not the thing under test.
 W, H = 256, 8
@@ -193,3 +181,68 @@ def test_frame_count_declares_the_default_its_signature_takes():
     declared = widgets.field(widgets.LOAD_FIELDS, "frame_count").default
     for fn in (node.load, node.IS_CHANGED):
         assert inspect.signature(fn).parameters["frame_count"].default == declared
+
+
+# --- a movie, one frame at a time -------------------------------------------------------------------
+
+def movie(tmp_path, frames=8, width=W, height=H, name="plate.mp4"):
+    """A short mp4 written by ComfyUI's own encoder, and the Version dict that names it."""
+    from fractions import Fraction
+
+    from comfy_api.latest._input_impl import VideoFromComponents
+    from comfy_api.latest._util import VideoComponents
+
+    ramp = torch.linspace(0, 1, width).view(1, 1, width, 1).repeat(frames, height, 1, 3).clone()
+    for i in range(frames):
+        ramp[i] *= (i + 1) / frames
+    path = str(tmp_path / name)
+    VideoFromComponents(VideoComponents(images=ramp, frame_rate=Fraction(24))).save_to(path)
+    return path, {"id": 1, "published_files": [], "sg_path_to_frames": "",
+                  "sg_path_to_movie": path}
+
+
+def test_a_movie_decodes_to_the_same_pixels_as_core(tmp_path):
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
+
+    path, v = movie(tmp_path, frames=6)
+    images, alpha = media.load_frames(v, "movie", 0, 0)
+    core = VideoFromFile(path).get_components()
+    assert tuple(images.shape) == tuple(core.images.shape)
+    assert torch.equal(images, core.images)
+    assert alpha is None and core.alpha is None
+
+
+def test_a_movie_whose_width_is_not_a_multiple_of_32_decodes_the_same(tmp_path):
+    from comfy_api.latest._input_impl.video_types import VideoFromFile
+
+    path, v = movie(tmp_path, frames=4, width=40, height=24, name="odd.mp4")
+    images, _ = media.load_frames(v, "movie", 0, 0)
+    assert torch.equal(images, VideoFromFile(path).get_components().images)
+
+
+def test_frame_counts_decoded_frames_in_a_movie(tmp_path):
+    _, v = movie(tmp_path, frames=8)
+    images, _ = media.load_frames(v, "movie", 3, 2)
+    assert tuple(images.shape) == (2, H, W, 3)
+    whole, _ = media.load_frames(v, "movie", 0, 0)
+    assert torch.equal(images, whole[2:4])
+
+
+def test_a_movie_past_the_budget_is_refused_before_it_is_all_decoded(tmp_path, monkeypatch):
+    _, v = movie(tmp_path, frames=64)
+    seen = []
+    real = media._frames_of
+
+    def counted(*a, **kw):
+        for got in real(*a, **kw):
+            seen.append(got[2])
+            yield got
+
+    monkeypatch.setattr(media, "_frames_of", counted)
+    two = 2 * W * H * 3 * 4 / 2 ** 30
+    with pytest.raises(Exception) as e:
+        media.load_frames(v, "movie", 0, 0, budget=two)
+    assert f"3 frames of {W}×{H}" in str(e.value)
+    assert "frame_count to 2" in str(e.value)
+    # Three decoded of sixty-four: the ceiling refuses as the batch grows, not after the file is read.
+    assert len(seen) == 3
