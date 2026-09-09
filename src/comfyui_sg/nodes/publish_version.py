@@ -327,6 +327,13 @@ class SGPublishVersion:
     DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, carrying "
                    "the graph that made it.")
 
+    @classmethod
+    def IS_CHANGED(cls, **kw):
+        """Every Run is a publish. ComfyUI otherwise skips a node whose inputs did not change and
+        replays its last result, so a second Run would show v001 again while the panel promised
+        v002."""
+        return float("nan")
+
     def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
                 note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
