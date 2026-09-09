@@ -449,6 +449,10 @@ honest answer for an `IMAGE` batch, which is a tensor and has no file. It is the
 colour-managed graph is in play, where `OCIO Write` has already written 32-bit EXR in a known space: writing
 8-bit PNGs of scene-linear data under a truthful `colour_space` label would be worse than refusing.
 
+This is not an OCIO case only. Core ComfyUI 0.34.0 writes 16-bit PNG and 32-bit float EXR itself, out of
+`Save Image (Advanced)`, so the files a graph wants registered are often written by a stock node on a site
+with no colour management at all.
+
 So a third input, `files`, and the rule the other two already follow — `images` and `video` are the review
 side and may be derived; `files` is the deliverable side and is never touched:
 
@@ -536,7 +540,7 @@ Tier 2 also resolves on anything this node published: a sequence publish writes 
 filled on 0 of 53 Versions and probe 022's verdict was to put the pattern there; until there was a shared
 root to point at, there was nothing to write.
 
-### Two outputs, one rule each
+### Two outputs and a mask, one rule each
 
 A Version carries up to four representations of one piece of media, and on the sandbox they are
 filled unevenly: Published Files with a path on 27 of 110 Versions, path fields on 27, an upload on
@@ -559,6 +563,23 @@ preference but a fact of the machine, and which Published File type is the deliv
 the profile's `TYPE_CANDIDATES` order, so there is no Load setting. The clip is fetched only when the
 `video` output is wired: the hidden `PROMPT` says who reads which slot.
 
+**Decoding is ComfyUI's decoder**, `VideoFromFile(path).get_components()` — the call core `Load Image`
+makes. Frames arrive float32 `[N,H,W,3]` with the alpha channel separate, so a 16-bit PNG keeps its
+levels and a 32-bit float EXR keeps values above 1. Pillow reads the first as two levels and cannot
+open the second at all, and it is off this path entirely: the frame size on the panel is a PyAV header
+read. A container is decoded whole, so the batch ceiling refuses a movie after its decode rather than
+before it; a sequence is still checked before the first file is opened.
+
+Which is why there is a sixth output, `mask`, appended last: the alpha the decoder hands back, as
+`1 - alpha` and a 64×64 zero mask where there is none, which is ComfyUI's own convention. An output
+slot is additive, so nothing already saved moves.
+
+A Published File whose `path` is an `upload` is a source too. `link_type` is read before anything
+else (`field_types/url`): a `local` value has no `url` key and an `upload` one has no local path, so
+a reader that indexes one shape drops every row of the other. A `web` row stays out — it names a
+file on somebody else's machine — and a zip is offered and named but not unpacked, so it is its own
+kind and no output picks it on its own.
+
 ### A clip, not a frame
 
 A sequence that comes back one frame at a time is not an input to a video graph, so a source can deliver a
@@ -578,13 +599,16 @@ once and nothing keeps them true; the filenames are the sequence.
 `frame` **0** is "whatever this source starts at", which is the answer nearly every time — a plate that runs
 1001-1048 needs nothing typed. That is also why the range is on the panel beside the source: a number you
 must know before you can type it, and could previously learn only by typing a wrong one, is not a widget an
-artist can use. `frame_count` **0** is every frame to the end. A movie carries no numbering inside it, so
+artist can use. The panel says what it will read for the same reason — `16-bit PNG, RGBA, 1920x1080, 48
+frames.` off the first file's container header, plus the declared colour space — because bit depth and
+channel count decide whether a source is a plate or a preview and neither is in a filename.
+`frame_count` **0** is every frame to the end. A movie carries no numbering inside it, so
 there `frame` counts decoded frames from 1 and 0 means the same as 1, and the panel says nothing rather than
 inventing a range.
 
-`frame_count` defaults to **1**, which is exactly what the node always returned. A batch is opted into, never
-handed over: a graph saved before the widget existed asks for one image and must keep getting one. The widget
-is also *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
+`frame_count` defaults to **0**, the whole sequence, in the widget declaration and in the Python signature
+alike: two defaults for one value is a node that behaves differently depending on which caller reached it. The
+widget is *appended*, last, after the multiline filter box it has no business sitting under — `widgets_values`
 is positional, so a widget inserted above an existing one displaces every value in every graph already saved,
 including graphs this repo will never see. A row in the wrong place is cosmetic; a silently shifted value is
 not.
