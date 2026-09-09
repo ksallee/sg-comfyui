@@ -147,12 +147,13 @@ const cssUrl = (u) => safeUrl(u).replace(/["'()\\<>\s]/g,
   (c) => CSS_ESCAPES[c] || encodeURIComponent(c));
 
 const ICON_TAGS = new Set(["span", "b", "i", "em", "strong", "small", "sub", "sup", "br"]);
-const ICON_ATTRS = new Set(["class", "style", "title"]);
+const ICON_ATTRS = new Set(["class", "title"]);
 
 /** Site-authored markup with everything executable taken out. A status icon's `html` is markup by
  *  design (recipe 010) and it renders inside ComfyUI's own origin, so unknown elements are unwrapped
- *  and every attribute but class, style and title is dropped. A `<template>` is inert: parsing it
- *  runs no script and loads no image. */
+ *  and every attribute but class and title is dropped — `style` included, which is what an overlay
+ *  over the editor or a beacon would need. A `<template>` is inert: parsing it runs no script and
+ *  loads no image. */
 function safeHtml(html) {
   const t = document.createElement("template");
   t.innerHTML = String(html ?? "");
@@ -233,35 +234,90 @@ export function dontSerialize(widget) {
   return widget;
 }
 
-/** Re-apply a saved graph's widget values after litegraph has configured the node.
+/** Re-apply a saved graph's widget values, by name, after litegraph has configured the node.
+ * `declared` is the node's widget names in INPUT_TYPES order — the order widgets_values is in.
  *
  * dontSerialize is not enough on its own, because the frontend's save and its restore disagree:
  * `serialize()` writes `widgets_values[i]` at the index over ALL widgets, leaving a null hole where
  * it skipped one, while `configure()` reads with a counter that only advances on serialized
- * widgets, so every value after our first injected row comes back off by one. `widgets_values_named`
- * is always written by the editor and `Comfy.Workflow.NamedValuesRestore` is off by default, so that
- * name map is the reliable answer; the fallback walks the array with the counter the save used.
+ * widgets, so every value after our first injected row comes back off by one. Filtering on
+ * `widget.serialize !== false` does not rescue it either: addDOMWidget takes `serialize` in its
+ * options object and never copies it onto the widget, so a picker's `widget.serialize` is undefined
+ * and it still counts.
+ *
+ * Two shapes are read, and only two. `widgets_values_named` is what the editor always writes
+ * (`Comfy.Workflow.NamedValuesRestore` is off by default); everything else this repo produces —
+ * instrument.py, tools/workflows/, a hand-edited graph — is `declared` order and exactly as long.
+ * Anything else is left to the frontend rather than guessed at.
  */
-export function restoreDeclaredWidgets(nodeType) {
+export function restoreDeclaredWidgets(nodeType, declared) {
   const prev = nodeType.prototype.onConfigure;
   nodeType.prototype.onConfigure = function (info) {
     prev?.apply(this, arguments);
-    const widgets = this.widgets || [];
-    const named = info && info.widgets_values_named;
-    if (named) {
-      for (const w of widgets) {
-        if (w.serialize !== false && w.name in named) restoreValue(w, named[w.name]);
-      }
-      return;
+    const named = info?.widgets_values_named;
+    const vals = info?.widgets_values || [];
+    const byName = (named && typeof named === "object" && !Array.isArray(named)) ? named
+      : vals.length === declared.length
+        ? Object.fromEntries(vals.map((v, i) => [declared[i], v]))
+        : null;
+    if (!byName) return;
+    for (const name of declared) {
+      const v = byName[name];
+      if (v === undefined || v === null) continue;   // a hole is not a value
+      restoreValue(this.widgets?.find((y) => y.name === name), v);
     }
-    const vals = info && info.widgets_values;
-    if (!Array.isArray(vals)) return;
-    let k = 0;
-    for (const w of widgets) {
-      if (w.serialize === false) continue;
-      if (k < vals.length) restoreValue(w, vals[k]);
-      k += 1;
-    }
+  };
+}
+
+const RESTART = "The running ComfyUI predates this version of the pack. Restart ComfyUI, then "
+  + "reload this page.";
+
+/** One route, decoded, for every caller here: the pickers, the panels and the Settings rows.
+ *
+ * A failure answers `{items: [], error}`, the shape a picker already reads, and the three failures
+ * are told apart: a server that did not answer, a 404 — the routes register when ComfyUI imports
+ * the pack, so a missing one is a server started before this version was installed — and a body
+ * that is not JSON. A request its caller aborted answers `{aborted: true}` and no sentence.
+ *
+ * `body` makes it a POST. `signal` is a cascade token's or a picker's.
+ */
+export async function call(url, { body, signal } = {}) {
+  let r;
+  try {
+    r = await fetch(url, body === undefined ? { signal } : {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body), signal,
+    });
+  } catch (e) {
+    if (e?.name === "AbortError") return { aborted: true, items: [] };
+    return { items: [], error: `The ComfyUI server did not answer. ${e}` };
+  }
+  if (r.status === 404) return { items: [], error: RESTART };
+  try {
+    return await r.json();
+  } catch (e) {
+    return { items: [],
+             error: `The ComfyUI server answered ${r.status} instead of JSON. ${RESTART}` };
+  }
+}
+
+/** One cascade of reads at a time.
+ *
+ * `begin()` aborts whatever the previous cascade still has in flight and answers a token. A token's
+ * `live` is false from the moment a later `begin()` runs, so an answer that arrives after a second
+ * project was picked writes nothing: the links of one project beside the statuses of another is a
+ * publish filed against the wrong show. Every step of one cascade shares the token it was handed,
+ * and checks `live` after every await before it writes anything.
+ */
+export function cascade() {
+  let current = null;
+  return {
+    begin() {
+      current?.abort();
+      const ctl = new AbortController();
+      current = ctl;
+      return { signal: ctl.signal, get live() { return ctl === current; } };
+    },
   };
 }
 
@@ -277,22 +333,31 @@ export function vueNodesEnabled() {
   return false;
 }
 
+const NEEDS_VUE = " (needs Nodes 2.0)";
+
 /** Say so on the node when Nodes 2.0 is off, and answer false. Never flips the setting: that
  *  changes the operator's whole editor, so it is their call. */
 export function requireVueNodes(node) {
   if (vueNodesEnabled()) return true;
-  // A button, because on the classic canvas it is the one widget whose text is drawn full width and
-  // legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
-  // placeholder, which names the widget type rather than what the operator has to do.
+  // Two buttons, because on the classic canvas a button is the one widget whose text is drawn full
+  // width and legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
+  // placeholder, which names the widget type rather than what the operator has to do. Both open
+  // Settings, which is the fix for either line.
+  const settings = () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog");
+  // The classic canvas centres a button's text and does not wrap it, so the node is widened to the
+  // sentence rather than the sentence shortened to the node.
+  node.size[0] = Math.max(node.size[0], 520);
+  dontSerialize(node.addWidget("button", "Nodes 2.0 is off. Click to open Settings, then "
+    + "Nodes 2.0, and turn on Modern Node Design.", null, settings));
   dontSerialize(node.addWidget(
-    "button", "⚠ Nodes 2.0 is off. Click to open Settings › Lite Graph.", null,
-    () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog")));
-  node.title = `${node.title} (needs Nodes 2.0)`;
+    "button", "The lists on this node do not update on the classic canvas.", null, settings));
+  // Copying a node copies its title and runs onNodeCreated again, so the suffix is applied once.
+  if (!node.title.endsWith(NEEDS_VUE)) node.title = `${node.title}${NEEDS_VUE}`;
   return false;
 }
 
 function nodeElement(node) {
-  for (const root of node.__fptRoots || []) {
+  for (const root of node.__sgRoots || []) {
     const el = root.closest?.(".lg-node");
     if (el) return el;
   }
@@ -339,7 +404,7 @@ export function domRow(node, name, { label, control, target }) {
   ctl.appendChild(control);
   root.appendChild(ctl);
 
-  (node.__fptRoots = node.__fptRoots || []).push(root);
+  (node.__sgRoots = node.__sgRoots || []).push(root);
 
   const widget = node.addDOMWidget(name, name, root, {
     // .sg-dom is display:contents and has no box; the control block is what has a height, and it
@@ -361,11 +426,15 @@ export function domRow(node, name, { label, control, target }) {
 /** One status icon, whichever of the three renderings it has (recipe 010). The colour dot is the
  *  fallback, which is also what a sprite rule the stylesheet did not yield comes back as. */
 export function iconHtml(icon, rgb) {
-  if (icon && icon.kind === "sprite" && cssUrl(icon.url)) {
-    const [ox, oy] = icon.offset, [w, h] = icon.size;
-    return `<span class="sg-ico" style="width:${Number(w)}px;height:${Number(h)}px;
+  // A sprite is only a sprite with both pairs of numbers: the whole redraw would otherwise stop on
+  // one status whose rule the stylesheet did not yield, and the colour dot says as much.
+  const pair = (v) => (Array.isArray(v) && v.length === 2 ? v.map((n) => Number(n) || 0) : null);
+  const offset = icon && pair(icon.offset), size = icon && pair(icon.size);
+  if (icon && icon.kind === "sprite" && cssUrl(icon.url) && offset && size) {
+    const [ox, oy] = offset, [w, h] = size;
+    return `<span class="sg-ico" style="width:${w}px;height:${h}px;
       background-image:url('${esc(cssUrl(icon.url))}');
-      background-position:${Number(ox)}px ${Number(oy)}px"></span>`;
+      background-position:${ox}px ${oy}px"></span>`;
   }
   if (icon && icon.kind === "data_uri" && safeUrl(icon.url)) {
     return `<img class="sg-ico-img" src="${esc(safeUrl(icon.url))}" alt="">`;
@@ -384,10 +453,12 @@ const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
 
 /** A select-shaped trigger whose popup holds the search.
  *
- * `search(q)` is async and answers with items — `{value, name, type, code, image}`, of which only
- * `value` and `name` are required. Multi-word queries go straight to the site (site.entities ANDs a
- * `contains` per word), which is the search an artist expects: `gir rul` finds `giraffe_ruler`.
- * Filtering here would only ever see the page the server already sent.
+ * `search(q, {live, signal})` is async and answers with items — `{value, name, type, code, image}`,
+ * of which only `value` and `name` are required. Multi-word queries go straight to the site
+ * (site.entities ANDs a `contains` per word), which is the search an artist expects: `gir rul` finds
+ * `giraffe_ruler`. Filtering here would only ever see the page the server already sent.
+ * `signal` aborts the request when a newer keystroke supersedes it; `live()` is false for a
+ * superseded search, and anything the search itself records goes behind that check.
  *
  * Returns `{refresh, relayout, close}`; pass the current item to `refresh` to put its thumbnail on
  * the trigger.
@@ -438,7 +509,9 @@ export function searchPicker(node, target, {
   // dim and the head says so, rather than the list going blank on each keystroke.
   const busy = (on) => { busyEl.hidden = !on; list.classList.toggle("is-busy", on); };
 
-  let items = [], at = -1, seq = 0, timer, open = false;
+  // `stale` is set from the keystroke until the answer for it is drawn: the rows on screen belong
+  // to the previous search, so Enter would pick one nobody typed for.
+  let items = [], at = -1, seq = 0, timer, open = false, inflight = null, stale = false;
 
   const place = () => {
     const r = trigger.getBoundingClientRect();
@@ -461,6 +534,7 @@ export function searchPicker(node, target, {
 
   const render = (rows) => {
     items = rows;
+    stale = false;
     if (!rows.length) {
       list.innerHTML = `<div class="sg-pop-note">${esc(empty)}</div>`;
       at = -1;
@@ -496,13 +570,20 @@ export function searchPicker(node, target, {
     relayout();
   };
 
+  // `live` is handed to `search` as well as read here: a search that records what it read — the
+  // ids a picked label is turned back into — must not record an older answer's rows.
   const run = () => {
     const mine = ++seq;
     clearTimeout(timer);
+    inflight?.abort();
+    const ctl = new AbortController();
+    inflight = ctl;
+    stale = true;
     busy(true);
     timer = setTimeout(async () => {
-      const rows = await search(input.value.trim());
-      if (mine !== seq || !open) return;   // an older answer must never replace a newer one
+      const live = () => mine === seq && open;
+      const rows = await search(input.value.trim(), { live, signal: ctl.signal });
+      if (!live()) return;                 // an older answer must never replace a newer one
       render(rows || []);
       busy(false);
     }, 180);
@@ -515,6 +596,8 @@ export function searchPicker(node, target, {
   const close = () => {
     if (!open) return;
     open = false;
+    clearTimeout(timer);
+    inflight?.abort();
     pop.remove();
     trigger.setAttribute("aria-expanded", "false");
     document.removeEventListener("pointerdown", onDocDown, true);
@@ -541,7 +624,7 @@ export function searchPicker(node, target, {
   input.addEventListener("input", run);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { close(); trigger.focus(); }
-    else if (e.key === "Enter") choose(at);
+    else if (e.key === "Enter") { if (!stale) choose(at); }
     else if (e.key === "ArrowDown") highlight(Math.min(at + 1, items.length - 1));
     else if (e.key === "ArrowUp") highlight(Math.max(at - 1, 0));
     else return;
@@ -549,7 +632,7 @@ export function searchPicker(node, target, {
     e.stopPropagation();
   });
 
-  return { refresh: showCurrent, relayout, close };
+  return { refresh: showCurrent, relayout };
 }
 
 /** Several statuses, any of which will do: one chip each, in the status's own colour (probe 010),
@@ -598,7 +681,7 @@ export function chipSelect(node, target,
     });
     relayout();
   };
-  const reload = () => load().then((items) => draw(items || []));
-  reload();
-  return { relayout, reload };
+  // Nothing is read here: the chips are for one project, and which project that is arrives one
+  // round trip later. The caller reloads them once it knows.
+  return { reload: () => load().then((items) => draw(items || [])) };
 }
