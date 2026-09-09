@@ -493,13 +493,35 @@ function loadFields() {
 /** "A, B and C", so a list of missing names reads as a sentence. */
 const listed = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`);
 
-/** One field's outcome, in the colours the rest of the dialog uses: what is already there is dim,
- *  what was just made is plain, and what the site refused is red with its own sentence. */
-function resultLine(f) {
-  const el = f.state === "failed" ? text("sg-bad") : f.state === "created" ? text() : note();
-  el.textContent = f.state === "failed" ? `${f.display} was not created. ${f.why}`
-    : f.state === "created" ? `${f.display} created.` : `${f.display} already exists.`;
-  return el;
+/** What a press did, in as few lines as it takes: the fields made, named; the ones that were
+ *  already there, counted; a refusal once when every field was refused for the same reason, and
+ *  per field otherwise, in red with the site's own sentence. */
+function resultLines(rows) {
+  const by = (state) => rows.filter((r) => r.state === state);
+  const created = by("created"), failed = by("failed"), had = by("present");
+  const out = [];
+  const line = (mk, sentence) => { const el = mk(); el.textContent = sentence; out.push(el); };
+  if (created.length) line(text, `Created ${listed(created.map((r) => r.display))}.`);
+  if (had.length) line(note, created.length || failed.length
+    ? `${had.length} already existed.` : `All ${had.length} already exist. Nothing was created.`);
+  const why = new Set(failed.map((r) => r.why));
+  if (failed.length && why.size === 1 && !created.length) {
+    line(() => text("sg-bad"), `None were created. ${failed[0].why}`);
+  } else {
+    for (const f of failed) line(() => text("sg-bad"), `${f.display} was not created. ${f.why}`);
+  }
+  return out;
+}
+
+/** The dialog centres a row's label on its control. A control that grows into several lines wants
+ *  the label at the top, beside the first one. */
+function topAlign(el) {
+  for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
+    if (p.querySelector(":scope > label, :scope > .setting-label, :scope > [class*=label]")) {
+      p.style.alignItems = "flex-start";
+      return;
+    }
+  }
 }
 
 /** How many provenance fields this site has, and the button that creates the rest. */
@@ -523,6 +545,7 @@ function fieldsRow() {
   const readout = () => {
     const d = fieldsState;
     value.className = "sg-text";
+    if (results.isConnected) topAlign(results);
     if (!d) { value.textContent = "Loading…"; n.textContent = ""; return; }
     if (d.error) { value.textContent = d.error; value.classList.add("sg-bad"); n.textContent = ""; return; }
     const missing = (d.missing || []).map((f) => f.display);
@@ -540,8 +563,9 @@ function fieldsRow() {
     if (d.error) {
       say("sg-bad", d.error);
     } else {
-      results.replaceChildren(...(d.rows || []).map(resultLine));
+      results.replaceChildren(...resultLines(d.rows || []));
       if (d.advice) { const a = note(); a.textContent = d.advice; results.append(a); }
+      topAlign(results);
       fieldsState = null;
       await loadFields();   // the readout now says what the site holds, not what it held
     }
