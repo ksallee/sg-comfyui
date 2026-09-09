@@ -335,7 +335,8 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
       "title": "SG Publish"
     }

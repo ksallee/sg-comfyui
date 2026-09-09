@@ -8,9 +8,10 @@ Frames land in ComfyUI's own output directory and are **copied** into place unde
 never move: the run stays where the artist expects it, a publish that fails half way leaves
 something to re-publish from, and a second attempt costs a copy rather than a re-render.
 
-Nothing here transcodes and nothing here infers. A PNG is registered as a PNG, and the colour space
-is recorded exactly as the operator declared it (DESIGN: a colour transform is the most
-consequential pixel change there is, and this project does not make images).
+Nothing here transcodes and nothing here infers. The frames are written by ComfyUI's own encoder in
+the format the node was told, registered under that format's own extension, and the colour space is
+recorded exactly as the operator declared it (DESIGN: a colour transform is the most consequential
+pixel change there is, and this project does not make images).
 """
 import os
 import re
@@ -19,12 +20,10 @@ import sys
 import tempfile
 from pathlib import Path
 
-from PIL import Image
+from . import media, naming
 
-from . import media, movie, naming
-
-# The frame token, wherever the operator put it. `media.SEQ` already knows printf, Shake `#` and `@`
-# (docs/quirks), so a path template speaks the same notation `sg_path_to_frames` does.
+# The frame token, wherever the operator put it. `media.SEQ` knows printf, Shake `#` and `@` alike,
+# so a path template speaks the same notation `sg_path_to_frames` does.
 SEQ = media.SEQ
 
 # Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
@@ -60,19 +59,50 @@ def folder(stem):
     return output_dir() / stem
 
 
-def write_frames(images, stem):
-    """The batch as a PNG sequence in ComfyUI's output directory, one folder per publish.
+# What each choice on the node's `format` widget is, in ComfyUI's own encoder vocabulary:
+# (file format, bit depth, colour space, extension). PNG's colour space does not modify pixels. EXR
+# takes "linear", which is the encoder's write-through, so a scene-linear plate goes to disk exactly
+# as the graph made it and the operator's declared colour space stays a claim about the pixels
+# rather than a transform applied to them.
+FORMATS = {
+    "8-bit PNG":        ("png", "8-bit", "sRGB", ".png"),
+    "16-bit PNG":       ("png", "16-bit", "sRGB", ".png"),
+    "EXR 32-bit float": ("exr", "32-bit float", "linear", ".exr"),
+}
+DEFAULT_FORMAT = "8-bit PNG"
 
-    PNG because that is what Pillow can write from an IMAGE tensor without inventing anything. The
+
+def spec_for(fmt):
+    """One format's (file format, bit depth, colour space, extension)."""
+    return FORMATS.get(fmt or DEFAULT_FORMAT, FORMATS[DEFAULT_FORMAT])
+
+
+def extension(fmt):
+    """The extension the frames of this format actually have."""
+    return spec_for(fmt)[3]
+
+
+def write_frames(images, stem, fmt=DEFAULT_FORMAT):
+    """The batch as a sequence in ComfyUI's output directory, one folder per publish.
+
+    ComfyUI's own encoder writes them (`comfy_extras.nodes_images._encode_image`), because bit
+    depth, channel count and any colour transform are its business and not this repo's. Imported
+    inside the call, so an older install still loads every node and only refuses the write. The
     extension the site records follows these files and is never taken from the path template, which
     would let a template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
     """
+    try:
+        from comfy_extras.nodes_images import _encode_image
+    except ImportError:
+        raise RuntimeError(f"Writing {fmt} needs ComfyUI 0.34.0 or newer. Update ComfyUI, or pick "
+                           f"8-bit PNG.")
+    file_format, bit_depth, colorspace, ext = spec_for(fmt)
     into = folder(stem)
     into.mkdir(parents=True, exist_ok=True)
     out = []
     for i, frame in enumerate(images, start=1):
-        p = into / f"{stem}.{i:04d}.png"
-        Image.fromarray(movie.to_u8(frame)).save(p, format="PNG")
+        p = into / f"{stem}.{i:04d}{ext}"
+        p.write_bytes(_encode_image(frame, file_format, bit_depth, colorspace))
         out.append(p)
     return out
 
@@ -120,12 +150,15 @@ def on_platform(path, local_root, row, platform):
     so a studio picks the one it is written for. A Windows root takes backslashes after it, which
     is reasoned from how SG spells `windows_path` and not measured against a Windows client.
     """
-    if platform == THIS_PLATFORM or not path.startswith(local_root):
+    here, base = _clean(path), _clean(local_root).rstrip("/")
+    # Both cleaned: a path is written forward-slashed and a Windows root is not, so comparing them
+    # raw finds no match on a Windows publisher and the swap silently never happens.
+    if platform == THIS_PLATFORM or not here.startswith(base):
         return path
     root = ((row or {}).get(PLATFORM_KEY.get(platform, "")) or "").rstrip("/").rstrip("\\")
     if not root:
         return path
-    rel = path[len(local_root):]
+    rel = here[len(base):]
     return root + (rel.replace("/", "\\") if platform == "windows" else rel)
 
 
@@ -160,9 +193,15 @@ def check_root(root):
 
 
 def swap_ext(path, ext):
-    """The extension the files actually have, replacing whatever the template guessed."""
-    base, _, _ = str(path).rpartition(".")
-    return (base or str(path)) + ext
+    """The extension the files actually have, replacing whatever the template guessed.
+
+    A template that ends in the frame token has no extension to replace — `.%04d` is the frame
+    number — so the token is kept and the real extension is appended after it.
+    """
+    base, dot, tail = str(path).rpartition(".")
+    if not dot or "/" in tail or "\\" in tail or SEQ.fullmatch(tail):
+        return str(path) + ext
+    return base + ext
 
 
 # A path template says two numbers at once and they must not be confused. `{version}` is the publish

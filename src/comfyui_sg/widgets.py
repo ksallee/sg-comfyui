@@ -74,6 +74,10 @@ PUBLISH_FIELDS = (
                   "not 0."),
     Field("attach_workflow", "bool", advanced=True, default=True,
           tooltip="Attach the graph that made this Version, so the run can be opened again."),
+    Field("format", "combo", advanced=True, label="format", default="8-bit PNG",
+          choices=("8-bit PNG", "16-bit PNG", "EXR 32-bit float"),
+          tooltip="What the published frames are written as, for example EXR 32-bit float for a "
+                  "scene-linear plate. The review still stays 8-bit PNG."),
 )
 
 # Which show, what to read from, which task, which of its media, and which frames. The fold holds

@@ -359,9 +359,9 @@ path:
   frame token is lifted out before rendering and put back after (`sequence._protect`), and in a path template
   the printf form means the frame. `####` and `@@@@` work too, because `sg_path_to_frames` accepts all three
   (`media.SEQ`) and a template that disagreed with the field it fills would be its own bug.
-- **The extension follows the files, not the template.** PNG is what Pillow writes from an IMAGE tensor. A
-  template reading `.exr` does not make 8-bit frames scene-linear, so the real extension wins and the panel
-  says the template was overruled.
+- **The extension follows the files, not the template.** It is the one the node's `format` widget
+  names. A template reading `.exr` does not make 8-bit frames scene-linear, so the real extension
+  wins and the panel says the template was overruled.
 
 The version number is the Version's own, so `pf_seq_depth_v001` and `.../v001/` cannot disagree.
 
@@ -411,6 +411,41 @@ leaves, which is right for the path and wrong as the only response: probe 016 ha
 returning 200 with the key silently absent. So the staging step names every token that came back
 blank, on the same principle as corpus 028 — a path that rendered proves as little as a 200 does.
 
+### The format is the operator's; the encoder is ComfyUI's
+
+`write_frames` used to write 8-bit PNG through Pillow, because that is what Pillow can write from an
+IMAGE tensor without inventing anything. It is the wrong answer for anyone whose plate is
+scene-linear: a 32-bit render quantised to 8 bits and registered under a truthful `colour_space`
+label is a lie told twice.
+
+So the node gains one advanced widget, `format`, with three choices and nothing else:
+
+    8-bit PNG          the default. What every graph already produced
+    16-bit PNG         the same pixels, quantised at 16 bits a channel
+    EXR 32-bit float   the tensor, written through unchanged
+
+They are written by `comfy_extras.nodes_images._encode_image` — ComfyUI's own encoder, the one
+`Save Image (Advanced)` uses — and not by this repo. Bit depth, channel count and any colour
+transform are its business: this node records, it does not make images. The import is inside the
+call, so an install older than ComfyUI 0.34.0 still loads every node and only refuses the write,
+naming the version.
+
+**EXR converts nothing.** The encoder takes a `colorspace` saying what the incoming tensor *is*, and
+converts to scene-linear before writing. `sRGB` would apply an inverse EOTF to pixels this project
+never measured, so EXR passes `linear`, which is the encoder's write-through. The `colour_space`
+widget stays exactly what it was — a statement about the pixels, recorded in the description and in
+the attachment, never applied.
+
+**PNG's colorspace does not modify pixels at all** (the encoder says so in its own docstring), so
+both PNG rows pass `sRGB` and the bit depth is the only difference.
+
+**The review media stays 8-bit PNG.** The thumbnail and the uploaded still are for a person in a
+browser; a 16-bit still would be bigger and identical on screen, and an EXR would not display.
+
+`widgets_values` is positional, so `format` is appended **last** and every graph in this repo gains a
+thirteenth value in the same commit. `tools/smoke.py` is what proves it, because only loading a
+saved graph in a real ComfyUI shows a value that has shifted into the widget next door.
+
 ### Colour space is recorded, never converted
 
 A colour transform is the most consequential pixel change in a comp, and this project does not make images. So
@@ -444,10 +479,10 @@ answer.
 
 ### Where someone else wrote the files, we register them
 
-`write_frames` is the one place this node makes a picture, and what it makes is an 8-bit PNG. That is the
-honest answer for an `IMAGE` batch, which is a tensor and has no file. It is the wrong answer the moment a
-colour-managed graph is in play, where `OCIO Write` has already written 32-bit EXR in a known space: writing
-8-bit PNGs of scene-linear data under a truthful `colour_space` label would be worse than refusing.
+`write_frames` is the one place this node makes a picture, and the `format` widget says what. That
+still leaves a colour-managed graph half served: where `OCIO Write` has already written 32-bit EXR
+in a known space, writing the same pixels a second time is a copy nobody asked for, and the space is
+measured on the Write rather than typed on the node.
 
 This is not an OCIO case only. Core ComfyUI 0.34.0 writes 16-bit PNG and 32-bit float EXR itself, out of
 `Save Image (Advanced)`, so the files a graph wants registered are often written by a stock node on a site

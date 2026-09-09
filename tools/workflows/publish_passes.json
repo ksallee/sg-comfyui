@@ -366,7 +366,8 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
       "title": "SG Publish — depth"
     },
@@ -412,7 +413,8 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
       "title": "SG Publish — normals"
     },
@@ -458,7 +460,8 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
       "title": "SG Publish — mask"
     }

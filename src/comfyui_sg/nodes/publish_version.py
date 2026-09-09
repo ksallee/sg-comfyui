@@ -142,7 +142,7 @@ class SGPublishVersion:
 
     @staticmethod
     def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
-               p, sg, project_id, link_type, target, task_id, root_name=""):
+               p, sg, project_id, link_type, target, task_id, root_name="", frame_format=""):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
         The storage root and the path templates are profile data, per project like every other
@@ -181,16 +181,18 @@ class SGPublishVersion:
                                     dict(vals, version_name=code, root_name=name, ext=ext),
                                     version_no, ext)
 
-        # The extension follows the files, never the template: PNG is what Pillow writes from an
-        # IMAGE tensor, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
+        # The extension follows the files, never the template: it is the one the node's `format`
+        # widget names, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
+        ext = sequence.extension(frame_format)
         out = {"root": root, "storage_id": storage_id, "template": seq_t, "blank_tokens": blank,
-               "declared_ext": os.path.splitext(sequence.single(seq_t))[1].lower(),
+               "declared_ext": os.path.splitext(sequence.single(seq_t))[1].lower(), "ext": ext,
                "colour": colour_space.strip(), "count": count}
         if want_frames:
-            pattern = path_for(seq_t, ".png")
+            pattern = path_for(seq_t, ext)
             # Written to ComfyUI's own output directory first. The copy is what puts a file where
             # the site can resolve it; the original stays put so a failed publish is recoverable.
-            out["frames"] = sequence.place(sequence.write_frames(images, code), pattern)
+            out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
+                                           pattern)
             out["frames_pattern"] = pattern
             out["frames_code"] = os.path.basename(pattern)
             out["frames_name"] = name
@@ -266,9 +268,10 @@ class SGPublishVersion:
             # rather than what was sent — the two differ the moment a root is ambiguous (recipe 004).
             notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
                          f'{resolved.get("local_path_mac") or path}')
-        if staged.get("declared_ext") and staged["declared_ext"] != ".png" and staged.get("frames"):
-            notes.append(f'These frames were registered as .png. The path template names '
-                         f'{staged["declared_ext"]}, and nothing was converted.')
+        if staged.get("declared_ext") and staged["declared_ext"] != staged.get("ext") \
+                and staged.get("frames"):
+            notes.append(f'These frames were registered as {staged["ext"]}. The path template '
+                         f'names {staged["declared_ext"]}, and nothing was converted.')
         if upstream:
             notes.append(f"Linked {len(upstream)} upstream published file(s).")
         elif src_ids:
@@ -287,6 +290,7 @@ class SGPublishVersion:
                 note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
                 register_files=False, colour_space="", root_name="",
+                format=sequence.DEFAULT_FORMAT,
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         if images is None and video is None:
             raise ValueError(
@@ -395,7 +399,7 @@ class SGPublishVersion:
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
                              want_frames, want_movie, p, sg, project_id, link_type, target,
-                             task_id, root_name)
+                             task_id, root_name, format)
 
         fields = dict(typed)
         # description is the human note, plus whatever the operator routed into it. The full graph

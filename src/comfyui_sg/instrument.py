@@ -51,7 +51,7 @@ NO_VALUE = "(none)"
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
                     "code_template": "{root_name}_v{version:03d}",
                     "register_files": False,
-                    "attach_workflow": True, "link_id": 0}
+                    "attach_workflow": True, "link_id": 0, "format": "8-bit PNG"}
 # `frame` 0 is "wherever this sequence starts", so a plate numbered from 1001 needs nothing typed.
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
                  "statuses": "", "filters": "", "newest_by": "version number in the name",
