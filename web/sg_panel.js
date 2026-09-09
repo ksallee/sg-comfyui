@@ -49,7 +49,7 @@ const CSS = `
 .sg-cand { display: flex; align-items: center; gap: 6px; min-width: 0; }
 .sg-cand-st { display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
   color: #b9c0c8; white-space: nowrap; }
-.sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
+.sg-body > .sg-run, .sg-body > .sg-sec, .sg-body > .sg-why, .sg-body > .sg-filter,
 .sg-body > .sg-dim, .sg-body > .sg-err, .sg-body > .sg-ok, .sg-body > .sg-alert,
 .sg-body > .sg-full, .sg-body > .sg-v:only-child { grid-column: 1 / -1; }
 /* 10ch is the longest label the readout writes itself ("provenance"), and it is a floor rather than
@@ -191,12 +191,14 @@ export function addPanel(node, title = "SG", onLayout = null) {
   // body, and a run's Version id and file paths are the one thing on this panel that is nowhere
   // else. It goes when the next Run starts, or when a widget on the node changes.
   let lastRun = null;
+  // One block, so drawing it again replaces it rather than adding a second copy of the same run.
   const drawLog = () => {
+    body.querySelectorAll(".sg-run").forEach((e) => e.remove());
     if (!lastRun) return;
     const cls = lastRun.ok ? "sg-ok" : "sg-err";
     body.insertAdjacentHTML("beforeend",
-      `<div class="sg-sec">last run</div>` +
-      lastRun.lines.map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
+      `<div class="sg-run"><div class="sg-sec">last run</div>` +
+      lastRun.lines.map((l) => `<div class="${cls}">${esc(l)}</div>`).join("") + `</div>`);
   };
   /** Replace the readout, keeping the run log under it. */
   const setBody = (html) => { body.innerHTML = html; drawLog(); };
@@ -341,7 +343,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
     },
     clearLog() {
       lastRun = null;
-      body.querySelectorAll(".sg-sec, .sg-ok, .sg-err").forEach((e) => e.remove());
+      drawLog();
     },
   };
 }
