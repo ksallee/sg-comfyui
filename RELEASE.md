@@ -345,25 +345,39 @@ still never run from a template.
 
 ## Before the first release
 
-In the order they block each other.
+In the order they block each other. State at the end of 2026-09-08.
 
 1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. Until then no install outside this machine works.
-2. **#76, the rename, is built** on `rename/sg-comfyui` and waits on Kevin's click-through and
-   merge. After the merge, Kevin: `mv ~/dev/comfyui-flow-production-tracking ~/dev/sg-comfyui` and
-   re-point `~/dev/ComfyUI/custom_nodes/sg-comfyui` at the new path (the symlink already carries
-   the new name).
-3. **One live publish from `00_example` with Create Published Files ticked**, on this machine: the
-   `{version_name}/` folder, the movie beside it, the path fields in the chosen notation, and the
-   deliverable half run from a template for the first time.
+2. **PR #80**, the rename and everything built on it today, waits on Kevin's merge. He clicked
+   through it on his own ComfyUI on 2026-09-08. After the merge, Kevin:
+   `mv ~/dev/comfyui-flow-production-tracking ~/dev/sg-comfyui` and re-point
+   `~/dev/ComfyUI/custom_nodes/sg-comfyui` at the new path.
+3. ~~One live publish from `00_example` with Create Published Files ticked~~ **done 2026-09-08**,
+   by Kevin from the template: `sbx_0020_example_sequence_v001`, twelve frames under
+   `/Volumes/FPT`, PublishedFile 6933, `sg_path_to_frames` written, read back by SG Load. One
+   thing to look at: this machine's profile has the sequence template as
+   `{project}/{entity}/{root_name}/{root_name}/{version_name}.%04d{ext}`, root name twice and no
+   version folder. That is the value under Settings on this machine, not the shipped default,
+   which is `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`.
 4. **`/track-workflow` against a real graph**, never done, and its three new questions (colour
    space, register files, the OCIO offer) still unbuilt.
-5. **README, last.** The install path is Settings now, not `.env.local`; say which steps of the
-   set-up are optional on a plain site, since the defaults carry a Shot-linked show without the
-   inspector; screenshots as template thumbnails (`<name>.jpg` beside each `<name>.json`).
-6. **`/setup`**, both a README paragraph and a slash command: which of the two credential paths
-   applies (sign in on a workstation, a script key on a farm) and the colour-management question.
-7. `pyproject.toml` needs `PublisherId` and `Icon` on release day; 54 merged remote branches want
-   sweeping (the command is under "Branching").
+5. **README.** Rewritten today for Settings, the colour-management paragraph, the two Load outputs
+   and the naming rule; thumbnails exist for the three templates. Left: say which set-up steps
+   are optional on a plain site, since the defaults carry a Shot-linked show without the inspector.
+6. ~~`/setup`~~ **done 2026-09-08**: a README paragraph and a slash command.
+7. `pyproject.toml` needs `PublisherId` and `Icon` on release day. The branch sweep is done: five
+   remote branches remain.
+
+**Decided 2026-09-08, evening, Kevin: the provenance fields stay a command for the first
+release.** `python -m comfyui_sg.fields` creates the nine typed fields once per site and needs a
+key allowed to create fields; without them a publish still carries the whole record as the
+`.provenance.json` attachment and the panel strikes through the fields the site lacks. Where each
+concept lands is the profile's `provenance` block. A Settings group with a "Create provenance
+fields" button and a readout of which exist is the obvious later shape, and it waits for users to
+ask for it.
+
+**Open on the corpus:** sg-groundtruth #48, the text search's page cap and matching rules, which
+`site.text_search` codes against.
 
 **Still to do, not blocking:** the fold table (each widget shown, in the fold, or hidden, which the
 profile's `widgets` block already decides), the first content of an SG Load Defaults group;
