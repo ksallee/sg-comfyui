@@ -16,7 +16,7 @@ license-files = ["LICENSE"]
 # sg-groundtruth is the corpus repo's client half, on PyPI since 0.1.1 (DESIGN: "The dependency
 # problem"). It pulls `requests` itself; `requests` and `Pillow` are named anyway because ComfyUI
 # ships both and a Registry install must not depend on that staying true.
-dependencies = ["sg-groundtruth>=0.1.1", "requests", "Pillow"]
+dependencies = ["sg-groundtruth>=0.1.3", "requests", "Pillow"]
 
 [project.urls]
 Repository = "https://github.com/ksallee/sg-comfyui"

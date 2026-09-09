@@ -347,18 +347,18 @@ still never run from a template.
 
 In the order they block each other. State at the end of 2026-09-08.
 
-1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. Until then no install outside this machine works.
+1. **`sg-groundtruth` 0.1.3 on PyPI**, Kevin. `main` carries 0.1.3 in `pyproject.toml` but the
+   latest GitHub release is v0.1.2, so PyPI has 0.1.2. Cutting the v0.1.3 release is what
+   publishes it. Until then no install outside this machine works.
 2. **PR #80**, the rename and everything built on it today, waits on Kevin's merge. He clicked
    through it on his own ComfyUI on 2026-09-08. After the merge, Kevin:
    `mv ~/dev/comfyui-flow-production-tracking ~/dev/sg-comfyui` and re-point
    `~/dev/ComfyUI/custom_nodes/sg-comfyui` at the new path.
 3. ~~One live publish from `00_example` with Create Published Files ticked~~ **done 2026-09-08**,
    by Kevin from the template: `sbx_0020_example_sequence_v001`, twelve frames under
-   `/Volumes/FPT`, PublishedFile 6933, `sg_path_to_frames` written, read back by SG Load. One
-   thing to look at: this machine's profile has the sequence template as
-   `{project}/{entity}/{root_name}/{root_name}/{version_name}.%04d{ext}`, root name twice and no
-   version folder. That is the value under Settings on this machine, not the shipped default,
-   which is `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}`.
+   `/Volumes/FPT`, PublishedFile 6933, `sg_path_to_frames` written, read back by SG Load. This machine's profile had the sequence template as
+   `{project}/{entity}/{root_name}/{root_name}/{version_name}.%04d{ext}`, set by hand; cleared on
+   2026-09-08 so the shipped default applies.
 4. **`/track-workflow` against a real graph**, never done, and its three new questions (colour
    space, register files, the OCIO offer) still unbuilt.
 5. **README.** Rewritten today for Settings, the colour-management paragraph, the two Load outputs
