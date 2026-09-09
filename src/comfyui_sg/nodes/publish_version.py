@@ -257,7 +257,7 @@ class SGPublishVersion:
         """
         if not staged:
             return []
-        upstream = publish.published_files_of(sg, src_ids, src_files)
+        upstream, upstream_problem = publish.published_files_of(sg, src_ids, src_files)
         common = {"version": {"type": "Version", "id": int(vid)}, "version_number": int(version_no)}
         if target:
             common["entity"] = {"type": link_type, "id": int(target)}
@@ -294,13 +294,23 @@ class SGPublishVersion:
             # it misses every row published this way (entity_types/PublishedFile). It is a plain
             # text field and takes a write, so the client writes what it already knows.
             body["path_cache"] = sequence.relative(staged["root"], path)
-            pft = types.get(kind)
+            pft, problem = types.get(kind, (None, ""))
             if pft:
                 body["published_file_type"] = pft
+            elif problem:
+                notes.append(problem)
             else:
                 notes.append(f"This site has no Published File Type for {kind}, so the file was "
                              f"registered without one. Creating one would add it to all projects.")
-            pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path, body)
+            try:
+                pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path,
+                                                                body)
+            except Exception as e:
+                # One file of two failing must not take the other's line with it: the Version and
+                # whatever already registered are on the site, and the operator needs to read both.
+                notes.append(f"{what.capitalize()} could not be registered as {code}. Run again to "
+                             f"register it. {e}")
+                continue
             # The 201 already carries the resolved path, so this reports what the SERVER stored
             # rather than what was sent — the two differ the moment a root is ambiguous (recipe 004).
             notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
@@ -311,6 +321,8 @@ class SGPublishVersion:
                          f'names {staged["declared_ext"]}, and nothing was converted.')
         if upstream:
             notes.append(f"Linked {len(upstream)} upstream published file(s).")
+        elif upstream_problem:
+            notes.append(upstream_problem)
         elif src_ids:
             notes.append("The source versions have no published files, so nothing upstream was "
                          "linked.")
@@ -471,28 +483,40 @@ class SGPublishVersion:
             else:
                 skipped_paths.append(field)
 
-        vid = publish.create_version(sg, project_id, code, fields)
-        # Every lookup a name depends on. `find` is the one the template reads, and a stale one lets
-        # two publish nodes in one run propose the same version again.
-        site.forget("find", "versions_on", "vnums", "paths")
-        # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie too,
-        # but not until the transcode lands, and a Version with no picture until then is worse.
-        publish.upload(sg, vid, png, f"{code}.png", field="image")
-        if media_path:
-            # Streamed off disk. A clip is the one payload here with no ceiling, and the file that
-            # goes up is the file that was registered.
-            publish.upload_file(sg, vid, media_path,
-                                f"{code}{os.path.splitext(media_path)[1].lower() or '.mp4'}",
-                                field="sg_uploaded_movie")
-        else:
-            publish.upload(sg, vid, png, f"{code}.png", field="sg_uploaded_movie")
-        publish.attach_json(sg, vid, prov, f"{code}.provenance.json")
-        if attach_workflow and wf is not None:
-            publish.attach_json(sg, vid, wf, f"{code}.workflow.json")
+        # Staging copied files onto the storage and the create puts a Version on the site. Neither
+        # is recoverable from a traceback, so from here a failure carries both in its own sentence.
+        written = [x for x in ((staged or {}).get("frames_pattern"), (staged or {}).get("media"))
+                   if x]
+        vid = 0
+        try:
+            vid = publish.create_version(sg, project_id, code, fields)
+            # Every lookup a name depends on. `find` is the one the template reads, and a stale one
+            # lets two publish nodes in one run propose the same version again.
+            site.forget("find", "versions", "vnums", "paths")
+            # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie
+            # too, but not until the transcode lands, and no picture until then is worse.
+            publish.upload(sg, vid, png, f"{code}.png", field="image")
+            if media_path:
+                # Streamed off disk. A clip is the one payload here with no ceiling, and the file
+                # that goes up is the file that was registered.
+                publish.upload_file(sg, vid, media_path,
+                                    f"{code}{os.path.splitext(media_path)[1].lower() or '.mp4'}",
+                                    field="sg_uploaded_movie")
+            else:
+                publish.upload(sg, vid, png, f"{code}.png", field="sg_uploaded_movie")
+            publish.attach_json(sg, vid, prov, f"{code}.provenance.json")
+            if attach_workflow and wf is not None:
+                publish.attach_json(sg, vid, wf, f"{code}.workflow.json")
 
-        file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
-                                    task_id, count, note, colour_space, src_ids,
-                                    lineage.files_for_nodes(upstream))
+            file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
+                                        task_id, count, note, colour_space, src_ids,
+                                        lineage.files_for_nodes(upstream))
+        except Exception as e:
+            raise RuntimeError(" ".join(x for x in (
+                str(e),
+                f"Files were already written to: {', '.join(written)}." if written else "",
+                f"Version {vid} was created and is incomplete. Delete it in Flow Production "
+                f"Tracking, then run again." if vid else "") if x)) from e
 
         published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
         # A stock field this site does not have. The files are still registered and still carry the

@@ -170,20 +170,25 @@ def provenance_map(project_id=None):
     return dict(block.get("map") or {}), block.get("mode") or "fields"
 
 
-def _cached(key, fetch):
+def _cached(key, fetch, empty=()):
+    """The cached answer, the stale one, or `empty`.
+
+    `empty` has to be the shape the caller expects: a dict caller handed a list reads in the editor
+    as `'list' object has no attribute 'get'`, which is a Python error in a picker.
+    """
     hit = _cache.get(key)
     if hit and time.time() - hit[0] < TTL:
         return hit[1]
     try:
         value = fetch()
     except Exception:
-        return hit[1] if hit else []   # stale beats empty; empty beats an unopenable graph
+        return hit[1] if hit else empty   # stale beats empty; empty beats an unopenable graph
     _cache[key] = (time.time(), value)
     return value
 
 
 def forget(*prefixes):
-    """Drop cached lookups a write just invalidated.
+    """Drop cached lookups a write just invalidated, by the first element of their key.
 
     Three publish nodes in one execution must each see what the previous one wrote, or all three read
     the version count from before any of them wrote and all three propose the same next version.
@@ -559,7 +564,7 @@ def status_colors():
         r = client().get("/entity/statuses", params={"fields": "code,bg_color", "page[size]": 200})
         return {} if not r.ok else {d["attributes"]["code"]: d["attributes"].get("bg_color")
                                     for d in r.json()["data"] if d["attributes"].get("code")}
-    return _cached(("status_colors",), fetch)
+    return _cached(("status_colors",), fetch, {})
 
 
 # recipe 010 — `url` reads as an empty string unless `image_data` is asked for in the SAME call, so
@@ -586,7 +591,7 @@ def _stylesheets():
             if r.ok:
                 out.append(r.text)
         return "\n".join(out)
-    return _cached(("stylesheets",), fetch) or ""
+    return _cached(("stylesheets",), fetch, "")
 
 
 def _sprite(key):
@@ -640,7 +645,7 @@ def status_icons():
             if icon:
                 out[code] = icon
         return out
-    return _cached(("status_icons",), fetch)
+    return _cached(("status_icons",), fetch, {})
 
 
 # What a bare `{entity}` / `{sg_task}` / `{project}` resolves to. A Task is named by `content` and a
@@ -685,7 +690,7 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
         def fetch(etype=etype, eid=eid, fields=tuple(fields)):
             r = client().get(f"{route(etype)}/{eid}", params={"fields": ",".join(fields)})
             return r.json()["data"]["attributes"] if r.ok else {}
-        attrs = _cached(("paths", etype, eid, tuple(fields)), fetch) or {}
+        attrs = _cached(("paths", etype, eid, tuple(fields)), fetch, {})
         for path, field in items:
             v = attrs.get(field)
             out[path] = v.get("name") if isinstance(v, dict) else v
@@ -714,7 +719,7 @@ def status_usage(project_id, days=30, entity_type="Version", field="sg_status_li
             return {}
         return {g.get("group_value"): (g.get("summaries") or {}).get("id", 0)
                 for g in (r.json().get("data") or {}).get("groups", []) if g.get("group_value")}
-    return _cached(("status_usage", int(project_id), int(days), entity_type, field), fetch)
+    return _cached(("status_usage", int(project_id), int(days), entity_type, field), fetch, {})
 
 
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
