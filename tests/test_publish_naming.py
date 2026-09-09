@@ -51,9 +51,11 @@ def test_the_name_and_the_path_agree_on_the_root(offline):
     assert pl.name == "sh010_RTO"
     assert code == f"{pl.name}_v003"
     # Against the root the plan resolved, which is this machine's own: the storage row defines one
-    # per platform and the tests run on all three.
+    # per platform and the tests run on all three. A path is always written forward-slashed, a
+    # Windows root is not, so the root is spelled the way the path spells it.
+    root = pl.root.replace("\\", "/")
     assert sequence.destination(pl, pl.seq_template, ".exr", version_no) == (
-        f"{pl.root}/sh010/sh010_RTO/sh010_RTO_v003/sh010_RTO_v003.%04d.exr")
+        f"{root}/sh010/sh010_RTO/sh010_RTO_v003/sh010_RTO_v003.%04d.exr")
 
 
 def test_a_versioned_root_template_renders_the_same_everywhere(offline):
