@@ -17,6 +17,8 @@ import requests
 
 from sg_groundtruth.client import FPTError
 
+from . import fields
+
 FIELDS = ["code", "image", "sg_uploaded_movie", "sg_path_to_movie", "sg_path_to_frames",
           "sg_first_frame", "sg_last_frame", "sg_uploaded_movie_frame_rate"]
 
@@ -33,6 +35,12 @@ SUMMARY_LABELS = {"sg_ai_generator": "made by", "sg_ai_model": "model", "sg_ai_p
                   "sg_ai_cfg": "cfg", "description": "note"}
 # The header carries code, status and date; everything else is a listed fact.
 DETAIL_FIELDS = [f for f in SUMMARY_FIELDS if f not in ("code", "sg_status_list", "created_at")]
+# A site without the nine fields carries the same facts in the description instead
+# (publish_version._description): the note, a blank line, then one `label: value` line per fact, in
+# the labels fields.py writes. Read back here, so what a publish recorded is what a Load reads.
+FACT_LABELS = set(fields.CONCEPT_LABELS.values())
+FACT_LINE = re.compile(r"\s*([^:\n]+?)\s*:\s*(.*)$")
+LINEAGE_LABEL = fields.CONCEPT_LABELS["generated_from"]
 AI_FIELDS = [f for f in SUMMARY_FIELDS if f.startswith("sg_ai_")]
 RELATED_FIELDS = ["entity", "sg_task", "sg_ai_generated_from"]
 
@@ -274,6 +282,23 @@ def version(sg, version_id):
             "published_files": files, "published_files_error": why}
 
 
+def split_description(text):
+    """(note, facts) — the operator's note, and the facts publish wrote under it.
+
+    Only the run of `label: value` lines at the end, in the labels fields.py writes, is facts;
+    everything above it is the note, colons and all.
+    """
+    lines = (text or "").rstrip().splitlines()
+    facts = []
+    while lines:
+        m = FACT_LINE.match(lines[-1])
+        if not m or m.group(1) not in FACT_LABELS:
+            break
+        facts.insert(0, {"label": m.group(1), "value": m.group(2).strip()})
+        lines.pop()
+    return "\n".join(lines).strip(), facts
+
+
 def provenance_state(attrs, sources):
     """Whether this Version says how it was made: "generated", "derived" or "unrecorded".
 
@@ -281,10 +306,15 @@ def provenance_state(attrs, sources):
     records nothing, from ComfyUI without this node, or from a camera, so absence is the absence of
     a *record*; rendering it as "not AI generated" would manufacture the assurance this project
     exists to make checkable.
+
+    The description counts for as much as the typed fields: a site without the nine fields is where
+    a publish put every fact, and reading only the fields would call its own record absent.
     """
-    if any(attrs.get(f) not in (None, "", []) for f in AI_FIELDS):
+    facts = split_description(attrs.get("description"))[1]
+    made = [f for f in facts if f["label"] != LINEAGE_LABEL]
+    if made or any(attrs.get(f) not in (None, "", []) for f in AI_FIELDS):
         return "generated"
-    return "derived" if sources else "unrecorded"
+    return "derived" if (sources or facts) else "unrecorded"
 
 
 def describe(sg, version_id, statuses=(), colors=None, icons=None):
@@ -305,8 +335,18 @@ def describe(sg, version_id, statuses=(), colors=None, icons=None):
     ent = (rel.get("entity") or {}).get("data") or {}
     task = (rel.get("sg_task") or {}).get("data") or {}
     src = (rel.get("sg_ai_generated_from") or {}).get("data") or []
-    facts = [{"label": SUMMARY_LABELS.get(f, f), "value": str(a[f]).replace("\n", " ")[:200]}
-             for f in DETAIL_FIELDS if a.get(f) not in (None, "", [])]
+    note, written = split_description(a.get("description"))
+    facts = []
+    for f in DETAIL_FIELDS:
+        # The note fact is the note. The facts publish wrote under it are facts of their own, so a
+        # site without the nine fields reads the same way as one that has them.
+        value = note if f == "description" else a.get(f)
+        if value not in (None, "", []):
+            facts.append({"label": SUMMARY_LABELS.get(f, f),
+                          "value": str(value).replace("\n", " ")[:200]})
+    # A typed field wins over the same fact in the description: it is the queryable one.
+    seen = {x["label"] for x in facts}
+    facts += [x for x in written if x["label"] not in seen]
     return {
         "id": d["id"], "code": a.get("code") or str(d["id"]),
         # site.statuses yields (label, code); an artist reads "Approved", never "apr" (probe 009).
