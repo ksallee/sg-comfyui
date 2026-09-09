@@ -8,6 +8,28 @@ and `AGENTS.md`; nothing an operator needs is in here.
 
 ---
 
+## Next session, in order
+
+1. **Kevin's checkpoint on his own ComfyUI.** Restart it first: today added routes. The folder
+   `~/Desktop/sg-comfyui-checkpoint-2026-09-09/` holds one shot per state, numbered in review order;
+   `~/Desktop/sg-screenshots-archive/` holds everything older. His QA of the first pass is
+   answered in #93 to #95 (the panel rows, the Settings row, the captures). Not yet looked at by
+   him on a live canvas: the `format` widget, the `mask` output, the Site Setup button.
+2. **Two template questions, his call.** The shipped SG Load nodes carry link `(none)`, so a fresh
+   `00_example` fails on both Loads when Run is pressed before a link is picked; and whether the
+   Load nodes should ship with `name_contains` scoped to a link at all.
+3. **Version 31995 on the sandbox** carries `sg_ai_generated_from = pf_seq_beauty_v004`, written
+   before the lineage fix. Delete it or leave it; the fix does not rewrite it.
+4. **Registry mechanics**, below under "Before the first release".
+5. **The launch page**, below.
+6. **Small things found and not fixed:** the pre-run panel names `comfyui-frontend` whatever
+   client will submit; the unmounted-root refusal is unmeasured live (`/Volumes/FPT` is a
+   directory here, not a mount); a second `qa_node.py` drive against a `--keep` instance answered
+   "Not connected", so each capture starts its own instance.
+7. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+
+---
+
 ## State, end of 2026-09-09
 
 `dev` carries everything below, squash-merged, CI green on Linux, macOS and Windows. `main` is
@@ -40,6 +62,11 @@ untouched since #80 and is promoted by PR, which is Kevin's.
   names the files it already wrote; the caches a publish invalidates are the ones it means to.
   Versions 31991 (16-bit PNG, PublishedFile 7009) and 31992 (EXR, PublishedFile 7010) measured.
 - #88 Leftovers: the archived experiment graphs carry the 13th value; `--root-name`.
+- #93 to #95, from Kevin's QA of the checkpoint: the publish panel says what this Run publishes
+  (`review`, `files` as the format picked, the paths) and the last run as rows with the Version
+  by name; the Load panel puts format and size first; SG Site Setup keeps its label at the top
+  and reports a press in one or two lines; the harness hides the minimap and three drives make
+  the captures (`drive_graph_shot.js`, `drive_load_shot.js`, `drive_publish_rows.js`).
 - #89 and #90, from the two verification passes below: lineage keyed by a fingerprint of the Load
   node and not its id; the description read back as provenance; a still registered at its real
   path; the run log staying on the panel; the budget refusal shown before a run for movies and for
@@ -243,6 +270,9 @@ the note says but a first click does not read.
   and falls back to encoding when they differ.
 - `save_to`'s `color_space` accepts only `sRGB`, `HDR` and `HDR PQ`, so the freeform `colour_space`
   widget is not passed to it; it stays a declaration on the record.
+- A capture is one `qa_node.py --start` per drive: a second drive against a `--keep` instance
+  answered "Not connected" after a publish. Loading a graph over the harness's modified default
+  workflow is fine; clicking a generic Close button closes the workflow tab and empties the graph.
 - `tools/smoke.py` and `tools/qa_node.py --repo <checkout>` need `.env.local` and `profile.local.json`
   at that checkout's root; a worktree has neither. Without the profile the isolated instance registers
   no nodes at all.
