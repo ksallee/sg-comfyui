@@ -46,11 +46,12 @@ LOAD_WIDGETS = widgets.names(widgets.LOAD_FIELDS)
 # the client. A combo cannot hold "" — the editor would show a value it can never offer back — so an
 # unset pick is the visible "no value" the node declares.
 NO_VALUE = "(none)"
-# Every default mirrors the node class's own. `register_files` is off because a tap added to somebody
-# else's graph must not start copying their frames onto a shared volume.
+# Every default mirrors the node class's own. `code_template` is empty because empty means the
+# default under Settings, so one edit there reaches every graph this ever wrote; pinning the literal
+# template defeated that on every /track-workflow graph. `register_files` is off because a tap added
+# to somebody else's graph must not start copying their frames onto a shared volume.
 PUBLISH_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE, "status": NO_VALUE,
-                    "code_template": "{root_name}_v{version:03d}",
-                    "register_files": False,
+                    "code_template": "", "register_files": False,
                     "attach_workflow": True, "link_id": 0, "format": "8-bit PNG"}
 # `frame` 0 is "wherever this sequence starts", so a plate numbered from 1001 needs nothing typed.
 LOAD_DEFAULTS = {"project": NO_VALUE, "link": NO_VALUE, "task": NO_VALUE,
@@ -66,7 +67,7 @@ def _stream(descriptor):
     return "{entity}_" + descriptor
 
 
-def widgets(names, defaults, **values):
+def widget_values(names, defaults, **values):
     """The positional array, built by name. A name nothing declares is an error, not a no-op."""
     unknown = sorted((set(defaults) | set(values)) - set(names))
     if unknown:
@@ -512,10 +513,15 @@ def replace_loader(wf, loader_path, widgets, title="SG Load"):
     image = {s for s, o in enumerate(loader.get("outputs") or []) if o.get("type") == "IMAGE"}
     targets = [(t, ts) for o, os_, t, ts, _ in _edges(container) if o == local and os_ in image]
     lx, ly = loader.get("pos", [0, 0])[:2]
+    # Every output the class declares, in order: a slot missing here is a wire the operator cannot
+    # make without deleting the node and adding it again.
     nid = _add_node(wf, container, LOAD, (lx, ly - 40), widgets, title,
-                    outs=[{"name": "image", "type": "IMAGE", "links": []},
+                    outs=[{"name": "images", "type": "IMAGE", "links": []},
                           {"name": "version_id", "type": "INT", "links": []},
-                          {"name": "code", "type": "STRING", "links": []}])
+                          {"name": "code", "type": "STRING", "links": []},
+                          {"name": "colour_space", "type": "STRING", "links": []},
+                          {"name": "video", "type": "VIDEO", "links": []},
+                          {"name": "mask", "type": "MASK", "links": []}])
     new = container["nodes"][-1]
     cut = {l[0] if isinstance(l, list) else l.get("id") for l in container.get("links") or []
            if (l[1] if isinstance(l, list) else l.get("origin_id")) == local}
@@ -600,7 +606,7 @@ def _cli(argv=None):
         d = names.get((path, slot)) or descriptor(
             flat.nodes.get(path, {}), slot, sinks.get((path, slot)) or "",
             flat.labels.get((path, slot), ""), _scope(flat, path))
-        w = widgets(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, root_name=_stream(d), **common)
+        w = widget_values(PUBLISH_WIDGETS, PUBLISH_DEFAULTS, root_name=_stream(d), **common)
         top = path.split(SEP)[0]
         crossed = SEP in path
         was = len(_flatten(wf).subs[top][0].get("outputs") or []) if crossed else 0
@@ -613,7 +619,8 @@ def _cli(argv=None):
                     else f"  (through subgraph {top}'s existing output)")
         print(f"  + publish node {new} tapping {path}[{slot}]  root name={_stream(d)!r}{note}")
     for path in a.load:
-        new = replace_loader(wf, path, widgets(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
+        new = replace_loader(wf, path,
+                             widget_values(LOAD_WIDGETS, LOAD_DEFAULTS, **common))
         stem = str(path).rpartition(SEP)[0]
         print(f"  + load node {stem + SEP if stem else ''}{new} replacing loader {path}"
               + (f"  (inside subgraph {stem})" if stem else ""))
