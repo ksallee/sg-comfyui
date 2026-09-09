@@ -221,7 +221,9 @@ function publishPickers(nodeType, nodeData) {
       })),
     ];
 
-    const preview = async () => {
+    // `keepLog` is what the redraw after a run passes: the readout ahead of it changes, and the
+    // lines that run wrote stay under it until the next Run or the next edit.
+    const preview = async (keepLog = false) => {
       const mine = ++previewing;
       panel.loading();
       const q = new URLSearchParams({
@@ -231,7 +233,7 @@ function publishPickers(nodeType, nodeData) {
       });
       const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
-      panel.clearLog();
+      if (!keepLog) panel.clearLog();
       if (!d.code) {
         panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
           + "node, or empty it to use the default under Settings, then SG." });
@@ -295,7 +297,7 @@ function publishPickers(nodeType, nodeData) {
         return prev?.apply(this, arguments);
       };
     };
-    listen("execution_start", () => { cached = false; });
+    listen("execution_start", () => { cached = false; panel.clearLog(); });
     listen("execution_cached", ({ detail }) => {
       cached = (detail.nodes || []).map(String).includes(String(node.id));
     });
@@ -328,8 +330,9 @@ function publishPickers(nodeType, nodeData) {
       }
       const text = (detail.output && detail.output.text) || [];
       if (text.length) panel.log(text, rows.length > 0);
-      // What the NEXT run would create, now that this one has taken a number.
-      setTimeout(preview, 1200);
+      // What the NEXT run would create, now that this one has taken a number. The lines this run
+      // wrote are the Version id and the paths it landed on, so they stay on the panel.
+      setTimeout(() => preview(true), 1200);
     });
     if (!project || !link) return;
 

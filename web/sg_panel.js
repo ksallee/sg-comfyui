@@ -177,6 +177,19 @@ export function addPanel(node, title = "SG", onLayout = null) {
   };
   const body = root.querySelector(".sg-body");
   const detail = more.querySelector(".sg-body");
+  // What the last run did, kept rather than drawn once: every redraw of the readout rewrites the
+  // body, and a run's Version id and file paths are the one thing on this panel that is nowhere
+  // else. It goes when the next Run starts, or when a widget on the node changes.
+  let lastRun = null;
+  const drawLog = () => {
+    if (!lastRun) return;
+    const cls = lastRun.ok ? "sg-ok" : "sg-err";
+    body.insertAdjacentHTML("beforeend",
+      `<div class="sg-sec">last run</div>` +
+      lastRun.lines.map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
+  };
+  /** Replace the readout, keeping the run log under it. */
+  const setBody = (html) => { body.innerHTML = html; drawLog(); };
 
   // Both rows span the node's widget grid. fitNode measures the node's rendered DOM, so one pass
   // after the browser has laid out is the answer and nothing predicts a height.
@@ -220,7 +233,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
       if (d && d.error) {
         t.innerHTML = esc(title);
         badgeEl.innerHTML = "";
-        body.innerHTML = `<div class="sg-err">${esc(d.error)}</div>`;
+        setBody(`<div class="sg-err">${esc(d.error)}</div>`);
         fold("");
         relayout();
         return;
@@ -233,7 +246,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
         // pill's explanation, not fine print. One full-width row per candidate, name then status —
         // the icon identifies the status (recipe 010) and a column of coloured pills would compete
         // with the names, which are what is being read.
-        body.innerHTML =
+        setBody(
           `<div class="sg-dim">${esc((d && d.why) || "No Version matches these fields yet.")}</div>` +
           (near.length
             ? `<div class="sg-sec">versions on this link</div>` + near.map((v) =>
@@ -241,7 +254,7 @@ export function addPanel(node, title = "SG", onLayout = null) {
                 (v.status && v.status.label
                   ? `<span class="sg-cand-st">${iconHtml(v.status.icon, v.status.rgb)}` +
                     `${esc(v.status.label)}</span>` : "") + `</div>`).join("")
-            : "");
+            : ""));
         fold("");
         relayout();
         return;
@@ -295,22 +308,22 @@ export function addPanel(node, title = "SG", onLayout = null) {
       if ((d.generated_from || []).length) rows.push(["from", d.generated_from.join(", ")]);
       // The one line that never folds: what is wrong with the name directly above it.
       const alert = d.alert || over;
-      body.innerHTML = (alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") + plain(rows);
+      setBody((alert ? `<div class="sg-alert">${esc(alert)}</div>` : "") + plain(rows));
       // The fold takes the reasoning behind a name the operator can already see, and the concepts
       // that are the same every publish: configuration-time reading, not pre-Run reading.
       fold((d.why ? `<div class="sg-why">${esc(d.why)}</div>` : "") +
         sourcesBlock(d) + writesBlock(d));
       relayout();
     },
-    /** What the node last did. Appended under the readout, not instead of it. */
+    /** What the node last did. Appended under the readout, and kept there through every later
+     *  redraw until `clearLog`. */
     log(lines, ok = true) {
-      const cls = ok ? "sg-ok" : "sg-err";
-      body.insertAdjacentHTML("beforeend",
-        `<div class="sg-sec">last run</div>` +
-        [].concat(lines).map((l) => `<div class="${cls}">${esc(l)}</div>`).join(""));
+      lastRun = { lines: [].concat(lines), ok };
+      drawLog();
       relayout();
     },
     clearLog() {
+      lastRun = null;
       body.querySelectorAll(".sg-sec, .sg-ok, .sg-err").forEach((e) => e.remove());
     },
   };
