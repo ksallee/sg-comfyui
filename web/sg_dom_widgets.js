@@ -147,12 +147,13 @@ const cssUrl = (u) => safeUrl(u).replace(/["'()\\<>\s]/g,
   (c) => CSS_ESCAPES[c] || encodeURIComponent(c));
 
 const ICON_TAGS = new Set(["span", "b", "i", "em", "strong", "small", "sub", "sup", "br"]);
-const ICON_ATTRS = new Set(["class", "style", "title"]);
+const ICON_ATTRS = new Set(["class", "title"]);
 
 /** Site-authored markup with everything executable taken out. A status icon's `html` is markup by
  *  design (recipe 010) and it renders inside ComfyUI's own origin, so unknown elements are unwrapped
- *  and every attribute but class, style and title is dropped. A `<template>` is inert: parsing it
- *  runs no script and loads no image. */
+ *  and every attribute but class and title is dropped — `style` included, which is what an overlay
+ *  over the editor or a beacon would need. A `<template>` is inert: parsing it runs no script and
+ *  loads no image. */
 function safeHtml(html) {
   const t = document.createElement("template");
   t.innerHTML = String(html ?? "");
@@ -233,34 +234,37 @@ export function dontSerialize(widget) {
   return widget;
 }
 
-/** Re-apply a saved graph's widget values after litegraph has configured the node.
+/** Re-apply a saved graph's widget values, by name, after litegraph has configured the node.
+ * `declared` is the node's widget names in INPUT_TYPES order — the order widgets_values is in.
  *
  * dontSerialize is not enough on its own, because the frontend's save and its restore disagree:
  * `serialize()` writes `widgets_values[i]` at the index over ALL widgets, leaving a null hole where
  * it skipped one, while `configure()` reads with a counter that only advances on serialized
- * widgets, so every value after our first injected row comes back off by one. `widgets_values_named`
- * is always written by the editor and `Comfy.Workflow.NamedValuesRestore` is off by default, so that
- * name map is the reliable answer; the fallback walks the array with the counter the save used.
+ * widgets, so every value after our first injected row comes back off by one. Filtering on
+ * `widget.serialize !== false` does not rescue it either: addDOMWidget takes `serialize` in its
+ * options object and never copies it onto the widget, so a picker's `widget.serialize` is undefined
+ * and it still counts.
+ *
+ * Two shapes are read, and only two. `widgets_values_named` is what the editor always writes
+ * (`Comfy.Workflow.NamedValuesRestore` is off by default); everything else this repo produces —
+ * instrument.py, tools/workflows/, a hand-edited graph — is `declared` order and exactly as long.
+ * Anything else is left to the frontend rather than guessed at.
  */
-export function restoreDeclaredWidgets(nodeType) {
+export function restoreDeclaredWidgets(nodeType, declared) {
   const prev = nodeType.prototype.onConfigure;
   nodeType.prototype.onConfigure = function (info) {
     prev?.apply(this, arguments);
-    const widgets = this.widgets || [];
-    const named = info && info.widgets_values_named;
-    if (named) {
-      for (const w of widgets) {
-        if (w.serialize !== false && w.name in named) restoreValue(w, named[w.name]);
-      }
-      return;
-    }
-    const vals = info && info.widgets_values;
-    if (!Array.isArray(vals)) return;
-    let k = 0;
-    for (const w of widgets) {
-      if (w.serialize === false) continue;
-      if (k < vals.length) restoreValue(w, vals[k]);
-      k += 1;
+    const named = info?.widgets_values_named;
+    const vals = info?.widgets_values || [];
+    const byName = (named && typeof named === "object" && !Array.isArray(named)) ? named
+      : vals.length === declared.length
+        ? Object.fromEntries(vals.map((v, i) => [declared[i], v]))
+        : null;
+    if (!byName) return;
+    for (const name of declared) {
+      const v = byName[name];
+      if (v === undefined || v === null) continue;   // a hole is not a value
+      restoreValue(this.widgets?.find((y) => y.name === name), v);
     }
   };
 }
@@ -350,7 +354,7 @@ export function requireVueNodes(node) {
 }
 
 function nodeElement(node) {
-  for (const root of node.__fptRoots || []) {
+  for (const root of node.__sgRoots || []) {
     const el = root.closest?.(".lg-node");
     if (el) return el;
   }
@@ -397,7 +401,7 @@ export function domRow(node, name, { label, control, target }) {
   ctl.appendChild(control);
   root.appendChild(ctl);
 
-  (node.__fptRoots = node.__fptRoots || []).push(root);
+  (node.__sgRoots = node.__sgRoots || []).push(root);
 
   const widget = node.addDOMWidget(name, name, root, {
     // .sg-dom is display:contents and has no box; the control block is what has a height, and it
@@ -419,11 +423,15 @@ export function domRow(node, name, { label, control, target }) {
 /** One status icon, whichever of the three renderings it has (recipe 010). The colour dot is the
  *  fallback, which is also what a sprite rule the stylesheet did not yield comes back as. */
 export function iconHtml(icon, rgb) {
-  if (icon && icon.kind === "sprite" && cssUrl(icon.url)) {
-    const [ox, oy] = icon.offset, [w, h] = icon.size;
-    return `<span class="sg-ico" style="width:${Number(w)}px;height:${Number(h)}px;
+  // A sprite is only a sprite with both pairs of numbers: the whole redraw would otherwise stop on
+  // one status whose rule the stylesheet did not yield, and the colour dot says as much.
+  const pair = (v) => (Array.isArray(v) && v.length === 2 ? v.map((n) => Number(n) || 0) : null);
+  const offset = icon && pair(icon.offset), size = icon && pair(icon.size);
+  if (icon && icon.kind === "sprite" && cssUrl(icon.url) && offset && size) {
+    const [ox, oy] = offset, [w, h] = size;
+    return `<span class="sg-ico" style="width:${w}px;height:${h}px;
       background-image:url('${esc(cssUrl(icon.url))}');
-      background-position:${Number(ox)}px ${Number(oy)}px"></span>`;
+      background-position:${ox}px ${oy}px"></span>`;
   }
   if (icon && icon.kind === "data_uri" && safeUrl(icon.url)) {
     return `<img class="sg-ico-img" src="${esc(safeUrl(icon.url))}" alt="">`;
@@ -498,7 +506,9 @@ export function searchPicker(node, target, {
   // dim and the head says so, rather than the list going blank on each keystroke.
   const busy = (on) => { busyEl.hidden = !on; list.classList.toggle("is-busy", on); };
 
-  let items = [], at = -1, seq = 0, timer, open = false, inflight = null;
+  // `stale` is set from the keystroke until the answer for it is drawn: the rows on screen belong
+  // to the previous search, so Enter would pick one nobody typed for.
+  let items = [], at = -1, seq = 0, timer, open = false, inflight = null, stale = false;
 
   const place = () => {
     const r = trigger.getBoundingClientRect();
@@ -521,6 +531,7 @@ export function searchPicker(node, target, {
 
   const render = (rows) => {
     items = rows;
+    stale = false;
     if (!rows.length) {
       list.innerHTML = `<div class="sg-pop-note">${esc(empty)}</div>`;
       at = -1;
@@ -564,6 +575,7 @@ export function searchPicker(node, target, {
     inflight?.abort();
     const ctl = new AbortController();
     inflight = ctl;
+    stale = true;
     busy(true);
     timer = setTimeout(async () => {
       const live = () => mine === seq && open;
@@ -609,7 +621,7 @@ export function searchPicker(node, target, {
   input.addEventListener("input", run);
   input.addEventListener("keydown", (e) => {
     if (e.key === "Escape") { close(); trigger.focus(); }
-    else if (e.key === "Enter") choose(at);
+    else if (e.key === "Enter") { if (!stale) choose(at); }
     else if (e.key === "ArrowDown") highlight(Math.min(at + 1, items.length - 1));
     else if (e.key === "ArrowUp") highlight(Math.max(at - 1, 0));
     else return;
@@ -617,7 +629,7 @@ export function searchPicker(node, target, {
     e.stopPropagation();
   });
 
-  return { refresh: showCurrent, relayout, close };
+  return { refresh: showCurrent, relayout };
 }
 
 /** Several statuses, any of which will do: one chip each, in the status's own colour (probe 010),

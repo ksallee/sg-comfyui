@@ -12,10 +12,9 @@ import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSer
          restoreDeclaredWidgets, restoreValue, textRows, cascade, call } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
-const ALL_TYPES = "(all types)";
 
-/** The site's own value for a label. "(none)" and "(all types)" are labels for the operator. */
-const bare = (v) => (!v || v === NONE || v === ALL_TYPES) ? "" : v;
+/** The site's own value for a label. "(none)" is a label for the operator. */
+const bare = (v) => (!v || v === NONE) ? "" : v;
 
 /** The type out of a `name (Type)` label — context on the row, never part of what is searched. */
 // Which of a node definition's inputs are widgets, in declared order. An input slot carries a type
@@ -127,9 +126,8 @@ function currentProject(widget, state) {
 
 /** The link picker both nodes carry. `contains` runs on the site (probe 017), so two words find one
  *  entity out of thousands and each row carries the type it will be linked as. Every row seen
- *  records its id in `state.linkIds`, which is what turns a picked label back into an entity id.
- *  `narrow()` adds a type filter for a node that has one. */
-function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
+ *  records its id in `state.linkIds`, which is what turns a picked label back into an entity id. */
+function linkPicker(node, widget, state, { empty, onPick }) {
   hideWidget(widget);
   return searchPicker(node, widget, {
     label: "link",
@@ -137,7 +135,7 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
     empty,
     search: async (q, { live, signal }) => {
       const d = await call(`/sg/entities?project_id=${state.projectId}` +
-        `&q=${encodeURIComponent(q)}${narrow()}`, { signal });
+        `&q=${encodeURIComponent(q)}`, { signal });
       if (!live()) return [];      // a superseded search records no ids
       for (const x of d.items || []) state.linkIds[x.label] = x.id;
       return (d.items || []).map((x) => ({
@@ -150,8 +148,8 @@ function linkPicker(node, widget, state, { empty, narrow = () => "", onPick }) {
 
 /** Every link on the project, into the hidden combo. Hidden, it still holds the value, so its
  *  options must stay legal for a saved graph whose link this project does not have. */
-async function loadLinkOptions(widget, state, tok, narrow = "") {
-  const d = await call(`/sg/entities?project_id=${state.projectId}${narrow}`, tok);
+async function loadLinkOptions(widget, state, tok) {
+  const d = await call(`/sg/entities?project_id=${state.projectId}`, tok);
   if (!tok.live) return "";
   if (d.error) return d.error;
   state.linkIds = Object.fromEntries((d.items || []).map((x) => [x.label, x.id]));
@@ -169,7 +167,7 @@ app.registerExtension({
   name: "sg.pickers",
 
   async beforeRegisterNodeDef(nodeType, nodeData) {
-    if (nodeData.name === "SGLoadVersion") return loadPickers(nodeType);
+    if (nodeData.name === "SGLoadVersion") return loadPickers(nodeType, nodeData);
     if (nodeData.name === "SGPublishVersion") return publishPickers(nodeType, nodeData);
   },
 });
@@ -180,33 +178,7 @@ app.registerExtension({
 function publishPickers(nodeType, nodeData) {
   // The declared widgets, in INPUT_TYPES order, read from the definition the server just sent
   // rather than repeated here. This is the order a saved graph's widgets_values is in.
-  const DECLARED = declaredWidgets(nodeData);
-
-  // This node maps its own saved values, because the frontend cannot: it carries widgets the class
-  // never declared — the two pickers and the panel — and a positional array walked across more
-  // slots than it was written into lands every value after the first picker one field early,
-  // silently. Filtering the extra widgets out by `widget.serialize !== false` does not work either:
-  // addDOMWidget takes `serialize` in its options object and never copies it onto the widget, so a
-  // picker's `widget.serialize` is undefined and it still counts.
-  const onConfigure = nodeType.prototype.onConfigure;
-  nodeType.prototype.onConfigure = function (info) {
-    onConfigure?.apply(this, arguments);
-    const named = info?.widgets_values_named;
-    const vals = info?.widgets_values || [];
-    // Two shapes, and only two. The editor writes a name for every value; everything else this repo
-    // produces — instrument.py, tools/workflows/, a hand-edited graph — is DECLARED order and
-    // exactly as long. Anything else is left to the frontend rather than guessed at.
-    const byName = (named && typeof named === "object" && !Array.isArray(named)) ? named
-      : vals.length === DECLARED.length
-        ? Object.fromEntries(vals.map((v, i) => [DECLARED[i], v]))
-        : null;
-    if (!byName) return;
-    for (const name of DECLARED) {
-      const v = byName[name];
-      if (v === undefined || v === null) continue;   // a hole is not a value
-      restoreValue(this.widgets?.find((y) => y.name === name), v);
-    }
-  };
+  restoreDeclaredWidgets(nodeType, declaredWidgets(nodeData));
 
   const onCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
@@ -444,8 +416,8 @@ function publishPickers(nodeType, nodeData) {
 
 // Load node. The inputs are a rule, not an id, so the panel shows which Version the rule lands on
 // and what made it — resolved by the node's own code, so the preview cannot disagree with the run.
-function loadPickers(nodeType) {
-  restoreDeclaredWidgets(nodeType);
+function loadPickers(nodeType, nodeData) {
+  restoreDeclaredWidgets(nodeType, declaredWidgets(nodeData));
   const onCreated = nodeType.prototype.onNodeCreated;
   nodeType.prototype.onNodeCreated = function () {
     onCreated?.apply(this, arguments);
@@ -453,7 +425,7 @@ function loadPickers(nodeType) {
     if (!requireVueNodes(this)) return;
 
     const w = (n) => this.widgets?.find((x) => x.name === n);
-    const project = w("project"), linkTypeW = w("link_type"), link = w("link"), task = w("task");
+    const project = w("project"), link = w("link"), task = w("task");
     const source = w("source"), statuses = w("statuses");
     if (!project || !link) return;
 
@@ -470,8 +442,6 @@ function loadPickers(nodeType) {
     const projectPick = projectPicker(this, project, state, (it) => loadProject(it.value));
     const linkPick = linkPicker(this, link, state, {
       empty: "No link on this project matches those words.",
-      narrow: () => (linkTypeW && linkTypeW.value !== ALL_TYPES)
-        ? `&type=${encodeURIComponent(linkTypeW.value)}` : "",
       onPick: () => loadTasks(),
     });
     hideWidget(statuses);
@@ -514,7 +484,7 @@ function loadPickers(nodeType) {
       const val = (n) => (n in over ? over[n] : w(n)?.value);
       const q = new URLSearchParams({
         project_id: state.projectId, project: project.value || "",
-        link_type: bare(linkTypeW?.value), link: bare(link.value), task: bare(val("task")),
+        link: bare(link.value), task: bare(val("task")),
         name_contains: val("name_contains") || "",
         newest_by: val("newest_by") || "",
         pin_version_id: val("pin_version_id") || 0,
@@ -560,11 +530,8 @@ function loadPickers(nodeType) {
       await refresh();
     };
 
-    const loadLinks = async (picked, tok = chain.begin()) => {
-      const chosen = picked ?? linkTypeW?.value;
-      const narrow = (chosen && chosen !== ALL_TYPES)
-        ? `&type=${encodeURIComponent(chosen)}` : "";
-      const bad = await loadLinkOptions(link, state, tok, narrow);
+    const loadLinks = async (tok = chain.begin()) => {
+      const bad = await loadLinkOptions(link, state, tok);
       if (!tok.live || stop(bad)) return;
       linkPick.refresh();
       await loadTasks(undefined, tok);
@@ -573,20 +540,12 @@ function loadPickers(nodeType) {
     const loadProject = async (picked, tok = chain.begin()) => {
       const bad = await selectProject(project, state, picked, tok);
       if (!tok.live || stop(bad)) return;
-      if (linkTypeW) {
-        const t = await call(`/sg/link_types?project_id=${state.projectId}`, tok);
-        if (!tok.live || stop(t.error)) return;
-        const vals = (t.items || []).map((x) => x.label);
-        linkTypeW.options.values = vals;
-        if (!vals.includes(linkTypeW.value)) linkTypeW.value = ALL_TYPES;
-      }
       projectPick.refresh(currentProject(project, state));
       statusChips?.reload();
-      await loadLinks(undefined, tok);
+      await loadLinks(tok);
     };
 
     wrap(project, loadProject);
-    wrap(linkTypeW, loadLinks);
     wrap(link, loadTasks);
     // `source` is in this list because which file is read changes the type, the count and the
     // declared colour space the readout shows.

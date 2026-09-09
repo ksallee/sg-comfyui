@@ -1,7 +1,7 @@
 /* The readout both nodes carry: which Version they are pointing at, and what the last run did.
  *
- * A DOM widget rather than a read-only textarea, because the useful parts are a status — which Flow
- * PT gives a colour and an icon (probe 010) — and a run log that has to be readable at a glance.
+ * A DOM widget rather than a read-only textarea, because the useful parts are a status — which SG
+ * gives a colour and an icon (probe 010) — and a run log that has to be readable at a glance.
  *
  * TWO rows. The name, its status and the state pill are always on screen, because the readout's job
  * is to answer "which Version, and is this valid" before every Run. Anything a widget three rows
