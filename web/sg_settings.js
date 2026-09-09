@@ -498,7 +498,7 @@ const listed = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")}
  *  per field otherwise, in red with the site's own sentence. */
 function resultLines(rows) {
   const by = (state) => rows.filter((r) => r.state === state);
-  const created = by("created"), failed = by("failed"), had = by("present");
+  const created = by("created"), failed = by("failed"), had = by("ok");
   const out = [];
   const line = (mk, sentence) => { const el = mk(); el.textContent = sentence; out.push(el); };
   if (created.length) line(text, `Created ${listed(created.map((r) => r.display))}.`);
