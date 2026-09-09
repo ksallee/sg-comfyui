@@ -175,7 +175,7 @@ class SGLoadVersion:
                            f"{allowed}.")
         return resolve.pick(project_id, lt, target, task_id, name_contains, codes,
                             newest_by, p.get("code_regex", ""), cls._filters(filters),
-                            where=site.unset(link) or "")
+                            where=site.unset(link) or "", template=p.get("code_template", ""))
 
     @classmethod
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",

@@ -8,7 +8,7 @@ each part optional and each one narrowing. Nothing here invents vocabulary SG do
 Ordering is a choice because "newest" is ambiguous — a re-published v002 is newer by id but older by
 intent — so the convention's version number is offered alongside id and created_at.
 """
-from . import site
+from . import naming, site
 
 BY_VERSION = "version number in the name"
 BY_CREATED = "created_at"
@@ -18,8 +18,24 @@ ORDERS = [BY_VERSION, BY_CREATED, BY_ID]
 SORT = {BY_CREATED: "-created_at", BY_ID: "-id", BY_VERSION: "-id"}
 
 
+# `naming.template_regex` pins the values it is handed and writes this for the rest, which is what
+# numbering one link's own history wants. Ranking has nothing to pin and a root name usually holds an
+# underscore, so here the unpinned fields widen to match one.
+UNPINNED = "[^_]*"
+
+
 def _terms(name_contains):
     return [t for t in (name_contains or "").split() if t]
+
+
+def regex_from(template):
+    """A matcher for the codes a version-name template produces, naming a `version` group.
+
+    What a site with no `code_regex` ranks by, so newest-by-version-number means something on a
+    project nobody has measured a convention for.
+    """
+    t = (template or "").strip() or naming.DEFAULT_TEMPLATE
+    return naming.template_regex(t, {}).replace(UNPINNED, ".*")
 
 
 def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=()):
@@ -44,7 +60,7 @@ def combine(base, extra):
 
 
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
-         order=BY_VERSION, regex="", filters=None, where=""):
+         order=BY_VERSION, regex="", filters=None, where="", template=""):
     """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently.
 
     `filters` is ANDed onto what the widgets add up to. It narrows, never replaces, so every field on
@@ -52,6 +68,10 @@ def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statu
 
     `where` is what the operator called the link. Only ids reach here, and "nothing on Shot 7514"
     names a row they never typed; the caller knows the label they picked.
+
+    `regex` is the convention measured on this project. `template` is the version-name template it
+    publishes with, which is what the ranking falls back to where no convention was measured; `why`
+    says which of the two ranked.
     """
     terms = _terms(name_contains)
     combined = combine(filters_for(project_id, link_type, link_id, task_id, name_contains, statuses),
@@ -69,12 +89,13 @@ def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statu
         return 0, "", (f"No Version on {where}" + (" with " + ", ".join(bits) if bits else "")
                        + ". Pick a different link, or clear some of the fields.")
 
-    if order == BY_VERSION and regex:
-        from . import naming
-        ranked = [(p["version"], c, i) for c, _, i in rows if (p := naming.parse(c, regex))]
+    if order == BY_VERSION:
+        rx, matched = (regex, "the project's name convention") if regex else \
+            (regex_from(template), "the version name template")
+        ranked = [(p["version"], c, i) for c, _, i in rows if (p := naming.parse(c, rx))]
         if ranked:
             _, code, vid = max(ranked, key=lambda x: x[0])
-            return vid, code, f"highest version of {len(ranked)} matching the convention"
+            return vid, code, f"highest version of {len(ranked)} matching {matched}"
 
     code, _, vid = rows[0]
     how = "created_at" if order == BY_CREATED else "id"

@@ -1,6 +1,7 @@
-"""Which sources SG Load offers and what it calls them.
+"""Which sources SG Load offers, what it calls them, and which Version a rule lands on.
 
-Nothing here touches a site: `published_files` is driven with a stub client.
+Nothing here touches a site: `published_files` is driven with a stub client, and `resolve.pick`
+through the one function it asks the site for.
 """
 import os
 import sys
@@ -17,7 +18,7 @@ _ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if os.path.join(_ROOT, "src") not in sys.path:
     sys.path.insert(0, os.path.join(_ROOT, "src"))
 
-from comfyui_sg import media  # noqa: E402
+from comfyui_sg import media, naming, resolve  # noqa: E402
 
 
 class Answer:
@@ -151,3 +152,45 @@ def test_an_upload_is_read_like_an_uploaded_still(monkeypatch):
     data, name = media.load(v, media.pf_key(v["published_files"][0]))
     assert data == b"bytes for https://s3/x?sig"
     assert name == "sh010_v001.mov"
+
+
+# --- newest by version number ----------------------------------------------------------------------
+
+ROWS = [("sh010_comp_v003", "apr", 31), ("sh010_comp_v011", "apr", 12),
+        ("sh010_comp_v007", "apr", 44)]
+
+
+def found(monkeypatch, rows=ROWS):
+    monkeypatch.setattr(resolve.site, "find_versions", lambda *a, **kw: list(rows))
+
+
+def test_a_site_with_a_regex_ranks_by_it(monkeypatch):
+    found(monkeypatch)
+    vid, code, why = resolve.pick(1, regex=r"^(?P<name>.+)_v(?P<version>\d+)$")
+    assert (vid, code) == (12, "sh010_comp_v011")
+    assert why == "highest version of 3 matching the project's name convention"
+
+
+def test_a_plain_site_ranks_by_the_template(monkeypatch):
+    found(monkeypatch)
+    vid, code, why = resolve.pick(1, template="{root_name}_v{version:03d}")
+    assert (vid, code) == (12, "sh010_comp_v011")
+    assert why == "highest version of 3 matching the version name template"
+
+
+def test_the_default_template_is_used_when_the_profile_names_none(monkeypatch):
+    found(monkeypatch)
+    vid, _, why = resolve.pick(1)
+    assert vid == 12 and "version name template" in why
+
+
+def test_a_template_matching_nothing_falls_back_to_newest_by_id(monkeypatch):
+    found(monkeypatch, [("one", "apr", 31), ("two", "apr", 12)])
+    vid, code, why = resolve.pick(1)
+    assert (vid, code) == (31, "one")
+    assert why == "newest by id of 2"
+
+
+def test_the_derived_regex_names_a_version_group():
+    rx = naming.template_regex(naming.DEFAULT_TEMPLATE, {})
+    assert naming.parse("sh010_v011", rx)["version"] == 11
