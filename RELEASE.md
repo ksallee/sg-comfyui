@@ -40,9 +40,16 @@ untouched since #80 and is promoted by PR, which is Kevin's.
   names the files it already wrote; the caches a publish invalidates are the ones it means to.
   Versions 31991 (16-bit PNG, PublishedFile 7009) and 31992 (EXR, PublishedFile 7010) measured.
 - #88 Leftovers: the archived experiment graphs carry the 13th value; `--root-name`.
+- #89 and #90, from the two verification passes below: lineage keyed by a fingerprint of the Load
+  node and not its id; the description read back as provenance; a still registered at its real
+  path; the run log staying on the panel; the budget refusal shown before a run for movies and for
+  pinned Loads; an unresolvable storage as the panel alert; the sentences for a missing Version, a
+  Version with nothing published, a thumbnail and an upload row.
 
-**Live verification, run from this checkout against the sandbox** — see "Measured" below; the
-section is filled in as the two verification passes report.
+The offline suite on merged `dev`: 255 tests with ComfyUI's interpreter, decode tests included.
+
+**Live verification** ran from this checkout against the sandbox, two passes in parallel; see
+"Measured".
 
 **Machine state, not in git.** ComfyUI runs from `~/dev/ComfyUI` (0.34.0) on 8188 and needs a
 restart to load today's routes. `~/dev/ComfyUI/custom_nodes/sg-comfyui` links here. The stale demo
