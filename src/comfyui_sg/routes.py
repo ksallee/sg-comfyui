@@ -111,7 +111,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         seq_t = pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
         mov_t = pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
         root_t = (widgets.get("root_name", "") or prof.get("root_name")
-                  or naming.DEFAULT_ROOT_TEMPLATE)
+                  or naming.DEFAULT_ROOT_TEMPLATE).strip()
         code, version_no = version_name.next_name(widgets.get("code_template", ""), project_id,
                                                   link_type, target, task_id, root_t)
         # `{root_name}` and `{version_name}` are rendered here, never looked up: resolve_paths knows
@@ -119,7 +119,7 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
                   | set(naming.template_fields(root_t)))
         vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
-        vals["root_name"] = naming.render(root_t, vals, version_no)
+        vals["root_name"] = version_name.root_of(root_t, vals)
         vals["version_name"] = code
         where = []
         if want_frames:
@@ -168,11 +168,12 @@ def _sample_values(template, extra=None):
 
 def _example(kind, template):
     """`kind` is name, root, sequence or movie."""
-    from . import naming, sequence
+    from . import naming, sequence, version_name
     p = site.for_project(site.default_project())
     pf = p.get("published_files") or {}
-    root_t = (template if kind == "root" else p.get("root_name")) or naming.DEFAULT_ROOT_TEMPLATE
-    root_name = naming.render(root_t, _sample_values(root_t), 3)
+    root_t = ((template if kind == "root" else p.get("root_name"))
+              or naming.DEFAULT_ROOT_TEMPLATE).strip()
+    root_name = version_name.root_of(root_t, _sample_values(root_t))
     if kind == "root":
         return root_name
     name_t = (template if kind == "name" else p.get("code_template")) or naming.DEFAULT_TEMPLATE

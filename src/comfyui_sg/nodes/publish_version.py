@@ -197,14 +197,15 @@ class SGPublishVersion:
         # The stream is RENDERED from its own template, never derived by subtracting a version token
         # from a longer one. A path refers to `{root_name}` and `{version_name}` rather than
         # spelling the naming scheme a second time, so the two cannot disagree.
-        root_t = root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE
+        root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
         fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
                   | set(naming.template_fields(root_t)))
         vals = site.resolve_paths(fields, project_id, link_type, target, task_id)
         # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
-        # corpus 028: a 200 proves nothing, and neither does a path that rendered.
+        # probe 028: a 200 proves nothing, and neither does a path that rendered.
         blank = sorted(k for k in fields if not str(vals.get(k, "")).strip())
-        name = naming.render(root_t, vals, version_no)
+        # `version_name.root_of`, so the folder is the same stream name the code was built on.
+        name = version_name.root_of(root_t, vals)
 
         def path_for(template, ext):
             return sequence.pattern(root, template,
@@ -275,10 +276,16 @@ class SGPublishVersion:
         if staged.get("frames"):
             n = len(staged["frames"])
             jobs.append(("frames" if n > 1 else "still", staged["frames_code"],
-                         staged["frames_name"], staged["frames_pattern"], f"{n} frames"))
+                         staged["frames_name"], staged["frames_pattern"],
+                         f"{n} frames" if n > 1 else "1 frame"))
         if staged.get("media"):
             jobs.append(("movie", staged["media_code"], staged["media_name"], staged["media"],
                          "the clip"))
+
+        # One type read per kind, before anything is written: it is a site-wide list and does not
+        # change between two files of one publish.
+        types = {kind: publish.published_file_type(sg, sequence.TYPE_CANDIDATES[kind])
+                 for kind in {j[0] for j in jobs}}
 
         notes = []
         for kind, code, name, path, what in jobs:
@@ -287,7 +294,7 @@ class SGPublishVersion:
             # it misses every row published this way (entity_types/PublishedFile). It is a plain
             # text field and takes a write, so the client writes what it already knows.
             body["path_cache"] = sequence.relative(staged["root"], path)
-            pft = publish.published_file_type(sg, sequence.TYPE_CANDIDATES[kind])
+            pft = types.get(kind)
             if pft:
                 body["published_file_type"] = pft
             else:
@@ -327,6 +334,9 @@ class SGPublishVersion:
                 "Nothing is wired into this node. Connect an image to images, a video to video, or "
                 "both.")
         frames = len(images) if images is not None else 0
+        if images is not None and frames == 0:
+            raise ValueError("The image batch is empty, so there is nothing to publish. Check the "
+                             "node feeding images, then run again.")
         # A sequence cannot BE a Version's media (probe 022) and nothing here is being asked to
         # register it, so frame 1 would go up and the rest would vanish. Refused loudly, and refused
         # before the site is touched at all.
@@ -451,10 +461,15 @@ class SGPublishVersion:
         # movie uploaded for the player. These are tier 2 in probe 021, which is what the Load node
         # reads to pull frames back. Each is written for the platform the profile picks, and only
         # when the profile wants the field at all (_stage).
+        skipped_paths = []
         for field, value in (("sg_path_to_frames", (staged or {}).get("frames_field")),
                              ("sg_path_to_movie", (staged or {}).get("media_field"))):
-            if value and field in schema:
+            if not value:
+                continue
+            if field in schema:
                 fields[field] = value
+            else:
+                skipped_paths.append(field)
 
         vid = publish.create_version(sg, project_id, code, fields)
         # Every lookup a name depends on. `find` is the one the template reads, and a stale one lets
@@ -480,6 +495,16 @@ class SGPublishVersion:
                                     lineage.files_for_nodes(upstream))
 
         published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
+        # A stock field this site does not have. The files are still registered and still carry the
+        # path, so this is one line about the Version's own path column, never a refusal.
+        if skipped_paths:
+            published.append(f"This site has no {', '.join(skipped_paths)}. Ask an admin to add "
+                             f"them, so the files open from the Version.")
+        if count > 1:
+            skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
+            if skipped:
+                published.append(f"This site has no {', '.join(skipped)}. Ask an admin to add "
+                                 f"them, so the frame range reads on the Version.")
         # Frames wired in that nobody asked to keep are not an error — the clip is the review and
         # carries the same picture — but they are not silent either.
         if images is not None and video is not None and not want_frames:

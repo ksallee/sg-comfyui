@@ -116,7 +116,11 @@ def storage_row(storages, code=""):
     """The LocalStorage the profile names. Chosen by code, never by position: one root is not a
     choice, several are, and taking the first would put a show's frames on whichever storage the
     site happens to list first."""
-    have = ", ".join(sorted(s["code"] for s in storages)) or "none"
+    have = ", ".join(sorted(s["code"] for s in storages))
+    if not storages:
+        raise RuntimeError("This site has no Local File Storage, so nothing can be published to "
+                           "it. Add one in Flow Production Tracking, under Site Preferences then "
+                           "File Management.")
     if not code and len(storages) != 1:
         raise RuntimeError(f"published_files.storage is not set in profile.local.json, and this "
                            f"site has {len(storages)} storages to choose from. Set it to one of "
