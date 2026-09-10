@@ -66,6 +66,8 @@
 
 html {
 	scroll-behavior: smooth;
+	/* The nav is sticky, so an anchor lands below it rather than under it. */
+	scroll-padding-top: 5rem;
 }
 
 body {
@@ -224,6 +226,11 @@ hr {
 .band {
 	padding-block: var(--band);
 	border-top: 1px solid var(--line);
+}
+
+/* A short section, so it reads as an aside beside the full bands. */
+.band.tight {
+	padding-block: calc(var(--band) * 0.6);
 }
 
 .lede {

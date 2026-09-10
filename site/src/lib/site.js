@@ -2,6 +2,7 @@ export const repo = 'https://github.com/ksallee/sg-comfyui';
 export const issues = `${repo}/issues/new`;
 export const registry = 'https://registry.comfy.org/';
 export const licence = `${repo}/blob/main/LICENSE`;
+export const author = 'https://www.linkedin.com/in/kevinsallee/';
 
 /** The nine documentation pages, in reading order. The footer and /docs both list these. */
 export const docs = [
@@ -40,6 +41,9 @@ export const shotSize = {
 	'19_template_01_concept_and_style': [1600, 1000],
 	'20_template_02_style_from_a_reference': [1600, 1000],
 	'example-workflow': [1540, 903],
+	'load-provenance-rows': [870, 660],
+	'settings-sign-in': [2304, 1440],
+	'settings-storage-paths': [1900, 750],
 	'sg-load-node': [1050, 800],
 	'sg-publish-node': [765, 855]
 };

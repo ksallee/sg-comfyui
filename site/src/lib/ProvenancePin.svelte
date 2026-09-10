@@ -52,16 +52,21 @@
 <section class="band" class:stepping={pinned} id="provenance" bind:this={wrap}>
 	<div class="page grid">
 		<div class="side">
-			<h2>Nine typed fields on Version.</h2>
+			<h2>Provenance</h2>
 			<p class="lede">
-				SG Site Setup counts the nine and creates the ones the site does not have. A site with none
-				of them records the same facts in the Version's description.
+				AI provenance is recorded in Version fields: <code>sg_ai_generator</code>,
+				<code>sg_ai_model</code>, <code>sg_ai_prompt</code>, and so on. A site without them gets the
+				same facts in the Version's description.
+			</p>
+			<p>
+				SG Publish shows what it will record. SG Load shows what a Version records. An agent sets
+				the fields up and remaps them (<code>/setup</code>, SG Site Setup).
 			</p>
 			<div class="side-shot">
 				<Shot
-					name="12_settings_site_setup_9_of_9"
-					alt="SG Site Setup in ComfyUI settings, reporting nine of nine provenance fields on Version"
-					caption="It reads the schema first and creates only what is missing. Pressing Create twice is safe."
+					name="load-provenance-rows"
+					alt="The SG Load panel listing a Version's provenance: model, prompt, seed, sampler, steps and cfg"
+					caption="SG Load on a pinned Version, before the graph runs."
 				/>
 			</div>
 		</div>
@@ -93,13 +98,11 @@
 	}
 
 	.side-shot {
-		margin-top: 1.75rem;
+		margin-top: 1.5rem;
 	}
 
-	.side-shot :global(img) {
-		max-height: 260px;
-		object-fit: cover;
-		object-position: left bottom;
+	.side h2 + .lede {
+		margin-bottom: 0.9rem;
 	}
 
 	.fields {

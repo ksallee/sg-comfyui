@@ -181,6 +181,7 @@ The order is not decided. Open an issue for the one you need, whether or not it 
 - Updating the Task's status when a Version is published.
 - Newest per stream, rather than newest on the link.
 - Any Version field on the node, in one line.
+- Customising the normal and advanced inputs that come from Version fields or linked fields, without an agent.
 - A colour-managed template.
 - Windows as a first-class publisher.
 
