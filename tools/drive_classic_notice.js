@@ -1,4 +1,4 @@
-// The notice a node draws when Nodes 2.0 is off, and what a copy of that node is titled.
+// Checks the notice a node draws when Nodes 2.0 is off, and the title of a copy of that node.
 //   tools/qa_node.py --start --repo . --no-vue --node SGPublishVersion \
 //     --drive tools/drive_classic_notice.js
 app.graph.clear();
@@ -11,7 +11,7 @@ const notice = labels.includes("Nodes 2.0 is off. Click to open Settings, then N
   + "on Modern Node Design.");
 const classic = labels.includes("The lists on this node do not update on the classic canvas.");
 
-// Paste creates the node with the copied title, which is where a second suffix used to land.
+// Paste creates the node with the copied title. The suffix is added once.
 const copy = window.LiteGraph.createNode(n.type, n.title);
 app.graph.add(copy);
 copy.pos = [60, 420];

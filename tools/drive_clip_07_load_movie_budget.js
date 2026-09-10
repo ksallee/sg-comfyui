@@ -1,8 +1,8 @@
 // Captures SG Load reading a movie Version into Save Video, then a pinned Load refusing a batch
-// too big to hold.
+// over the budget.
 // Needs Version 31993 on the sandbox project.
-// Answers /sg/resolve from here for the refusal. No plate on this site is large enough to be
-// refused, and the budget is a profile value.
+// Answers /sg/resolve here for the refusal: no plate on this site is large enough to be refused, and
+// the budget is a profile value.
 //   tools/capture.py --drive tools/drive_clip_07_load_movie_budget.js --out 07
 const MOVIE = 31993;
 

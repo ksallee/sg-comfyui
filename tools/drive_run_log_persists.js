@@ -1,6 +1,6 @@
-// What a run wrote stays on the panel, through the redraw that follows it.
+// Checks that what a run wrote stays on the panel through the redraw that follows it.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_run_log_persists.js
-// Every /sg route is answered here, so nothing reaches a site.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });
@@ -44,7 +44,7 @@ app.api.dispatchEvent(new CustomEvent("executed", { detail: {
 const shown = () => [...document.querySelectorAll(".sg-ok")].map((e) => e.textContent.trim());
 await wait(600);
 const before = shown();
-await wait(8000);                      // the redraw 1.2s after the run has long since landed
+await wait(8000);                      // past the redraw 1.2s after the run
 const after = shown();
 const kept = LINES.every((l) => after.includes(l));
 return { verdict: `${kept ? "PASS" : "FAIL"} ${after.length} lines 8s after the run`,

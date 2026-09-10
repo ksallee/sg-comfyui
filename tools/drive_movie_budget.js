@@ -1,11 +1,11 @@
-// A movie too long to hold in one batch is refused before the Run, the same way a sequence is: the
-// answer carries a count and a limit, and the source it came off makes no difference.
+// Checks that a movie over the batch budget is refused before the Run, as a sequence is, with a
+// count and a limit in the message.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGLoadVersion --drive tools/drive_movie_budget.js
-// Every /sg route is answered here, so nothing reaches a site.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });
-// What /sg/resolve answers for a movie: frames counted off the clip, with no numbering of their own.
+// What /sg/resolve returns for a movie: frames counted off the clip, with no numbering.
 const RESOLVE = {
   id: 31875, code: "chr_010_comp_v006", why: "newest on this link",
   status: { code: "rev", label: "Pending Review", rgb: "255,169,0", icon: "" },
@@ -36,8 +36,8 @@ app.graph.clear();
 const n = window.LiteGraph.createNode("SGLoadVersion");
 app.graph.add(n);
 await wait(1800);
-// The picker's project list is fetched as the page loads, before this drive can answer for it, so
-// the node opens on the real profile's project. Pick the one these routes know.
+// The project list is fetched as the page loads, before this drive answers for it, so the node opens
+// on the profile's project. Pick the one these routes know.
 const w = (name) => n.widgets.find((x) => x.name === name);
 if (w("project").value !== "Chariot") {
   w("project").value = "Chariot"; w("project").callback?.("Chariot"); await wait(2200);

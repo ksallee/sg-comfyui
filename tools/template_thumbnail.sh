@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
-# The card image for one shipped template: load it in a real ComfyUI, frame the graph, crop to it.
+# Writes the card image for one shipped template: load it in a real ComfyUI, frame the graph, crop
+# to it.
+# A custom node pack's template card is a static <name>.jpg beside the <name>.json.
+# Requires playwright, as tools/smoke.py does.
 #
 #     tools/template_thumbnail.sh 00_example "$SCRATCH" "$PWD"
-#
-# A custom node pack's template card is a static <name>.jpg beside the <name>.json and nothing else
-# is read, so the graph is the subject. Needs playwright, like tools/smoke.py.
 set -e
 NAME="$1"; S="$2"; REPO="$3"
 cat > "$S/drive_$NAME.js" <<JS
@@ -12,7 +12,7 @@ const g = await (await fetch("/api/workflow_templates/sg-comfyui/$NAME.json")).j
 await app.loadGraphData(g);
 await wait(3500);
 // The editor's right-hand splitter panel overlays the canvas, so the drawable width stops at its
-// left edge. Fit to that, not to the canvas element, or wide graphs render under the panel.
+// left edge. Fit to that, not to the canvas element, or a wide graph renders under the panel.
 let limit = window.innerWidth;
 for (const el of document.querySelectorAll("[class*='p-splitterpanel']")) {
   const r = el.getBoundingClientRect();
@@ -21,11 +21,11 @@ for (const el of document.querySelectorAll("[class*='p-splitterpanel']")) {
 const ns0 = app.graph._nodes; let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9;
 for (const n of ns0) { const [x,y]=n.pos,[w,h]=n.size;
   x0=Math.min(x0,x); y0=Math.min(y0,y-30); x1=Math.max(x1,x+w); y1=Math.max(y1,y+h); }
-// Fit by hand against the VISIBLE region rather than the canvas element, which runs under the panel.
+// Fit against the visible region, not the canvas element, which runs under the panel.
 const ds=app.canvas.ds, r=app.canvas.canvas.getBoundingClientRect();
-// The canvas is full-bleed and the editor's chrome floats over it: tab strip and Run bar across
-// the top, icon rail down the left, zoom bar along the bottom, splitter panel on the right. These
-// insets are what is actually drawable.
+// The canvas is full-bleed and the editor's chrome overlays it: tab strip and Run bar across the
+// top, icon rail down the left, zoom bar along the bottom, splitter panel on the right. These
+// insets are the drawable area.
 const VIS = {l: r.left + 78, t: r.top + 118, r: limit - 12, b: r.bottom - 78};
 const m = 16, availW = (VIS.r - VIS.l) - m*2, availH = (VIS.b - VIS.t) - m*2;
 const s = Math.min(availW / (x1 - x0), availH / (y1 - y0));

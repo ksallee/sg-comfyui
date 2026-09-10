@@ -1,4 +1,6 @@
-// SG Load on an RGBA Version, its mask wired through Convert Mask to Image into a Preview, run live.
+// Runs SG Load on an RGBA Version with its mask wired through Convert Mask to Image into a Preview.
+// Needs the sandbox project and Version 31995.
+//   tools/qa_node.py --start --repo . --drive tools/drive_load_mask.js
 const pause = (ms) => wait(ms);
 const seen = [];
 app.graph.clear(); await pause(300);

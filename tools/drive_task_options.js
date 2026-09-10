@@ -1,8 +1,8 @@
-// Measures the Task picker on SG Publish and takes one chosen Task through a Run.
-// PASS needs four results: the picker offers each Task the widget lists, one of them is chosen,
-// the panel names it before the Run, and the Version the Run files resolves by that Task.
-// Live: publishes one 512x512 frame to the sandbox project.
+// Checks the Task picker on SG Publish and takes one chosen Task through a Run.
+// PASS needs four results: the picker offers each Task the widget lists, one is chosen, the panel
+// names it before the Run, and the Version the Run files resolves by that Task.
 // Needs the sandbox project and Shot sh010, which has six Tasks.
+// Publishes one 512x512 frame to the sandbox project.
 //   tools/qa_node.py --start --repo <checkout> --drive tools/drive_task_options.js
 const pause = (ms) => wait(ms);
 const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
@@ -10,8 +10,8 @@ const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
 const options = () => [...document.querySelectorAll('[role="option"]')];
 const rowName = (r) => (r.querySelector(".sg-pop-name")?.textContent || r.textContent || "").trim();
 const rowStep = (r) => (r.querySelector(".sg-pop-meta")?.textContent || "").trim();
-// Both boxes of the readout, the fold included. textContent, because the fold is closed and an
-// element nobody can see has no innerText.
+// Both boxes of the readout, the fold included. textContent, because a closed fold has no
+// innerText.
 const panel = () => [...document.querySelectorAll(".sg-panel")]
   .map((p) => p.textContent || "").join(" ").replace(/\s+/g, " ");
 
@@ -27,7 +27,7 @@ const pick = async (label, term, want) => {
   if (!await openPicker(label)) return false;
   const inp = document.querySelector(".sg-pop-input");
   if (inp && term) { inp.value = term; inp.dispatchEvent(new Event("input", { bubbles: true })); }
-  // A row is clicked by the index it had when the list was drawn, so wait for the answer to the
+  // A row is clicked by the index it had when the list was drawn, so wait for the response to the
   // typed term before reading the rows.
   const busy = () => document.querySelector(".sg-pop-busy")?.hidden === false;
   for (let i = 0; i < 60 && busy(); i++) await pause(250);
@@ -58,7 +58,7 @@ app.canvas.centerOnNode(pub);
 app.canvas.ds.state.scale = 0.9;
 app.canvas.setDirty(true, true);
 await pause(1500);
-// The field rows live inside ComfyUI's own advanced fold, and a closed fold renders none of them.
+// The field rows are inside ComfyUI's advanced fold, and a closed fold renders none of them.
 document.querySelector('[data-testid="advanced-inputs-button"]')?.click();
 await pause(1200);
 
@@ -95,8 +95,8 @@ const href = [...document.querySelectorAll("a.sg-a")].map((a) => a.href)
   .find((h) => /\/detail\/Version\/\d+/.test(h)) || "";
 const published = Number((href.match(/\/detail\/Version\/(\d+)/) || [])[1] || 0);
 
-// The Version the Run filed, asked for by that Task alone: the load node's own resolver answers
-// with the newest Version on the link that names it.
+// The Version the Run filed, asked for by that Task alone. The load node's resolver returns the
+// newest Version on the link that names it.
 const q = new URLSearchParams({ project: w("project").value, link: w("link").value,
                                 task: task.value });
 const found = await (await fetch(`/sg/resolve?${q}`)).json();

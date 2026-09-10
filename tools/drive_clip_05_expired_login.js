@@ -1,5 +1,5 @@
-// Captures a login expiring while the graph is open: the sentence on the panel, the link kept.
-// Answers every /sg route from here. No site is asked.
+// Captures a login expiring while the graph is open: the sentence on the panel, and the link kept.
+// Answers the /sg routes here. No site is read.
 //   tools/capture.py --node SGPublishVersion --drive tools/drive_clip_05_expired_login.js --out 05
 const EXPIRED = "Your login has expired. Log in again under Settings, then SG.";
 let expired = false;
@@ -29,11 +29,11 @@ await pause(900);
 await frameAll(50);
 await pause(500);
 
-// Pick the link, which is what a saved graph carries.
+// Pick the link, the value a saved graph stores.
 await pick("link", "", "chr_010");
 await pause(900);
 
-expired = true;                       // the login goes while the graph is open
+expired = true;                       // the login expires while the graph is open
 await click(node.widgets.find((x) => x.name === "Sync from SG")?.element
   || [...document.querySelectorAll("button")]
     .find((b) => (b.textContent || "").trim() === "Sync from SG"), 600);

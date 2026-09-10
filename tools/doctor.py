@@ -1,9 +1,8 @@
 #!/usr/bin/env python3
 """Check what a publish needs on this machine, and say what to fix.
 
-Run it as a file, like instrument.py: `-m` would import the package `__init__`, which imports the
-nodes and therefore torch, and this has to run on a plain Python. Without `--site` it reaches
-nothing over the network.
+Run it as a file, like instrument.py. `-m` imports the package `__init__`, which imports the nodes
+and therefore torch, and this runs on a plain Python. Without `--site` it makes no network request.
 """
 import argparse
 import os
@@ -14,17 +13,17 @@ from pathlib import Path
 PACK = Path(__file__).resolve().parents[1]
 LOCAL_FILES = ("profile.local.json", "settings.local.json", "session.local.json", ".env.local")
 
-# What a template is rendered on: one Shot, one Roto Task, version 3. A path template is rendered
-# on the two names the run hands it, which is where `{root_name}` and `{version_name}` come from.
+# The sample a template is rendered on: one Shot, one Roto Task, version 3. `{root_name}` and
+# `{version_name}` are the two names a run passes to a path template.
 SAMPLE = {"entity": "sh010", "root_name": "sh010_RTO", "version_name": "sh010_RTO_v003",
           "code": "sh010_RTO_v003", "ext": ".png"}
 
 
 def modules():
-    """The package's own modules, imported without its `__init__`, which pulls in torch.
+    """The package's modules, imported without its `__init__`, which imports torch.
 
-    The stub carries the real directory on `__path__`, so every submodule and every relative import
-    below it resolves as usual.
+    The stub sets the package directory as `__path__`, so the submodules and their relative imports
+    resolve.
     """
     pkg = types.ModuleType("comfyui_sg")
     pkg.__path__ = [str(PACK / "src" / "comfyui_sg")]
@@ -72,8 +71,8 @@ def check_comfy_interpreter(r):
     comfy = Path(os.environ.get("COMFYUI_PATH", Path.home() / "dev" / "ComfyUI"))
     venv = comfy / "venv"
     python = venv / "bin" / "python"
-    # By prefix, not by path: a venv's interpreter resolves to the base Python it was made from,
-    # so two different environments compare equal once the symlink is followed.
+    # By prefix, not by path: a venv's interpreter resolves to the base Python it was made from, so
+    # two environments compare equal once the symlink is followed.
     if not python.exists():
         r.warn(f"No interpreter at {python}. Set COMFYUI_PATH to the ComfyUI this pack is "
                f"installed in, then run this again.")
@@ -111,13 +110,13 @@ def sample_for(field):
     if field in SAMPLE:
         return SAMPLE[field]
     if field.endswith("short_name"):
-        return "RTO"                       # a Step's short name, the way a Roto step spells it
+        return "RTO"                       # a Step's short name, as a Roto step spells it
     head = field.split(".")[0]
     return {"entity": "sh010", "sg_task": "Roto", "project": "Demo"}.get(head, "")
 
 
 def templates(profile):
-    """(where, key, template) for every name and path template the profile carries."""
+    """(where, key, template) for each name and path template in the profile."""
     blocks = [("The site block", {k: v for k, v in profile.items() if k != "projects"})]
     blocks += [(f"Project {pid}", b) for pid, b in (profile.get("projects") or {}).items()]
     for where, block in blocks:

@@ -1,7 +1,7 @@
-// The publish panel before and after a Run, as rows: review, files as the format picked, paths.
-// Live: publishes a 2-frame batch as EXR to the sandbox. The body of an async function, run as
+// Captures the publish panel before and after a Run, as rows: review, files in the format picked,
+// paths.
+// Needs the sandbox project and Shot sh010. Publishes a 2-frame EXR batch while RUN is true.
 //   tools/qa_node.py --start --repo <checkout> --drive tools/drive_publish_rows.js --shot rows.png
-// RUN decides whether it queues the publish or stops at the readout.
 const RUN = true;
 const pause = (ms) => wait(ms);
 const seen = [];

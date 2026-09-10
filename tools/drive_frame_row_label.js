@@ -1,6 +1,6 @@
-// One frame is "1 frame" on the panel's file row, the way the run log says it.
+// Checks that one frame reads as "1 frame" on the panel's file row, as the run log spells it.
+// Answers the /sg routes here with fixtures. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_frame_row_label.js
-// Every /sg route is answered here, so nothing reaches a site. The payloads are fixtures.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });

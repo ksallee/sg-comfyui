@@ -1,7 +1,7 @@
-// A pinned Version whose plate is too big for one batch says both things: the pin as a notice, the
-// refusal as the alert.
+// Checks that a pinned Version whose plate is over the batch budget shows both the pin notice and
+// the refusal alert.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGLoadVersion --drive tools/drive_pinned_budget.js
-// Every /sg route is answered here, so nothing reaches a site.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });

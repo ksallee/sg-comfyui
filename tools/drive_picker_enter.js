@@ -1,4 +1,6 @@
-// Enter while the answer for the keystroke is still coming must not pick the previous search's row.
+// Checks that Enter pressed before the response to a keystroke arrives does not pick the previous
+// search's row.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_picker_enter.js
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
@@ -37,7 +39,7 @@ enter();                               // inside the debounce, over the previous
 await wait(60);
 const during = project.value;
 
-await wait(800);                       // the answer for "cha" is drawn
+await wait(800);                       // the response for "cha" is drawn
 enter();
 await wait(300);
 const settled = project.value;
