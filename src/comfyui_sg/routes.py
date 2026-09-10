@@ -427,7 +427,7 @@ def register():
         q = request.rel_url.query
 
         def rows():
-            # probe 017: `contains` filters server-side, so the list is never fetched whole.
+            # probe 017: `contains` filters server-side, so the list is never fetched in full.
             pid = _int(q, "project_id")
             found = site.links(pid, q.get("q", ""), site.chosen_types(q.get("type", ""), pid))
             return [{"label": l, "type": t, "id": i} for l, t, i in found]

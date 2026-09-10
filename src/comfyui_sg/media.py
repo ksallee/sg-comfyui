@@ -688,7 +688,7 @@ def _components(source, filename):
     EXR keeps its range and its values above 1. Pillow is off this path: it reads the first as two
     levels and cannot open the second at all.
 
-    One image at a time. It reads a whole container into memory, so a movie goes through
+    One image at a time. It reads a container into memory in full, so a movie goes through
     `_frames_of`.
     """
     from comfy_api.latest._input_impl.video_types import VideoFromFile
@@ -719,8 +719,8 @@ EIGHT_BIT = ("yuvj420p", "yuvj422p", "yuvj444p", "rgb24", "rgba", "pal8")
 def _decode(data, filename, start=1):
     """(image, alpha, name) out of one blob: a still is itself, a movie is every frame from `start`.
 
-    A still is read whole: one file is one image. A movie is decoded frame by frame, so the ceiling
-    below refuses a long plate before all of it is in memory.
+    A still is read in full: one file is one image. A movie is decoded frame by frame, so the
+    ceiling below refuses a long plate before all of it is in memory.
     """
     import io
 

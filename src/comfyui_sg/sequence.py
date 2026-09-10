@@ -201,7 +201,7 @@ def swap_ext(path, ext):
     """The extension the files have, replacing whatever the template guessed.
 
     A template that ends in the frame token has no extension to replace, because `.%04d` is the
-    frame number. The token is kept and the real extension is appended after it.
+    frame number. The token is kept and the files' extension is appended after it.
     """
     base, dot, tail = str(path).rpartition(".")
     if not dot or "/" in tail or "\\" in tail or SEQ.fullmatch(tail):
