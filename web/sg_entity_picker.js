@@ -329,6 +329,9 @@ function publishPickers(nodeType, nodeData) {
           ...(r.site_url ? [["published", r.code, `${r.site_url}/detail/Version/${r.id}`]] : []),
           ...(r.media ? [["review", r.media]] : []),
           ...(files ? [["files", files]] : []),
+          // The client that did submit this Run, which only the run knows: it names itself in the
+          // body of /prompt, and a Run nobody named leaves the row off rather than guessing.
+          ...(r.client ? [["submitted by", r.client]] : []),
           ...runFacts({ ...r, site_url: "" }).map((x) => [x.label, x.value, x.href]),
         ], r.notes || []);
       } else {

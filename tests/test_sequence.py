@@ -1,7 +1,13 @@
 """Where the frames land: the storage, the path under its root, and the platform it is written for."""
+import sys
+
 import pytest
 
 from comfyui_sg import sequence
+
+# A directory mode does not stop a write on Windows, so the state cannot be produced there.
+POSIX_MODES = pytest.mark.skipif(sys.platform == "win32",
+                                 reason="a read-only directory needs a POSIX mode")
 
 STORAGES = [
     {"id": 1, "code": "primary", "mac_path": "/Volumes/proj", "linux_path": "/mnt/proj",
@@ -94,3 +100,22 @@ def test_the_colour_space_is_recorded_as_declared_never_guessed():
     assert sequence.describe_colour("") == ""
     assert sequence.describe_colour("ACEScg") == \
         "colour space: ACEScg (declared by the publisher, not converted)"
+
+
+def test_an_unmounted_root_names_the_path_and_what_to_do(tmp_path):
+    with pytest.raises(RuntimeError) as e:
+        sequence.check_root(str(tmp_path / "not_here"))
+    assert str(e.value).endswith("is not mounted on this machine. Mount it, then run again.")
+
+
+@POSIX_MODES
+def test_a_read_only_root_is_refused_before_anything_is_written(tmp_path):
+    root = tmp_path / "readonly"
+    root.mkdir()
+    root.chmod(0o500)
+    try:
+        with pytest.raises(RuntimeError) as e:
+            sequence.check_root(str(root))
+    finally:
+        root.chmod(0o700)
+    assert str(e.value).endswith("is not writable by ComfyUI. Give it write access, then run again.")

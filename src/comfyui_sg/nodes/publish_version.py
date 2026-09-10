@@ -332,7 +332,8 @@ class SGPublishVersion:
         # before the site is touched at all.
         if video is None and frames > 1 and not register_files:
             raise ValueError(
-                f"Only frame 1 would be published, and the other {frames - 1} frames would be lost. "
+                f"Only frame 1 would be published, and the other {frames - 1} "
+                f"frame{'' if frames == 2 else 's'} would be lost. "
                 f"Tick Create Published Files to publish all {frames}, or send the batch through "
                 f"CreateVideo and wire the video into this node.")
         # The picked project decides, then the profile answers for THAT project — two graphs open in
@@ -522,8 +523,11 @@ class SGPublishVersion:
         # The panel draws the run as rows, so the lines it keeps are the ones that ask for
         # attention: everything the rows already say is left to `text`.
         said = ("Published ", "Review media: ", "Registered ")
+        # `client` is the one fact about this Version the panel cannot know before the Run: it is
+        # named in the body of /prompt by whoever submitted it, and is empty when nobody said.
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
                  "status": status_code, "outputs": sorted(typed), "media": media_note,
+                 "client": usage_source or "",
                  "format": (format or sequence.DEFAULT_FORMAT) if want_frames else "", "site_url": sg.site, "files": staged_files,
                  "notes": [x for x in published if not x.startswith(said)]}]
         # `text` is the plain readout ComfyUI shows anywhere; `published` is what the node's own

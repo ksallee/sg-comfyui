@@ -144,8 +144,11 @@ function writesBlock(d) {
   if (!f || !f.length) return "";
   const row = (x) => {
     const empty = !x.value;
-    const where = x.into_description && !empty
-      ? ` <span class="sg-dim">into the description</span>` : "";
+    // A note fills an empty value, and stands beside a value it has something to add to: where the
+    // fact lands, or what about it is not decided until the Run.
+    const where = empty ? ""
+      : x.into_description ? ` <span class="sg-dim">into the description</span>`
+      : x.note ? ` <span class="sg-dim">${esc(x.note)}</span>` : "";
     return `<div class="sg-row"><span class="sg-k">${
       esc(x.name.replace(/^ai_/, ""))}</span><span class="sg-v${empty ? " sg-dim" : ""}">${
       esc(x.value || x.note || "—")}${where}</span></div>`;
