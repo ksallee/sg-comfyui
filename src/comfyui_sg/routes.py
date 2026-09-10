@@ -6,7 +6,6 @@ ComfyUI imports custom nodes between constructing PromptServer and calling add_r
 Setup path: these serve the editor and are never touched while publishing.
 """
 import json
-import os
 import re
 
 from . import credentials, resolve, site
@@ -90,6 +89,50 @@ def _batch_limit(v, key):
             "fits": media.frames_that_fit(size, budget), "gib": media.gib(budget)}
 
 
+def _concept_rows(values, where, schema, names=None):
+    """One row per provenance concept: its value, where that value lands, and what is not settled
+    until the Run.
+
+    Every concept, not only the ones with a value: an empty seed on a graph with no sampler is
+    information. The row is named for where the value LANDS, because that is the operator's
+    decision; the concept is the label beside it. The same split the run makes: a field this site
+    has takes the value, everything else is a description line.
+    """
+    from . import fields as sg_fields
+
+    def show(v):
+        if isinstance(v, list):     # multi_entity: names, not a dict repr
+            return ", ".join((names or {}).get(x.get("id"), str(x.get("id"))) for x in v)
+        return str(v)[:160]
+
+    rows = []
+    for concept, target in where.items():
+        v = values.get(concept)
+        has = v not in (None, "", [])
+        described = target == sg_fields.DESCRIPTION or (target and target not in schema)
+        if target is None:
+            note = "Recorded nowhere."
+        elif described:
+            note = "Into the description."
+        else:
+            note = "" if has else "Not in this graph."
+        # Beside the value, not instead of it: the generator is ComfyUI whoever submits, and the
+        # client is added to it by the Run. Naming one before a Run names the wrong one.
+        if concept == "generator" and has and not described:
+            note = "The client that submits the Run is recorded with it."
+        rows.append({
+            "name": (target[3:] if target.startswith("sg_") else target)
+                    if target and not described else sg_fields.CONCEPT_LABELS[concept],
+            "label": sg_fields.CONCEPT_LABELS[concept],
+            "value": show(v) if has else "",
+            # Where a value lands is the operator's own mapping, so a fact that goes into the
+            # description says so beside its value rather than only where it has none.
+            "into_description": described,
+            "note": note,
+        })
+    return rows
+
+
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """(where the files would land, the sentence that stops them landing anywhere).
 
@@ -126,8 +169,12 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
             ext = ".<the clip's own extension>"
             where.append({"label": "clip path",
                           "path": sequence.destination(pl, pl.movie_template, ext, version_no)})
-        if not os.path.isdir(pl.root):
-            return where, f"The storage root {pl.root} is not mounted. Mount it, then run again."
+        # The run's own guard, asked here: a root that is mounted and not writable refuses at
+        # staging, and a panel that only checked for a mount would call that publish valid.
+        try:
+            sequence.check_root(pl.root)
+        except Exception as e:
+            return where, str(e)
         return where, ""
     except Exception as e:
         return [], (f"Create Published Files is ticked, but the paths could not be worked out. "
@@ -584,12 +631,6 @@ def register():
             body = await request.json()
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
-            # The client that will submit the Run, named the same way the run names it, so the
-            # panel's "made by" line and the Version's agree. ComfyUI's own frontend puts
-            # `comfy_usage_source: "comfyui-frontend"` in extra_data on /prompt and sends no header
-            # here, and this route is only ever called from it.
-            prov["comfy_usage_source"] = (request.headers.get("Comfy-Usage-Source")
-                                          or "comfyui-frontend")
 
             # Typed ids first, then upstream Load nodes — the order the node itself uses.
             own = (prompt.get(node_id) or {}).get("inputs") or {}
@@ -627,37 +668,11 @@ def register():
             pid = ctx.project_id
             where = sg_fields.targets(*site.provenance_map(pid))
             values = sg_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
-
-            def show(v):
-                if isinstance(v, list):     # multi_entity: names, not a dict repr
-                    return ", ".join(by_id.get(x.get("id"), str(x.get("id"))) for x in v)
-                return str(v)[:160]
-
-            rows = []
-            # Every concept, not only the ones with a value: an empty seed on a graph with no
-            # sampler is information. The row is named for where the value LANDS, because that is
-            # the operator's decision; the concept is the label beside it. The same split the run
-            # makes: a field this site has takes the value, everything else is a description line.
-            for concept, target in where.items():
-                v = values.get(concept)
-                has = v not in (None, "", [])
-                described = target == sg_fields.DESCRIPTION or (target and target not in schema)
-                if target is None:
-                    note = "Recorded nowhere."
-                elif described:
-                    note = "Into the description."
-                else:
-                    note = "" if has else "Not in this graph."
-                rows.append({
-                    "name": (target[3:] if target.startswith("sg_") else target)
-                            if target and not described else sg_fields.CONCEPT_LABELS[concept],
-                    "label": sg_fields.CONCEPT_LABELS[concept],
-                    "value": show(v) if has else "",
-                    # Where a value lands is the operator's own mapping, so a fact that goes into
-                    # the description says so beside its value rather than only where it has none.
-                    "into_description": described,
-                    "note": note,
-                })
+            # The Version records "ComfyUI (<client>)", and the client is whoever POSTs /prompt
+            # (execution.py:224) — the frontend, a farm, the `comfy` CLI, an MCP server. This route
+            # is not that call and no Run has been submitted, so the panel names what it knows.
+            values["generator"] = prov.get("generator") or "ComfyUI"
+            rows = _concept_rows(values, where, schema, by_id)
             # The rest of the Version: not provenance, but still what gets written. Resolved the way
             # the RUN resolves it rather than the way the picker displays it — the link field takes
             # {"type", "id"}, the status takes a code, and the field name is the profile's
@@ -667,7 +682,8 @@ def register():
             prof, link_type, picked_name = ctx.profile, ctx.link_type, ctx.link_name
             link_field = prof.get("link_field", "entity")
             target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
-            plain = [("description", w.get("note") or "", "From the note field."),
+            plain = [("description", w.get("note") or "",
+                      "" if w.get("note") else "From the note field."),
                      ("sg_status_list", status_code, "" if status_code else "No status picked."),
                      (link_field, f"{link_type} {target}" if target else "",
                       "" if target else

@@ -188,6 +188,9 @@ def check_root(root):
 
     Same rule as staging the movie first (publish_version): a Version left behind pointing at frames
     nobody wrote is worse than a run that refused.
+
+    Both refusals are measured against a real volume, mounted read-only and then detached: each is
+    on the panel before the Run and stops it, and neither leaves a Version or a file behind.
     """
     if not os.path.isdir(root):
         raise RuntimeError(f"The storage root {root} is not mounted on this machine. Mount it, "
