@@ -24,7 +24,7 @@ on anything that would stop a publish.
 
 ## The procedures
 
-`.claude/commands/` holds three procedures. They are plain markdown with no Claude Code in them.
+`.claude/commands/` has three procedures. They are plain markdown with no Claude Code in them.
 Follow the file whether or not your harness has slash commands.
 
 | file | does |
@@ -37,19 +37,17 @@ Follow the file whether or not your harness has slash commands.
 
 The page under `site/` is written under `taste-skill`, in `.claude/skills/taste-skill/`. It is copied
 verbatim from `github.com/leonxlnx/taste-skill` at `ccbc156` and pinned here, so a review reads what
-the agent read. It is the only skill in that marketplace built for a landing page rather than for
-generating images or for another vendor's tool. `minimalist-skill` sits beside it as an aesthetic
-reference, pulled from and never followed whole.
+the agent read. `minimalist-skill` is an aesthetic reference, read in part and not followed.
 
-`RELEASE.md` wins where the skill collides with this repo.
+`RELEASE.md` takes precedence over the skill.
 
 | the skill says | this repo |
 |---|---|
 | React, Next.js, Tailwind and Motion (3.A) | SvelteKit 2.70 with `adapter-static` |
 | `picsum.photos` and Simple Icons (4.8) | captures of the nodes, served from the site itself |
-| fonts through `next/font` | fonts self-hosted, with a real fallback stack |
+| fonts through `next/font` | fonts self-hosted, with a fallback stack |
 | nothing about analytics | there are none |
 
 A page on GitHub Pages fetches nothing from a third party. The skill's reduced-motion rule and its
-GSAP ScrollTrigger skeletons stand as written. Every string a person reads follows CLAUDE.md, which
-outranks the skill's marketing register.
+GSAP ScrollTrigger skeletons apply as written. Strings a person reads follow CLAUDE.md, not the
+skill's marketing register.

@@ -23,7 +23,7 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     sg = site.client()
 
     # The node's own resolution, so a seeded Version links the way every other one does: the label
-    # carries its own type, `sh010 (Shot)`, and a bare name falls back to the project's default
+    # names its own type, `sh010 (Shot)`, and a bare name falls back to the project's default
     # rather than assuming one (probe 005).
     ctx = site.context(project, link, task, status)
     project_id, p, link_type = ctx.project_id, ctx.profile, ctx.link_type

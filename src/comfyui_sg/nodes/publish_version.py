@@ -1,17 +1,14 @@
-"""SG Publish: what the graph made becomes a Version carrying its provenance.
+"""SG Publish: one run becomes one Version with its provenance.
 
-One run is one Version, because a Version's media is single-valued (probe 022). What that Version
-carries follows from what is wired in, never from a combo asking the operator to say it again. A
-VIDEO is the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the
-video.
+A Version has one uploaded media file (probe 022). What is wired in decides that file: a VIDEO is
+the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the video.
 
-This node records; it does not make images. A VIDEO that is already a file on disk goes up as that
-file, byte for byte, and anything else is written by ComfyUI's own encoder (`movie.stage`).
+This node records; it does not make images. A VIDEO that is already a file on disk is uploaded byte
+for byte, and anything else is written by ComfyUI's own encoder (`movie.stage`).
 
-The frames themselves are a PublishedFile, not media, which is the other half of probe 022's
-verdict. Tick `register_files` and the run still produces exactly one Version, plus a PublishedFile
-per registered file, copied under a LocalStorage root the site can resolve (recipe 004).
-`sequence.py` is what happens on disk.
+Frames are registered as PublishedFiles, not as media. Tick `register_files` and the run produces
+one Version plus one PublishedFile per registered file, copied under a LocalStorage root the site
+can resolve (recipe 004). `sequence.py` is what happens on disk.
 """
 import io
 import os
@@ -23,11 +20,11 @@ from .. import (lineage, movie, naming, provenance, publish, sequence, site,
                 version_name, widgets)
 
 MAX_ID = 2 ** 31 - 1
-# What a registered file is, in the words on screen. `sequence.TYPE_CANDIDATES` keys this repo's
-# own three kinds, which an operator never reads.
+# What a registered file is called in an operator message. `sequence.TYPE_CANDIDATES` keys the same
+# three kinds by their internal names.
 WHAT = {"frames": "an image sequence", "still": "a still image", "movie": "a movie"}
-# The default for an unset keyword. It is NOT the label a person picks, which is site.NO_VALUE,
-# "(none)". The two stay distinct, or a combo declares a value the editor cannot offer.
+# The default for an unset keyword. The label a person picks is site.NO_VALUE, "(none)". The two are
+# distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
 
 
@@ -48,9 +45,8 @@ def _as_line(concept, value):
 def _split(values, where, absent_targets):
     """({field: value}, [line]): each concept typed where this site has the field, else a line.
 
-    The operator's mapping decides the target. The schema decides only whether that target can hold
-    a value. A concept whose field is absent is written out in full, the whole prompt and every
-    source Version, because a fact recorded nowhere is what this project exists to prevent.
+    The operator's mapping decides the target. The schema decides whether that target can be
+    written. A concept whose field is absent is written out in full as a line.
     """
     fields, lines = {}, []
     for concept, value in values.items():
@@ -65,7 +61,7 @@ def _split(values, where, absent_targets):
 
 
 def _description(note, lines):
-    """The note, a blank line, then one line per fact. Either half alone is that half."""
+    """The note, a blank line, then one line per fact. Either half may be absent."""
     return "\n".join([x for x in (note,) if x] + ([""] if note and lines else []) + lines)
 
 
@@ -76,7 +72,7 @@ def _wants_files(pf):
 
 
 def settings_defaults(project_id):
-    """The values a publish node takes from Settings, as widget values: the templates written out."""
+    """The values a publish node takes from Settings, as widget values."""
     p = site.for_project(project_id)
     pf = p.get("published_files") or {}
     statuses = site.statuses(project_id)
@@ -104,8 +100,8 @@ class SGPublishVersion:
         status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
 
         return {
-            # Neither input is required and at least one is: what a Version carries is the shape of
-            # what was wired, so the node cannot declare one of them the real input.
+            # Neither input is declared required, and a run with both empty is refused in `publish`.
+            # The media follows what was wired, so neither one is the primary input.
             "required": {},
             # Order, labels and copy come from `widgets.PUBLISH_FIELDS`, which instrument.py,
             # smoke.py and the editor extension read as well. An input slot is additive and stays
@@ -113,7 +109,7 @@ class SGPublishVersion:
             #
             # There is no link_type. Version.entity accepts 15 types and a show may use several at
             # once (DESIGN); the link picker searches every type the show uses, server-side, and
-            # each option carries its own type.
+            # each option names its own type.
             "optional": {
                 "images": ("IMAGE", {"tooltip": "The frames out of the graph to publish."}),
                 "video": ("VIDEO", {"tooltip": "The clip out of the graph to publish, from "
@@ -127,8 +123,8 @@ class SGPublishVersion:
                         "status": site.labels(statuses),
                     },
                     overrides={
-                        # A house decides which fields it wants in front of it; the table's own
-                        # `advanced` flags are only the default (DESIGN: site profile).
+                        # A house decides which fields are shown unfolded; the table's own
+                        # `advanced` flags are the default (DESIGN: site profile).
                         **widgets.folding(widgets.PUBLISH_FIELDS,
                                           (p.get("widgets") or {}).get("publish")),
                         "project": {"default": site.project_name(project_id)},
@@ -153,14 +149,13 @@ class SGPublishVersion:
 
     @classmethod
     def VALIDATE_INPUTS(cls, project=None, link=None, task=None, status=None):
-        """Accept what the editor offered, because the editor knows more than INPUT_TYPES did.
+        """Accept what the editor offered rather than what INPUT_TYPES declared.
 
-        These combos are seeded for the default project and then repopulated per project by the JS
-        (`setOptions`), so a value the operator legitimately picked need not be in the list this
-        class declared at load time. ComfyUI skips its own membership check for any input named here
-        (execution.py:1019), the mechanism core nodes use for the same problem
-        (comfy_extras/nodes_model_advanced.py:380). A label that resolves to no entity still fails
-        at run time, naming the label and the project.
+        These combos are seeded for the default project and repopulated per project by the JS
+        (`setOptions`), so a value the operator picked need not be in the list this class declared
+        at load time. ComfyUI skips its own membership check for any input named here
+        (execution.py:1019), as core nodes do (comfy_extras/nodes_model_advanced.py:380). A label
+        that resolves to no entity still fails at run time, naming the label and the project.
         """
         return True
 
@@ -192,14 +187,14 @@ class SGPublishVersion:
             out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
                                            pattern)
             # One frame is a file, not a sequence: the `%04d` pattern names nothing on disk, so the
-            # file itself is what is registered and what `path_cache` holds.
+            # file itself is what is registered and what `path_cache` records.
             single = len(out["frames"]) == 1
             out["frames_pattern"] = str(out["frames"][0]) if single else pattern
             out["frames_code"] = os.path.basename(out["frames_pattern"])
             out["frames_name"] = pl.name
-            # The Version's path fields hold one absolute path each, written for the platform the
+            # The Version's path fields take one absolute path each, written for the platform the
             # profile picks; the files themselves are written under this machine's root.
-            # `sg_path_to_frames` holds a sequence, so a still leaves it empty and says so.
+            # `sg_path_to_frames` names a sequence, so a still leaves it empty and says so.
             if pf.get("path_to_frames", True):
                 if single:
                     out["frames_note"] = ("This publish is a single image, so no frame path was "
@@ -207,8 +202,8 @@ class SGPublishVersion:
                 else:
                     out["frames_field"] = sequence.field_path(pl, pattern)
         if want_movie:
-            # The clip's real extension, because a deliverable is never transformed: a `.mov` off
-            # LoadVideo is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
+            # The clip's own extension. A deliverable is never transformed: a `.mov` off LoadVideo
+            # is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
             clip_ext = os.path.splitext(media_path)[1].lower() or ".mp4"
             dest = sequence.destination(pl, pl.movie_template, clip_ext, version_no)
             out["media"] = sequence.copy_one(media_path, dest)
@@ -221,16 +216,16 @@ class SGPublishVersion:
     @staticmethod
     def _register(sg, staged, project_id, vid, version_no, link_type, target, task_id, count,
                   note, colour_space, src_ids, src_files=None):
-        """One PublishedFile per registered file, linked to the Version carrying the review media.
+        """One PublishedFile per registered file, linked to the Version with the review media.
 
-        Returns the lines the panel logs: what was registered, where it landed, and what could not
-        be said, such as an unrecognised type or ancestors with no files to depend on.
+        Returns the lines the panel logs: what was registered, where it was written, and what could
+        not be said, such as an unrecognised type or ancestors with no files to depend on.
 
         `upstream_published_files` is the file-level twin of `sg_ai_generated_from`: the same
         ancestors, resolved to the files those Versions published, because a tool downstream opens
         files rather than Versions. `src_files` is what an upstream Load node read (lineage.py).
-        Where it has an answer the link is that one file, and where it does not the site is asked
-        and the link is every file of that ancestor.
+        Where it names a file the link is that one file; otherwise the site is asked and the link
+        is every file of that ancestor.
         """
         if not staged:
             return []
@@ -242,9 +237,9 @@ class SGPublishVersion:
             common["task"] = {"type": "Task", "id": int(task_id)}
         if upstream:
             common["upstream_published_files"] = upstream
-        # sg_status_list is deliberately absent. PublishedFile carries a status list of its own,
-        # and no entry covers whether a Version's codes are valid in it, so copying one across
-        # could write a code this field never allowed. The field's own default applies.
+        # sg_status_list is deliberately absent. PublishedFile has a status list of its own, and no
+        # entry covers whether a Version's codes are valid in it, so copying one across could write
+        # a code this field never allowed. The field's own default applies.
         common["description"] = "\n".join(x for x in (
             note, sequence.describe_colour(colour_space.strip()),
             f"frames 1-{count}" if count > 1 else "") if x)
@@ -269,7 +264,7 @@ class SGPublishVersion:
             body = dict(common)
             # path_cache is null after a REST create even though the path resolved, so a filter on
             # it misses every row published this way (entity_types/PublishedFile). It is a plain
-            # text field and takes a write, so the client writes what it already knows.
+            # text field and takes a write, so the client writes the path it already has.
             body["path_cache"] = sequence.relative(staged["root"], path)
             pft, problem = types.get(kind, (None, ""))
             if pft:
@@ -277,9 +272,9 @@ class SGPublishVersion:
             elif problem:
                 notes.append(problem)
             else:
-                notes.append(f"This site has no Published File Type for {WHAT[kind]}, so it was "
-                             f"registered without one. Ask an admin to add one, on the site rather "
-                             f"than on this project.")
+                notes.append(f"This site has no Published File Type for {WHAT[kind]}. The file was "
+                             f"registered without one. Ask an admin to add one on the site, not on "
+                             f"this project.")
             try:
                 pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path,
                                                                 body)
@@ -289,8 +284,8 @@ class SGPublishVersion:
                 notes.append(f"{what.capitalize()} could not be registered as {code}. Run again to "
                              f"register it. {e}")
                 continue
-            # The 201 already carries the resolved path, so this reports what the SERVER stored
-            # rather than what was sent. The two differ the moment a root is ambiguous (recipe 004).
+            # The 201 returns the resolved path, so this reports what the server stored rather than
+            # what was sent. The two differ the moment a root is ambiguous (recipe 004).
             notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
                          f'{resolved.get("local_path_mac") or path}')
         if staged.get("declared_ext") and staged["declared_ext"] != staged.get("ext") \
@@ -310,8 +305,8 @@ class SGPublishVersion:
     FUNCTION = "publish"
     CATEGORY = "Flow Production Tracking"
     OUTPUT_NODE = True
-    DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, carrying "
-                   "the graph that made it.")
+    DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, with the "
+                   "graph that made it attached.")
 
     def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
                 note="", code_template=UNSET,
@@ -325,11 +320,10 @@ class SGPublishVersion:
                 "both.")
         frames = len(images) if images is not None else 0
         if images is not None and frames == 0:
-            raise ValueError("The image batch is empty, so there is nothing to publish. Check the "
-                             "node feeding images, then run again.")
-        # A sequence cannot BE a Version's media (probe 022) and nothing here is being asked to
-        # register it, so frame 1 would go up and the rest would vanish. Refused loudly, and refused
-        # before the site is touched at all.
+            raise ValueError("The image batch is empty. Check the node feeding images, then run "
+                             "again.")
+        # A Version has one uploaded media file (probe 022), and nothing here registers the frames,
+        # so frame 1 would go up and the rest would be lost. Refused before the site is touched.
         if video is None and frames > 1 and not register_files:
             raise ValueError(
                 f"Only frame 1 would be published, and the other {frames - 1} "
@@ -358,18 +352,18 @@ class SGPublishVersion:
         # unique_id scopes provenance to this node's branch (provenance.ancestors).
         prov = provenance.extract(prompt, extra_pnginfo, node_id=unique_id)
         prov["comfy_usage_source"] = usage_source  # which client submitted this (execution.py:216)
-        # Declared, not measured: an operator's statement about the pixels belongs in the record and
-        # stays a statement, never a transform.
+        # Declared, not measured. The colour space is recorded with the Version, never applied to
+        # the pixels.
         if colour_space.strip():
             prov["colour_space"] = colour_space.strip()
         wf = provenance.workflow(extra_pnginfo)
 
         sg = site.client()
-        # One schema read answers two questions: which of the operator's targets this site actually
-        # has, and whether it carries the frame range a movie wants.
+        # One schema read answers two questions: which of the operator's targets this site has, and
+        # whether it has the frame range fields a movie needs.
         schema = sg_fields.schema_names(sg)
-        # Typed ids first, then whatever a Load node upstream already proves. The operator can add a
-        # source the graph cannot see; they never have to retype one it can.
+        # Typed ids first, then what an upstream Load node recorded. The operator can add a source
+        # the graph cannot see, and never has to retype one it can.
         src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
         # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
         upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
@@ -377,30 +371,29 @@ class SGPublishVersion:
                     + lineage.for_nodes(upstream, prompt)):
             if vid not in src_ids:
                 src_ids.append(vid)
-        # Where each concept lands is the operator's mapping, not this file's business (DESIGN).
-        # The schema decides only whether that target can be written, per concept. A field this site
-        # has takes the value. A target mapped to the description, and a target this site does not
-        # have, become a line of the description instead. Nothing is dropped and nothing is a JSON
-        # blob, so the same nine facts are readable either way.
+        # The operator's mapping decides the target for each concept (DESIGN). The schema decides
+        # whether that target can be written. A field this site has takes the value. A target mapped
+        # to the description, and a target this site does not have, become a line of the
+        # description. Nothing is dropped and nothing is a JSON blob.
         mapping, prov_mode = site.provenance_map(project_id)
         where = sg_fields.targets(mapping, prov_mode)
         absent_targets = {t for t in where.values()
                           if t and t != sg_fields.DESCRIPTION and t not in schema}
         typed, prov_lines = _split(sg_fields.concepts(prov, src_ids), where, absent_targets)
 
-        # The template decides the name, rendered from the entity and task it is actually linked to.
-        # A real version-number field is authoritative where the site has one (Toolkit sites usually
-        # do); the template's own {version} is the fallback for the many sites that do not.
+        # The template decides the name, rendered from the entity and task it is linked to. A
+        # version-number field is authoritative where the site has one; the template's own
+        # {version} is the fallback where it does not.
         code, version_no = version_name.next_name(code_template, project_id, link_type, target,
                                                   task_id, root_name)
         vnum_field = p.get("version_number_field", "")
         next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
                     if vnum_field and target else None)
 
-        # Staged BEFORE the Version exists. An install with no PyAV, or a clip `save_to` refuses,
-        # stops here rather than leaving a Version behind holding a still and calling it a clip. The
-        # thumbnail is read off the media rather than off `images`, so the still and the clip cannot
-        # disagree about what this Version shows.
+        # Staged before the Version exists. An install with no PyAV, or a clip `save_to` refuses,
+        # stops here rather than leaving a Version whose still is labelled a clip. The thumbnail is
+        # read off the media rather than off `images`, so the still and the clip show the same
+        # frame.
         media_path = ""
         if video is not None:
             media_path, how = movie.stage(video, sequence.folder(code), code)
@@ -410,15 +403,14 @@ class SGPublishVersion:
             count = frames
             media_note = "frame 1 as a still" if frames > 1 else "the image itself"
             png = _png(images[0])
-        # Whether the house ALSO keeps the review movie as a file is a convention and lives in the
-        # profile. Whether this publish is a deliverable at all is the node's tick. A clip published
-        # on its own IS the deliverable, so it is registered without the house saying so. A tick
-        # that registered nothing would be a silent no-op.
+        # Whether the house also registers the review movie as a file is set in the profile. Whether
+        # this publish is a deliverable at all is the node's tick. A clip published on its own is
+        # the deliverable, so it is registered without the profile saying so.
         keeps_movie = bool((p.get("published_files") or {}).get("register_movie"))
         want_frames = bool(register_files and images is not None)
         want_movie = bool(register_files and video is not None and (images is None or keeps_movie))
         # Same rule for the files: the root is resolved, the frames are written and copied into
-        # place BEFORE the Version exists, so an unmounted share refuses the run rather than leaving
+        # place before the Version exists, so an unmounted share refuses the run rather than leaving
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
                              want_frames, want_movie, p, sg, project_id, link_type, target,
@@ -436,13 +428,14 @@ class SGPublishVersion:
             fields["sg_task"] = {"type": "Task", "id": task_id}
         if next_num is not None:
             fields[vnum_field] = next_num
-        # The range is ours; everything derived from the media is the transcoder's (probe 022).
+        # The frame range is written here; everything derived from the media is the transcoder's
+        # (probe 022).
         if count > 1:
             fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
-        # probe 022's verdict: the `%04d` pattern belongs in sg_path_to_frames, with a transcoded
-        # movie uploaded for the player. These are tier 2 in probe 021, which is what the Load node
-        # reads to pull frames back. Each is written for the platform the profile picks, and only
-        # when the profile wants the field at all (_stage).
+        # probe 022: the `%04d` pattern belongs in sg_path_to_frames, with a transcoded movie
+        # uploaded for the player. These are tier 2 in probe 021, which the Load node reads to pull
+        # frames back. Each is written for the platform the profile names, and only when the profile
+        # asks for the field (_stage).
         skipped_paths = []
         for field, value in (("sg_path_to_frames", (staged or {}).get("frames_field")),
                              ("sg_path_to_movie", (staged or {}).get("media_field"))):
@@ -454,7 +447,7 @@ class SGPublishVersion:
                 skipped_paths.append(field)
 
         # Staging copied files onto the storage and the create puts a Version on the site. Neither
-        # is recoverable from a traceback, so from here a failure carries both in its own sentence.
+        # is recoverable from a traceback, so a failure from here names both in its own sentence.
         written = [x for x in ((staged or {}).get("frames_pattern"), (staged or {}).get("media"))
                    if x]
         vid = 0
@@ -463,8 +456,8 @@ class SGPublishVersion:
             # Every lookup a name depends on. `find` is the one the template reads, and a stale one
             # lets two publish nodes in one run propose the same version again.
             site.forget("find", "versions", "vnums", "paths")
-            # Frame 1 is the thumbnail whichever way this went: the site derives one from a movie
-            # too, but not until the transcode lands, and no picture until then is worse.
+            # Frame 1 is the thumbnail either way. The site derives one from a movie too, but not
+            # until the transcode finishes.
             publish.upload(sg, vid, png, f"{code}.png", field="image")
             if media_path:
                 # Streamed off disk. A clip is the one payload here with no ceiling, and the file
@@ -489,8 +482,8 @@ class SGPublishVersion:
                 f"Tracking, then run again." if vid else "") if x)) from e
 
         published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
-        # A stock field this site does not have. The files are still registered and still carry the
-        # path, so this is one line about the Version's own path column, never a refusal.
+        # A stock field this site does not have. The files are still registered with the path, so
+        # this is one line about the Version's own path field, not a refusal.
         if skipped_paths:
             published.append(f"This site has no {', '.join(skipped_paths)}. Ask an admin to add "
                              f"them, so the files open from the Version.")
@@ -501,8 +494,8 @@ class SGPublishVersion:
             if skipped:
                 published.append(f"This site has no {', '.join(skipped)}. Ask an admin to add "
                                  f"them, so the frame range reads on the Version.")
-        # Frames wired in that nobody asked to keep are not an error, because the clip is the review
-        # and carries the same picture. They are not silent either.
+        # Frames wired in that nobody asked to keep are not an error: the clip is the review and
+        # shows the same picture. They are reported all the same.
         if images is not None and video is not None and not want_frames:
             published.append(f"The {frames} frames were not published, only the clip. Tick Create "
                              f"Published Files to publish them too.")
@@ -512,7 +505,7 @@ class SGPublishVersion:
 
         # The panel turns these into links. `site_url` comes off the client rather than the profile
         # because the run already authenticated against it, and a second source could disagree.
-        # Paths are what landed on disk this run, the one thing not recoverable from the site.
+        # Paths are what was written to disk this run, the one thing not recoverable from the site.
         staged_files = []
         if staged:
             if staged.get("frames_pattern"):
@@ -520,11 +513,11 @@ class SGPublishVersion:
                                      "count": len(staged.get("frames") or [])})
             if staged.get("media"):
                 staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
-        # The panel draws the run as rows, so the lines it keeps are the ones that ask for
-        # attention: everything the rows already say is left to `text`.
+        # The panel draws the run as rows, so the lines it keeps are the ones that need attention.
+        # What the rows already say is left to `text`.
         said = ("Published ", "Review media: ", "Registered ")
-        # `client` is the one fact about this Version the panel cannot know before the Run: it is
-        # named in the body of /prompt by whoever submitted it, and is empty when nobody said.
+        # `client` is named in the body of /prompt by whoever submitted the run, and is empty when
+        # nobody did. The panel cannot read it before the Run.
         done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
                  "status": status_code, "outputs": sorted(typed), "media": media_note,
                  "client": usage_source or "",

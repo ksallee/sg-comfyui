@@ -4,7 +4,7 @@ import pytest
 from comfyui_sg import resolve, site
 
 CONVENTION = r"(?P<name>.+)_v(?P<version>\d+)$"
-# Newest by id is not newest by version: v002 was re-published after v010 landed.
+# Newest by id is not newest by version: v002 was re-published after v010.
 ROWS = [("sh010_comp_v002", "apr", 900), ("sh010_comp_v010", "apr", 100)]
 
 
@@ -28,7 +28,7 @@ def test_extra_conditions_narrow_and_never_replace():
 
 
 def test_a_group_appends_as_one_element():
-    """probe 030: a dict carries its own logical_operator and is one element, not many."""
+    """probe 030: a dict has its own logical_operator and is one element, not many."""
     base = [["project", "is", {"type": "Project", "id": 1}]]
     group = {"logical_operator": "or", "conditions": [["code", "contains", "a"]]}
     assert resolve.combine(base, group) == base + [group]

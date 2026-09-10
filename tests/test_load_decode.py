@@ -1,8 +1,8 @@
 """SG Load reads what is in the file: 16-bit levels, float range, and the alpha behind the mask.
 
 The fixtures are written at test time by ComfyUI's own encoder rather than committed, so what is
-read back is exactly what core writes. Everything here needs ComfyUI on the path; without it the
-whole module skips.
+read back is what core writes. Everything here needs ComfyUI on the path; without it the module
+skips.
 """
 import pytest
 from conftest import CAN_DECODE
@@ -104,7 +104,7 @@ def test_rgba_comes_back_with_its_alpha(tmp_path):
     images, alpha = media._components(write(tmp_path, "a.png", rgba, "png", "8-bit"), "a.png")
     assert tuple(images.shape) == (1, H, W, 3)
     assert tuple(alpha.shape) == (1, H, W, 1)
-    # The node's own rule: the mask is `1 - alpha`, ComfyUI's own convention.
+    # The mask is `1 - alpha`, ComfyUI's convention.
     mask = 1.0 - alpha[..., -1]
     assert tuple(mask.shape) == (1, H, W)
     assert float(mask.mean()) == pytest.approx(0.75, abs=1 / 255.0)

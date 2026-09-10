@@ -1,6 +1,6 @@
 """Who the nodes talk to SG as, and where that is kept.
 
-Two ways in. A person wins over a script.
+Two ways in. A person takes precedence over a script.
 
 - **A person, signed in through the App Session Launcher** (probe 052). The operator clicks Log in
   under Settings, approves the request in the browser where they are already logged into SG,
@@ -11,9 +11,9 @@ Two ways in. A person wins over a script.
   checkout. A farm has no browser, and this is its path. A login beside the key makes the script
   publish as that person (probe 027, `sudo_as_login`).
 
-Both files live outside `custom_nodes/`, so a Manager update leaves them alone, and under a `__`
+Both files are outside `custom_nodes/`, so a Manager update leaves them alone, and under a `__`
 directory, which ComfyUI serves over no HTTP route (folder_paths.get_system_user_directory). Outside
-ComfyUI they sit beside `.env.local`, gitignored by the same `*.local.json` rule.
+ComfyUI they are written beside `.env.local`, gitignored by the same `*.local.json` rule.
 """
 import json
 import os
@@ -36,7 +36,7 @@ SETUP = ("Not connected to Flow Production Tracking. Open Settings, then SG, and
          "enter a script name and application key.")
 
 # Approval requests this ComfyUI has open, by id. A request nobody approves is forgotten by the
-# site after about five minutes (probe 052), so nothing here outlives a restart on purpose.
+# site after about five minutes (probe 052). Nothing here outlives a restart.
 _pending = {}
 
 
@@ -88,7 +88,7 @@ def clear_session():
 
 
 def settings():
-    """What the Settings dialog holds: {site, script_name, api_key, login}, any of them absent."""
+    """What the Settings dialog wrote: {site, script_name, api_key, login}, any of them absent."""
     return _read(SETTINGS_FILE)
 
 
@@ -149,8 +149,8 @@ def status():
     """What Settings shows: who the nodes publish as, the site, and whether the site still agrees.
 
     `alive` costs one call to the site, and it turns a session the site forgot into a Log in button
-    rather than empty pickers. The script half is reported whether or not it is in use, so the
-    dialog can show what it holds. The key itself is never in the answer.
+    rather than empty pickers. The script half is reported whether or not it is in use. The key
+    itself is never in the answer.
     """
     kind, site, who = how()
     name, key, login, source = script()

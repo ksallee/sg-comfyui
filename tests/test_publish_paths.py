@@ -1,4 +1,4 @@
-"""Where a published file lands: the extension swap, and the root a path field is written under."""
+"""Where a published file goes: the extension swap, and the root a path field is written under."""
 import pytest
 
 from comfyui_sg import sequence
@@ -83,7 +83,7 @@ def test_an_unnamed_storage_among_several_names_the_setting():
 
 
 def test_the_two_default_templates_put_the_movie_beside_the_frames_folder():
-    """A sequence is many files and earns a folder; a movie is one and sits beside it."""
+    """A sequence is many files and gets a folder; a movie is one file beside it."""
     vals = {"entity": "sh010", "root_name": "sh010_RTO", "version_name": "sh010_RTO_v003"}
     frames = sequence.pattern("/Volumes/FPT", sequence.DEFAULT_SEQUENCE_TEMPLATE,
                               dict(vals, ext=".exr"), 3, ".exr")

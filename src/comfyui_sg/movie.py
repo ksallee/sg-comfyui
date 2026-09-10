@@ -1,9 +1,9 @@
-"""The clip a Version reviews, and the file it publishes. probe 022.
+"""The clip a Version reviews, and the file it publishes.
 
-A Version's media is single-valued, so one run is one Version carrying one piece of review media.
-Nothing here encodes: a `VIDEO` that is already a file on disk is uploaded untouched, and anything
-else is written by `VideoInput.save_to()`, ComfyUI's own encoder, which carries the clip's colour
-space, bit depth and audio.
+A Version has one uploaded media file (probe 022), so one run publishes one Version with one review
+clip. Nothing here encodes. A `VIDEO` that is already a file on disk is uploaded untouched, and
+anything else is written by `VideoInput.save_to()`, ComfyUI's own encoder, which preserves the
+clip's colour space, bit depth and audio.
 
 PyAV is imported inside `poster` rather than at module scope (DESIGN), so an install without it
 still loads every node.
@@ -13,10 +13,10 @@ import os
 
 import numpy as np
 
-# Frame metadata that is ours to write, confirmed present on Version (probe 022).
-# `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are deliberately absent: the
-# server fills them itself, and `_mp4` serves a transcode of a replaced file while status reads 1,
-# so writing them here manufactures that desync in any player that trusts them.
+# Frame metadata this node writes, confirmed present on Version (probe 022).
+# `sg_uploaded_movie_mp4`, `_frame_rate` and `_transcoding_status` are absent: the server fills them
+# itself, and `_mp4` serves a transcode of a replaced file while status reads 1. Writing them here
+# would reproduce that desync.
 FRAME_FIELDS = ("sg_first_frame", "sg_last_frame", "frame_count", "frame_range")
 
 
@@ -32,14 +32,13 @@ def to_u8(frame):
 
 
 def source_file(video):
-    """The path this VIDEO already is, or "" when uploading that path would be a lie.
+    """The path this VIDEO already is, or "" when that path is not the same video.
 
-    `VideoFromFile.get_stream_source()` returns the whole source path even for a trimmed or cropped
-    clip: `as_trimmed` and `as_cropped` answer with a new `VideoFromFile` over that same file with
-    the window kept beside it. Trusting the class alone would silently file a ten-second plate as
-    the two-second selection a supervisor asked for (probe 028). So the test is whether the object
-    and the file are the same video: same dimensions and same duration as a plain `VideoFromFile`
-    over that path. Both are container metadata reads and neither decodes.
+    `VideoFromFile.get_stream_source()` returns the source path even for a trimmed or cropped clip:
+    `as_trimmed` and `as_cropped` return a new `VideoFromFile` over that same file with the window
+    stored beside it, so the path alone would file a ten-second plate as the two-second selection a
+    supervisor asked for (probe 028). The test is same dimensions and same duration as a plain
+    `VideoFromFile` over that path. Both are container metadata reads and neither decodes.
     """
     try:
         from comfy_api.input_impl import VideoFromFile
@@ -48,7 +47,7 @@ def source_file(video):
     if not isinstance(video, VideoFromFile):
         return ""
     src = video.get_stream_source()
-    # A clip held in memory has no file to leave untouched, so it takes the encode path.
+    # A clip in memory has no file to leave untouched, so it takes the encode path.
     if not isinstance(src, str) or not os.path.isfile(src):
         return ""
     plain = VideoFromFile(src)
@@ -62,7 +61,7 @@ def source_file(video):
 def stage(video, folder, stem):
     """(the file to publish, how it got there). Never a transform where a file already exists.
 
-    `save_to` carries sRGB as BT.709, HDR as BT.2020/HLG and HDR PQ as BT.2020/PQ, at the clip's own
+    `save_to` writes sRGB as BT.709, HDR as BT.2020/HLG and HDR PQ as BT.2020/PQ, at the clip's own
     bit depth, with the audio.
     """
     src = source_file(video)
@@ -77,9 +76,9 @@ def stage(video, folder, stem):
 def poster(path):
     """Frame 1 of the file about to be uploaded, as PNG bytes.
 
-    The site derives its own thumbnail from a movie only once the transcode lands, and a Version
-    with no picture until then is worse. Decoded from the file rather than through
-    `get_components()`, which materialises every frame as float32. 300 frames of 4K is 27.8 GiB.
+    The site derives its own thumbnail from a movie only once the transcode finishes. Decoded from
+    the file rather than through `get_components()`, which materialises every frame as float32.
+    300 frames of 4K is 27.8 GiB.
     """
     try:
         import av   # ships with ComfyUI for its video nodes; see DESIGN

@@ -29,7 +29,7 @@ def sdxl_zero_out():
 
 
 def flux_dual_encoder():
-    """Flux: one encoder, two tokenisers holding different text, and a LoRA on the model."""
+    """Flux: one encoder, two tokenisers with different text, and a LoRA on the model."""
     return {
         "1": {"class_type": "UNETLoader", "inputs": {"unet_name": "flux1-dev.safetensors"}},
         "2": {"class_type": "DualCLIPLoader",
@@ -53,7 +53,7 @@ def flux_dual_encoder():
 
 
 def two_branches():
-    """One shared checkpoint, two samplers, one publish node each. Node 20 and node 30 publish."""
+    """One shared checkpoint, two samplers, and one publish node each: node 20 and node 30."""
     return {
         "1": {"class_type": "CheckpointLoaderSimple",
               "inputs": {"ckpt_name": "shared.safetensors"}},

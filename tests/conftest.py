@@ -1,7 +1,7 @@
 """The package on the path, and the fakes, before the first import.
 
 Nothing here reaches the site. `sg_groundtruth`, `numpy`, `Pillow` and `requests` are the only
-third-party imports the suite requires. Tests that decode real pixels need torch and a ComfyUI
+third-party imports the suite requires. Tests that decode pixels need torch and a ComfyUI
 checkout, and skip without them (`DECODES`).
 """
 import os
@@ -41,9 +41,9 @@ CAN_DECODE = _can_decode()
 DECODES = pytest.mark.skipif(not CAN_DECODE,
                              reason="torch and a ComfyUI checkout read the pixels; set COMFYUI_PATH")
 
-# The repo root holds ComfyUI's entry point `__init__.py`. pytest collects the root as a package and
+# The repo root has ComfyUI's entry point `__init__.py`. pytest collects the root as a package and
 # imports that file as `__init__`, where its relative import cannot resolve. The entry point has
-# nothing to collect, so a stub answers for it before pytest asks.
+# nothing to collect, so a stub is registered under that name before pytest imports it.
 _entry = types.ModuleType("__init__")
 _entry.__file__ = str(ROOT / "__init__.py")
 sys.modules.setdefault("__init__", _entry)

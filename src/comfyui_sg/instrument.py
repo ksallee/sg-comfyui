@@ -9,7 +9,7 @@ asks the site nothing, and never writes the original file.
 
 An output stream is any IMAGE link feeding a sink, plus any IMAGE output nothing consumes. The rule
 is structural rather than a list of node names, so a workflow built from custom nodes this project
-has never heard of still analyses correctly. A sink is where the images stop being images
+does not know still analyses correctly. A sink is where the images stop being images
 (`_is_sink`).
 
 The analysis runs over a flattened view of the graph rather than over `wf["nodes"]` (`_flatten`),
@@ -42,7 +42,7 @@ LOAD = "SGLoadVersion"
 PUBLISH_WIDGETS = widgets.names(widgets.PUBLISH_FIELDS)
 LOAD_WIDGETS = widgets.names(widgets.LOAD_FIELDS)
 # site.NO_VALUE, spelled out rather than imported: this module is the setup path and stays free of
-# the client. A combo cannot hold "", so an unset pick is the visible "no value" the node declares.
+# the client. A combo cannot take "", so an unset pick is the visible "no value" the node declares.
 NO_VALUE = "(none)"
 # Every default mirrors the node class's own. `code_template` is empty because empty means the
 # default under Settings, so one edit there reaches every graph this ever wrote. `register_files` is
@@ -83,7 +83,7 @@ def save(wf, path):
 
 
 def _defs(wf):
-    """{uuid: definition}. A subgraph instance node carries the definition's uuid as its `type`."""
+    """{uuid: definition}. A subgraph instance node has the definition's uuid as its `type`."""
     return {d["id"]: d for d in (wf.get("definitions") or {}).get("subgraphs") or [] if d.get("id")}
 
 
@@ -108,7 +108,7 @@ Flat = namedtuple("Flat", "nodes links subs labels")
 
 
 def _flatten(wf):
-    """The graph ComfyUI actually executes, with subgraph boundaries removed.
+    """The graph ComfyUI executes, with subgraph boundaries removed.
 
     A subgraph instance is a relay, not a node. Inside the definition, a link out of `inputNode`
     slot k continues whatever the instance's input k was fed; a link into `outputNode` slot j is
@@ -116,7 +116,7 @@ def _flatten(wf):
     definition may instantiate another one.
 
     Returns
-      nodes   {path: node}    real nodes only. An instance is a relay and never appears
+      nodes   {path: node}    nodes only. An instance is a relay and never appears
       links   [(opath, oslot, tpath, tslot, type)]   boundaries spliced out
       subs    {path: (instance node, definition)}
       labels  {(path, slot): label}   the name the definition's own output slot gives that stream
@@ -180,7 +180,7 @@ def _live(flat):
     """{path: {slot}}: the output slots that feed something once the boundaries are gone.
 
     A node's own `outputs[].links` cannot answer this inside a subgraph: a link to the definition's
-    `outputNode` looks live whether or not the instance that uses it is wired to anything.
+    `outputNode` reads as connected whether or not the instance that uses it is wired to anything.
     """
     out = {}
     for o, os_, _, _, _ in flat.links:
@@ -191,8 +191,8 @@ def _live(flat):
 def _is_sink(node, live):
     """Whether an IMAGE stream stops being images here.
 
-    Two ways it stops: the node's type says it saves or previews, or a live output of it carries
-    another medium. A save node is an end whether or not it also hands the picture on, so
+    Two ways it stops: the node's type says it saves or previews, or a connected output of it
+    declares another medium. A save node is an end whether or not it also hands the picture on, so
     `SaveImage` feeding an `ImageCompare` still ends the stream. Nodes that re-express the images,
     such as VAEEncode, CLIPVisionEncode and GetImageSize, pass the stream on in another form and are
     not ends.
@@ -217,7 +217,7 @@ def _slug(text):
 # so the switch settings are here too: a boolean says nothing about the stream.
 DROP = ("preview_image", "save_image", "image", "previewimage", "saveimage",
         "none", "true", "false", "enable", "disable")
-# More that a sink or a slot may not lend it: a node whose whole job is to end the stream is named
+# More that a sink or a slot may not lend it: a node whose job is to end the stream is named
 # after the medium, not after this picture. The node's own type is exempt, being the last candidate
 # there is, and `vaedecode` beats `out0`.
 NAMELESS = DROP + ("images", "video", "mask", "output", "value", "result", "frames", "any",
@@ -233,7 +233,7 @@ def descriptor(node, slot, sink_title="", out_label="", scope=""):
 
     Taken from what the graph already says: a node title the author set, a render-pass widget, the
     sink's label, the name on the subgraph output it leaves through, or the subgraph's own name. A
-    proposed code is built from it, and it is what keeps three passes off one name.
+    proposed code is built from it.
 
     `scope` is the enclosing subgraph's name, and its useful half is the opposite half from a sink
     label's. "Preview Image (normal_opengl)" says what it is inside the brackets; "Depth Estimation
@@ -253,7 +253,7 @@ def descriptor(node, slot, sink_title="", out_label="", scope=""):
         if not cand or not isinstance(cand, str):
             continue
         inner = re.search(r"\(([^)]+)\)", cand) if bracket_wins else None
-        # A sink label like "Preview Image (normal_opengl)" carries the useful part in parentheses.
+        # A sink label like "Preview Image (normal_opengl)" has the useful part in parentheses.
         tok = _slug(inner.group(1) if inner else cand)
         # A bare number is a widget value, not a name. ImageFromBatch's batch index reads as "0"
         # and a luma coefficient slugs down to digits, and both read the same for every stream in
@@ -266,7 +266,7 @@ def descriptor(node, slot, sink_title="", out_label="", scope=""):
 
 
 def _scope(flat, path):
-    """The name of the subgraph a stream sits in, "" at the top level."""
+    """The name of the subgraph a stream is inside, "" at the top level."""
     parent = path.rpartition(SEP)[0]
     if not parent or parent not in flat.subs:
         return ""
@@ -277,9 +277,8 @@ def _scope(flat, path):
 def descriptors(wf):
     """{(path, slot): name}: what each stream is called, unique within this graph.
 
-    `descriptor` names a stream from what the graph says about it, which is right but not
-    necessarily distinct, and two Versions sharing one code is a collapse `code = auto` cannot
-    recover from. The node type breaks the tie where it can, the path where it cannot, and the slot
+    `descriptor` names a stream from what the graph says about it, which is not necessarily
+    distinct. The node type breaks the tie where it can, the path where it cannot, and the slot
     breaks it again for a node feeding three previews off one body. (path, slot) is the floor the
     graph guarantees.
     """
@@ -290,8 +289,8 @@ def descriptors(wf):
                        flat.labels.get((path, slot), ""), _scope(flat, path))
         raw.append((path, slot, d))
         counts[d] = counts.get(d, 0) + 1
-    # When two streams describe themselves the same way, the graph's own next word for them is the
-    # node type. Only when that repeats too does the path decide, and a path is not a name at all.
+    # When two streams describe themselves the same way, the node type is the next word the graph
+    # offers. Only when that repeats too does the path decide.
     kinds = {p: _slug(flat.nodes.get(p, {}).get("type") or "") for p, _, _ in raw}
     pairs = {}
     for path, _, d in raw:
@@ -360,7 +359,7 @@ def loaders(wf):
 def _bump(wf, key):
     """The next node or link id, kept in step everywhere the file records one.
 
-    ComfyUI counts nodes and links once for the whole document and mirrors the counter into every
+    ComfyUI counts nodes and links once for the document and mirrors the counter into every
     subgraph definition's `state`. Reading only the top-level counter hands out an id a definition
     has already used, and the editor then loads two things as one.
     """
@@ -395,13 +394,13 @@ def _add_link(wf, container, src, src_slot, dst, dst_slot, type_):
 
 
 def _holder(wf, path):
-    """(container, local id): the graph or definition that holds the node at `path`."""
+    """(container, local id): the graph or definition that contains the node at `path`."""
     parent, _, local = path.rpartition(SEP)
     return (wf if not parent else _flatten(wf).subs[parent][1]), int(local)
 
 
 def _instances(wf, def_id):
-    """Every instance node of a definition, wherever it sits.
+    """Every instance node of a definition, wherever it appears.
 
     No corpus graph instantiates one definition twice. A definition is shared state, and the file is
     someone else's.
@@ -416,7 +415,7 @@ def _promote(wf, path, slot, name):
     This is what dragging an interior output onto the subgraph's output panel does in the editor.
     The definition gains an output, its instance gains the matching slot, and an interior link runs
     to the definition's `outputNode`. Where the stream already leaves through an output, nothing is
-    added at all (`_sub_output`). Either way it is additive: everything already wired stays wired.
+    added (`_sub_output`). Either way it is additive: everything already wired stays wired.
 
     A publish node placed inside the definition would run once per instance of a definition that is
     shared state, and would hide the project and link pickers a level down from the operator.
@@ -434,8 +433,9 @@ def _sub_output(wf, d, inner_id, inner_slot, name):
     Reuse first. A template that exposes its `depth` pass has already said what the stream is
     called and where it comes out.
 
-    Only where that slot has exactly one feeder. Templates carry stale links into outputs they later
-    rewired, and a slot fed by two nodes would publish whichever the editor happened to resolve.
+    Only where that slot has exactly one feeder. A template can keep stale links into outputs it
+    later rewired, and a slot fed by two nodes would publish whichever the editor happened to
+    resolve.
     """
     bo = (d.get("outputNode") or {}).get("id", -20)
     feeds = {}
@@ -454,7 +454,7 @@ def _add_sub_output(wf, d, inner_id, inner_slot, name):
     lid = _bump(wf, "last_link_id")
     bo = (d.get("outputNode") or {}).get("id", -20)
     # A link to an output slot the definition no longer declares is dead: the editor cannot draw
-    # it. Left in place it would land on the slot being added here. The copy drops it.
+    # it. Left in place it would attach to the slot being added here. The copy drops it.
     d["links"] = [l for l in d.get("links") or []
                   if not (isinstance(l, dict) and l.get("target_id") == bo
                           and (l.get("target_slot") or 0) >= j)]
@@ -479,7 +479,7 @@ def add_publish(wf, origin_path, origin_slot, widgets, title="SG Publish", name=
     """Tap an existing IMAGE stream. Additive: whatever already consumed it still does.
 
     A stream inside a subgraph is taken at the instance's output, the one it already leaves through
-    or a new one called `name`, so the publish node itself always sits at the top level where its
+    or a new one called `name`, so the publish node itself is placed at the top level where its
     pickers are.
     """
     path, slot = _promote(wf, str(origin_path), origin_slot, name)
@@ -501,10 +501,10 @@ def replace_loader(wf, loader_path, widgets, title="SG Load"):
     """Feed what a loader fed, from SG instead.
 
     The loader is left in place but unwired, so the operator can see what was replaced and put it
-    back. The rewiring happens in whatever container the loader sits in, so a loader inside a
-    subgraph is replaced inside that same subgraph rather than promoted out. Crossing the boundary
-    would mean rewriting the interior node's input, and a definition's interior is shared by every
-    instance of it: additive on the way out, destructive on the way in.
+    back. The rewiring happens in whatever container the loader is in, so a loader inside a subgraph
+    is replaced inside that same subgraph rather than promoted out. Crossing the boundary would mean
+    rewriting the interior node's input, and a definition's interior is shared by every instance of
+    it.
     """
     loader_path = str(loader_path)
     container, local = _holder(wf, loader_path)
@@ -580,7 +580,7 @@ def _cli(argv=None):
     ap.add_argument("--out", help="write an instrumented copy here; omit to only analyse")
     ap.add_argument("--publish", action="append", default=[], metavar="NODE[:SLOT]",
                     help="tap this IMAGE stream with a publish node; repeatable. NODE is what the "
-                         "report printed — an id, or a path like 306/296 inside a subgraph")
+                         "report printed: an id, or a path like 306/296 inside a subgraph")
     ap.add_argument("--load", action="append", default=[], metavar="NODE",
                     help="replace this loader with a Load node; repeatable")
     ap.add_argument("--template", default="", help="the show's convention, to show proposed codes")
@@ -593,8 +593,8 @@ def _cli(argv=None):
     if not a.out:
         return 0
 
-    # Only what was actually asked for: an empty --project must leave the default alone, not write
-    # "" into a combo that cannot hold it.
+    # Only what was asked for: an empty --project must leave the default alone, not write
+    # "" into a combo that cannot take it.
     common = {k: v for k, v in (("project", a.project), ("link", a.link)) if v}
     flat = _flatten(wf)
     names = descriptors(wf)

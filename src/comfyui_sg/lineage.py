@@ -1,16 +1,14 @@
 """What each Load node resolved this run, so a publish downstream can credit it.
 
-A Load node resolving by rule only learns its Version id at execution time, so the prompt graph
-carries no id for it and `provenance.loaded_versions` has nothing to read. The node records the
-answer here; the publish node reads back only the entries belonging to its own ancestors, so two
-branches of one graph never contaminate each other.
+A Load node resolving by rule only learns its Version id at execution time, so the prompt graph has
+no id for it and `provenance.loaded_versions` has nothing to read. The publish node reads back only
+the entries belonging to its own ancestors.
 
-Keyed by node id, which one ComfyUI server hands to every graph it runs: node 1 of the graph open
-now is a different node from node 1 of the graph before it, and crediting the earlier one would
-write a Version's provenance to a source it never read. So an entry also carries a fingerprint of
-the Load node as it ran, its class and its inputs off the PROMPT it was given, and is credited only
-to a node that is still an `SGLoadVersion` with those inputs. ComfyUI hands a node no prompt id, so
-the fingerprint is the guarantee. Dropping what no longer matches is hygiene.
+Keyed by node id, which one ComfyUI server reuses across graphs: node 1 of the graph open now is a
+different node from node 1 of the graph before it, and crediting the earlier one would write a
+Version's provenance to a source it never read. An entry therefore also records a fingerprint of the
+Load node as it ran, its class and its inputs off the PROMPT it was given, and is credited only to a
+node that is still an `SGLoadVersion` with those inputs. ComfyUI gives a node no prompt id.
 
 Each entry is (version_id, published_file_id, fingerprint). The file id is 0 where the read came
 off a path field or an upload, since neither is a file the site knows by id.
@@ -42,7 +40,7 @@ def record(node_id, version_id, published_file_id=0, prompt=None):
 
 
 def _forget_stale(prompt):
-    """Drop every entry this graph cannot own, so an old run does not sit here until the restart."""
+    """Drop every entry this graph cannot own."""
     for nid, entry in list(_resolved.items()):
         if entry[2] != fingerprint(prompt, nid):
             del _resolved[nid]
@@ -70,10 +68,10 @@ def for_nodes(node_ids, prompt):
 
 
 def files_for_nodes(node_ids, prompt):
-    """{version_id: [published_file_id]} for the nodes that read an actual file.
+    """{version_id: [published_file_id]} for the nodes that read a file.
 
     A Version absent from this mapping is one this run did not open a file from, not one without
-    files; the caller then has to ask the site. Present means exact.
+    files. The caller then has to ask the site.
     """
     out = {}
     for nid in _ordered(node_ids):

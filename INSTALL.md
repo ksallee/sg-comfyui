@@ -34,7 +34,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 - `COMFYUI_PATH` tells the doctor where ComfyUI is. It defaults to `~/dev/ComfyUI`.
 - The doctor exits non-zero on anything that would fail a publish. It warns on the rest.
 
-The API client is `sg-groundtruth`, from PyPI. `requirements.txt` names it. Every install path
+The API client is `sg-groundtruth`, from PyPI. `requirements.txt` names it. Each install path
 installs that file.
 
 ## Signing in
@@ -54,7 +54,7 @@ Press Test either way. It reports who the nodes publish as.
 ## Creating the provenance fields
 
 Do this to make the nine AI fields queryable on Version, in a filter or a page layout. A publish
-never needs them: a site with none of them records every fact in the Version's description.
+does not need them. A site with none of them records the facts in the Version's description.
 
 Open Settings, then SG, SG Site Setup. It reports how many of the nine exist. Press Create to add the
 rest.
@@ -71,7 +71,7 @@ PYTHONPATH=src <comfy-python> -m comfyui_sg.fields
 - That key needs permission to create fields on Version. Most artist accounts do not have it.
 - Field names are permanent. Deleting a field frees the field, never its name. Trashed fields cannot
   be listed, so a name spent here is spent site-wide forever (probe 019).
-- Pointing the profile's `provenance.map` at fields your studio already has is the preferred move.
+- Point the profile's `provenance.map` at fields your studio already has.
 
 ## Colour management
 
@@ -83,11 +83,11 @@ For a colour-managed pipeline:
 2. Set `OPENCV_IO_ENABLE_OPENEXR=1` in the environment that launches ComfyUI.
 3. Put `ffmpeg` on the path.
 
-## Where the local files live
+## The local files
 
 Four files, all of them yours, none of them in git.
 
-| file | holds | written by | read from |
+| file | what it is | written by | read from |
 |---|---|---|---|
 | `settings.local.json` | site address, script name, application key, publish as | Settings, then SG | the protected user directory |
 | `session.local.json` | the session token from Log in | Settings, then SG | the protected user directory |
@@ -95,8 +95,8 @@ Four files, all of them yours, none of them in git.
 | `.env.local` | a script key for the command-line tools | you | the pack directory |
 
 The **protected user directory** is `<ComfyUI user directory>/__sg_comfyui`. That is
-`ComfyUI/user/__sg_comfyui` unless `--user-directory` or `--base-directory` moved it. It sits outside
-`custom_nodes`, so an upgrade leaves it alone, and ComfyUI serves a `__` directory over no HTTP route.
+`ComfyUI/user/__sg_comfyui` unless `--user-directory` or `--base-directory` moved it. It is outside
+`custom_nodes`, so an upgrade leaves it alone. ComfyUI serves no HTTP route for a `__` directory.
 
 The **pack directory** is where this repo's files are.
 
@@ -104,7 +104,7 @@ The **pack directory** is where this repo's files are.
 |---|---|
 | git clone into `custom_nodes` | `ComfyUI/custom_nodes/sg-comfyui` |
 | ComfyUI Manager or the Registry | `ComfyUI/custom_nodes/sg-comfyui`, made by the installer |
-| a symlinked developer checkout | the real checkout, for example `~/dev/sg-comfyui` |
+| a symlinked developer checkout | the checkout itself, for example `~/dev/sg-comfyui` |
 
 Which copy is read:
 
@@ -113,7 +113,7 @@ Which copy is read:
 - **The profile** comes from the protected user directory when a `profile.local.json` is there, and
   from the pack directory otherwise. Settings writes wherever that resolves to.
 - Once a profile exists in the protected user directory, a second one in the pack directory is
-  ignored. `tools/doctor.py` prints the path that won. Write to that path.
+  ignored. `tools/doctor.py` prints the path in use. Write to that path.
 
 ## Running the command-line tools
 
@@ -130,7 +130,7 @@ cd ComfyUI/custom_nodes/sg-comfyui
 | `PYTHONPATH=src <comfy-python> -m comfyui_sg.fields` | `.env.local` |
 | `PYTHONPATH=src <comfy-python> -m comfyui_sg.seed <file> ...` | `.env.local`, `profile.local.json` |
 
-- `PYTHONPATH=src` is required for every `-m comfyui_sg.*`. The package lives under `src/` and nothing
+- `PYTHONPATH=src` is required for every `-m comfyui_sg.*`. The package is under `src/` and nothing
   installs it.
 - `instrument.py` and `doctor.py` are run as files. `-m` would import the package `__init__` and
   therefore torch, and both must run on a machine with neither torch nor a route to the site.
@@ -169,8 +169,8 @@ Run it with the interpreter that has the client installed, which is the one Comf
 - The inspector reads credentials from its own `.env.local`, in its own checkout. The same three keys
   either way.
 - Pass `--out`. Its default is `./profile.local.json` relative to the working directory, and the file
-  has to land on the path `tools/doctor.py` reports.
-- Read the report before accepting it. The link field is the value it most often gets wrong.
+  has to be written to the path `tools/doctor.py` reports.
+- Read the report before accepting it, starting with the link field.
 - The code convention comes with a coverage number saying how much of the show agrees with it.
 - Re-running keeps your edits and prints `(yours, kept)` beside each value it would have changed.
   `--overwrite` discards them.
@@ -221,7 +221,7 @@ Per project, and valid at the top level as a site default:
 | `code_template` | `{root_name}_v{version:03d}` | Settings, SG Publish Defaults |
 | `code_regex` | derived from the version name template | the inspector |
 | `status` | none, so the site sets its own | Settings, SG Publish Defaults |
-| `version_number_field` | none, so the version number lives inside the name | you |
+| `version_number_field` | none, so the version number is inside the name | you |
 | `widgets` | what `src/comfyui_sg/widgets.py` declares | you |
 | `provenance` | `{"mode": "fields"}`, the nine fields by their own names | you |
 
@@ -245,15 +245,15 @@ Inside `published_files`:
 A template is written in Flow Production Tracking's own vocabulary:
 
 - Dotted field paths to any depth: `{entity.Shot.code}`.
-- Python's whole format spec: `{version:03d}`.
-- `[optional blocks]`, which vanish when their fields are empty.
+- Python's format spec: `{version:03d}`.
+- `[optional blocks]`, dropped when their fields are empty.
 - Printf padding, `v%04d`, as a synonym for a version spec.
 - A token with no value drops out with its separator.
 
 `tools/doctor.py` renders every template in the profile against a sample publish. It names any token
 that comes back with nothing.
 
-## When something does not answer
+## When something does not work
 
 **The Settings dialog says 404.** The running ComfyUI started before the pack was installed, so it
 registered no routes. Restart ComfyUI and reload the page. If it still says 404, read the startup log

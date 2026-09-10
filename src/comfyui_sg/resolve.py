@@ -1,9 +1,8 @@
 """Pick the one Version a Load node should read, from a rule rather than an id.
 
-The rule is what an artist would say out loud, *the newest approved depth on this shot*. It is an
-entity, optionally a Task on it, words that must appear in the name, and any of a set of statuses,
-each part optional and each one narrowing. Nothing here invents vocabulary SG does not have:
-"approved" is one status code among the ones that project allows (probe 009).
+The rule is an entity, optionally a Task on it, words that must appear in the name, and any of a set
+of statuses. Each part is optional and each one narrows. "approved" is one status code among the
+ones that project allows (probe 009).
 
 "newest" is ambiguous. A re-published v002 is newer by id but older by intent, so the convention's
 version number is offered alongside id and created_at.
@@ -19,7 +18,7 @@ SORT = {BY_CREATED: "-created_at", BY_ID: "-id", BY_VERSION: "-id"}
 
 
 # `naming.template_regex` pins the values it is handed and writes this for the rest, so numbering
-# counts one link's own history. Ranking has nothing to pin and a root name usually holds an
+# counts one link's own history. Ranking has nothing to pin, and a root name can contain an
 # underscore, so the unpinned fields widen to match one.
 UNPINNED = "[^_]*"
 
@@ -31,8 +30,7 @@ def _terms(name_contains):
 def regex_from(template):
     """A matcher for the codes a version-name template produces, naming a `version` group.
 
-    A site with no `code_regex` ranks by this, so newest-by-version-number still means something on
-    a project nobody has measured a convention for.
+    A site with no `code_regex` ranks by this.
     """
     t = (template or "").strip() or naming.DEFAULT_TEMPLATE
     return naming.template_regex(t, {}).replace(UNPINNED, ".*")
@@ -47,12 +45,11 @@ def filters_for(project_id, link_type="", link_id=0, task_id=0, name_contains=""
 def combine(base, extra):
     """The fields' filter with the operator's own conditions ANDed on.
 
-    A `_search` filter array is an implicit AND (probe 004), so extra conditions simply append. A
-    dict is a group carrying its own `logical_operator` (probe 030) and appends as ONE element, which
-    is how "these fields, and also (a or b)" is said.
+    A `_search` filter array is an implicit AND (probe 004), so extra conditions append. A dict is a
+    group with its own `logical_operator` (probe 030) and appends as one element, which is how
+    "these fields, and also (a or b)" is said.
 
-    Additive, never a replacement: an escape hatch that switched the pickers off would let an
-    operator set a status, see nothing change, and have no way to find out why.
+    Additive, never a replacement.
     """
     if not extra:
         return list(base)
@@ -61,17 +58,16 @@ def combine(base, extra):
 
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
          order=BY_VERSION, regex="", filters=None, where="", template=""):
-    """(version_id, code, why), with `why` shown to the operator. Nothing is guessed silently.
+    """(version_id, code, why), with `why` shown to the operator.
 
-    `filters` is ANDed onto what the widgets add up to. It narrows, never replaces, so every field on
-    the node keeps meaning what it says.
+    `filters` is ANDed onto what the widgets add up to. It narrows, never replaces.
 
     `where` is what the operator called the link. Only ids reach here, and "nothing on Shot 7514"
-    names a row they never typed; the caller knows the label they picked.
+    names a row they never typed.
 
     `regex` is the convention measured on this project. `template` is the version-name template it
-    publishes with, which is what the ranking falls back to where no convention was measured; `why`
-    says which of the two ranked.
+    publishes with, and ranking falls back to it where no convention was measured. `why` says which
+    of the two ranked.
     """
     terms = _terms(name_contains)
     combined = combine(filters_for(project_id, link_type, link_id, task_id, name_contains, statuses),

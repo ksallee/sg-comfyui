@@ -5,7 +5,7 @@ either a widget value or a link of the form [node_id, output_slot].
 
 PROMPT is always present, because execution requires it. EXTRA_PNGINFO is whatever the client put
 in extra_data and is None otherwise (execution.py:199), so an API, CLI or MCP client yields no
-workflow. The workflow is best effort, and a publish never depends on it.
+workflow. A publish never depends on it.
 """
 
 SEED_KEYS = ("seed", "noise_seed")
@@ -14,10 +14,10 @@ SAMPLER_KEYS = ("steps", "cfg", "sampler_name", "scheduler", "denoise", "start_a
 MODEL_KEYS = ("ckpt_name", "unet_name", "vae_name", "clip_name", "control_net_name",
               "style_model_name", "model_name")
 LORA_KEYS = ("lora_name", "strength_model", "strength_clip")
-# Words a node takes directly rather than through an encoder: every cloud generator (Kling, Veo,
+# Words a node takes directly rather than through an encoder: the cloud generators (Kling, Veo,
 # Runway, Qwen edit) and the edit encoders. Across core ComfyUI a STRING input named `prompt` is
-# multiline on all 147 classes that declare one and never names a file, so the name alone is enough
-# where reading every string widget would not be.
+# multiline on all 147 classes that declare one and never names a file, so the name alone
+# identifies it.
 PROMPT_WIDGET_KEYS = {"prompt": "positive", "negative_prompt": "negative"}
 # Text a CLIP encoder takes: `text` on one-encoder nodes, the rest on the per-tokeniser inputs of
 # the dual and triple encoders, which are SDXL, Flux, SD3, HiDream, HunyuanDiT, Kandinsky5 and
@@ -41,7 +41,7 @@ def _widgets(node):
 
 
 def _order(prompt):
-    # Node ids are strings but numeric in practice; expanded nodes fall back to string order.
+    # A numeric node id sorts as a number; an expanded node's id falls back to string order.
     def key(nid):
         return (0, int(nid)) if str(nid).isdigit() else (1, str(nid))
     return sorted(prompt, key=key)
@@ -51,9 +51,9 @@ def _trace_text(prompt, ref, role=None, seen=None):
     """Every distinct text upstream of a conditioning link, nearest first.
 
     Conditioning reaches its consumer through ControlNet, combine and guidance nodes, so the encoder
-    is rarely one hop away. `role` is the input the walk started from. A node such as
+    is not always one hop away. `role` is the input the walk started from. A node such as
     `ControlNetApplyAdvanced` takes both positive and negative, so where a node has an input
-    matching the role that is the only branch followed, or the two prompts merge into one.
+    matching the role, that is the only branch followed.
     """
     seen = seen if seen is not None else set()
     if not _is_link(ref):
@@ -64,13 +64,12 @@ def _trace_text(prompt, ref, role=None, seen=None):
     seen.add(nid)
     node = prompt[nid]
     # ConditioningZeroOut erases what it is handed, so text behind it reached nothing. A Flux or SD3
-    # negative is conventionally the positive encoder zeroed out, and the wall keeps such a graph
-    # from reporting its positive prompt as its negative one too.
+    # negative is conventionally the positive encoder zeroed out, so stopping here keeps such a
+    # graph from reporting its positive prompt as its negative one.
     if node.get("class_type") == "ConditioningZeroOut":
         return []
     # One node, several tokenisers: SDXL takes text_g and text_l, Flux clip_l and t5xxl. Identical
-    # texts dedupe to one; texts that differ are kept separately, because concatenating would report
-    # a sentence nobody typed and picking one would lose the other. `fields.concepts` joins the list
+    # texts dedupe to one; texts that differ are kept separately. `fields.concepts` joins the list
     # with " | " like any other.
     found = [v for k, v in _widgets(node).items() if k in ENCODER_TEXT_KEYS and isinstance(v, str)]
     links = [(k, v) for k, v in (node.get("inputs") or {}).items() if _is_link(v)]
@@ -106,10 +105,10 @@ def directing_text(prompt, scope):
     """(positive, negative), the words that told this branch what to do.
 
     Text becomes a prompt when an encoder turns it into CONDITIONING and a node consumes it. That
-    holds for a sampler and equally for `SAM3_Detect`, whose `conditioning` input decides what gets
-    cut out. A seed is not what makes text a prompt, and a segmentation graph has no seed at all.
-    The consumption test is also the whole of the conservatism: `filename_prefix`, `ckpt_name` and
-    a format enum are strings in the same graph and none of them reaches a conditioning input.
+    applies to a sampler and to `SAM3_Detect`, whose `conditioning` input decides what gets cut out.
+    A seed is not what makes text a prompt, and a segmentation graph has no seed. `filename_prefix`,
+    `ckpt_name` and a format enum are strings in the same graph and none of them reaches a
+    conditioning input.
 
     `positive`/`negative` name a role, a bare `conditioning` input does not, and text found with no
     role reads as positive unless a roled walk already claimed it.
@@ -135,7 +134,7 @@ def directing_text(prompt, scope):
 
 
 def _said(texts):
-    """Distinct non-empty texts, in the order found. An empty encoder said nothing."""
+    """Distinct non-empty texts, in the order found."""
     out = []
     for t in texts:
         if t.strip() and t not in out:
@@ -146,8 +145,8 @@ def _said(texts):
 def ancestors(prompt, node_id):
     """Every node upstream of node_id.
 
-    One graph holds several independent branches, such as three lookdev variants off a shared depth
-    pass. Each publish node describes the branch that produced ITS image, not the whole file.
+    One graph can contain several independent branches, such as three lookdev variants off a shared
+    depth pass. Each publish node describes the branch that produced ITS image.
     """
     seen, stack = set(), [str(node_id)]
     while stack:

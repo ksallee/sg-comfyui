@@ -5,7 +5,7 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - **SG Publish** creates a Version from an IMAGE or a VIDEO, uploads the media, and attaches the
   model, prompt, seed, sampler and workflow that made it.
 - **SG Load** reads a Version's media back into a graph as image, video and mask.
-- Nothing here generates, encodes or decodes. ComfyUI writes and reads every pixel.
+- Nothing here generates, encodes or decodes. ComfyUI writes and reads the pixels.
 
 ![The example workflow: an image into SG Publish, and SG Load reading the Version back](docs/images/example-top-row.png)
 
@@ -31,7 +31,7 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Reads 16-bit PNG and EXR at full precision.
 - Records the Version it read on anything published downstream.
 
-![SG Load on an EXR Version: the format line, the provenance it carries, the image and the mask](docs/images/sg-load-node.png)
+![SG Load on an EXR Version: the format line, the provenance it records, the image and the mask](docs/images/sg-load-node.png)
 
 ### In the editor
 
@@ -94,16 +94,15 @@ Paths, the command-line tools, the profile key by key and the fixes are in [INST
 8. Press **Run**.
 
 A farm enters a Script name and Application key under Script Authentication instead of step 3.
-`/setup` walks the whole first run with an agent.
+An agent follows the same steps with `/setup`.
 
 ![The 00_example template](docs/images/example-workflow.png)
 
-Restart ComfyUI only to install or upgrade the pack. A profile edit reaches the editor on a browser
-refresh.
+Restart ComfyUI only to install or upgrade the pack. A profile edit is read on a browser refresh.
 
 ## How it works
 
-### Where provenance lands
+### Where provenance is written
 
 Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site Setup**.
 
@@ -119,17 +118,18 @@ Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site
 | AI CFG | `sg_ai_cfg` | the last sampler on the branch |
 | AI Generated From | `sg_ai_generated_from` | the Versions this was made from |
 
-- A site with none of these fields records every fact in the Version's description.
-- Where some of them exist, those take their values. The description carries the rest.
-- The whole record goes up as a `.provenance.json` attachment.
-- The workflow goes up when the submitting client sent one.
+- A site with none of these fields records the facts in the Version's description.
+- Where some of them exist, those take their values. The description records the rest.
+- The record is attached as `.provenance.json`.
+- The workflow is attached when the submitting client sent one.
 - Provenance is scoped per branch. The node walks back through its own inputs.
 
 ### The frames and the storage root
 
-- A Version carries one piece of media. A sequence is registered as a PublishedFile instead
-  (probe 022).
-- A PublishedFile's path sits under one of your site's Local File Storage roots. The server refuses
+- A Version has one uploaded media file (probe 022). `sg_path_to_frames` and `sg_path_to_movie` are
+  path references, and RV reads them to switch between the transcode and the source. The only
+  out-of-the-box way to register an image sequence is a PublishedFile linked to the Version.
+- A PublishedFile's path is under one of your site's Local File Storage roots. The server refuses
   any other path.
 - ComfyUI writes the frames to its own output directory. The node copies them under the root.
 - Originals are never moved. A publish that fails after the copy names the copies it left.
@@ -140,10 +140,10 @@ Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site
 
 ### Formats and colour space
 
-- A VIDEO that came off a file goes up as that file, byte for byte.
+- A VIDEO read from a file is uploaded as that file, byte for byte.
 - Anything else is written by ComfyUI's `VideoInput.save_to()`, with its colour space, bit depth and
   audio.
-- Review media is always 8-bit.
+- Review media is 8-bit.
 - Colour space is recorded, never applied.
 - The declared value goes in the PublishedFile's description. SG Load returns it as an output.
 - Core ComfyUI has no colour management. INSTALL.md says what to install.
@@ -155,8 +155,8 @@ Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site
 
 ## Customize
 
-`profile.local.json` holds what a Version hangs off, what it is called, and where each piece of
-provenance lands. It is plain JSON. Edit it by hand.
+`profile.local.json` sets what a Version links to, what it is called, and which field each
+provenance fact is written to. It is plain JSON. Edit it by hand.
 
 | to do this | use |
 |---|---|
@@ -167,16 +167,14 @@ provenance lands. It is plain JSON. Edit it by hand.
 | Add the nodes to a graph you already use | `/track-workflow` |
 
 Without a measured profile the pickers run on the site's own defaults, which suit a Shot-linked show.
-The procedures live in `.claude/commands/` as plain markdown. `01_concept_and_style` and
+The procedures are in `.claude/commands/` as plain markdown. `01_concept_and_style` and
 `02_style_from_a_reference` are worked graphs.
 
-## What's next, tell us
+## What's next
 
-This is the list we know about, and the order is not decided. If one of these is what stands between
-you and using the pack, say so in an issue; if the one you need is not here, that is the more useful
-issue.
+The order is not decided. Open an issue for the one you need, whether or not it is on this list.
 
-- A `mask` input on SG Publish, so an RGBA publish carries its alpha.
+- A `mask` input on SG Publish, so an RGBA publish keeps its alpha.
 - Registering files another node wrote, such as Save Image (Advanced) or an OCIO Write.
 - Publishing where there is no shared storage, by uploading a zip.
 - Publishing on someone's behalf, and naming the artist on a farm.
@@ -189,13 +187,13 @@ issue.
 ## Known limits
 
 - A loader inside a ComfyUI subgraph is replaced there, not promoted to the top level.
-- A zip uploaded to a Version is not unpacked. SG Load hands it back as the file it is.
+- A zip uploaded to a Version is not unpacked. SG Load returns it unchanged.
 - `pyproject.toml` has no `PublisherId` or `Icon`.
 
 ## Where to read next
 
-| file | holds |
+| file | what it is |
 |---|---|
 | [INSTALL.md](INSTALL.md) | the interpreter, the local files, the command-line tools, the profile, the fixes |
-| [DESIGN.md](DESIGN.md) | why each decision is the one that was made |
+| [DESIGN.md](DESIGN.md) | why each decision was made |
 | [AGENTS.md](AGENTS.md) | the entry point for an agent |
