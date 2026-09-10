@@ -236,7 +236,7 @@ Then offer to run /setup.`;
 	<div class="page">
 		<div class="split">
 			<div class="split-copy">
-				<h2>Three worked graphs ship with the pack.</h2>
+				<h2>Three demo templates to test the nodes.</h2>
 				<p>
 					Open the Templates browser, category <code>sg-comfyui</code>. <code>00_example</code>
 					publishes one image and reads it back.
@@ -439,12 +439,12 @@ Then offer to run /setup.`;
 <!-- 12. Agents -->
 <section class="band tight" id="agents" use:reveal>
 	<div class="page agents">
-		<h2>An agent can drive the repo.</h2>
+		<h2>An agent adds the nodes to your workflow.</h2>
 		<p>
-			<code>AGENTS.md</code> is the entry point: what the nodes do, which document answers which
-			question, and the procedures. Four commands are written as plain markdown that any harness can
-			follow, whether or not it has slash commands. An agent runs
-			<code>tools/doctor.py</code> first.
+			Point your agent at a graph you already use. <code>/track-workflow</code> adds SG Publish and
+			SG Load where the graph needs them, wired and filled in, and leaves the original untouched.
+			<code>/setup</code> connects the site and creates the provenance fields. <code>AGENTS.md</code>
+			is the entry point, written for any harness. An agent runs <code>tools/doctor.py</code> first.
 		</p>
 		<p class="commands">
 			<code>/setup</code>

@@ -176,8 +176,8 @@ The order is not decided. Open an issue for the one you need, whether or not it 
 - Publishing on someone's behalf, and naming the artist on a farm.
 - Updating the Task's status when a Version is published.
 - Newest per stream, rather than newest on the link.
-- Any Version field on the node, in one line.
-- Customising the normal and advanced inputs that come from Version fields or linked fields, without an agent.
+- Version fields and linked fields as inputs on SG Publish: a field search in Settings, a
+  re-orderable list, each field a normal or advanced input.
 - A colour-managed template.
 - Windows as a first-class publisher.
 
