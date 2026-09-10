@@ -39,6 +39,12 @@ app.graph.clear();
 const n = window.LiteGraph.createNode("SGPublishVersion");
 app.graph.add(n);
 await wait(1800);
+// The picker's project list is fetched as the page loads, before this drive can answer for it, so
+// the node opens on the real profile's project. Pick the one these routes know.
+const w = (name) => n.widgets.find((x) => x.name === name);
+if (w("project").value !== "Chariot") {
+  w("project").value = "Chariot"; w("project").callback?.("Chariot"); await wait(2200);
+}
 // The fields block lives in the node's own advanced fold, which is what an operator opens to read
 // it. The button is the editor's, named for what it does.
 const button = [...document.querySelectorAll("button, .p-button")]
