@@ -57,6 +57,10 @@ const CSS = `
 .sg-val.is-empty { opacity: .55; font-style: italic; }
 .sg-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none;
   margin-left: 6px; background: rgba(128,128,128,.15); }
+/* A status carries its icon onto the trigger, so the picked value is drawn the way SG draws it
+   (recipe 010). No box at all on a row that has none. */
+.sg-lead-ico { display: inline-flex; align-items: center; flex: none; margin-left: 8px; }
+.sg-lead-ico:empty { display: none; }
 
 /* The popup lives on <body>: a node sits inside a transformed, clipping ancestor, where a fixed
    position resolves against the transform and an overflowing menu is cut off. The frontend's own
@@ -453,8 +457,9 @@ const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>
 
 /** A select-shaped trigger whose popup holds the search.
  *
- * `search(q, {live, signal})` is async and answers with items — `{value, name, type, code, image}`,
- * of which only `value` and `name` are required. Multi-word queries go straight to the site
+ * `search(q, {live, signal})` is async and answers with items — `{value, name, type, code, image,
+ * icon, rgb}`, of which only `value` and `name` are required. `icon` and `rgb` draw a status the way
+ * SG draws it (recipe 010), on the row and on the trigger. Multi-word queries go straight to the site
  * (site.entities ANDs a `contains` per word), which is the search an artist expects: `gir rul` finds
  * `giraffe_ruler`. Filtering here would only ever see the page the server already sent.
  * `signal` aborts the request when a newer keystroke supersedes it; `live()` is false for a
@@ -472,6 +477,7 @@ export function searchPicker(node, target, {
   field.innerHTML = `<div class="${NATIVE.field}">
       <button type="button" class="${NATIVE.trigger}" aria-haspopup="listbox" aria-expanded="false">
         <img class="sg-thumb" alt="" hidden>
+        <span class="sg-lead-ico"></span>
         <span class="sg-val"></span>
       </button>
       <button type="button" tabindex="-1" aria-hidden="true" class="${NATIVE.chev}">${CHEVRON}</button>
@@ -480,6 +486,7 @@ export function searchPicker(node, target, {
   const chevron = field.querySelectorAll("button")[1];
   const valEl = field.querySelector(".sg-val");
   const thumbEl = field.querySelector(".sg-thumb");
+  const icoEl = field.querySelector(".sg-lead-ico");
   const { relayout } = domRow(node, `${target.name}_pick`, { label, control: field, target });
 
   // "None" rather than blank: an empty line does not say whether it is unset or still loading.
@@ -491,6 +498,7 @@ export function searchPicker(node, target, {
     const src = set && item ? safeUrl(item.image) : "";
     thumbEl.hidden = !src;
     if (src) thumbEl.src = src;
+    icoEl.innerHTML = set && item && (item.icon || item.rgb) ? iconHtml(item.icon, item.rgb) : "";
   };
   showCurrent();
 
@@ -549,6 +557,7 @@ export function searchPicker(node, target, {
         <span class="sg-pop-name">${thumbs
           ? `<span class="sg-pop-thumb${img ? " on" : ""}"${img
               ? ` style="background-image:url('${esc(img)}')"` : ""}></span>` : ""
+        }${it.icon || it.rgb ? iconHtml(it.icon, it.rgb) : ""
         }<span class="truncate">${esc(it.name)}</span></span>
         <span class="sg-pop-meta">${esc(it.code || it.type || "")}</span></div>`;
     }).join("");

@@ -124,7 +124,8 @@ const settleSize = async (n, ms = 3000) => {
   }
 };
 
-// Pick a value from ComfyUI's own select, which is what `task` and `status` are drawn with.
+// Pick a value from ComfyUI's own select, which is what a fixed combo such as `format` is drawn
+// with. The site-backed rows are pickers: use `pick`.
 const pickCombo = async (label, want) => {
   const row = [...document.querySelectorAll('[data-testid="node-widget"]')]
     .find((r) => (r.querySelector('[data-testid="widget-layout-field-label"]')?.textContent || "")

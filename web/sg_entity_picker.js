@@ -1,9 +1,10 @@
 /* The editor half of both nodes: the site-backed pickers, the readout, and the round trips that
  * feed them.
  *
- * Every picker searches the SITE, never the page the site already sent — a browser-side substring
- * over what is loaded finds `giraffe_ruler` for `f` and not for `f r`, which is what made a bespoke
- * box worse than none.
+ * Every picker over a list the site pages searches the SITE, never the page already sent. A
+ * browser-side substring over what is loaded finds `giraffe_ruler` for `f` and not for `f r`, which
+ * is what made a bespoke box worse than none. `task` and `status` are the exceptions. The Tasks on
+ * one link and the statuses on one project each arrive whole, so their words are matched here.
  */
 import { app } from "../../scripts/app.js";
 import { addPanel } from "./sg_panel.js";
@@ -156,11 +157,68 @@ async function loadLinkOptions(widget, state, tok) {
   return setOptions(widget, d);
 }
 
-/** The tasks on one link, into the `task` combo. */
-async function loadTaskOptions(widget, type, id, tok) {
+/** The tasks on one link, into the `task` combo and into `state.tasks` for the picker. */
+async function loadTaskOptions(widget, state, type, id, tok) {
   const d = await call(`/sg/tasks?type=${encodeURIComponent(type)}&id=${id || 0}`, tok);
   if (!tok.live) return "";
+  if (!d.error) state.tasks = d.items || [];
   return setOptions(widget, d);
+}
+
+/** The task picker both nodes carry.
+ *
+ * A combo cannot hold this list. Nodes 2.0 builds `WidgetSelectDefault` from the node definition
+ * once, and `task` is declared as "(none)" alone because the Tasks depend on the link; a later
+ * `options.values` never reaches the built component, so the dropdown offers one row whatever the
+ * widget holds.
+ *
+ * The one picker here that does not search the site. The Tasks on one link arrive as a complete
+ * list, so matching the words against what is loaded matches them against everything there is.
+ */
+function taskPicker(node, widget, state, { onPick } = {}) {
+  hideWidget(widget);
+  return searchPicker(node, widget, {
+    label: "task",
+    placeholder: "search tasks",
+    empty: "No Task on this link matches those words.",
+    search: async (q) => {
+      const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      const hay = (x) => `${x.label} ${x.step || ""}`.toLowerCase();
+      const rows = (state.tasks || [])
+        .filter((x) => terms.every((t) => hay(x).includes(t)))
+        // The step beside the name, in the site's own word for it, where the Task carries one.
+        .map((x) => ({ name: x.label, code: x.step || "", value: x.label }));
+      // A Version need not be for a Task, so "(none)" is a row like any other. It drops out of a
+      // typed search, which is about the Tasks.
+      return terms.length ? rows : [{ name: NONE, value: NONE }].concat(rows);
+    },
+    onPick,
+  });
+}
+
+/** The status picker on the publish node. One status, drawn the way SG draws it (recipe 010).
+ *
+ * A combo cannot hold this list either. The statuses a project allows are its own (probe 009), and
+ * `WidgetSelectDefault` keeps the list it was built from, which is the list of the project
+ * INPUT_TYPES was evaluated for. Picking a second project would otherwise offer the first one's
+ * statuses. "(none)" stays a row: it sends no status, and the site then applies the field default.
+ */
+function statusPicker(node, widget, state, { onPick } = {}) {
+  hideWidget(widget);
+  return searchPicker(node, widget, {
+    label: "status",
+    placeholder: "search statuses",
+    empty: "No status on this project matches those words.",
+    search: async (q) => {
+      const terms = q.toLowerCase().split(/\s+/).filter(Boolean);
+      const hay = (x) => `${x.label} ${x.code || ""}`.toLowerCase();
+      const rows = (state.statuses || []).filter((x) => terms.every((t) => hay(x).includes(t)))
+        .map((x) => ({ name: x.label, code: x.code || "", icon: x.icon, rgb: x.rgb,
+                       value: x.label }));
+      return terms.length ? rows : [{ name: NONE, value: NONE }].concat(rows);
+    },
+    onPick,
+  });
 }
 
 app.registerExtension({
@@ -190,7 +248,7 @@ function publishPickers(nodeType, nodeData) {
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), link = w("link"), task = w("task"), status = w("status");
 
-    const state = { projectId: 0, projects: [], linkIds: {} };
+    const state = { projectId: 0, projects: [], linkIds: {}, tasks: [], statuses: [] };
     let statusMeta = {};
     let linkType = "Shot";   // per project, from /sg/profile; never assumed (probe 005)
     // A picked label carries its own type; `linkType` is only the fallback for one that does not.
@@ -342,7 +400,7 @@ function publishPickers(nodeType, nodeData) {
       // wrote are the Version id and the paths it landed on, so they stay on the panel.
       setTimeout(() => preview(true), 1200);
     });
-    if (!project || !link) return;
+    if (!project || !link || !task) return;
 
     // No onPick on the project: the widget's own callback is wrapped below and searchPicker fires
     // it, so asking here as well would load the project twice.
@@ -350,6 +408,8 @@ function publishPickers(nodeType, nodeData) {
     const linkPick = linkPicker(this, link, state, {
       empty: "No link on this project matches those words.",
     });
+    const taskPick = taskPicker(this, task, state);
+    const statusPick = status && statusPicker(this, status, state);
 
     // Picking a second project supersedes every read the first one started: one cascade at a time,
     // and each step of it carries the token the entry point began with.
@@ -362,8 +422,9 @@ function publishPickers(nodeType, nodeData) {
       // The picked value, not the widget's: a widget's own .value is not always assigned yet when
       // its callback fires, and reading it here asks about the PREVIOUS link.
       const chosen = picked ?? link.value;
-      const bad = await loadTaskOptions(task, typeOf(chosen), state.linkIds[chosen], tok);
+      const bad = await loadTaskOptions(task, state, typeOf(chosen), state.linkIds[chosen], tok);
       if (!tok.live || stop(bad)) return;
+      taskPick.refresh();
       await preview();
     };
 
@@ -385,6 +446,8 @@ function publishPickers(nodeType, nodeData) {
         const s = await call(`/sg/statuses?project_id=${state.projectId}`, tok);
         if (!tok.live || stop(setOptions(status, s))) return;
         statusMeta = Object.fromEntries((s.items || []).map((x) => [x.label, x]));
+        state.statuses = s.items || [];
+        statusPick.refresh(statusOf(status.value));
       }
       projectPick.refresh(currentProject(project, state));
       await loadLinks(tok);
@@ -439,7 +502,7 @@ function loadPickers(nodeType, nodeData) {
     const w = (n) => this.widgets?.find((x) => x.name === n);
     const project = w("project"), link = w("link"), task = w("task");
     const source = w("source"), statuses = w("statuses");
-    if (!project || !link) return;
+    if (!project || !link || !task) return;
 
     // Wide enough for `label | control` plus the readout's two columns: the stock 210px default puts
     // every provenance label on its own wrapped line.
@@ -448,7 +511,7 @@ function loadPickers(nodeType, nodeData) {
     // still scrolls, which is the frontend's own answer.
     textRows(w("filters"), 10);
 
-    const state = { projectId: 0, projects: [], linkIds: {} };
+    const state = { projectId: 0, projects: [], linkIds: {}, tasks: [] };
     const relayout = () => fitNode(this);
 
     const projectPick = projectPicker(this, project, state, (it) => loadProject(it.value));
@@ -456,6 +519,7 @@ function loadPickers(nodeType, nodeData) {
       empty: "No link on this project matches those words.",
       onPick: () => loadTasks(),
     });
+    const taskPick = taskPicker(this, task, state);
     hideWidget(statuses);
     const statusChips = statuses && chipSelect(this, statuses, {
       label: "statuses",
@@ -537,8 +601,10 @@ function loadPickers(nodeType, nodeData) {
 
     const loadTasks = async (picked, tok = chain.begin()) => {
       const chosen = picked ?? link.value;
-      const bad = await loadTaskOptions(task, typeFromLabel(chosen), state.linkIds[chosen], tok);
+      const bad = await loadTaskOptions(task, state, typeFromLabel(chosen), state.linkIds[chosen],
+                                        tok);
       if (!tok.live || stop(bad)) return;
+      taskPick.refresh();
       await refresh();
     };
 

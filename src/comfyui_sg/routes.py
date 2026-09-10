@@ -435,8 +435,13 @@ def register():
 
     @routes.get("/sg/tasks")
     async def tasks(request):
+        """label and id as everywhere else, plus the pipeline step where the Task has one."""
         q = request.rel_url.query
-        return pairs(lambda: site.tasks_for(q.get("type", ""), _int(q, "id")))
+
+        def rows():
+            found = site.task_rows(q.get("type", ""), _int(q, "id"))
+            return [{"label": content, "id": i, "step": step} for content, i, step in found]
+        return items(rows)
 
     @routes.get("/sg/profile")
     async def profile(request):

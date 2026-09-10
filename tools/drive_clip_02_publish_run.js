@@ -34,8 +34,9 @@ await pause(1600);
 
 // One node at a time. Select it, then run up to it from the toolbox over it.
 await runNode(prev, "Preview Image");
-await ranOut();
-await pause(1600);
+// The preview lands almost at once, so wait for the image itself rather than for the queue.
+for (let i = 0; i < 80 && !(prev.imgs || []).length; i++) await pause(100);
+await pause(1000);
 
 await runNode(pub, "SG Publish");
 await ranOut();
