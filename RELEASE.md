@@ -1,7 +1,6 @@
 # Release plan
 
-Written 2026-09-09. Decisions are here with their reasoning. Open questions are marked with who
-decides.
+Decisions are here with their reasoning. Open questions name who decides.
 
 Read `CLAUDE.md`, then this, then `DESIGN.md`. The operator's documents are `README.md`, `INSTALL.md`
 and `AGENTS.md`.
@@ -10,81 +9,76 @@ and `AGENTS.md`.
 
 ## Next session, in order
 
-1. **Kevin's checkpoint on his own ComfyUI.** Restart it first, because routes were added. The folder
-   `~/Desktop/sg-comfyui-checkpoint-2026-09-09/` has one shot per state, numbered in review order;
-   `~/Desktop/sg-screenshots-archive/` has everything older. His QA of the first pass is
-   answered in #93 to #95 (the panel rows, the Settings row, the captures). Not yet looked at by
-   him on a live canvas: the `format` widget, the `mask` output, the Site Setup button.
-2. **Two template questions, his call.** The SG Load nodes in the shipped graphs have link
-   `(none)`, so a fresh `00_example` fails on both Loads when Run is pressed before a link is
-   picked; and whether the
-   Load nodes should ship with `name_contains` scoped to a link at all.
-3. **Version 31995 on the sandbox** has `sg_ai_generated_from = pf_seq_beauty_v004`, written
-   before the lineage fix. Delete it or leave it; the fix does not rewrite it.
-4. **Registry mechanics**, below under "Before the first release".
-5. **The launch page**, below.
-6. **Small things found and not fixed:** the pre-run panel names `comfyui-frontend` whatever
-   client will submit; the unmounted-root refusal is unmeasured live (`/Volumes/FPT` is a
-   directory here, not a mount); a second `qa_node.py` drive against a `--keep` instance answered
-   "Not connected", so each capture starts its own instance.
-7. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+1. **Kevin's QA on `dev`, on his own ComfyUI.** Restart it first: web files and a route changed.
+   To look at: the Load outputs in the new order; the task and status pickers; the pre-run panel's
+   client row; README with its three pictures; the clips in `~/Desktop/sg-comfyui-clips-2026-09-10/`;
+   the screenshots in `~/Desktop/sg-comfyui-checkpoint-2026-09-10/`.
+2. **The launch page.** The brief is `docs/launch-page-brief.md`. The skill is
+   `.claude/skills/taste-skill/`. Inputs: the clips folder, the checkpoint folder, README.
+3. **Release.** GitHub release from `main` first. The Registry later. Both Kevin's.
+4. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
 
 ---
 
-## State, end of 2026-09-09
+## State, end of 2026-09-10
 
-`dev` has everything below, squash-merged, CI green on Linux, macOS and Windows. `main` is
-untouched since #80 and is promoted by PR, which is Kevin's.
+`dev` has everything below, squash-merged, CI green on Linux, macOS and Windows. `main` is untouched
+since #80. Offline suite: 246 passed, 11 skipped.
 
-**Landed today, one PR each.**
+**Landed 2026-09-10, one PR each.**
 
-- #81 Install docs for humans and agents: README rewritten around a first run, `INSTALL.md` (where
-  each local file is per install type, the CLIs from a Registry install, the profile on one
-  page, troubleshooting), `AGENTS.md`, `tools/doctor.py`. `COLD_START.md` deleted; its two durable
-  facts are lines in DESIGN.md. `requires-comfyui = "0.34.0"`.
-- #82 Offline test suite and CI: `tests/`, a three-line torch stub, an `os` matrix, a lint job, a
-  manual smoke job that says where to run it. `.comfyignore` keeps tests, experiments, fixtures and
-  a future `site/` out of the Registry archive.
-- #84 Frontend: a sequence guard on every project switch; an error answer keeps the saved
-  link/task/status and puts the sentence on the panel; one `call()` that turns a 404 into "restart
-  ComfyUI"; run listeners removed with the node; the Nodes 2.0 notice names the setting;
-  "Fill from SG defaults" is the button. Seven headless drives under `tools/` prove each one.
-- #83 SG Load reads with ComfyUI's decoder: 16-bit PNG and EXR at full precision, a `mask` output
-  appended last, the panel's format line, `upload` PublishedFiles visible and readable, newest by
-  version number on a site with no `code_regex`, `frame_count` 0 in the signature too. A movie
-  still decodes frame by frame and stops at the budget.
-- #85 CLAUDE.md matches what runs.
-- #87 Settings, then SG, SG Site Setup: "N of 9 provenance fields exist on this site" and a Create
-  button, sorted last. Five states in `~/Desktop/sg-site-setup-screenshots/`.
-- #86 SG Publish: a `format` widget appended last (8-bit PNG, 16-bit PNG, EXR 32-bit float) written
-  by ComfyUI's encoder; provenance typed where the schema has the field and one description line
-  per fact otherwise; the setup commands import no torch; `{output}` gone; `version_name.py`;
-  `site.context()` and `sequence.plan()` replace five copies of one resolution; a failed publish
-  names the files it already wrote; a publish invalidates only the caches it changed.
-  Versions 31991 (16-bit PNG, PublishedFile 7009) and 31992 (EXR, PublishedFile 7010) measured.
-- #88 Leftovers: the archived experiment graphs have the 13th value; `--root-name`.
-- #93 to #95, from Kevin's QA of the checkpoint: the publish panel says what this Run publishes
-  (`review`, `files` as the format picked, the paths) and the last run as rows with the Version
-  by name; the Load panel puts format and size first; SG Site Setup keeps its label at the top
-  and reports a press in one or two lines; the harness hides the minimap and three drives make
-  the captures (`drive_graph_shot.js`, `drive_load_shot.js`, `drive_publish_rows.js`).
-- #89 and #90, from the two verification passes below: lineage keyed by a fingerprint of the Load
-  node and not its id; the description read back as provenance; a still registered at the path on
-  disk; the run log staying on the panel; the budget refusal shown before a run for movies and for
-  pinned Loads; an unresolvable storage as the panel alert; the sentences for a missing Version, a
-  Version with nothing published, a thumbnail and an upload row.
+- #97 `taste-skill` and `minimalist-skill` copied verbatim into `.claude/skills/`, pinned to one
+  commit, excluded from the Registry archive. AGENTS.md names the skill the launch page is written
+  under and the four overrides.
+- #98 SG Load outputs reordered: `image`, `video`, `mask`, `version_id`, `code`, `colour_space`.
+  Eleven Load nodes in ten shipped graphs rewritten; one link remapped. `tests/test_nodes.py` pins
+  the order and checks each graph.
+- #99 The pre-run panel names no client. After a Run the row reads the client the Run recorded.
+  Read-only and unmounted storage roots refuse before the Run with the same sentence the Run uses,
+  measured through a disk image.
+- #100 `drive_load_shot.js` closes the run toast. `drive_movie_budget.js` answers its routes for the
+  project the picker loaded.
+- #101, #107, #108 CLAUDE.md: the Writing rule and its banned list.
+- #102 README, INSTALL.md, AGENTS.md as reference prose. README 3,567 words to 1,313.
+- #103 `tools/capture.py`: one command per clip, a CDP screencast at device scale 2, MP4, WebM and
+  animated WebP. The harness stops its instance on every exit path, picks a random high port and
+  refuses one it did not spawn.
+- #104 DESIGN.md and every docstring and comment under `src/` and `tests/` as reference prose. No
+  code line changed.
+- #105 README pictures: the example graph's top row as the hero (`tools/drive_hero_shot.js`), SG
+  Publish after a run, SG Load on an EXR Version.
+- #106 `task` and `status` are search pickers. Nodes 2.0 builds a dropdown from the node definition
+  once, so a list fetched later never reached it. Task rows show the pipeline step. Status rows keep
+  the site's icon and colour (recipe 010).
+- #109 `carry`, `hold` and the other banned words gone from docs, `src` and `tests`. The README media
+  claim: a Version has one uploaded media file (probe 022); `sg_path_to_frames` and
+  `sg_path_to_movie` are path references; a sequence registers as a PublishedFile linked to the Version.
+- The `tools/` prose pass is a PR in flight at the time of writing.
 
-The offline suite on merged `dev`: 255 tests with ComfyUI's interpreter, decode tests included.
+**Sandbox project 1180.** Version 31995 keeps its row (drives pin it); its lineage is cleared.
+Retired: five unlinked probe rows, 32001 (Windows path notation from a mac publish), and every
+Version the day's drives created (32037 to 32049).
 
-**Live verification** ran from this checkout against the sandbox, two passes in parallel; see
-"Measured".
-
-**Machine state, not in git.** ComfyUI runs from `~/dev/ComfyUI` (0.34.0) on 8188 and needs a
-restart to load today's routes. `~/dev/ComfyUI/custom_nodes/sg-comfyui` links here. The stale demo
-copies in `~/dev/ComfyUI/user/default/workflows/` are gone. Sandbox project 1180 is
-**sg-comfyui Sandbox**.
+**Machine state, not in git.** ComfyUI 0.34.0 runs from `~/dev/ComfyUI` on 8188.
+`~/dev/ComfyUI/custom_nodes/sg-comfyui` links here. The 88xx instances the harness leaked are gone.
 
 ---
+
+## Decisions, 2026-09-10, with Kevin
+
+- **Load outputs**: media first. The order is frozen from the first release, like widgets.
+- **Shipped Load nodes keep link `(none)`.**
+- **Release route**: GitHub release from `main` first. The Registry later, when Kevin does the
+  mechanics below.
+- **`sg-groundtruth` 0.1.3 stays the floor.** This repo imports `FPT`, `FPTError`, `launcher` and
+  `env.load`, all in 0.1.3. The floor moves only when a change here needs a newer client.
+- **Clips, not stills, for the page and for posts.** MP4 for LinkedIn and the forum, MP4 and WebM
+  for the page, animated WebP for loops. Never GIF. Pacing: stepped scrolling, a settle after each
+  click, visible pointer travel, typing at normal speed.
+- **Writing**: reference prose, one fact once, the banned list in CLAUDE.md. Applies to every file
+  and to messages to Kevin.
+- **Process**: every PR merges onto `dev` on CI green. Kevin QAs on `dev`. Each parallel agent works
+  in its own git worktree.
 
 ## Decisions, 2026-09-09, with Kevin
 
@@ -99,10 +93,9 @@ encoder and the PyAV decode path.
 **Provenance.** The nine fields are the first release's answer. With none of them the description
 records the note, a blank line, then one line per fact, lineage included, and the nodes say nothing
 about creating fields. Settings and the docs own the fields: the SG Site Setup group, and the command
-for farms and checkouts. Mapping to a studio's own field works since #86 but is not a release feature.
+for farms and checkouts. Mapping to a studio's own field works but is not a release feature.
 
-**`{output}` is gone.** Root name is the stream. Nothing ever supplied a value for the token and the
-Settings preview faked one.
+**`{output}` is gone.** Root name is the stream.
 
 **A failed publish leaves its copies and names them.** Files are copied, never moved. A re-run
 overwrites the same paths.
@@ -111,30 +104,16 @@ overwrites the same paths.
 as a pointer any harness can follow, `tools/doctor.py` as the offline check. `.claude/settings.json`'s
 deny on `.env.local` ships. Version stays 0.1.0.
 
-**Process.** PRs onto `dev`, merged by the agent. Kevin's checkpoints are node behaviour and
-template changes, batched with screenshots. `dev` to `main` is Kevin's.
-
 ---
 
 ## Before the first release
 
-1. **Kevin's checkpoint** on today's operator-facing changes, from the screenshot folders and his own
-   ComfyUI after a restart: the `format` widget in the fold, the `mask` output, the Load panel's
-   format line, the Settings group, "Fill from SG defaults", the frontend error sentences.
-2. **Verification findings** below, each either fixed or recorded as a limit.
-3. **Registry mechanics.** `PublisherId`, `Icon` (≤400² square), `Banner` (21:9) in `pyproject.toml`;
-   `comfy node pack` and `unzip -l` to prove the archive contains `src`, `web`, `example_workflows`,
-   the docs, `pyproject.toml` and `requirements.txt`; repo public; tag on `main`;
-   `publish-node-action` on a `pyproject.toml` change.
-4. **The launch page**, after the captures are final: `tools/qa_node.py --frames DIR --fps 12
-   --scale 2` (CDP screencast at device scale 2; Playwright's own recorder is 1 Mbit/s VP8 and
-   too soft for UI text), ffmpeg to MP4 and WebM, animated WebP for short loops, never GIF. SvelteKit
-   2.70 with `adapter-static` on GitHub Pages from a `gh-pages` branch, GSAP ScrollTrigger (free for
-   commercial use since 2025) for the one pinned section, CSS scroll timelines as enhancement,
-   reduced motion honoured, no analytics. Hand-written docs pages under `site/`, with the four blocks
-   that must match the README diffed in CI. Eight capture sequences; `drive_ui_tour.js` and
-   `drive_attach_tour.js` already exist. The full proposal is the launch-page report in the session
-   scratchpad; the section list is fourteen sections from hero to footer and a nine-page docs sitemap.
+1. **Kevin's QA on `dev`**, item 1 above.
+2. **The launch page**, from `docs/launch-page-brief.md`.
+3. **Registry mechanics**, Kevin's, after the GitHub release: `PublisherId`, `Icon` (400x400 or
+   smaller, square), `Banner` (21:9) in `pyproject.toml`; `comfy node pack` and `unzip -l` to check the
+   archive has `src`, `web`, `example_workflows`, the docs, `pyproject.toml`, `requirements.txt`;
+   repo public; tag on `main`; `publish-node-action` on a `pyproject.toml` change.
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: a `mask`
 input and RGBA publishes; registering files another node wrote (Save Image (Advanced), OCIO Write);
@@ -149,15 +128,15 @@ one line; a colour-managed template; Windows as a first-class publisher.
 | question | who |
 |---|---|
 | Release date | Kevin |
-| `PublisherId`, `Icon`, `Banner` | Kevin, release day |
-| Registry and PyPI: does `sg-groundtruth` 0.1.3 stay the floor | Kevin |
+| `PublisherId`, `Icon`, `Banner` | Kevin, Registry day |
+| Five em dashes in runtime strings: the PublishedFile source label (`media.py`), the clip sentence (`movie.py`), the node title built in `instrument.py`. Tests and two drives assert on them. Change them or leave them | Kevin |
 | Artist attribution on the script-key path: `sudo_as_login` is wired in `credentials.client`; the fallback chain and an `artist` widget are not | after release |
 | `data_type -> widget` so any Version field is one line | after release |
 | OCIO: `/track-workflow`'s three questions, a `10_` template, registering `OCIO Write`'s files | after release |
-| Upload mode for PublishedFile (zip for a sequence); the read side exists since #83 | after release |
+| Upload mode for PublishedFile (zip for a sequence); the read side exists | after release |
 | Newest per stream by default | after release |
 | sg-groundtruth #48: the text search's page cap and matching rules, which `site.text_search` codes against with a client-side cap of 25 | Kevin, corpus |
-| Two corpus gaps found today: whether a `_search` body naming an unknown field behaves like `?fields` (probe 004 does not say), and PublishedFile's own status list (probe 009 measures Version and Task only) | corpus |
+| Two corpus gaps: whether a `_search` body naming an unknown field behaves like `?fields` (probe 004 does not say), and PublishedFile's own status list (probe 009 measures Version and Task only) | corpus |
 
 ---
 
@@ -228,9 +207,8 @@ node now has to match); provenance written to the description never read back; t
 silent about the budget for a movie; the sentences for a missing Version, a Version with nothing
 published, a thumbnail fallback and an upload row; "1 frames".
 
-**Tainted by the two passes sharing one profile:** 32001's path fields are in Windows notation and
-32008 and 32009 differ in provenance treatment, because the other pass was editing
-`profile.local.json` at that minute. Neither is a defect; neither Version should be cited.
+**Retired since:** 32001 (Windows path notation, the other pass was editing `profile.local.json`
+at that minute). 32008 and 32009 differ in provenance treatment for the same reason; do not cite them.
 
 **For Kevin's checkpoint, not a defect:** the SG Load nodes in the shipped graphs have link
 `(none)`, so `name_contains` searches the project and can resolve to another entity's stream. Run on
@@ -272,9 +250,15 @@ template note states this.
   and falls back to encoding when they differ.
 - `save_to`'s `color_space` accepts only `sRGB`, `HDR` and `HDR PQ`, so the freeform `colour_space`
   widget is not passed to it; it stays a declaration on the record.
-- A capture is one `qa_node.py --start` per drive: a second drive against a `--keep` instance
-  answered "Not connected" after a publish. Loading a graph over the harness's modified default
+- `qa_node.py --start` picks a random high port and exits unless the pid on it is the one it spawned.
+  `--keep` prints the port and base directory. Loading a graph over the harness's modified default
   workflow is fine; clicking a generic Close button closes the workflow tab and empties the graph.
+- **Nodes 2.0 builds a combo from the node definition once.** A list written to `options.values`
+  later never reaches it. A widget whose list depends on another widget is drawn with `searchPicker`.
+- **Parallel agents get one git worktree each.** A worktree has no `.env.local` and no
+  `profile.local.json`; run the harness from it with `--repo /Users/salleek/dev/sg-comfyui`.
+- `hdiutil create` and `hdiutil attach [-readonly]` produce a real mount without root, for the
+  read-only and unmounted storage-root states.
 - `tools/smoke.py` and `tools/qa_node.py --repo <checkout>` need `.env.local` and `profile.local.json`
   at that checkout's root; a worktree has neither. Without the profile the isolated instance registers
   no nodes at all.
