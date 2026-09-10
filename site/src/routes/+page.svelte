@@ -250,7 +250,12 @@ Then offer to run /setup.`;
 		<div class="gallery" role="group" aria-label="The shipped templates">
 			{#each templates as template (template.name)}
 				<figure>
-					<button type="button" class="thumb" onclick={() => enlarge(template)}>
+					<button
+						type="button"
+						class="thumb"
+						aria-label="Open {template.title} at full size"
+						onclick={() => enlarge(template)}
+					>
 						<img
 							src="{base}/media/{template.name}.png"
 							alt={template.alt}
@@ -267,7 +272,7 @@ Then offer to run /setup.`;
 	</div>
 </section>
 
-<!-- 8. Storage and paths -->
+<!-- 8. Storage -->
 <section class="band" id="storage" use:reveal>
 	<div class="page">
 		<h2>Files are copied to the storage location.</h2>
