@@ -1,0 +1,34 @@
+name: site
+
+# The launch page under site/. Nothing here touches the node pack or the pytest suite.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # The page copies four blocks out of README.md. This job fails when either copy drifts.
+  readme-blocks:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - run: node site/scripts/check-readme-blocks.mjs
+
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: site
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: site/package-lock.json
+      - run: npm ci
+      - run: npm run check
+      - run: npm run build
