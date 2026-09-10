@@ -2,7 +2,7 @@
 	import { base } from '$app/paths';
 	import Clip from '$lib/Clip.svelte';
 	import Markdown from '$lib/Markdown.svelte';
-	import ProvenancePin from '$lib/ProvenancePin.svelte';
+	import Provenance from '$lib/Provenance.svelte';
 	import Shot from '$lib/Shot.svelte';
 	import { author, issues } from '$lib/site.js';
 	import { reveal } from '$lib/reveal.js';
@@ -187,8 +187,8 @@ Then offer to run /setup.`;
 	</div>
 </section>
 
-<!-- 5. Provenance, the one pinned section -->
-<ProvenancePin />
+<!-- 5. Provenance -->
+<Provenance />
 
 <!-- 6. Formats -->
 <section class="band" id="formats" use:reveal>

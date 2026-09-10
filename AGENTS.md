@@ -49,6 +49,6 @@ the agent read. `minimalist-skill` is an aesthetic reference, read in part and n
 | fonts through `next/font` | fonts self-hosted, with a fallback stack |
 | nothing about analytics | there are none |
 
-A page on GitHub Pages fetches nothing from a third party. The skill's reduced-motion rule and its
-GSAP ScrollTrigger skeletons apply as written. Strings a person reads follow CLAUDE.md, not the
+A page on GitHub Pages fetches nothing from a third party. The skill's reduced-motion rule applies
+as written. No section is pinned to the scroll. Strings a person reads follow CLAUDE.md, not the
 skill's marketing register.
