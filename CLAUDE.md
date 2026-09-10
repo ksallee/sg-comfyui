@@ -14,10 +14,10 @@ Out of scope, permanently: charts, dashboards, scheduled reports, webhooks, auto
 `../sg-groundtruth` holds every verified truth about the API, and the client. This repo probes nothing and
 duplicates nothing.
 
-Read `../sg-groundtruth/corpus/INDEX.md` first, always. Never code against behaviour no entry covers — that is a
+Read `../sg-groundtruth/corpus/INDEX.md` first, always. Never code against behaviour no entry covers. That is a
 gap, and the probe that closes it belongs in `sg-groundtruth`. Code cites entries: `# probe 004`.
 
-Plan for both repos: `../sg-groundtruth/PLAN.md` — older, and stale where this repo has moved past it.
+Plan for both repos: `../sg-groundtruth/PLAN.md`. Older, and stale where this repo has moved past it.
 
 `RELEASE.md` is what is being built now, what was decided and why, and what is still open. Read it
 before starting work.
@@ -25,14 +25,14 @@ before starting work.
 ## Stack
 
 Python 3.11. `sg_groundtruth` for all site access, plus what ComfyUI already ships: `requests`, `Pillow`. Never
-`shotgun_api3`, never `fpt-api` — it is AGPL. A new dependency needs a line in DESIGN.md justifying it.
+`shotgun_api3`, never `fpt-api`, which is AGPL. A new dependency needs a line in DESIGN.md justifying it.
 
-`sg_groundtruth` is a normal PyPI dependency — install `requirements.txt` into the interpreter ComfyUI runs on.
+`sg_groundtruth` is a normal PyPI dependency. Install `requirements.txt` into the interpreter ComfyUI runs on.
 The sibling checkout is still expected for the *corpus* and for `inspect_site.py`, which the package does not ship.
 
 ## Running it
 
-Everything runs from the repo root. Every `-m comfyui_sg.*` needs `PYTHONPATH=src` — the package
+Everything runs from the repo root. Every `-m comfyui_sg.*` needs `PYTHONPATH=src`. The package
 lives under `src/` and nothing installs it. `instrument.py` is run as a file on purpose: `-m` would
 import the package `__init__` and therefore torch, and a graph must stay analysable on a machine with
 neither torch nor a route to the site.
@@ -56,13 +56,13 @@ farm path. Never printed or logged.
 ## ComfyUI
 
 Node classes register through `NODE_CLASS_MAPPINGS` in `__init__.py`. `INPUT_TYPES` is a classmethod evaluated
-at load — that is the hook the site mapping drives. Provenance comes from the hidden `PROMPT` and
+at load. That is the hook the site mapping drives. Provenance comes from the hidden `PROMPT` and
 `EXTRA_PNGINFO` inputs, never from asking the user.
 
 Where each piece of provenance lands in Flow Production Tracking is the operator's mapping, not a default. See DESIGN.md.
 
 **`widgets_values` is positional.** A widget inserted, removed or reordered displaces every value below it
-in every graph already saved, silently — so append, never insert, and never remove. The order is declared
+in every graph already saved, silently. Append, never insert, and never remove. The order is declared
 once, in `widgets.py`; `INPUT_TYPES`, `instrument.py` and the editor's `DECLARED` derive from it, and every
 `*.json` under `example_workflows/` and `tools/workflows/` carries one value per declared widget, so a new
 widget means a new value in every shipped graph in the same commit. `tests/test_widget_order.py` proves
@@ -78,14 +78,14 @@ read back by ComfyUI's decoder. Pillow writes the 8-bit review still and nothing
 
 ## Agent-operable
 
-Forkers drive this repo with an agent, not by reading it. Small files, explicit names, no magic, no indirection. Conventions live here or in DESIGN.md — once, in one place.
+Forkers drive this repo with an agent, not by reading it. Small files, explicit names, no magic, no indirection. Conventions live here or in DESIGN.md, once, in one place.
 
 ## Messages to the operator
 
-Every string a person reads — a node error, a panel line, an alert, a tooltip — has one shape.
+Every string a person reads, a node error, a panel line, an alert, a tooltip, has one shape.
 
 - **Say what to do.** Name the fields or the action. Never describe the consequence of leaving a
-  field empty. `Fill in the required fields (project, link).` — not `nothing is linked, so the name
+  field empty. `Fill in the required fields (project, link).` Not `nothing is linked, so the name
   has no shot or asset in it`.
 - **Wrong, then the fix**, in that order, one idea per sentence.
   `No Shot named sh010 on this project. Pick one from the list.`
@@ -95,7 +95,7 @@ Every string a person reads — a node error, a panel line, an alert, a tooltip 
 - Full sentences, sentence case, a full stop. No em dashes and no clause stacked on clause.
 - **A tooltip** says what the widget sets, in one sentence, plus an example where the format is not
   obvious from the name.
-- Diagnostic detail — a status code, a server body, a path — comes after the plain sentence, never
+- Diagnostic detail, a status code, a server body, a path, comes after the plain sentence, never
   instead of it.
 
 ## Style
@@ -117,7 +117,7 @@ report is reference material. The reader scans it; nobody reads it through.
 
 - **Docstrings** are one short sentence saying what the thing does. A parameter gets a short phrase
   only where its name does not already say it. A function whose behaviour is genuinely not
-  self-evident may take three or four more sentences — that is the exception, not the shape.
+  self-evident may take three or four more sentences. That is the exception, not the shape.
 - **Comments** appear only where the code alone is hard to follow, and state the rule or the
   constraint, never its discovery.
 - **No history.** No dates, no "used to", no past bugs, no PR or commit numbers, no session
