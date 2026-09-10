@@ -5,3 +5,6 @@ tools/experiments/
 tools/workflows/
 site/
 .github/
+
+# Skills an agent reads to build the launch page. Not part of the node pack.
+.claude/skills/
