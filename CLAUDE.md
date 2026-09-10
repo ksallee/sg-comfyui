@@ -103,6 +103,17 @@ Every string a person reads — a node error, a panel line, an alert, a tooltip 
 Terse and declarative. The code says what it is; comments and docstrings do not narrate how it got
 there.
 
+**Technical documentation, not an essay.** Every README, doc, docstring, comment, drive header and
+report is reference material. The reader scans it; nobody reads it through.
+
+- Imperative for a step. `Restart ComfyUI.` Not `Both paths end in a restart of ComfyUI.`
+- One fact per sentence and nothing appended to justify it. The why is in DESIGN.md, once.
+- A list or a table before a paragraph. A paragraph is three sentences at most.
+- Name, then value. `Requires ComfyUI 0.34.0.` Not `ComfyUI 0.34.0 or newer, which is where the
+  encoder lives, so an older one has nothing to write with.`
+- No rhetorical setup, no metaphor, no `the single way this fails quietly`, no `in other words`.
+- A command is a fenced block with nothing before it but the heading and one line saying when.
+
 - **Docstrings** are one short sentence saying what the thing does. A parameter gets a short phrase
   only where its name does not already say it. A function whose behaviour is genuinely not
   self-evident may take three or four more sentences — that is the exception, not the shape.
