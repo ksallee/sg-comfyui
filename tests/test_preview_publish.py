@@ -1,5 +1,5 @@
-"""What the publish panel is told before a Run: where the files land, or the one sentence why they
-cannot."""
+"""What the publish panel is told before a Run: where the files are written, or why they cannot
+be."""
 import sys
 
 import pytest

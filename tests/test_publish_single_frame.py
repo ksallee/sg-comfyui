@@ -1,5 +1,5 @@
-"""One frame is a file, not a sequence: what is registered, what `path_cache` holds, and the field
-left empty.
+"""One frame is a file, not a sequence: what is registered, what `path_cache` is set to, and the
+field left empty.
 
 Nothing decodes here. `write_frames` is ComfyUI's encoder and is stood in for: what is under test
 is the path the site is given.
@@ -15,7 +15,7 @@ PROFILE = {"published_files": {"path_template": "{root_name}/{version_name}/"
 
 @pytest.fixture
 def storage(tmp_path, monkeypatch):
-    """A storage whose root is a real directory on this machine, whatever the platform."""
+    """A storage whose root is a directory on this machine, whatever the platform."""
     root = tmp_path / "FPT"
     root.mkdir()
     row = {"id": 7, "code": "primary", "mac_path": str(root), "linux_path": str(root),

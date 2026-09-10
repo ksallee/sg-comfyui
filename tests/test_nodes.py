@@ -8,7 +8,7 @@ from comfyui_sg import site, version_name
 from comfyui_sg.nodes.load_version import SGLoadVersion
 from comfyui_sg.nodes.publish_version import SGPublishVersion
 
-# Every graph that ships or is driven here: a Load node's slots are read by index in all of them.
+# Every graph that ships or is used here: a Load node's slots are read by index in all of them.
 GRAPHS = (sorted(ROOT.glob("example_workflows/*.json")) + sorted(ROOT.glob("tools/workflows/*.json"))
           + sorted(ROOT.glob("tools/experiments/*.json")))
 

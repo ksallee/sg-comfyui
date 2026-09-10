@@ -75,7 +75,7 @@ def test_a_batch_starting_mid_sequence_ends_with_the_sequence(version):
 
 @DECODES
 def test_a_batch_past_the_budget_says_how_many_fit(version):
-    """A batch past the budget is refused with a sentence, before torch is asked to allocate."""
+    """The refusal comes before torch is asked to allocate."""
     with pytest.raises(FPTError) as e:
         media.load_frames(version, "frames", 0, 0, budget=1 / 2 ** 20)
     assert "would need" in str(e.value)

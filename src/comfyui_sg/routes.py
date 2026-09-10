@@ -11,7 +11,7 @@ import re
 from . import credentials, resolve, site
 
 # An SG error is a JSON:API envelope. The useful half is one `detail` sentence, or `title` where
-# `detail` is null. A refused impersonation carries `title` (probe 027).
+# `detail` is null. A refused impersonation returns `title` (probe 027).
 _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
 # The client's own line for a refused token request: `auth[ as 'x'] <status>: <body>`.
@@ -20,12 +20,12 @@ _AUTH = re.compile(r"^auth\b[^:]*?(\d{3}): ", re.S)
 # Version, so the sentence restates it in words before quoting it.
 _NOT_FOUND = re.compile(r"^(\w+):\s*(\d+)\s+not found\.?$", re.I)
 
-# The widest id any query param may carry.
+# The largest id any query param accepts.
 _MAX_ID = 2 ** 31 - 1
 
 
-# The token endpoint's refusal of a session the site no longer holds (probe 052). Its fix is a
-# click under Settings, not a value on the node.
+# The token endpoint's refusal of a session the site no longer recognises (probe 052). Its fix is
+# a click under Settings, not a value on the node.
 _SESSION_DEAD = "Can't authenticate session token"
 
 
@@ -92,12 +92,12 @@ def _batch_limit(v, key):
 
 
 def _concept_rows(values, where, schema, names=None):
-    """One row per provenance concept: its value, where that value lands, and what is not settled
-    until the Run.
+    """One row per provenance concept: its value, the field it is recorded in, and what is not
+    settled until the Run.
 
-    Every concept, not only the ones with a value. The row is named for where the value lands; the
-    concept is the label beside it. A field this site has takes the value, everything else is a
-    description line.
+    Every concept, not only the ones with a value. The row is named for the field; the concept is
+    the label beside it. A field this site has takes the value, everything else is a description
+    line.
     """
     from . import fields as sg_fields
 
@@ -118,7 +118,7 @@ def _concept_rows(values, where, schema, names=None):
         else:
             note = "" if has else "Not in this graph."
         # The generator is ComfyUI whoever submits, and the Run adds the client to it. The note
-        # sits beside the value, never instead of it.
+        # is shown beside the value, never instead of it.
         if concept == "generator" and has and not described:
             note = "The client that submits the Run is recorded with it."
         rows.append({
@@ -126,8 +126,8 @@ def _concept_rows(values, where, schema, names=None):
                     if target and not described else sg_fields.CONCEPT_LABELS[concept],
             "label": sg_fields.CONCEPT_LABELS[concept],
             "value": show(v) if has else "",
-            # Where a value lands is the operator's mapping, so a fact in the description says so
-            # beside its value.
+            # The field a value is recorded in is the operator's mapping, so a fact in the
+            # description says so beside its value.
             "into_description": described,
             "note": note,
         })
@@ -135,16 +135,16 @@ def _concept_rows(values, where, schema, names=None):
 
 
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
-    """(where the files would land, the sentence that stops them landing anywhere).
+    """(where the files would be written, the sentence that stops them being written).
 
-    Resolved against the real storage row. A storage that cannot be resolved refuses the run, so it
-    is the panel's alert rather than a line in the fold.
+    Resolved against the storage row. A storage that cannot be resolved refuses the run, so it is
+    the panel's alert rather than a line in the fold.
     """
     if not widgets.get("register_files"):
         return [], ""
     from . import publish, sequence, version_name
     # The same resolution the run makes (publish_version.publish). The wires decide which files
-    # follow; the profile decides whether the house also keeps its review movie.
+    # follow; the profile decides whether the review movie is kept as a file too.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
     pf = prof.get("published_files") or {}
     want_frames = images
@@ -279,7 +279,7 @@ def _defaults():
             "path": str(site.profile_path())}
 
 
-# Appended to a site's own refusal to create the provenance fields. It says what to do about it.
+# Appended to a site's own refusal to create the provenance fields.
 FIELDS_REFUSED = ("Ask an admin to press this button, or run the command in INSTALL.md with a "
                   "script key that can create fields.")
 
@@ -462,8 +462,8 @@ def register():
 
     @routes.get("/sg/version_sources")
     async def version_sources(request):
-        """What THIS Version can actually deliver (probe 021). A filled path field is not a file on
-        disk, and neither is a PublishedFile on a root this machine has not mounted.
+        """What THIS Version can deliver (probe 021). A filled path field is not a file on disk,
+        and neither is a PublishedFile on a root this machine has not mounted.
 
         `colour` belongs to the file rather than to the Version: two PublishedFiles on one Version
         can declare different colour spaces, and the picker is where that is chosen.
@@ -493,7 +493,7 @@ def register():
             pin = _int(q, "pin_version_id")
             typed = [t.strip() for x in q.getall("statuses", [])
                      for t in x.split(",") if t.strip()]
-            # `filters` holds EXTRA conditions only, ANDed onto the fields.
+            # `filters` is EXTRA conditions only, ANDed onto the fields.
             raw = q.get("filters", "")
             pid, lt, target, task_id = SGLoadVersion._context(
                 q.get("project", ""), q.get("link_type", ""), q.get("link", ""), q.get("task", ""))
@@ -506,7 +506,7 @@ def register():
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), raw)
-            # The whole query in the API's own language, the fields plus whatever was added, so
+            # The full query in the API's own language, the fields plus whatever was added, so
             # the panel shows what is asked rather than half of it.
             built = resolve.combine(
                 site.version_filters(pid, lt, target, task_id, terms, codes),
@@ -531,7 +531,7 @@ def register():
             v = media.version(sg, vid)
             available = media.sources(v)
             # What the node itself would pick: `auto` is a rule, and only the site knows what it
-            # lands on.
+            # resolves to.
             picked = q.get("source", "") or "auto"
             if picked == "auto":
                 key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
@@ -551,7 +551,7 @@ def register():
                 "video_label": label.get(clip_key) if clip_key
                 else f"the frames at {fps:g} fps, {fps_why}",
                 # The frame numbers this source has, so `frame` is read off the panel rather than
-                # guessed. Only a sequence has them; a movie carries no numbering.
+                # guessed. Only a sequence has them; a movie has no numbering.
                 "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
                     media.frame_range(v, key)),
                 # What this machine will spend on one batch, so the panel names an oversized plate
@@ -663,7 +663,7 @@ def register():
                     sources.append({"id": vid, "code": code, "why": why})
 
             sg = site.client()
-            # The whole schema, not the nine this repo declares. A mapping may point at a field
+            # The full schema, not the nine this repo declares. A mapping may point at a field
             # the studio already has.
             schema = sg_fields.schema_names(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
@@ -700,15 +700,15 @@ def register():
                 rows.append({"name": name, "value": str(val)[:160], "note": note})
 
             # Uploads are not fields, and a copy onto a shared volume is not an upload. Each gets
-            # its own list of what lands.
+            # its own list of what is written.
             uploads = ["image (the thumbnail)", "sg_uploaded_movie (the review movie)",
                        "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
             paths, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
-            # What this node will publish, from what is wired into it: the review media the
-            # Version carries, and the files that land when Create Published Files is ticked. The
-            # frame count and the frame rate are run-time facts, so the sentences state the rule.
+            # What this node will publish, from what is wired into it: the review media on the
+            # Version, and the files written when Create Published Files is ticked. The frame count
+            # and the frame rate are run-time facts, so the sentences state the rule.
             images, video = _wired(w, "images"), _wired(w, "video")
             fmt = w.get("format") or sequence.DEFAULT_FORMAT
             keeps_movie = bool((prof.get("published_files") or {}).get("register_movie"))

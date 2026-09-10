@@ -11,8 +11,8 @@ from conftest import DECODES
 
 from comfyui_sg import sequence
 
-# 100/65535: too small for 8 bits to hold at all, exact at 16, exact as a float. One value tells the
-# three formats apart without asserting anything about rounding.
+# 100/65535: too small for 8 bits to represent at all, exact at 16, exact as a float. One value
+# tells the three formats apart without asserting anything about rounding.
 FAINT = 100.0 / 65535.0
 
 FORMATS = [

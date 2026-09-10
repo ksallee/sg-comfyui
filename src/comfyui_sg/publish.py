@@ -1,7 +1,7 @@
 """Writing to SG: Versions, uploads, attachments and PublishedFiles.
 
-Publish path only. REST through sg_groundtruth, `requests` for the presigned PUT, nothing else.
-Every call here is verified by a probe; see corpus recipe 001.
+Publish path only. REST through sg_groundtruth, `requests` for the presigned PUT. Every call here is
+verified by a probe; see corpus recipe 001.
 """
 import json
 
@@ -49,10 +49,10 @@ def upload(sg, version_id, payload, filename, field=None):
 
 
 def upload_file(sg, version_id, path, filename, field=None):
-    """The same three-step upload, streamed off disk rather than held in memory.
+    """The same three-step upload, streamed off disk rather than read into memory.
 
-    A clip is the one payload here with no ceiling, and a long plate is gigabytes. Reading it into a
-    bytes object only to hand it to `requests` doubles that for nothing.
+    A clip is the one payload here with no size ceiling. Reading it into a bytes object to hand to
+    `requests` doubles the memory it takes.
     """
     with open(path, "rb") as fh:
         upload(sg, version_id, fh, filename, field=field)
@@ -65,9 +65,8 @@ def attach_json(sg, version_id, obj, filename):
 def storages(sg):
     """Every LocalStorage row, with the root it defines per platform (recipe 004).
 
-    Read at publish time rather than cached with the editor's lookups: a path that does not sit under
-    one of these roots is refused with 400 code 104, so this is the one read the frames' destination
-    depends on.
+    Read at publish time rather than cached with the editor's lookups. A path outside one of these
+    roots is refused with 400 code 104.
     """
     r = _ok(sg.get("/entity/local_storages",
                     params={"fields": "code,mac_path,windows_path,linux_path"}),
@@ -77,12 +76,11 @@ def storages(sg):
 
 
 def published_file_type(sg, candidates):
-    """(the first of `candidates` this site has, a sentence where the site would not say).
+    """(the first of `candidates` this site has, a sentence where the read failed).
 
     Matched case-insensitively (recipe 004). Never creates one: PublishedFileType has no `project`,
-    so a create adds it to every show on the site. A miss returns None with no sentence. A site
-    that has no such type is the caller's to report, a site that refused the read is reported here,
-    and the two are never merged.
+    so a create adds it to every show on the site. A miss returns None with no sentence. A site that
+    has no such type is the caller's to report; a site that refused the read is reported here.
     """
     r = sg.get("/entity/published_file_types", params={"fields": "code", "page[size]": 200})
     if not r.ok:
@@ -97,16 +95,14 @@ def published_file_type(sg, candidates):
 
 
 def published_files_of(sg, version_ids, exact=None):
-    """(every PublishedFile hanging off these Versions, a sentence where the search failed).
+    """(every PublishedFile on these Versions, a sentence where the search failed).
 
     The upstream half of a dependency link. `upstream_published_files` is the PublishedFile-level
-    twin of `sg_ai_generated_from`, and where an ancestor Version carries files, those files are
-    what a downstream tool opens.
+    twin of `sg_ai_generated_from`, and a downstream tool opens files rather than Versions.
 
     `exact` is {version_id: [published_file_id]} for ancestors a Load node read a file from
     (lineage.py). Those Versions are not searched: the dependency is the one file that was opened,
-    not every file that Version ever published. Every other ancestor gets the search, because
-    approximate is the honest answer where nothing narrower is known.
+    not every file that Version published. Every other ancestor gets the search.
     """
     exact = exact or {}
     ids = [int(v) for v in version_ids if v]
@@ -126,9 +122,9 @@ def published_files_of(sg, version_ids, exact=None):
 def create_published_file(sg, project_id, code, name, local_path, fields=None):
     """recipe 004: one create, forward slashes only, the server splits the root off `local_path`.
 
-    The 201 already carries the resolved `path`, so nothing needs reading back: `local_storage`,
-    `relative_path` and every `local_path_*` whose root the LocalStorage row defines come back filled,
-    and `path_cache_storage` with them. Returns (id, path) so the caller can report what resolved.
+    The 201 returns the resolved `path`, so nothing needs reading back: `local_storage`,
+    `relative_path`, every `local_path_*` whose root the LocalStorage row defines, and
+    `path_cache_storage` come back filled. Returns (id, path) for the caller to report.
 
     Nothing on the server makes this unique: the identical body posted twice returns two 201s, so the
     version number is the client's convention and the guard is the query that produced it.
@@ -142,7 +138,7 @@ def create_published_file(sg, project_id, code, name, local_path, fields=None):
 
 
 def resolve_entity(sg, entity_type, project_id, name, field="code"):
-    """A dropdown carries names; SG links want {type, id} (probe 012). One explicit lookup."""
+    """A dropdown gives a name; an SG link needs {type, id} (probe 012). One explicit lookup."""
     r = _ok(sg.get(site.route(entity_type), params={
         "filter[project.Project.id]": int(project_id),
         f"filter[{field}]": name, "fields": field, "page[size]": 2,

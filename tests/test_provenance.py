@@ -1,4 +1,4 @@
-"""What the executing graph says about the image: the words, the models, and whose branch."""
+"""What the executing graph records about the image: the words, the models, and whose branch."""
 import graphs
 
 from comfyui_sg import provenance

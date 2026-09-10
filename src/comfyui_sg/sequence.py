@@ -1,16 +1,16 @@
 """Frames on disk, and the path under a LocalStorage root that SG can resolve.
 
-A Version's media is single-valued (probe 022), so frames cannot be the media. They are a
-PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots.
+A Version has one uploaded media file (probe 022), so frames cannot be that file. They are a
+PublishedFile, and a PublishedFile's path has to be under one of the site's LocalStorage roots.
 Anything else is 400 code 104 (recipe 004).
 
-Frames land in ComfyUI's own output directory and are **copied** into place under the root. Copy,
-never move: the run stays where the artist expects it, a publish that fails half way leaves
-something to re-publish from, and a second attempt costs a copy rather than a re-render.
+Frames are written to ComfyUI's own output directory and copied into place under the root. Copy,
+never move: the run stays where the artist expects it, and a publish that fails part way leaves
+something to re-publish from.
 
 Nothing here transcodes and nothing here infers. The frames are written by ComfyUI's own encoder in
 the format the node was told, registered under that format's own extension. The colour space is
-recorded exactly as the operator declared it and never applied.
+recorded as the operator declared it and never applied.
 """
 import os
 import re
@@ -22,17 +22,17 @@ from pathlib import Path
 
 from . import media, naming, site, version_name
 
-# The frame token, wherever the operator put it. `media.SEQ` knows printf, Shake `#` and `@` alike,
-# so a path template speaks the same notation `sg_path_to_frames` does.
+# The frame token, wherever the operator put it. `media.SEQ` matches printf, Shake `#` and `@`, so
+# a path template uses the same notation as `sg_path_to_frames`.
 SEQ = media.SEQ
 
 # Two shapes. A sequence is many files and gets a folder of its own, named for the version. A movie
-# is one file and sits beside that folder, so no folder holds frames and a movie together.
+# is one file, written beside that folder, so no folder contains frames and a movie together.
 # Neither template repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
-# themselves, so a path refers to them rather than spelling them a second time and disagreeing.
+# themselves.
 DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}"
 DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
-DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # profiles in the wild name this one
+DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # existing profiles name this one
 
 # What to ask for, in preference order, against the types the site already has. Never created: a
 # PublishedFileType has no `project`, so creating one adds it to every show on the site (recipe 004),
@@ -54,15 +54,14 @@ def output_dir():
 
 
 def folder(stem):
-    """One folder per publish, under ComfyUI's output. The movie lands beside its own frames."""
+    """One folder per publish, under ComfyUI's output. The movie is written beside its frames."""
     return output_dir() / stem
 
 
 # What each choice on the node's `format` widget is, in ComfyUI's own encoder vocabulary:
 # (file format, bit depth, colour space, extension). PNG's colour space does not modify pixels. EXR
-# takes "linear", which is the encoder's write-through, so a scene-linear plate goes to disk exactly
-# as the graph made it and the operator's declared colour space stays a claim about the pixels
-# rather than a transform applied to them.
+# takes "linear", the encoder's write-through, so a scene-linear plate is written as the graph
+# made it. The operator's declared colour space is a claim about the pixels, not a transform.
 FORMATS = {
     "8-bit PNG":        ("png", "8-bit", "sRGB", ".png"),
     "16-bit PNG":       ("png", "16-bit", "sRGB", ".png"),
@@ -77,18 +76,17 @@ def spec_for(fmt):
 
 
 def extension(fmt):
-    """The extension the frames of this format actually have."""
+    """The extension the frames of this format have."""
     return spec_for(fmt)[3]
 
 
 def write_frames(images, stem, fmt=DEFAULT_FORMAT):
     """The batch as a sequence in ComfyUI's output directory, one folder per publish.
 
-    ComfyUI's own encoder writes them (`comfy_extras.nodes_images._encode_image`), because bit
-    depth, channel count and any colour transform are its business and not this repo's. Imported
-    inside the call, so an older install still loads every node and only refuses the write. The
-    extension the site records follows these files and is never taken from the path template, which
-    would let a template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
+    ComfyUI's own encoder writes them (`comfy_extras.nodes_images._encode_image`). Imported inside
+    the call, so an older install still loads every node and only refuses the write. The extension
+    the site records comes from these files, never from the path template, which would let a
+    template reading `.exr` label 8-bit PNGs as scene-linear EXRs.
     """
     try:
         from comfy_extras.nodes_images import _encode_image
@@ -112,11 +110,7 @@ THIS_PLATFORM = {"darwin": "mac", "win32": "windows"}.get(sys.platform, "linux")
 
 
 def storage_row(storages, code=""):
-    """The LocalStorage the profile names, chosen by code and never by position.
-
-    Taking the first row would put a show's frames on whichever storage the site happens to list
-    first.
-    """
+    """The LocalStorage the profile names, chosen by code and never by position."""
     have = ", ".join(sorted(s["code"] for s in storages))
     if not storages:
         raise RuntimeError("This site has no Local File Storage, so nothing can be published to "
@@ -153,7 +147,7 @@ def platform_for(row, chosen=""):
 def on_platform(path, local_root, row, platform):
     """`path`, written under this machine's root, as the same file under `platform`'s root.
 
-    `sg_path_to_frames` holds one absolute path and cannot resolve on two platforms (probe 021),
+    `sg_path_to_frames` is one absolute path and cannot resolve on two platforms (probe 021),
     so a studio picks the one it is written for. A Windows root takes backslashes after it, which
     is reasoned from how SG spells `windows_path` and not measured against a Windows client.
     """
@@ -189,11 +183,11 @@ def root_for(storages, code=""):
 def check_root(root):
     """A root that is not mounted or not writable stops the publish before the Version exists.
 
-    Same rule as staging the movie first (publish_version): a Version left behind pointing at frames
-    nobody wrote is worse than a run that refused.
+    Same rule as staging the movie first (publish_version). A Version pointing at frames nobody
+    wrote is worse than a run that refused.
 
-    Both refusals are measured against a real volume, mounted read-only and then detached. Each is
-    on the panel before the Run and stops it, and neither leaves a Version or a file behind.
+    Both refusals are measured against a volume mounted read-only and then detached. Each is on the
+    panel before the Run and stops it, and neither leaves a Version or a file behind.
     """
     if not os.path.isdir(root):
         raise RuntimeError(f"The storage root {root} is not mounted on this machine. Mount it, "
@@ -204,7 +198,7 @@ def check_root(root):
 
 
 def swap_ext(path, ext):
-    """The extension the files actually have, replacing whatever the template guessed.
+    """The extension the files have, replacing whatever the template guessed.
 
     A template that ends in the frame token has no extension to replace, because `.%04d` is the
     frame number. The token is kept and the real extension is appended after it.
@@ -215,18 +209,17 @@ def swap_ext(path, ext):
     return base + ext
 
 
-# A path template says two numbers at once and they must not be confused. `{version}` is the publish
-# revision. `%04d`, `####` and `@@@@` are the frame. `naming.normalise_template` reads ANY printf
-# pad as the version, which is right for a code template, where `v%04d` is how a TD spells the
-# revision by habit, and wrong here, where it would render frame 3 as `.0003.` and freeze the
-# sequence to one frame. So the frame token is lifted out before rendering and put back after.
+# A path template says two numbers at once. `{version}` is the publish revision. `%04d`, `####` and
+# `@@@@` are the frame. `naming.normalise_template` reads any printf pad as the version, which is
+# right for a code template and wrong here: it would render frame 3 as `.0003.` and freeze the
+# sequence to one frame. The frame token is lifted out before rendering and put back after.
 #
-# In a PATH template the printf form is therefore the FRAME, and the version is `{version:03d}`.
+# In a path template the printf form is the frame, and the version is `{version:03d}`.
 SENTINEL = "\x00"
 
 
 def _protect(template):
-    """(template with the frame token held out, the token).
+    """(template with the frame token swapped for the sentinel, the token).
 
     NUL survives `naming.render` untouched: it is not a field, not a separator render squashes, and
     not one it strips from the ends.
@@ -239,7 +232,7 @@ def _protect(template):
 def _clean(path):
     """Forward slashes only, and no empty segment.
 
-    A single backslash is refused by two different errors depending on which key holds it, and in a
+    A single backslash is refused by two different errors depending on which key it is in, and in a
     `local_path` it fails as an *unknown storage* rather than as a malformed path (recipe 004). An
     empty segment comes from a template token with no value, and `//` in a local_path is not the
     path the server resolves back.
@@ -256,14 +249,14 @@ def _under(root, path):
 def pattern(root, template, values, version, ext):
     """The absolute destination path, frame token intact, under the storage root.
 
-    Field values come from the site, so the result is checked to be inside the root: a path that
-    walks out of it would be written outside the storage the site can resolve.
+    Field values come from the site, so the result is checked to be inside the root. A rendered
+    path outside it would be written where the site cannot resolve it.
     """
     held, token = _protect(template or DEFAULT_PATH_TEMPLATE)
     rel = naming.render(held, values, version).replace(SENTINEL, token)
     out = _clean(swap_ext(f"{root}/{rel}", ext))
     if not _under(root, out):
-        raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to sit "
+        raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to be "
                            f"under the root. Fix Sequence path or Movie path under Settings, "
                            f"then SG.")
     return out
@@ -304,15 +297,15 @@ Plan = namedtuple("Plan", "root storage_id row platform seq_template movie_templ
 
 
 def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name=""):
-    """Where this publish's files would land: the root, the two templates and everything filled in.
+    """Where this publish's files would be written: the root, the two templates and the values.
 
     Resolves and renders; touches no disk and creates nothing. The panel and the run both answer
     from here, so a path an operator reads before pressing Run is the path the run writes.
 
-    A path template is the language the code template already speaks, dotted SG paths and Python's
-    format spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are two
-    templates because a sequence earns a folder and a movie does not. Neither repeats the naming
-    scheme: `{root_name}` and `{version_name}` are the two names themselves.
+    A path template uses the language of the code template, dotted SG paths and Python's format
+    spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are two templates
+    because a sequence gets a folder and a movie does not. Neither repeats the naming scheme:
+    `{root_name}` and `{version_name}` are the two names themselves.
     """
     pf = p.get("published_files") or {}
     storage_id, root = root_for(storages, pf.get("storage", ""))
@@ -324,7 +317,7 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
               | set(naming.template_fields(root_t)))
     vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
-    # A token nobody could resolve leaves an empty segment that `_clean` swallows, so name them.
+    # A token nobody could resolve leaves an empty segment that `_clean` removes, so name them.
     # probe 028: a 200 proves nothing, and neither does a path that rendered.
     # `root_name`, `version_name` and `ext` are filled below rather than looked up, so a template
     # asking for them has not left anything unresolved.
@@ -346,7 +339,7 @@ def field_path(pl, path):
 
 
 def relative(root, path):
-    """What `path_cache` holds.
+    """The value `path_cache` is set to.
 
     The server fills `path_cache_storage` from the path it resolved but leaves `path_cache` null
     after a REST create (entity_types/PublishedFile), so a filter on it misses every row published

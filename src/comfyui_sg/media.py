@@ -4,9 +4,9 @@ A source is offered only when it resolves to a file this machine can open (probe
 PublishedFile with no path, or a path on a root this machine has not mounted, is absent from the
 picker.
 
-PublishedFiles come first. A PublishedFile is the only source that names a type, which is what makes
-"the rendered sequence" and "the mp4" on one Version distinguishable, and the only one carrying the
-colour space the publisher declared. The fixed tiers follow, best quality first.
+PublishedFiles come first. A PublishedFile is the only source that names a type, which tells "the
+rendered sequence" from "the mp4" on one Version, and the only one with the colour space the
+publisher declared. The fixed tiers follow, best quality first.
 """
 import io
 import os
@@ -33,9 +33,9 @@ SUMMARY_FIELDS = ["code", "description", "sg_status_list", "created_at", "sg_ai_
 SUMMARY_LABELS = {"sg_ai_generator": "made by", "sg_ai_model": "model", "sg_ai_prompt": "prompt",
                   "sg_ai_seed": "seed", "sg_ai_sampler": "sampler", "sg_ai_steps": "steps",
                   "sg_ai_cfg": "cfg", "description": "note"}
-# The header carries code, status and date; everything else is a listed fact.
+# The header shows code, status and date. Everything else is a listed fact.
 DETAIL_FIELDS = [f for f in SUMMARY_FIELDS if f not in ("code", "sg_status_list", "created_at")]
-# A site without the nine fields carries the same facts in the description
+# A site without the nine fields records the same facts in the description
 # (publish_version._description): the note, a blank line, then one `label: value` line per fact, in
 # the labels fields.py writes. Read back here, so a Load reads what a publish recorded.
 FACT_LABELS = set(fields.CONCEPT_LABELS.values())
@@ -44,7 +44,7 @@ LINEAGE_LABEL = fields.CONCEPT_LABELS["generated_from"]
 AI_FIELDS = [f for f in SUMMARY_FIELDS if f.startswith("sg_ai_")]
 RELATED_FIELDS = ["entity", "sg_task", "sg_ai_generated_from"]
 
-# Best first. `auto` walks this order and takes the first that resolves. These are the tiers a
+# Best first. `auto` reads this order and takes the first that resolves. These are the tiers a
 # Version has at most one of. PublishedFiles are not a fixed set, so they are not here: a Version
 # has none, one or several, and each is its own choice (`sources`).
 TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
@@ -53,7 +53,7 @@ TIERS = [("frames", "path to frames"), ("movie", "path to movie"),
 STILL = (".png", ".jpg", ".jpeg", ".tif", ".tiff", ".bmp", ".webp", ".exr")
 
 # The frame-pattern field is free text with no validation. printf padding, Shake `#` and `@` all
-# occur, so assuming `%04d` mis-reads half of them.
+# occur.
 SEQ = re.compile(r"%0?(\d*)d|(#+)|(@+)")
 
 # recipe 004. A LocalStorage root is per platform and a row may define only one, so the other two
@@ -62,17 +62,16 @@ LOCAL_PATH = {"darwin": "local_path_mac",
               "win32": "local_path_windows"}.get(sys.platform, "local_path_linux")
 
 # What `sequence.describe_colour` wrote into the description at publish time, read back. Recorded,
-# never applied: the value is a claim about the frames. Nothing is inferred and nothing defaults to
-# sRGB.
+# never applied. Nothing is inferred and nothing defaults to sRGB.
 COLOUR = re.compile(r"^\s*colour space:\s*([^\n(]+)", re.I | re.M)
 
 # A batch is one float32 RGB tensor, so N frames of W×H cost N·W·H·12 bytes to build and that much
 # again on the way to VRAM. The cap is here rather than in torch: an allocator answers "300 frames
 # of 4K" with a stack trace, and this answers with a sentence naming the resolution and the count.
 #
-# How much memory a machine has is a fact about that machine, so the number lives in
-# `batch_budget_gib` in profile.local.json and this is only the fallback. At 4 GiB a batch holds 43
-# frames of UHD or 172 of HD, short of a normal shot at 4K. A workstation should raise it.
+# `batch_budget_gib` in profile.local.json sets the number per machine, and this is the fallback.
+# At 4 GiB a batch fits 43 frames of UHD or 172 of HD, short of a shot at 4K. A workstation should
+# raise it.
 DEFAULT_BUDGET_GIB = 4
 # The widget's own ceiling, so an obvious typo is refused by the editor before anything is read.
 MAX_FRAMES = 512
@@ -100,9 +99,9 @@ def frame_glob(pattern):
 def frame_numbers(pattern):
     """(number, path) for every file of a sequence, in frame order.
 
-    The numbers come off disk, not from `sg_first_frame`/`sg_last_frame`. Those are a claim a
-    publisher made once and nothing keeps them true. A plate is 1001-based far more often than
-    1-based, so the difference is a wrong frame.
+    The numbers come off disk, not from `sg_first_frame`/`sg_last_frame`, which are a claim a
+    publisher made once. A plate is more often 1001-based than 1-based, so the difference is a
+    wrong frame.
     """
     m = SEQ.search(pattern or "")
     if not m:
@@ -134,8 +133,7 @@ def frame_range(v, key):
 def frame_size(v, key):
     """(width, height) of this source's first frame, or None where nothing on disk answers.
 
-    Only a sequence answers. A movie's size needs the container opened, which the panel must not pay
-    for.
+    Only a sequence answers. A movie's size needs the container opened, which the panel does not do.
     """
     nums = frame_numbers(pattern_of(v, key))
     h = _header(nums[0][1]) if nums else None
@@ -224,7 +222,7 @@ def _thumbnail_format(v):
 
 
 def _upload_format(name, content_type=""):
-    """What an upload can say without being fetched: a clip is never downloaded to be described."""
+    """An upload's line, read from its name. A clip is never downloaded to be described."""
     kind = content_type or os.path.splitext(name or "")[1].lstrip(".").upper()
     return f'{kind or "uploaded file"} on the site. Size and depth are read at run time.'
 
@@ -299,7 +297,7 @@ def _published_files(sg, version_id):
                     # What an upload can be described by without fetching it (probe 013).
                     "content_type": path.get("content_type") or "" if link == "upload" else "",
                     # The stored `source` value is built from this. A local row is named by its file
-                    # on disk, an uploaded one by the name the site holds.
+                    # on disk, an uploaded one by the name the site records.
                     "name": os.path.basename(local) if link == "local" else path.get("name") or "",
                     # A file whose type this site never labelled is still a file (probe 021).
                     "type": pft.get("name") or "published file",
@@ -344,12 +342,12 @@ def split_description(text):
 def provenance_state(attrs, sources):
     """Whether this Version says how it was made: "generated", "derived" or "unrecorded".
 
-    Not a yes/no. A Version carrying no AI fields may have come from a tool that records nothing,
-    from ComfyUI without this node, or from a camera, so absence is the absence of a record and
-    never "not AI generated".
+    A Version with no AI fields may have come from a tool that records nothing, from ComfyUI
+    without this node, or from a camera. Absence is the absence of a record, never "not AI
+    generated".
 
-    The description counts for as much as the typed fields. A site without the nine fields is where
-    a publish put every fact, and reading only the fields would call its own record absent.
+    The description counts for as much as the typed fields. On a site without the nine fields a
+    publish wrote every fact there, and reading only the fields would call its own record absent.
     """
     facts = split_description(attrs.get("description"))[1]
     made = [f for f in facts if f["label"] != LINEAGE_LABEL]
@@ -404,7 +402,7 @@ def describe(sg, version_id, statuses=(), colors=None, icons=None):
 # --- choosing a source ---------------------------------------------------------------------------
 
 def pf_key(pf):
-    """What the `source` combo holds for one PublishedFile: type, filename, then id.
+    """What the `source` combo shows for one PublishedFile: type, filename, then id.
 
     The type and the filename tell "the rendered sequence" from "the mp4" on a Version that
     published both. The id is the tiebreak two publishes of one stream differ by, never the label.
@@ -425,14 +423,14 @@ def pf_of(v, key):
 def colour_of(v, key):
     """The colour space this source declares, or "" when nothing was declared. Never a guess.
 
-    Only a PublishedFile carries one. `sg_path_to_frames` is a path and an upload is bytes, and
+    Only a PublishedFile has one. `sg_path_to_frames` is a path and an upload is bytes, and
     neither has anywhere to say what the pixels claim to be.
     """
     return (pf_of(v, key) or {}).get("colour", "")
 
 
 def sources(v):
-    """(key, label) for every source this Version can actually deliver, best first."""
+    """(key, label) for every source this Version can deliver, best first."""
     out = []
     for pf in v.get("published_files") or []:
         detail = _pf_detail(pf)
@@ -448,9 +446,9 @@ def sources(v):
 def no_media(v):
     """Why this Version cannot be read here, said to the person who has to fix it.
 
-    A Version nothing was ever published to is a different problem from one whose files are on a
-    root this machine has not mounted, and the two fixes have nothing in common. A read the site
-    answered with an error says nothing about the storage, so the storage is not blamed for it.
+    A Version nothing was published to is a different problem from one whose files are on a root
+    this machine has not mounted. A read the site answered with an error says nothing about the
+    storage, so the storage is not blamed for it.
     """
     who = f'Version {v["id"]} ({v.get("code") or v["id"]})'
     if v.get("published_files_error"):
@@ -496,7 +494,7 @@ def best(v, want, available=None):
 
     `image` takes frames from a sequence first, then a clip decoded, then a still, then the
     thumbnail. `video` takes a clip only: a Movie Published File, the movie on the storage, the
-    uploaded mp4. A Published File beats a path field of the same shape because it carries a type,
+    uploaded mp4. A Published File beats a path field of the same shape because it names a type,
     per-platform paths and the declared colour space. The site's own transcode is never offered: it
     is derived from the upload, lags it, and can describe a file that was replaced (probe 022).
     """
@@ -511,8 +509,8 @@ def best(v, want, available=None):
 
 
 def clip(v, key):
-    """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is held
-    in memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
+    """This source as ComfyUI's VIDEO, the file untouched. A path stays a path; an upload is read
+    into memory. Only a movie source answers; a sequence or a still is wrapped by the caller."""
     import io
 
     from comfy_api.latest._input_impl.video_types import VideoFromFile
@@ -524,7 +522,7 @@ def clip(v, key):
         return VideoFromFile(path)
     if key == "uploaded":
         return VideoFromFile(io.BytesIO(_download(v["sg_uploaded_movie"]["url"])))
-    raise FPTError(f"{key} is not a clip this node can hand on as a video.")
+    raise FPTError(f"{key} is not a clip. Pick a movie source.")
 
 
 def frame_rate(v):
@@ -542,7 +540,7 @@ def _pf_detail(pf):
         return "zip on the site" if pf["name"].lower().endswith(".zip") else "uploaded file"
     path = pf["path"]
     if not path:
-        return ""            # probe 021: a PublishedFile need not carry a path at all
+        return ""            # probe 021: a PublishedFile need not have a path at all
     if SEQ.search(path):
         return _frames_on_disk(path)
     return "1 file" if os.path.exists(path) else ""
@@ -559,7 +557,7 @@ def _resolve(v, key):
         mv = v.get("sg_uploaded_movie")
         return (mv or {}).get("name", "uploaded") if isinstance(mv, dict) and mv.get("url") else ""
     if key == "thumbnail":
-        # probe 013: a transcode still in flight serves a placeholder from this path, not the media.
+        # probe 013: an unfinished transcode serves a placeholder from this path, not the media.
         img = v.get("image")
         return ("a preview the site made"
                 if isinstance(img, str) and "/images/status/transient/" not in img else "")
@@ -638,10 +636,10 @@ def _download(url):
 def load_frames(v, key, start=0, count=1, budget=0):
     """(images, alpha) for `count` frames from frame `start`, as ComfyUI's own decoder returns them.
 
-    `images` is float32 [N,H,W,3]; `alpha` is [N,H,W,1] or None where the source carries none.
+    `images` is float32 [N,H,W,3]; `alpha` is [N,H,W,1] or None where the source has none.
 
     `start` is the frame NUMBER, the one in the filename and the one SG shows, not a position in
-    the list. `start` 0 is the first frame the source actually has, and `count` 0 is every frame
+    the list. `start` 0 is the first frame the source has, and `count` 0 is every frame
     from there to the end.
 
     Fewer than `count` come back when the source runs out. A short batch is a fact about the media,
@@ -665,7 +663,7 @@ def load_frames(v, key, start=0, count=1, budget=0):
         chosen = [path for _, path in (nums[at:] if count <= 0 else nums[at:at + count])]
         # The budget is checked against what is there, not what was asked for. A 6-frame sequence
         # never refuses frame_count 500, and a 500-frame one still does. The first file's header
-        # carries the size, so a batch too big is refused before one frame is decoded.
+        # gives the size, so a batch too big is refused before one frame is decoded.
         head = _header(chosen[0])
         if head:
             _budget((head["width"], head["height"]), len(chosen), budget_bytes(budget))
@@ -673,7 +671,7 @@ def load_frames(v, key, start=0, count=1, budget=0):
             _stills(chosen), len(chosen),
             f"{os.path.basename(pat)} has no frame {first}. Pick a frame the sequence has.",
             budget_bytes(budget)))
-    # Not a sequence: one blob, and a movie's frames come out of decoding it. A container carries no
+    # Not a sequence: one blob, and a movie's frames come out of decoding it. A container has no
     # frame numbers, so `start` counts decoded frames from 1 and 0 means the same as 1.
     at = max(start, 1)
     data, filename = load(v, key, at)
@@ -701,7 +699,7 @@ def _components(source, filename):
         raise FPTError(f"{filename} could not be decoded. Check that the file is complete, then run "
                        f"again. {e}")
     if got.images.shape[0] == 0:
-        raise FPTError(f"{filename} holds no image this node can read. Pick another source.")
+        raise FPTError(f"{filename} has no image this node can read. Pick another source.")
     return got.images, got.alpha
 
 
@@ -794,9 +792,9 @@ def _stack(frames, count, empty, budget):
                 f"{name} is {w}×{h} but this batch started {w0}×{h0}. Frames of different sizes "
                 f"cannot go into one IMAGE. Load the runs separately, or resize before the batch.")
         out.append((img, alpha))
-        # `count` 0 is everything there is. A sequence knows how many that is before it reads
-        # anything and arrives here with a real number. A movie does not, so the budget is checked
-        # against what has accumulated.
+        # `count` 0 is everything there is. A sequence has its own count before it reads anything
+        # and arrives here with a number. A movie does not, so the budget is checked against what
+        # has accumulated.
         if count <= 0:
             _budget(_size(out[0][0]), len(out), budget)
         elif len(out) >= count:
@@ -834,7 +832,7 @@ def gib(n):
 
 
 def frames_that_fit(size, budget):
-    """How many frames of this size one batch can hold."""
+    """How many frames of this size fit in one batch."""
     w, h = size
     return max(int(budget) // (w * h * 3 * 4), 1)
 
@@ -842,7 +840,7 @@ def frames_that_fit(size, budget):
 def _budget(size, count, budget):
     """Refuse a batch past `budget`: what to set, then the numbers that say why."""
     w, h = size
-    need = w * h * 3 * 4 * int(count)     # float32 RGB, which is what an IMAGE tensor holds
+    need = w * h * 3 * 4 * int(count)     # float32 RGB, the layout of an IMAGE tensor
     if need > budget:
         raise FPTError(
             f"Set frame_count to {frames_that_fit(size, budget)} or less at this resolution. "

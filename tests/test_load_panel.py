@@ -1,6 +1,6 @@
 """What the Load panel reads back off a Version: the provenance, and the sentences about its media.
 
-Nothing here touches a site: `describe` is driven with a stub client.
+Nothing here touches a site: `describe` is called with a stub client.
 """
 from sg_groundtruth.client import FPTError
 
@@ -124,7 +124,7 @@ def test_one_file_is_one_frame(tmp_path):
     assert media.sources(v) == [("frames", "path to frames — 1 frame")]
 
 
-# --- the fallbacks say what they are ---------------------------------------------------------------
+# --- how the fallback sources are labelled ---------------------------------------------------------
 
 def test_the_thumbnail_row_says_it_is_a_preview(monkeypatch):
     v = {"id": 1, "published_files": [], "image": "https://s3/t.jpg?sig"}

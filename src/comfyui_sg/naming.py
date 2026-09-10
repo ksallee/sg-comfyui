@@ -1,18 +1,18 @@
 """The template language for Version codes and PublishedFile paths, and version numbering.
 
 A template is written in SG's own vocabulary: dotted field paths to any depth
-(`{entity.Shot.code}`), Python's whole format spec (`{version:03d}`), `[optional blocks]` that
-vanish when their fields are empty, and printf padding (`v%04d`) as a synonym for a version spec.
+(`{entity.Shot.code}`), Python's format spec (`{version:03d}`), `[optional blocks]` that vanish
+when their fields are empty, and printf padding (`v%04d`) as a synonym for a version spec.
 
-Where the version number lives is site-specific. A site with a real numeric field on Version uses
-`next_number`; a site without one carries the version inside `code` as a convention, matched with
+Where the version number is recorded is site-specific. A site with a numeric field on Version uses
+`next_number`. A site without one records the version inside `code` as a convention, matched with
 `next_version`.
 """
 import re
 import string
 
-# Any format spec, not just zero-padding: the spec is handed to Python, so a path carrying one is
-# still recognised as a field.
+# Any format spec, not just zero-padding: the spec is handed to Python, so a path with one is still
+# recognised as a field.
 FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
 # Toolkit spells an optional key with square brackets, and so does a template here:
 # `[_{sg_task.Task.content}]` disappears entirely, separator and all, when the task is not set.
@@ -54,7 +54,7 @@ def normalise_template(template):
 
 
 def template_fields(template):
-    """The field paths a template needs, minus `version`, so a caller knows what to fetch.
+    """The field paths a template needs, minus `version`, so a caller can fetch them.
 
     Optional blocks are included: whether one survives depends on its value, so the value has to be
     looked up first.
@@ -75,10 +75,10 @@ def _drop_unfilled(template, values):
 
 
 class _Paths(string.Formatter):
-    """Python's own formatter with the whole dotted path used as the key.
+    """Python's own formatter with the dotted path used as the key.
 
     `str.format` reads `{a.b}` as attribute access and `{a[b]}` as item access, but a template path
-    like `entity.Shot.code` is one key rather than a walk. Overriding `get_field` lets SG's dotted
+    like `entity.Shot.code` is one key, not a lookup chain. Overriding `get_field` lets SG's dotted
     syntax and Python's format spec coexist, so `{sg_version_number:03d}` pads and `{code:>12}`
     aligns without either being taught here.
     """

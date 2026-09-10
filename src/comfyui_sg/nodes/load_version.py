@@ -1,10 +1,10 @@
-"""SG Load: a Version's media comes back into the graph, and the link is recorded.
+"""SG Load: read a Version's media into the graph and record the link.
 
-A Version loaded here is remembered as an ancestor (`lineage`), so anything published downstream
-records what it came from without the operator typing an id.
+A Version loaded here is recorded as an ancestor (`lineage`), so anything published downstream names
+what it came from without the operator typing an id.
 
-The inputs are a rule an artist would say out loud, *the newest approved depth on this shot*,
-rather than a Version id. `pin_version_id` is the escape hatch and overrides everything above it.
+The widgets state a rule, such as the newest approved depth on this shot, rather than a Version id.
+`pin_version_id` overrides every field above it.
 """
 import json
 
@@ -13,8 +13,8 @@ import torch
 from .. import lineage, media, resolve, site, widgets
 
 MAX_ID = 2 ** 31 - 1
-# The default for an unset keyword. It is NOT the label a person picks, which is site.NO_VALUE,
-# "(none)". The two stay distinct, or a combo declares a value the editor cannot offer.
+# The default for an unset keyword. The label a person picks is site.NO_VALUE, "(none)". The two are
+# distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
 AUTO = "auto"
 
@@ -50,7 +50,7 @@ def _as_rest_filter(v):
 
 
 def _as_list(v):
-    """The multi-select arrives as a list; a hand-edited graph may hold a comma-separated string."""
+    """The multi-select arrives as a list; a hand-edited graph may give a comma-separated string."""
     if isinstance(v, (list, tuple)):
         return [str(x) for x in v if x]
     return [x.strip() for x in str(v or "").split(",") if x.strip()]
@@ -97,18 +97,17 @@ class SGLoadVersion:
 
     @classmethod
     def VALIDATE_INPUTS(cls, project=None, link_type=None, link=None, task=None, source=None):
-        """Accept what the editor offered, because the editor knows more than INPUT_TYPES did.
+        """Accept what the editor offered rather than what INPUT_TYPES declared.
 
-        These combos are seeded for the default project and then repopulated per project by the JS
-        (`setOptions`), so a value the operator legitimately picked need not be in the list this
-        class declared at load time. ComfyUI skips its own membership check for any input named here
-        (execution.py:1019), the mechanism core nodes use for the same problem
-        (comfy_extras/nodes_model_advanced.py:380). A label that resolves to no entity still fails
-        at run time, naming the label and the project.
+        These combos are seeded for the default project and repopulated per project by the JS
+        (`setOptions`), so a value the operator picked need not be in the list this class declared
+        at load time. ComfyUI skips its own membership check for any input named here
+        (execution.py:1019), as core nodes do (comfy_extras/nodes_model_advanced.py:380). A label
+        that resolves to no entity still fails at run time, naming the label and the project.
         """
         return True
 
-    # | output | what it carries |
+    # | output | what it is |
     # |---|---|
     # | image | the frames read, float32 [N,H,W,3] |
     # | video | the clip, or the frames wrapped at a stated rate |
@@ -120,10 +119,9 @@ class SGLoadVersion:
     # The media come first because they are what a graph wires, and the record follows them.
     #
     # `colour_space` is an output rather than a log line because it feeds the publish node's own
-    # colour_space widget, so a claim made once upstream travels with the pixels. Empty when
-    # nothing was declared. Recorded, never applied, never inferred.
+    # colour_space widget. Empty when nothing was declared. Recorded, never applied, never inferred.
     #
-    # An output is positional, as a widget value is: a saved graph names a slot by its index. This
+    # An output is positional, as a widget value is: a saved graph names a slot by its index. The
     # order is frozen from the first release, and appending is the only safe change after it.
     RETURN_TYPES = ("IMAGE", "VIDEO", "MASK", "INT", "STRING", "STRING")
     RETURN_NAMES = ("image", "video", "mask", "version_id", "code", "colour_space")
@@ -183,10 +181,10 @@ class SGLoadVersion:
     def IS_CHANGED(cls, project=UNSET, link_type=UNSET, link=UNSET, task=UNSET, name_contains="",
                    statuses=(), filters="", newest_by=resolve.BY_VERSION, pin_version_id=0,
                    source=AUTO, frame=0, frame_count=0, **kw):
-        """The id this node WOULD load, so it re-executes when that changes and only then.
+        """The id this node would load, so it re-executes when that id changes.
 
         ComfyUI otherwise caches on unchanged widgets, and a node resolving by rule keeps serving
-        v001 after v002 lands.
+        v001 after v002 is published.
         """
         if int(pin_version_id):
             return f"{int(pin_version_id)}:{source}:{frame}:{frame_count}"
@@ -207,8 +205,8 @@ class SGLoadVersion:
             vid, code, why = self._resolve(project, link_type, link, task, name_contains, statuses,
                                            newest_by, filters)
             if not vid:
-                # A rule that matches nothing is where the listing matters most, so the error
-                # carries what is on that link rather than only the rule that missed.
+                # A rule that matches nothing gets the listing: the error names what is on that
+                # link, not only the rule that missed.
                 project_id, lt, target, task_id = self._context(project, link_type, link, task)
                 near = site.find_versions(project_id, lt, target, task_id)[:8]
                 labels = {c: l for l, c in site.statuses(project_id)}   # 'pndvs' means nothing
@@ -235,28 +233,27 @@ class SGLoadVersion:
                                  f"instead:\n  " + "\n  ".join(label for _, label in available))
             clip_key = key if media.kind_of(v, key) == "movie" else ""
 
-        # Recorded so a publish downstream can credit what was actually resolved. A rule-resolved
-        # Version is not in the prompt graph, only the rule is. The file goes with it: a read that
-        # came off a PublishedFile makes the downstream dependency that one file rather than every
-        # file the ancestor ever published.
+        # Recorded so a publish downstream can name what was resolved. A rule-resolved Version is
+        # not in the prompt graph, only the rule is. A read that came off a PublishedFile makes the
+        # downstream dependency that one file rather than every file the ancestor published.
         pf = media.pf_of(v, key)
         lineage.record(unique_id, vid, (pf or {}).get("id", 0), prompt)
 
         images, alpha = media.load_frames(v, key, frame, frame_count,
                                           site.profile().get("batch_budget_gib", 0))
         n = int(images.shape[0])
-        # ComfyUI's own convention (nodes.LoadImage): the mask is the inverse of the alpha channel,
-        # and a source carrying none gets a 64×64 zero mask rather than a shape every node
-        # downstream has to special-case.
+        # ComfyUI's own convention (nodes.LoadImage): the mask is the inverse of the alpha channel.
+        # A source with no alpha gets a 64x64 zero mask rather than a shape every node downstream
+        # has to special-case.
         mask = 1.0 - alpha[..., -1] if alpha is not None else torch.zeros((n, 64, 64))
         colour = media.colour_of(v, key)
-        # The frame the read STARTED at: `frame` 0 means "wherever this source begins", and a log
-        # line saying "from 0" would name a frame that does not exist.
+        # The frame the read started at. `frame` 0 means the source's first frame, and a log line
+        # saying "from 0" would name a frame that does not exist.
         rng = media.frame_range(v, key)
         at = (rng[0] if rng else 1) if int(frame) <= 0 else int(frame)
         got = f"{n} frames from {at}" if n > 1 else f"frame {at}"
-        # A batch that came back short is a fact about the media, said out loud rather than left for
-        # the graph downstream to discover as a wrong frame count.
+        # A batch that came back short is reported here rather than left for the graph downstream
+        # to discover as a wrong frame count.
         short = f", short of the {frame_count} asked for" if n < int(frame_count) else ""
         # The clip is fetched only when something reads it: a download nobody asked for is a cost,
         # and the frames wrapped at a stated rate are a video too.

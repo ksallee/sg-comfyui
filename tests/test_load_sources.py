@@ -1,7 +1,7 @@
-"""Which sources SG Load offers, what it calls them, and which Version a rule lands on.
+"""Which sources SG Load offers, what it calls them, and which Version a rule picks.
 
-Nothing here touches a site: `_published_files` is driven with a stub client, and `resolve.pick`
-through the one function it asks the site for.
+Nothing here touches a site: `_published_files` is called with a stub client, and `resolve.pick`
+through the function it asks the site for.
 """
 import pytest
 

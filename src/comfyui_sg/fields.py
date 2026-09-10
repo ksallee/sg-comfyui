@@ -1,4 +1,4 @@
-"""Typed provenance fields on Version: the list, the idempotent create, and where each concept lands.
+"""Typed provenance fields on Version: the list, the idempotent create, and the routing table.
 
 `ensure` is setup path, run once per site by the operator (`python -m comfyui_sg.fields`), and the
 node only reads the result. The routing half (`concepts`, `targets`, `route`) runs on the publish
@@ -7,8 +7,8 @@ path and consults nothing but its arguments.
 Field names are permanent. probe 019: DELETE frees the field but never its name, and trashed fields
 cannot be enumerated, so a name spent here is spent site-wide forever. Add to FIELDS deliberately.
 
-Display and programmatic names are kept in step: the site derives one from the other at creation, and
-a TD reading `sg_ai_generated_from` in the schema must find "AI Generated From" in the UI. Relabelling
+Display and programmatic names match: the site derives one from the other at creation, and a TD
+reading `sg_ai_generated_from` in the schema must find "AI Generated From" in the UI. Relabelling
 alone breaks that correspondence, so a rename means a new field.
 """
 import re
@@ -28,7 +28,7 @@ FIELDS = [
     ("AI CFG",             "float",        {}),
     # probe 019: valid_types takes exactly one element, and two returns 400.
     # "Generated From", not "Source Versions". The sources need not be AI, and a scanned plate
-    # feeding a previs is the ordinary case. The AI describes THIS Version's generation, not its
+    # feeding a previs is the ordinary case. The AI describes this Version's generation, not its
     # inputs.
     ("AI Generated From",  "multi_entity", {"valid_types": ["Version"]}),
 ]
@@ -49,7 +49,7 @@ def names():
 
 
 class Refused(RuntimeError):
-    """The site would not answer. `status` is what it answered, for a caller that says who can."""
+    """The site refused the read. `status` is the HTTP status it answered with."""
 
     def __init__(self, sentence, status):
         super().__init__(sentence)
@@ -79,7 +79,7 @@ def ensure(sg, entity_type="Version"):
     """Create whatever is missing. Returns (present, created, failed) for the caller to report.
 
     probe 019: reading /schema first is mandatory. POSTing a display name that already exists does
-    NOT error, it silently creates <name>_1, and every later run adds another.
+    not error: it creates <name>_1, and every later run adds another.
     """
     existing = _schema(sg, entity_type)
 
@@ -110,10 +110,10 @@ def _explain(resp):
         return f"The site answered {resp.status_code}. {resp.text[:160]}"
 
     if "schema_field_create() failed" in title:
-        return (f"The name is almost certainly held by a field in the trash. Rename this field in "
+        return (f"The name is already used by a field in the trash. Rename this field in "
                 f"fields.py, changing its display name, then run again. Deleting a field never "
-                f"frees its name and trashed fields cannot be listed, so the clash is invisible "
-                f"(probe 019). The site said {title}")
+                f"frees its name, and trashed fields cannot be listed (probe 019). "
+                f"The site said {title}")
     if "Only true or false" in title:
         return f"A checkbox needs a default_value property. Add one in fields.py, then run again. "\
                f"The site said {title}"
@@ -139,7 +139,7 @@ def report(present, created, failed):
         lines.append(f"\n{len(present)} already present, {len(created)} created, 0 failed.")
     else:
         lines.append(f"\n{len(present)} present, {len(created)} created, {len(failed)} failed. "
-                     f"The facts those fields would hold go into the attached JSON file instead.")
+                     f"Those facts go into the attached JSON file instead.")
     return "\n".join(lines)
 
 
@@ -162,12 +162,12 @@ def schema_names(sg, entity_type="Version"):
 
 
 def available(sg, entity_type="Version"):
-    """Which provenance fields actually exist on this site right now."""
+    """Which provenance fields exist on this site."""
     return set(names().values()) & schema_names(sg, entity_type)
 
 
-# What the graph knows, named as concepts rather than as fields. The operator decides where each one
-# lands (site.provenance_map); DEFAULT_MAP is only what happens when they have not said.
+# What the graph records, named as concepts rather than as fields. The operator decides the target
+# for each (site.provenance_map); DEFAULT_MAP applies where they have not.
 DEFAULT_MAP = {
     "generator":       "sg_ai_generator",
     "model":           "sg_ai_model",
@@ -186,11 +186,10 @@ CONCEPT_LABELS = {"generator": "made by", "model": "model", "prompt": "prompt",
 
 
 def targets(mapping=None, mode="fields"):
-    """{concept: target}, the operator's decision, resolved once and read by everyone.
+    """{concept: target}, the operator's decision.
 
     Target is a Version field, DESCRIPTION, or None for "do not record this". Shared with
-    /sg/preview_publish so the panel shows where a value will actually land, not where this file
-    would have put it.
+    /sg/preview_publish, so the panel names the same target the publish writes to.
     """
     mapping = mapping or {}
     fallback = DESCRIPTION if mode == DESCRIPTION else None
@@ -198,7 +197,7 @@ def targets(mapping=None, mode="fields"):
 
 
 def route(prov, source_version_ids=(), mapping=None, mode="fields"):
-    """({field: value}, [readable line]): where each concept the graph knows actually lands.
+    """({field: value}, [readable line]): the target for each concept the graph recorded.
 
     `mapping` is the operator's, from the profile: concept -> a Version field, DESCRIPTION, or None
     to record it nowhere. A concept they did not name follows `mode`, so "put everything in the
@@ -230,13 +229,13 @@ def _readable(concept, value):
 def concepts(prov, source_version_ids=()):
     """Provenance -> {concept: value}, before anything decides where it goes.
 
-    Numeric fields take the LAST sampler: in a multi-sampler graph that is the one that produced the
-    image being published. Text fields join every sampler, so nothing is lost. The full structure is
-    attached as JSON regardless: these fields are the queryable summary, not the record of truth.
+    Numeric fields take the last sampler, which is the one that produced the image being published.
+    Text fields join every sampler, so nothing is lost. The full structure is attached as JSON
+    either way: these fields are the queryable summary.
 
     Prompt comes from `prov["prompts"]`, not from the samplers, because half of these graphs never
-    sample. "The actor" told a segmentation graph what to cut and is the same concept as "what to
-    generate", the words the artist gave the model. One field, one query. See DESIGN.md.
+    sample. The words the artist gave the model are one concept, whether the graph generates or
+    segments. One field, one query. See DESIGN.md.
     """
     samplers = prov.get("samplers") or []
     last = samplers[-1] if samplers else {}

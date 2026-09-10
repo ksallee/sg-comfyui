@@ -1,13 +1,13 @@
-"""The widget table both nodes are declared from: order, kind, label and copy, stated once.
+"""The widget table both nodes are declared from: order, kind, label and copy.
 
-ComfyUI stores widget values positionally, so the order of each tuple below IS the saved-graph
+ComfyUI stores widget values positionally, so the order of each tuple below is the saved-graph
 format. Append only: never insert, remove or rename once a graph outside this repo has been saved.
 
-`instrument.py`, `tools/smoke.py` and the editor extension all read these lists rather than
-repeating them, so there is one order and nothing to keep in step by hand.
+`instrument.py`, `tools/smoke.py` and the editor extension read these lists rather than repeating
+them, so there is one order to maintain.
 
-Pure data. Nothing here imports the rest of the package, which is what lets `instrument.py` read it
-on a machine with no torch and no route to the site.
+Pure data. Nothing here imports the rest of the package, so `instrument.py` reads it on a machine
+with no torch and no route to the site.
 """
 from dataclasses import dataclass
 
@@ -17,7 +17,7 @@ KINDS = {"text": "STRING", "multiline": "STRING", "int": "INT", "bool": "BOOLEAN
 
 @dataclass(frozen=True)
 class Field:
-    """One widget: what it is called, what it holds, and how it is shown."""
+    """One widget: its name, its kind, and how it is shown."""
 
     name: str
     kind: str
@@ -34,7 +34,7 @@ class Field:
 
 # Declared in the order an operator decides them: which show, what it belongs to, which task, what
 # state it is in, what it is called, whether it is a deliverable, and last the note a person
-# writes. The fold holds what a house sets once.
+# writes. The fold contains what a house sets once.
 PUBLISH_FIELDS = (
     Field("project", "combo", dynamic=True,
           tooltip="Project to publish into."),
@@ -44,13 +44,13 @@ PUBLISH_FIELDS = (
           tooltip="Task this Version is for, if there is one."),
     Field("status", "combo", dynamic=True,
           tooltip="Status to set on the new Version."),
-    # Above `code_template` and out of the fold: the stream is what changes between runs when
-    # someone is exploring variations, and the version name usually just builds on it.
+    # Above `code_template` and out of the fold. The root name changes between runs while someone
+    # explores variations, and the version name builds on it.
     Field("root_name", "text", label="root name",
           tooltip="The name shared by all versions of this publish, without a version number, for "
-                  "example {entity}_matte. It names the folder the files land in, and version "
-                  "name can build on it with {root_name}. A token with no value drops out with "
-                  "its separator. Empty uses the default under Settings, then SG."),
+                  "example {entity}_matte. It names the folder the files are written to, and "
+                  "version name can build on it with {root_name}. A token with no value drops out "
+                  "with its separator. Empty uses the default under Settings, then SG."),
     Field("code_template", "text", label="version name",
           tooltip="The name given to the new Version, for example "
                   "{entity}_plate_v{version:03d}. Use {root_name} to build on the root name, and "
@@ -80,14 +80,14 @@ PUBLISH_FIELDS = (
                   "scene-linear plate. The review still stays 8-bit PNG."),
 )
 
-# Which show, what to read from, which task, which of its media, and which frames. The fold holds
-# the rule for choosing between candidates, which a graph settles once and rarely reopens.
+# Which show, what to read from, which task, which of its media, and which frames. The fold contains
+# the rule for choosing between candidates, which a graph settles once.
 LOAD_FIELDS = (
     Field("project", "combo", dynamic=True,
           tooltip="Project to read from."),
     Field("link", "combo", dynamic=True,
           tooltip="The Shot, Asset or other entity to read from. Leave it empty to search the "
-                  "whole project."),
+                  "project."),
     # Optional by design: probe 005 found sg_task set on 1% of Versions.
     Field("task", "combo", dynamic=True,
           tooltip="Narrow the search to one Task on that entity."),
@@ -108,13 +108,13 @@ LOAD_FIELDS = (
                   "plate.1003.exr. 0 starts wherever the sequence starts, so a plate running "
                   "1001-1048 needs no typing. A movie has no frame numbers inside it, so there "
                   "the count starts at 1."),
-    # 0, so the node reads the whole plate without being told to. Both frame widgets sit in the
-    # fold on the strength of that default: a batch past the size budget is refused with the count
-    # that fits, and the panel names the range before a run.
+    # 0, so the node reads the plate to its end without being told to. Both frame widgets are in
+    # the fold on the strength of that default: a batch past the size budget is refused with the
+    # count that fits, and the panel names the range before a run.
     Field("frame_count", "int", advanced=True, default=0, minimum=0,
           tooltip="How many frames to read as one batch, starting at the frame above. 0 is all "
                   "frames to the end of the sequence or the movie, and 1 is a single image. A "
-                  "batch too large to hold is refused, and the error says how many fit."),
+                  "batch too large for memory is refused, and the error says how many fit."),
     Field("newest_by", "combo", advanced=True,
           tooltip="What newest means when several Versions match."),
     # `advanced` is ComfyUI's own fold, used by 246 core nodes. A hand-rolled toggle ends up
@@ -147,8 +147,8 @@ def field(fields, name):
 def spec(f, choices=(), override=None):
     """One field as ComfyUI's `(type, options)` pair.
 
-    `choices` fills a dynamic combo; `override` supplies what only the node knows, such as a
-    default read from the site profile or a bound held elsewhere as a constant.
+    `choices` fills a dynamic combo. `override` supplies what only the node has, such as a default
+    read from the site profile or a bound defined elsewhere as a constant.
     """
     options = {"tooltip": f.tooltip} if f.tooltip else {}
     if f.label:
@@ -175,8 +175,8 @@ def spec(f, choices=(), override=None):
 def folding(fields, block):
     """Per-field `advanced` overrides from a profile block naming `normal` and `advanced` fields.
 
-    Which fields a house wants in front of it is a house decision, not this file's, so the split
-    below is a default rather than a rule. A name in neither list keeps the declared setting.
+    The split declared above is a default, not a rule. A name in neither list keeps the declared
+    setting.
     """
     normal = set((block or {}).get("normal") or ())
     advanced = set((block or {}).get("advanced") or ())

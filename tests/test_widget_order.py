@@ -51,7 +51,7 @@ def test_the_required_widgets_are_the_first_ones_declared():
 
 
 def test_instrument_reads_the_table_rather_than_repeating_it():
-    """`import widgets` and `def widgets` share a name in instrument.py; the order still holds."""
+    """`import widgets` and `def widgets` share a name in instrument.py; the order still matches."""
     assert instrument.PUBLISH_WIDGETS == widgets.names(widgets.PUBLISH_FIELDS)
     assert instrument.LOAD_WIDGETS == widgets.names(widgets.LOAD_FIELDS)
 
@@ -82,7 +82,7 @@ def test_every_saved_value_suits_the_widget_it_sits_in(path):
             if value is None:
                 continue
             assert isinstance(value, KIND_TYPES[f.kind]), \
-                f'{node["type"]}#{node["id"]} in {path.name}: {f.name} holds {value!r}'
+                f'{node["type"]}#{node["id"]} in {path.name}: {f.name} is {value!r}'
 
 
 def sg_nodes(graph):
