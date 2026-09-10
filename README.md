@@ -7,7 +7,7 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - **SG Load** reads a Version's media back into a graph as image, video and mask.
 - Nothing here generates, encodes or decodes. ComfyUI writes and reads every pixel.
 
-![The SG Publish node, showing the Version it will create](docs/images/sg-publish-node.png)
+![The example workflow: an image into SG Publish, and SG Load reading the Version back](docs/images/example-top-row.png)
 
 ## What it provides
 
@@ -22,12 +22,16 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Registers the frames or the movie as PublishedFiles when **Create Published Files** is ticked.
 - Writes frames as 8-bit PNG, 16-bit PNG or EXR 32-bit float, picked on the **format** widget.
 
+![SG Publish after a run: the Version it will create, and the last one it made](docs/images/sg-publish-node.png)
+
 ### SG Load
 
 - Finds a Version by project, link, Task, status and name. `pin_version_id` takes an id instead.
 - Outputs `image`, `video`, `mask`, `version_id`, `code`, `colour_space`.
 - Reads 16-bit PNG and EXR at full precision.
 - Records the Version it read on anything published downstream.
+
+![SG Load on an EXR Version: the format line, the provenance it carries, the image and the mask](docs/images/sg-load-node.png)
 
 ### In the editor
 
