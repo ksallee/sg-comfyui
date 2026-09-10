@@ -15,3 +15,8 @@ uv.lock
 
 # JetBrains project files. Kevin's local IDE setup, swept in by a `git add -A`.
 .idea/
+
+# The launch page's build products.
+site/node_modules/
+site/build/
+site/.svelte-kit/
