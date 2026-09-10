@@ -30,6 +30,12 @@ const s = Math.min(cw / (x1 - x0), ch / (y1 - y0), 1);
 app.canvas.ds.state.scale = s;
 app.canvas.ds.state.offset = [-x0 + ((cw / s) - (x1 - x0)) / 2, -y0 + ((ch / s) - (y1 - y0)) / 2];
 app.canvas.setDirty(true, true); await pause(1500);
+// The run's own "Job completed" arrives on its own clock and would otherwise sit in the shot.
+// Its own control only: a generic Close matches the workflow tabs, and closing one empties the graph.
+for (let i = 0; i < 6; i++) {
+  await pause(300);
+  document.querySelectorAll(".p-toast-close-button").forEach((b) => b.click());
+}
 seen.push("images: " + (pv1.imgs?.length || 0) + " mask: " + (pv2.imgs?.length || 0));
 seen.push("panel: " + (document.querySelector(".sg-panel .sg-body")?.innerText || "").replace(/\n/g, " | ").slice(0, 160));
 return { steps: seen };
