@@ -39,7 +39,7 @@ neither torch nor a route to the site.
 
 Operation is `README.md`. The recurring jobs are slash commands: `/inspect-site` writes
 `profile.local.json`, which is gitignored and which every picker reads; without it the pickers run
-on the site's defaults, which carry a Shot-linked show. `/track-workflow` puts the nodes into a
+on the site's defaults, which link the show to a Shot. `/track-workflow` puts the nodes into a
 graph the operator already uses. `tools/doctor.py` is the offline check, run as a file.
 
 `tests/` runs with no site, no ComfyUI and no torch: `uv run --with pytest --with numpy --with Pillow
