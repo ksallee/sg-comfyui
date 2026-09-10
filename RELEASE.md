@@ -170,7 +170,8 @@ and what was read back.
 
 - `register_movie` on the two-input node: Version 31993, PublishedFiles 7011 (Rendered Image) and
   7012 (Movie), `path_cache` on both, `sg_path_to_frames` and `sg_path_to_movie` written, the mp4
-  beside the frame folder. A re-run with unchanged inputs is cached by ComfyUI, reported on the panel.
+  beside the frame folder. A re-run with unchanged inputs is cached by ComfyUI, and the panel
+  reports the cache.
 - The trim guard: a clip sliced to 0.8 s publishes as Version 31996, "20 frames at 25 fps, encoded by
   ComfyUI", the upload decoding as 20 frames. The control with the trim bypassed, Version 31997,
   reads "the source file, uploaded unchanged" and the upload's sha1 equals the file in `input/`.
@@ -266,8 +267,8 @@ template note states this.
   through.
 - `env.load` layers `.env.local` over `os.environ`, so `FPT_API_*` can come from the launch
   environment.
-- `VideoFromFile.get_stream_source()` returns the path of the **untrimmed** source even for a trimmed or
-  cropped clip; `movie.source_file` compares dimensions and duration against a plain `VideoFromFile`
+- `VideoFromFile.get_stream_source()` returns the path of the **untrimmed** source even for a
+  trimmed or cropped clip; `movie.source_file` compares dimensions and duration against a plain `VideoFromFile`
   and falls back to encoding when they differ.
 - `save_to`'s `color_space` accepts only `sRGB`, `HDR` and `HDR PQ`, so the freeform `colour_space`
   widget is not passed to it; it stays a declaration on the record.

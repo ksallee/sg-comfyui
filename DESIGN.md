@@ -60,8 +60,9 @@ dependency, so any module may import it in any order.
 - `shotgun_api3` is heavyweight.
 
 **Setup path.** Schema cache, inspector, field creation. Runs on the operator's machine at
-configuration time with an agent present, so it may use the Python API where that is better. If REST cannot create schema fields but `shotgun_api3` can, provenance as typed fields
-survives as a setup step.
+configuration time with an agent present, so it may use the Python API where that is better. If
+REST cannot create schema fields but `shotgun_api3` can, provenance as typed fields survives as a
+setup step.
 
 Same line as "LLM at configuration time, never in the publish path".
 
@@ -261,8 +262,8 @@ A `VIDEO` is uploaded untouched only when the object and the file are the same v
 and same dimensions as a plain `VideoFromFile` over that path.
 
 - `VideoFromFile.get_stream_source()` returns the path of the *untrimmed* source even where the
-  graph trimmed or cropped the clip. `as_trimmed` and `as_cropped` return a new `VideoFromFile` over that same file
-  with a window recorded beside it.
+  graph trimmed or cropped the clip. `as_trimmed` and `as_cropped` return a new `VideoFromFile`
+  over that same file with a window recorded beside it.
 - Trusting the class alone files a ten-second plate as the two-second selection a supervisor asked
   for, with no error. That is corpus 028's failure mode.
 - Both checks are container metadata reads. Neither decodes.
@@ -337,7 +338,7 @@ The frames are a `PublishedFile`, and asking for them changes nothing about the 
 still one Version with one uploaded media file.
 
     video wired            one Version, the movie uploaded. A PublishedFile where the house keeps one
-    images wired           one Version with frame 1 uploaded for review, PLUS a PublishedFile per frame
+    images wired           one Version, frame 1 uploaded for review, PLUS a PublishedFile per frame
     images and video       the movie for review, the frames as files
     a single image, no tick  PNG to `image` and `sg_uploaded_movie`, no file, no storage root
 
@@ -379,8 +380,8 @@ path template is the same language as a code template. Two things are particular
 
 - **`{version}` is the publish, `%04d` is the frame.** They are different numbers.
   `naming.normalise_template` reads *any* printf pad as the version, which is right for a name
-  written `v%04d` and wrong for a path, where it would fix a sequence at one frame. The frame token is lifted out
-  before rendering and put back after (`sequence._protect`), and in a path template the printf form
+  written `v%04d` and wrong for a path, where it would fix a sequence at one frame. The frame token
+  is lifted out before rendering and put back after (`sequence._protect`), and in a path template the printf form
   means the frame. `####` and `@@@@` work too, because `sg_path_to_frames` accepts all three
   (`media.SEQ`).
 - **The extension follows the files, not the template.** It is the one the node's `format` widget
@@ -509,7 +510,8 @@ review side and may be derived. `files` is the deliverable side and is not trans
   so this is not an OCIO case only. A stock node on a site with no colour management writes files a
   graph wants registered.
 
-**It is a socket, not a widget**, so it is added without moving `widgets_values`. `OCIOWrite` declares
+**It is a socket, not a widget**, so it is added without moving `widgets_values`. `OCIOWrite`
+declares
 `RETURN_TYPES = ("STRING",)` and `RETURN_NAMES = ("path",)` alongside `OUTPUT_NODE = True`, so the
 path is already on a wire and nobody types one. Adding an input slot is additive; adding a widget is
 not.
@@ -1202,8 +1204,8 @@ split on `.`, the same string. Neither reads `DisplayName`, and the only overrid
 name is the product's chip, and it is `sg-comfyui` rather than `comfyui-sg`: in a sidebar of `comfyui-*`
 packs it sorts under S and the chip reads SG first.
 
-`NODE_CLASS_MAPPINGS` keys are written into each saved workflow, so they are permanent from the moment
-anyone outside this repo saves a graph. Nothing had shipped when they became `SGPublishVersion` and
+`NODE_CLASS_MAPPINGS` keys are written into each saved workflow, so they are permanent from the
+moment anyone outside this repo saves a graph. Nothing had shipped when they became `SGPublishVersion` and
 `SGLoadVersion`, so the old keys were renamed outright rather than kept as deprecated aliases, and the
 shipped graphs moved in the same commit.
 
@@ -1226,8 +1228,8 @@ first release with `FPT.from_session` and the launcher module the Log in button 
 a sibling checkout on `sys.path`, and there is no `SG_GROUNDTRUTH_PATH`.
 
 The checkout is still expected for two things the PyPI package does not ship: the corpus, and
-`inspect_site.py`, which `/inspect-site` runs. Neither is needed to run the nodes. INSTALL.md says the
-checkout goes anywhere except `custom_nodes`, where ComfyUI would try to load it as a pack.
+`inspect_site.py`, which `/inspect-site` runs. Neither is needed to run the nodes. INSTALL.md says
+the checkout goes anywhere except `custom_nodes`, where ComfyUI would try to load it as a pack.
 
 Three ways out were weighed, and the first was chosen:
 
