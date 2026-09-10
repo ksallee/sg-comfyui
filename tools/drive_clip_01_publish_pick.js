@@ -3,11 +3,14 @@
 // Needs the sandbox project and Shot sh010, which has six Tasks.
 //   tools/capture.py --node SGPublishVersion --drive tools/drive_clip_01_publish_pick.js --out 01
 await settle(300);
+// The node opens on the project from Settings. The link list arrives one cascade after that.
+const links = () => node.widgets.find((x) => x.name === "link").options.values || [];
+for (let i = 0; i < 80 && links().length < 2; i++) await pause(250);
 await settleSize(node);
 await frameAll(50);
 await pause(1400);
 
-// The first characters, typed. The list narrows as they land.
+// The first characters, typed. The list narrows on each one.
 await pick("link", "sh01", "sh010");
 await settleSize(node);
 await pause(1000);

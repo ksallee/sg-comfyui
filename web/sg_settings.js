@@ -1,16 +1,16 @@
 /* The Settings entries: the site, who the nodes publish as, and the script key a farm uses.
  *
- * One place, ComfyUI's own Settings dialog, under SG. Every entry is drawn by
- * this file rather than by ComfyUI's form controls, so nothing here enters ComfyUI's settings store,
- * which answers to anyone on the port: a value goes to the pack's own routes and lives in its
- * protected user directory. Each row saves on change, the way the rest of the dialog does. The
- * tooltips carry the full product name, so a search for "Flow" lands here as well.
+ * They are in ComfyUI's own Settings dialog, under SG. This file draws each entry instead of
+ * ComfyUI's form controls, so no value reaches ComfyUI's settings store, which anyone on the port
+ * can read. A value goes to the pack's own routes and is stored in its protected user directory.
+ * Each row saves on change, as the rest of the dialog does. The tooltips use the full product name,
+ * so a search for "Flow" matches them.
  */
 import { app } from "../../scripts/app.js";
 import { styleOnce, esc, call } from "./sg_dom_widgets.js";
 
-// The sidebar entry. The full name truncates there, and SG is what the issue settled on for every
-// short surface: the full product name or SG, nothing in between.
+// The sidebar entry. The full product name truncates there. A short surface uses the full product
+// name or SG.
 const CATEGORY = "SG";
 
 const CSS = `
@@ -32,15 +32,15 @@ const CSS = `
 `;
 
 const POLL_MS = 2000;               // the interval the site's own flow uses
-const GIVE_UP_MS = 6 * 60 * 1000;   // the site forgets an unapproved request after about five minutes
+const GIVE_UP_MS = 6 * 60 * 1000;   // the site discards an unapproved request after about five minutes
 
-// The last /sg/session answer, shared by every row in the dialog, and the rows that draw it.
+// The last /sg/session response, shared by the rows in the dialog, and the rows that draw it.
 let status = null;
 const rows = new Set();
 
 function redraw() {
   for (const draw of [...rows]) {
-    if (!draw.el.isConnected) rows.delete(draw);   // the dialog closed and took the row with it
+    if (!draw.el.isConnected) rows.delete(draw);   // the dialog closed and removed the row
     else draw();
   }
 }
@@ -52,8 +52,8 @@ function load() {
   return loading;
 }
 
-/** Tell every node on the canvas that who it publishes as has changed (probe 027: the site
- *  answers differently for a different caller). */
+/** Tell the nodes on the canvas that who they publish as has changed. The site responds differently
+ *  for a different caller (probe 027). */
 const announce = () => window.dispatchEvent(new CustomEvent("sg:session"));
 
 async function save(changes) {
@@ -64,8 +64,7 @@ async function save(changes) {
   return d;
 }
 
-/** Run `fn` on a node whenever the sign-in or the script key changes, for as long as the node
- *  lives. */
+/** Run `fn` when the sign-in or the script key changes, until the node is removed. */
 export function onSession(node, fn) {
   window.addEventListener("sg:session", fn);
   const onRemoved = node.onRemoved;
@@ -75,8 +74,8 @@ export function onSession(node, fn) {
   };
 }
 
-/** A row's root, with its draw function registered. `draw` runs now, from whatever is known, and
- *  again on every redraw. */
+/** A row's root element, with its draw function registered. `draw` runs now, from what is known,
+ *  and again on each redraw. */
 function row(draw) {
   styleOnce("sg-settings", CSS);
   const el = document.createElement("div");
@@ -84,8 +83,8 @@ function row(draw) {
   draw.el = el;
   rows.add(draw);
   draw();
-  // Every time the dialog opens, not only the first: a login approved in another tab, or one that
-  // expired since, is what the row is there to show. Rows built together share the one request.
+  // On each open of the dialog, not the first alone. A login approved in another tab, or one that
+  // has expired since, changes what the row shows. Rows built together share one request.
   load();
   return el;
 }
@@ -127,7 +126,7 @@ function note() {
   return s;
 }
 
-/** A text value that saves on change. The field is filled from the server's answer unless the
+/** A text value that saves on change. The field is filled from the server's response unless the
  *  operator is typing in it. */
 function textRow(key, type, placeholder, fill = (s) => s[key] || "") {
   const i = input(type, placeholder);
@@ -182,7 +181,7 @@ function loginRow() {
   return el;
 }
 
-/** The key is written and never read back, so the field only ever shows whether one is held. */
+/** The key is written and not read back, so the field states whether a key is stored. */
 function keyRow() {
   const i = input("password", "");
   const n = note();
@@ -217,8 +216,8 @@ function signInRow() {
   let polling = 0;
 
   const signIn = async () => {
-    // Opened on the click, before any await, so the browser treats it as the operator's own tab
-    // rather than a pop-up; the address is filled in once the site has issued it.
+    // Opened on the click, before any await, so the browser treats it as the operator's own tab and
+    // not as a pop-up. The address is set once the site has issued it.
     const tab = window.open("", "_blank");
     const d = await call("/sg/login", { body: { site: (status && status.site) || "" } });
     if (!d.url) {
@@ -277,8 +276,8 @@ function signInRow() {
         + "that opens.";
       btn.textContent = "Log in";
     }
-    // The site is needed before a request can be made, so the button waits for it; the note goes
-    // the moment the address arrives, and never overwrites a sign-in in progress.
+    // A login request needs the site address, so the button is disabled until there is one. The
+    // note is cleared when the address arrives, and does not overwrite a sign-in in progress.
     const waiting = !s.site && btn.textContent === "Log in";
     btn.disabled = waiting;
     if (waiting) n.textContent = "Enter the site address first.";
@@ -288,7 +287,7 @@ function signInRow() {
   return el;
 }
 
-/** What the nodes will publish as right now, and a button that proves it against the site. */
+/** Who the nodes publish as now, and a button that tests it against the site. */
 function connectionRow() {
   const who = text();
   const btn = button("Test");
@@ -304,7 +303,7 @@ function connectionRow() {
   let shown = "";
   const el = row(() => {
     const s = status || {};
-    // A test result describes one state of the settings; the next change makes it stale.
+    // A test result describes one state of the settings. A later change makes it stale.
     const key = JSON.stringify([s.how, s.site, s.script_name, s.has_key, s.login]);
     if (key !== shown) { n.textContent = ""; n.classList.remove("sg-bad"); shown = key; }
     who.className = "sg-text";
@@ -313,7 +312,7 @@ function connectionRow() {
       btn.disabled = true;
       return;
     }
-    if (s.error) n.textContent = s.error;   // a route that failed, an old server most often
+    if (s.error) n.textContent = s.error;   // a route that failed, most often an old server
     if (s.how === "person" && s.alive) {
       who.textContent = `Publishing as ${s.who}.`;
     } else if (s.how === "person") {
@@ -335,7 +334,7 @@ function connectionRow() {
 
 // ---- Publish defaults: the profile, edited for the project the nodes open on ------------------
 
-let defaults = null;      // the last /sg/defaults answer
+let defaults = null;      // the last /sg/defaults response
 let loadingDefaults = null;
 
 function loadDefaults() {
@@ -349,8 +348,8 @@ async function saveDefault(key, value) {
   const d = await call("/sg/defaults", { body: { key, value } });
   if (!d.error) defaults = d;
   redraw();
-  // No announce: these are the values a new node starts from and the ones the button on the node
-  // fills in. Who the nodes publish as is what makes every picker read again, and that is `save`.
+  // No announce. These are the values a new node starts from and the ones the button on the node
+  // fills in. A picker reads again when who the nodes publish as changes, and `save` announces that.
   return d;
 }
 
@@ -371,14 +370,14 @@ function templateRow(key, kind) {
   const example = async (t) => {
     const d = await call(`/sg/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
     const isDefault = !dval(key) || t === (defaults.placeholders || {})[key];
-    // A path is long enough on its own: the two path rows show the bare result.
+    // A path is long on its own, so the two path rows show the result without a label.
     const bare = kind === "sequence" || kind === "movie";
     n.textContent = d.error ? d.error : !d.example ? ""
       : bare ? d.example : `Example: ${d.example}${isDefault ? " (the default)" : ""}`;
   };
   i.addEventListener("input", () => { clearTimeout(typing); typing = setTimeout(() => example(i.value), 300); });
   i.addEventListener("change", async () => {
-    // Typing the default back in is the same as clearing it, so the profile carries no copy of it.
+    // Typing the default back in is the same as clearing it, so the profile stores no copy of it.
     const v = i.value.trim();
     const d = await saveDefault(key, v === (defaults.placeholders || {})[key] ? "" : v);
     if (d.error) n.textContent = d.error; else example(v || (defaults.placeholders || {})[key]);
@@ -396,7 +395,7 @@ function templateRow(key, kind) {
 }
 
 /** A boolean, drawn as a switch like the dialog's own. The frontend's switch is a Vue component
- *  with no reusable markup, so this is the same shape in the same colours. */
+ *  with no reusable markup, so this markup copies its shape and its colours. */
 function toggleRow(key) {
   const box = document.createElement("label");
   box.className = "sg-switch";
@@ -414,8 +413,8 @@ function toggleRow(key) {
   return el;
 }
 
-/** A native select, dressed as the dialog's own inputs. `options` is [{label, value}] and the
- *  first entry is the empty choice. */
+/** A native select, styled as the dialog's own inputs. `options` is [{label, value}] and the first
+ *  entry is the empty choice. */
 function selectRow(key, options, onSave = saveDefault) {
   const sel = document.createElement("select");
   sel.className = "p-inputtext p-component";
@@ -436,11 +435,11 @@ const projectRow = () => selectRow("default_project", (d) =>
   [{ label: "(none)", value: 0 }].concat((d.projects || []).map((p) => ({ label: p.label, value: p.id }))));
 const storageRow = () => selectRow("published_files.storage", (d) => {
   const found = (d.storages || []).map((s) => ({ label: s.code, value: s.code }));
-  if (found.length === 1) return found;          // the only root there is: shown, not asked
+  if (found.length === 1) return found;          // one root on the site: shown, not asked
   if (!found.length) return [{ label: "(no Local File Storage on the site)", value: "" }];
   return [{ label: "(pick one)", value: "" }].concat(found);
 });
-/** The storage row the picker names, or the only one. */
+/** The storage the picker names, or the single storage on the site. */
 const pickedStorage = (d) => {
   const code = String(dval("published_files.storage"));
   const rows = d.storages || [];
@@ -449,8 +448,8 @@ const pickedStorage = (d) => {
 
 const PLATFORM = { mac: "Mac", linux: "Linux", windows: "Windows" };
 
-/** The platforms the picked storage defines a root for, first the machine's own, so the unset
- *  value shows what the publish will do. */
+/** The platforms the picked storage defines a root for, this machine's own first. The unset value
+ *  then shows what the publish writes. */
 const platformRow = () => selectRow("published_files.path_platform", (d) => {
   const row = pickedStorage(d) || {};
   const have = Object.keys(PLATFORM).filter((p) => row[p]);
@@ -474,13 +473,13 @@ const colourRow = () => {
   return el;
 };
 
-// ---- Site setup: the provenance fields, and the one press that creates them -------------------
+// ---- Site setup: the provenance fields, and the button that creates them ----------------------
 
 const SETUP_CSS = `
 .sg-set .sg-rows { display: flex; flex-direction: column; gap: 2px; }
 `;
 
-let fieldsState = null;       // the last /sg/fields answer
+let fieldsState = null;       // the last /sg/fields response
 let loadingFields = null;
 
 function loadFields() {
@@ -493,9 +492,9 @@ function loadFields() {
 /** "A, B and C", so a list of missing names reads as a sentence. */
 const listed = (a) => (a.length < 2 ? a.join("") : `${a.slice(0, -1).join(", ")} and ${a[a.length - 1]}`);
 
-/** What a press did, in as few lines as it takes: the fields made, named; the ones that were
- *  already there, counted; a refusal once when every field was refused for the same reason, and
- *  per field otherwise, in red with the site's own sentence. */
+/** What a press did, in as few lines as it takes. The fields created are named. The fields that
+ *  were already there are counted. A refusal is one line when each field was refused for the same
+ *  reason, and one line per field otherwise, in red with the site's own sentence. */
 function resultLines(rows) {
   const by = (state) => rows.filter((r) => r.state === state);
   const created = by("created"), failed = by("failed"), had = by("ok");
@@ -513,8 +512,8 @@ function resultLines(rows) {
   return out;
 }
 
-/** The dialog centres a row's label on its control. A control that grows into several lines wants
- *  the label at the top, beside the first one. */
+/** Align a row's label with the first line of its control. The dialog centres a label on its
+ *  control, which reads wrong when the control is several lines tall. */
 function topAlign(el) {
   for (let p = el.parentElement; p && p !== document.body; p = p.parentElement) {
     if (p.querySelector(":scope > label, :scope > .setting-label, :scope > [class*=label]")) {
@@ -530,7 +529,7 @@ function fieldsRow() {
   const value = text();
   const btn = button("Create provenance fields");
   const n = note();
-  // The result of a press, kept out of the note so a redraw of the readout leaves it standing.
+  // The result of a press, kept out of the note so a redraw of the readout does not clear it.
   const results = document.createElement("div");
   results.className = "sg-rows";
 
@@ -567,7 +566,7 @@ function fieldsRow() {
       if (d.advice) { const a = note(); a.textContent = d.advice; results.append(a); }
       topAlign(results);
       fieldsState = null;
-      await loadFields();   // the readout now says what the site holds, not what it held
+      await loadFields();   // the readout then names the fields the site has now
     }
     btn.disabled = false;
   });
@@ -594,11 +593,10 @@ function fieldsRow() {
   return el;
 }
 
-// Every entry declares a value type ComfyUI never sees: `type` as a function draws the row, and
-// the setter it is handed is never called, so the settings store keeps its default and nothing
-// else. `defaultValue` is what addSetting insists on. The category path is three deep, the way
-// ComfyUI's own are: the dialog keys its tree on the path, so two entries sharing one would show
-// as one.
+// `type` as a function draws the row, so an entry declares a value type ComfyUI does not see. The
+// setter passed to it is not called, so the settings store keeps its default value. `defaultValue`
+// is required by addSetting. The category path is three deep, as ComfyUI's own paths are. The
+// dialog keys its tree on the path, so two entries sharing one path would draw as one row.
 const entry = (id, name, group, type, tooltip) =>
   ({ id: `SG.${id}`, name, category: [CATEGORY, group, name], type, tooltip, defaultValue: "" });
 
@@ -610,7 +608,7 @@ const GROUP_PERSON = "Log In As Yourself";
 const GROUP_SCRIPT = "Script Authentication";
 const GROUP_DEFAULTS = "SG Defaults";
 const GROUP_PUBLISH = "SG Publish Defaults";
-// Last of all: this group is pressed once per site and never again.
+// Last group. It is pressed once per site.
 const GROUP_SETUP = "SG Site Setup";
 
 app.registerExtension({
@@ -620,8 +618,8 @@ app.registerExtension({
       "The nine AI fields on Version, so a publish records its prompt, model and seed where a "
       + "filter or a page layout can read them. Without them the same facts go in the Version's "
       + "description."),
-    // Defaults, last row first. They edit the profile for the project the nodes open on; a graph
-    // can still override the templates and the tick on the node itself.
+    // Defaults, last row first. They edit the profile for the project the nodes open on. A graph
+    // overrides the templates and the tick on the node itself.
     entry("ColourSpace", "Colour space", GROUP_PUBLISH, colourRow,
       "The colour space new publishes declare, for example sRGB or ACEScg. Recorded with the "
       + "files, never applied to the pixels."),
@@ -635,14 +633,14 @@ app.registerExtension({
       "When a clip is published with its frames, also copy the review movie beside them as a "
       + "Published File."),
     entry("MoviePath", "Movie path", GROUP_PUBLISH, () => templateRow("published_files.movie_path_template", "movie"),
-      "Where a published clip lands, relative to the storage root. {version_name} is the "
+      "Where a published clip is written, relative to the storage root. {version_name} is the "
       + "Version's name and {ext} the clip's own extension."),
     entry("SequencePath", "Sequence path", GROUP_PUBLISH, () => templateRow("published_files.path_template", "sequence"),
-      "Where a published image sequence lands, relative to the storage root, with %04d for the "
-      + "frame number."),
+      "Where a published image sequence is written, relative to the storage root, with %04d for "
+      + "the frame number."),
     entry("Platform", "Operating system", GROUP_PUBLISH, platformRow,
       "Which of the storage's roots the Version's Path to Frames and Path to Movie are written with. "
-      + "A path field holds one absolute path, so it reads on one system. First is this machine's."),
+      + "A path field takes one absolute path, so it reads on one system. First is this machine's."),
     entry("Storage", "Storage", GROUP_PUBLISH, storageRow,
       "The Local File Storage the files are copied under, from Site Preferences > File Management "
       + "in Flow Production Tracking."),
@@ -672,7 +670,7 @@ app.registerExtension({
       + "under Admin in Flow Production Tracking."),
     entry("LogIn", "Log in", GROUP_PERSON, signInRow,
       "Approve one request in the browser where you are logged into Flow Production Tracking. "
-      + "Every Version is then created by you. Wins over the script key while it lasts."),
+      + "Every Version is then created by you. Used instead of the script key until it expires."),
     entry("Connection", "Publishing as", GROUP_SITE, connectionRow,
       "Who the nodes publish as right now. Test asks the site to confirm it."),
     entry("Site", "Site address", GROUP_SITE, siteRow,

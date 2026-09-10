@@ -1,18 +1,18 @@
-/* The shared widget layer: DOM controls that sit in a node's own widget grid, plus the escaping,
- * colour and stylesheet helpers every file here uses.
+/* DOM controls placed in a node's widget grid, plus the escaping, colour and stylesheet helpers
+ * the other files here import.
  *
- * A control writes into the node's *declared* widget rather than replacing it, so serialization,
- * the prompt and widgets_values are untouched — the declared widget is only hidden.
+ * A control writes into the node's declared widget rather than replacing it. Serialization, the
+ * prompt and widgets_values are unchanged. The declared widget is hidden.
  *
- * Nodes 2.0 only. A Vue widget cannot be registered by an extension (coreWidgetDefinitions is
- * module-private), and an unregistered widget type falls back to WidgetLegacy, which draws the old
- * canvas widget inside the new node. The classic canvas has no widget grid and is not supported;
- * `requireVueNodes` says so on the node rather than degrading quietly.
+ * Nodes 2.0 only. An extension cannot register a Vue widget: coreWidgetDefinitions is
+ * module-private, and an unregistered widget type falls back to WidgetLegacy, which draws the old
+ * canvas widget inside the new node. The classic canvas has no widget grid. `requireVueNodes`
+ * writes that on the node.
  */
 import { app } from "../../scripts/app.js";
 
-// Verbatim from the frontend's own widget markup, so a picker inherits the theme instead of
-// guessing at it: light mode, hover and focus rings come free, with no colour of our own.
+// Verbatim from the frontend's widget markup, so a picker inherits the theme. Light mode, hover
+// and focus rings need no colour of our own.
 const NATIVE = {
   label: "content-center-safe truncate",
   field: "not-disabled:bg-component-node-widget-background not-disabled:text-component-node-foreground" +
@@ -33,11 +33,10 @@ const NATIVE = {
 };
 
 const CSS = `
-/* Under Nodes 2.0 each widget is wrapped in "flex flex-col *:flex-1 col-span-2", itself one item of
-   the node's own "grid-cols-subgrid" row. Turning that wrapper into a subgrid hands our label and
-   our control straight to the node's label and control columns, so our rows line up with the native
-   ones because they are in the same two tracks. display:contents also takes .sg-dom out of the
-   flow, so "*:flex-1" can no longer stretch it — and leaves it with no box to measure. */
+/* Under Nodes 2.0 each widget is wrapped in "flex flex-col *:flex-1 col-span-2", one item of the
+   node's "grid-cols-subgrid" row. Making that wrapper a subgrid puts our label and our control in
+   the node's label and control columns. display:contents also removes .sg-dom from the flow, so
+   "*:flex-1" cannot stretch it, and it has no box to measure. */
 .lg-node-widget > :has(> .sg-dom) { display: grid; grid-template-columns: subgrid;
   align-items: start; gap: 0 8px; }
 .lg-node-widget > :has(> .sg-dom) > .sg-dom { display: contents; }
@@ -48,7 +47,7 @@ const CSS = `
 .sg-dom > .sg-ctl { min-width: 0; display: flex; flex-direction: column; }
 .sg-dom > .sg-ctl > * { flex: 1 1 auto; min-height: 0; }
 
-/* Surplus height pools at the bottom rather than between rows: every DOM widget gets an "auto" grid
+/* Surplus height goes to the bottom rather than between rows. Each DOM widget gets an "auto" grid
    track (hasLayoutSize), and align-content:normal would stretch all of them. */
 .lg-node:has(.sg-dom) .lg-node-widgets { align-content: start; }
 
@@ -57,13 +56,13 @@ const CSS = `
 .sg-val.is-empty { opacity: .55; font-style: italic; }
 .sg-thumb { width: 18px; height: 18px; border-radius: 3px; object-fit: cover; flex: none;
   margin-left: 6px; background: rgba(128,128,128,.15); }
-/* A status carries its icon onto the trigger, so the picked value is drawn the way SG draws it
-   (recipe 010). No box at all on a row that has none. */
+/* The status icon is drawn on the trigger, the way SG draws it (recipe 010). A row without one
+   gets no box. */
 .sg-lead-ico { display: inline-flex; align-items: center; flex: none; margin-left: 8px; }
 .sg-lead-ico:empty { display: none; }
 
-/* The popup lives on <body>: a node sits inside a transformed, clipping ancestor, where a fixed
-   position resolves against the transform and an overflowing menu is cut off. The frontend's own
+/* The popup is appended to <body>. A node is inside a transformed, clipping ancestor, where a
+   fixed position resolves against the transform and an overflowing menu is cut off. The frontend's
    combo teleports for the same reason. */
 .sg-pop { position: fixed; }
 .sg-pop-head { display: flex; align-items: center; gap: 6px; padding: 6px 8px;
@@ -71,16 +70,16 @@ const CSS = `
 .sg-pop-input { flex: 1; min-width: 0; border: none; background: transparent; outline: none;
   font: 12px Inter, ui-sans-serif, system-ui, sans-serif; color: inherit; }
 .sg-pop-note { padding: 8px; opacity: .6; font-size: 11px; }
-/* The thumbnail slot is reserved on every row and tinted only where there is a picture, so names
-   stay aligned without an empty grey tile on every project that has none. */
+/* The thumbnail slot is reserved on each row and tinted where there is a picture. Names stay
+   aligned, and a project without a picture shows no grey tile. */
 .sg-pop-thumb { width: 22px; height: 22px; border-radius: 3px; flex: none;
   background: none center/cover no-repeat; }
 .sg-pop-thumb.on { background-color: rgba(128,128,128,.15); }
 .sg-pop-name { display: flex; align-items: center; gap: 8px; min-width: 0; }
 .sg-pop-meta { opacity: .55; flex: none; font-size: 10px; }
 
-/* One neutral chip: "chosen" reads as chosen rather than as a slightly brighter colour, and the
-   status colour stays a dot to recognise. */
+/* A neutral chip. Selection is shown by the tick, not by a brighter colour. The status colour
+   stays a dot. */
 .sg-chips { display: flex; flex-wrap: wrap; gap: 4px; align-content: flex-start;
   padding: 2px 0; font: 11px Inter, ui-sans-serif, system-ui, sans-serif; }
 .sg-more { font-style: italic; opacity: .75; }
@@ -91,14 +90,14 @@ const CSS = `
   background: var(--color-component-node-widget-background, #23272d);
   border: 1px solid transparent; }
 .sg-chip:hover { border-color: currentColor; }
-/* Never font-weight: a bolder label is a wider chip, so picking one reflows the row under the
+/* No font-weight. A bolder label is a wider chip, so picking one reflows the row under the
    cursor. text-shadow thickens the same glyphs at the same metrics. */
 .sg-chip.on { color: #10131a; background: #cfd6de;
   text-shadow: 0 0 .3px currentColor, 0 0 .3px currentColor; }
 .sg-dot { width: 7px; height: 7px; border-radius: 50%; flex: none;
   box-shadow: inset 0 0 0 1px rgba(0,0,0,.35); }
 /* The stock icons are one sheet cropped by background-position (recipe 010). Scaled to the chip's
-   line, never stretched: the sheet is served at 1x and a fractional crop blurs. */
+   line, not stretched: the sheet is served at 1x and a fractional crop blurs. */
 .sg-ico { flex: none; display: inline-block; background-repeat: no-repeat; }
 .sg-ico-img { flex: none; height: 11px; width: auto; display: inline-block; }
 .sg-ico-txt { flex: none; font-size: 9px; opacity: .85; }
@@ -121,7 +120,7 @@ export function styleOnce(key, css) {
 
 const ensureCss = () => styleOnce("sg-widgets", CSS);
 
-/** Text safe to interpolate into markup, quotes included: every string here comes off the site. */
+/** Text safe to interpolate into markup, quotes included. Each string here comes off the site. */
 export const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
   ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
@@ -135,7 +134,7 @@ export function rgbParts(rgb) {
 export const rgbCss = (rgb, fallback) => (rgbParts(rgb) ? `rgb(${rgb})` : fallback);
 
 /** A remote URL fit for an `src`, or "". http, https and embedded images only, so nothing the site
- *  sends can carry a `javascript:` scheme into the DOM. */
+ *  sends can put a `javascript:` scheme into the DOM. */
 function safeUrl(u) {
   const s = String(u ?? "").replace(/[\t\n\r]/g, "").trim();
   return /^(?:https?:\/\/|data:image\/)/i.test(s) ? s : "";
@@ -145,7 +144,7 @@ function safeUrl(u) {
 const CSS_ESCAPES = { '"': "%22", "'": "%27", "(": "%28", ")": "%29", "\\": "%5C",
                       "<": "%3C", ">": "%3E" };
 
-/** The same URL fit for a CSS `url('…')`: every character that could close the string or the
+/** The same URL fit for a CSS `url('…')`. Each character that could close the string or the
  *  attribute is percent-encoded, which HTML unescaping cannot undo. */
 const cssUrl = (u) => safeUrl(u).replace(/["'()\\<>\s]/g,
   (c) => CSS_ESCAPES[c] || encodeURIComponent(c));
@@ -153,11 +152,10 @@ const cssUrl = (u) => safeUrl(u).replace(/["'()\\<>\s]/g,
 const ICON_TAGS = new Set(["span", "b", "i", "em", "strong", "small", "sub", "sup", "br"]);
 const ICON_ATTRS = new Set(["class", "title"]);
 
-/** Site-authored markup with everything executable taken out. A status icon's `html` is markup by
- *  design (recipe 010) and it renders inside ComfyUI's own origin, so unknown elements are unwrapped
- *  and every attribute but class and title is dropped — `style` included, which is what an overlay
- *  over the editor or a beacon would need. A `<template>` is inert: parsing it runs no script and
- *  loads no image. */
+/** Site-authored markup with the executable parts removed. A status icon's `html` is markup by
+ *  design (recipe 010) and renders inside ComfyUI's origin. Unknown elements are unwrapped and each
+ *  attribute but class and title is dropped, `style` included. A `<template>` is inert: parsing it
+ *  runs no script and loads no image. */
 function safeHtml(html) {
   const t = document.createElement("template");
   t.innerHTML = String(html ?? "");
@@ -182,11 +180,11 @@ export function hideWidget(widget) {
   widget.options.hidden = true;
 }
 
-/** Put a widget inside ComfyUI's own "Show advanced inputs" fold.
+/** Put a widget inside ComfyUI's "Show advanced inputs" fold.
  *
- *  `isWidgetVisible` reads `options.advanced` exactly as it reads `options.hidden`, and the node's
- *  footer button appears as soon as any widget carries it; `advanced`, the property, is what
- *  litegraph's own `LGraphNode.isWidgetVisible` tests. The same pair `hideWidget` sets. */
+ *  `isWidgetVisible` reads `options.advanced` as it reads `options.hidden`, and the node's footer
+ *  button appears once a widget sets it. `LGraphNode.isWidgetVisible` tests the `advanced`
+ *  property. Both are set, as in `hideWidget`. */
 export function advancedWidget(widget) {
   if (!widget) return widget;
   widget.advanced = true;
@@ -198,10 +196,10 @@ export function advancedWidget(widget) {
 /** How many lines a multiline widget shows.
  *
  * `rows` in INPUT_TYPES does not reach it: Nodes 2.0 builds a `customtext` with its own options
- * object and copies nothing from the spec. Set here it does, because WidgetTextarea v-binds every
- * option it is not told to drop onto the `<textarea>`, whose height is `auto` against an auto-height
- * row. `getMinHeight` is not the lever: it is read by BaseDOMWidget.computeLayoutSize, which
- * Nodes 2.0 never calls for a widget it renders itself.
+ * object and copies nothing from the spec. Set here it reaches it: WidgetTextarea v-binds each
+ * option it is not told to drop onto the `<textarea>`, whose height is `auto` against an
+ * auto-height row. `getMinHeight` has no effect: BaseDOMWidget.computeLayoutSize reads it, and
+ * Nodes 2.0 does not call that for a widget it renders itself.
  */
 export function textRows(widget, rows) {
   if (!widget) return widget;
@@ -214,9 +212,9 @@ export function textRows(widget, rows) {
  *
  * `WidgetSelectDefault.isInvalid` is "there is a value and nothing in the list matches it", and it
  * draws a red ring that stays for the session: the Vue component reads the options when it builds,
- * so a later `options.values = […]` never reaches it. Every combo here is seeded for the default
- * project and repopulated per project one round trip later, so a saved graph's `task` arrives before
- * its list does. Widening the list is what VALIDATE_INPUTS already does on the server.
+ * so a later `options.values = […]` does not reach it. A combo here is seeded for the default
+ * project and repopulated per project one round trip later, so a saved graph's value arrives before
+ * its list. VALIDATE_INPUTS widens the same list on the server.
  */
 export function restoreValue(widget, value) {
   if (!widget) return;
@@ -230,8 +228,8 @@ export function restoreValue(widget, value) {
  * `addDOMWidget(…, {serialize: false})` does not do this: the option is never copied onto the
  * widget, and both the save and the restore test `widget.serialize`, the property
  * (LGraphNode.serialize / .configure). So `widget.serialize` reads undefined on a DOM widget and
- * filtering on it excludes nothing. An injected widget that serializes eats a slot in a POSITIONAL
- * array and shifts every declared value after it.
+ * filtering on it excludes nothing. An injected widget that serializes takes a slot in a positional
+ * array and shifts each declared value after it.
  */
 export function dontSerialize(widget) {
   if (widget) widget.serialize = false;
@@ -239,20 +237,21 @@ export function dontSerialize(widget) {
 }
 
 /** Re-apply a saved graph's widget values, by name, after litegraph has configured the node.
- * `declared` is the node's widget names in INPUT_TYPES order — the order widgets_values is in.
+ * `declared` is the node's widget names in INPUT_TYPES order, which is the order of
+ * widgets_values.
  *
  * dontSerialize is not enough on its own, because the frontend's save and its restore disagree:
- * `serialize()` writes `widgets_values[i]` at the index over ALL widgets, leaving a null hole where
- * it skipped one, while `configure()` reads with a counter that only advances on serialized
- * widgets, so every value after our first injected row comes back off by one. Filtering on
+ * `serialize()` writes `widgets_values[i]` at the index over all widgets, leaving a null hole where
+ * it skipped one, while `configure()` reads with a counter that advances on serialized widgets
+ * alone, so each value after our first injected row comes back off by one. Filtering on
  * `widget.serialize !== false` does not rescue it either: addDOMWidget takes `serialize` in its
  * options object and never copies it onto the widget, so a picker's `widget.serialize` is undefined
  * and it still counts.
  *
- * Two shapes are read, and only two. `widgets_values_named` is what the editor always writes
- * (`Comfy.Workflow.NamedValuesRestore` is off by default); everything else this repo produces —
- * instrument.py, tools/workflows/, a hand-edited graph — is `declared` order and exactly as long.
- * Anything else is left to the frontend rather than guessed at.
+ * Two shapes are read. `widgets_values_named` is what the editor writes
+ * (`Comfy.Workflow.NamedValuesRestore` is off by default). Everything else this repo produces,
+ * instrument.py, tools/workflows/ and a hand-edited graph, is `declared` order and the same length.
+ * A third shape is left to the frontend.
  */
 export function restoreDeclaredWidgets(nodeType, declared) {
   const prev = nodeType.prototype.onConfigure;
@@ -276,14 +275,14 @@ export function restoreDeclaredWidgets(nodeType, declared) {
 const RESTART = "The running ComfyUI predates this version of the pack. Restart ComfyUI, then "
   + "reload this page.";
 
-/** One route, decoded, for every caller here: the pickers, the panels and the Settings rows.
+/** One route, decoded, for the pickers, the panels and the Settings rows.
  *
- * A failure answers `{items: [], error}`, the shape a picker already reads, and the three failures
- * are told apart: a server that did not answer, a 404 — the routes register when ComfyUI imports
- * the pack, so a missing one is a server started before this version was installed — and a body
- * that is not JSON. A request its caller aborted answers `{aborted: true}` and no sentence.
+ * A failure returns `{items: [], error}`, the shape a picker reads. Three failures are told apart:
+ * a server that did not answer, a 404, and a body that is not JSON. The routes register when
+ * ComfyUI imports the pack, so a 404 means a server started before this version was installed. An
+ * aborted request returns `{aborted: true}` and no sentence.
  *
- * `body` makes it a POST. `signal` is a cascade token's or a picker's.
+ * `body` makes it a POST. `signal` comes from a cascade token or a picker.
  */
 export async function call(url, { body, signal } = {}) {
   let r;
@@ -307,11 +306,11 @@ export async function call(url, { body, signal } = {}) {
 
 /** One cascade of reads at a time.
  *
- * `begin()` aborts whatever the previous cascade still has in flight and answers a token. A token's
+ * `begin()` aborts what the previous cascade still has in flight and returns a token. A token's
  * `live` is false from the moment a later `begin()` runs, so an answer that arrives after a second
- * project was picked writes nothing: the links of one project beside the statuses of another is a
- * publish filed against the wrong show. Every step of one cascade shares the token it was handed,
- * and checks `live` after every await before it writes anything.
+ * project was picked writes nothing. The links of one project beside the statuses of another is a
+ * publish filed against the wrong show. Each step of one cascade is passed the same token, and
+ * checks `live` after each await before it writes.
  */
 export function cascade() {
   let current = null;
@@ -339,14 +338,13 @@ export function vueNodesEnabled() {
 
 const NEEDS_VUE = " (needs Nodes 2.0)";
 
-/** Say so on the node when Nodes 2.0 is off, and answer false. Never flips the setting: that
- *  changes the operator's whole editor, so it is their call. */
+/** Write a sentence on the node when Nodes 2.0 is off, and return false. The setting is not
+ *  changed here: it applies to the operator's editor, not to this node. */
 export function requireVueNodes(node) {
   if (vueNodesEnabled()) return true;
-  // Two buttons, because on the classic canvas a button is the one widget whose text is drawn full
-  // width and legibly: a markdown widget there renders as the frontend's "Markdown: Node 2.0 only"
-  // placeholder, which names the widget type rather than what the operator has to do. Both open
-  // Settings, which is the fix for either line.
+  // Two buttons. On the classic canvas a button's text is drawn full width and legibly. A markdown
+  // widget renders as the frontend's "Markdown: Node 2.0 only" placeholder, which names the widget
+  // type rather than the action. Both buttons open Settings.
   const settings = () => app.extensionManager.command.execute("Comfy.ShowSettingsDialog");
   // The classic canvas centres a button's text and does not wrap it, so the node is widened to the
   // sentence rather than the sentence shortened to the node.
@@ -368,12 +366,12 @@ function nodeElement(node) {
   return null;
 }
 
-/** Set node.size from what the node actually renders.
+/** Set node.size from the height the node renders.
  *
  * The Vue node is `min-h-(--node-height)`, so its DOM height is the larger of node.size and its
- * content and computeSize() can disagree with the picture unnoticed. Zeroing the variable for one
- * reflow asks the content what it wants, which is the only number that is never a guess. Surplus
- * from a manual drag stays at the bottom of the node: dragging routes through litegraph, not here.
+ * content, and computeSize() can disagree with it. Zeroing the variable for one reflow measures the
+ * content. Surplus from a manual drag stays at the bottom of the node: dragging routes through
+ * litegraph, not here.
  */
 export function fitNode(node) {
   const el = nodeElement(node);
@@ -389,9 +387,9 @@ export function fitNode(node) {
 
 /** One `label | control` row in the node's own widget grid.
  *
- * Omit `label` for a row that spans both columns. `target` is the declared widget this replaces:
- * addDOMWidget appends, which would float every picker below every plain widget, so the row is
- * spliced back to where its widget sat.
+ * Omit `label` for a row that spans both columns. `target` is the declared widget this replaces.
+ * addDOMWidget appends, which would put each picker below the plain widgets, so the row is spliced
+ * back to the index of its widget.
  */
 export function domRow(node, name, { label, control, target }) {
   ensureCss();
@@ -411,8 +409,8 @@ export function domRow(node, name, { label, control, target }) {
   (node.__sgRoots = node.__sgRoots || []).push(root);
 
   const widget = node.addDOMWidget(name, name, root, {
-    // .sg-dom is display:contents and has no box; the control block is what has a height, and it
-    // is never stretched (align-items: start).
+    // .sg-dom is display:contents and has no box. The control block has the height, and it is not
+    // stretched (align-items: start).
     getMinHeight: () => Math.max(ctl.offsetHeight, 24),
   });
   dontSerialize(widget);
@@ -427,11 +425,11 @@ export function domRow(node, name, { label, control, target }) {
   return { widget, root, ctl, relayout: () => requestAnimationFrame(() => fitNode(node)) };
 }
 
-/** One status icon, whichever of the three renderings it has (recipe 010). The colour dot is the
- *  fallback, which is also what a sprite rule the stylesheet did not yield comes back as. */
+/** One status icon, in whichever of the three renderings it has (recipe 010). The colour dot is
+ *  the fallback, and what a sprite rule the stylesheet did not yield falls back to. */
 export function iconHtml(icon, rgb) {
-  // A sprite is only a sprite with both pairs of numbers: the whole redraw would otherwise stop on
-  // one status whose rule the stylesheet did not yield, and the colour dot says as much.
+  // A sprite needs both pairs of numbers. Without them the redraw would stop on one status whose
+  // rule the stylesheet did not yield, so the colour dot is drawn instead.
   const pair = (v) => (Array.isArray(v) && v.length === 2 ? v.map((n) => Number(n) || 0) : null);
   const offset = icon && pair(icon.offset), size = icon && pair(icon.size);
   if (icon && icon.kind === "sprite" && cssUrl(icon.url) && offset && size) {
@@ -455,18 +453,18 @@ const svg = (paths) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="no
 const CHEVRON = svg(`<path d="m6 9 6 6 6-6"/>`);
 const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>`);
 
-/** A select-shaped trigger whose popup holds the search.
+/** A select-shaped trigger with the search in its popup.
  *
- * `search(q, {live, signal})` is async and answers with items — `{value, name, type, code, image,
- * icon, rgb}`, of which only `value` and `name` are required. `icon` and `rgb` draw a status the way
- * SG draws it (recipe 010), on the row and on the trigger. Multi-word queries go straight to the site
- * (site.entities ANDs a `contains` per word), which is the search an artist expects: `gir rul` finds
- * `giraffe_ruler`. Filtering here would only ever see the page the server already sent.
- * `signal` aborts the request when a newer keystroke supersedes it; `live()` is false for a
- * superseded search, and anything the search itself records goes behind that check.
+ * `search(q, {live, signal})` is async and returns items: `{value, name, type, code, image, icon,
+ * rgb}`. `value` and `name` are required. `icon` and `rgb` draw a status the way SG draws it
+ * (recipe 010), on the row and on the trigger. A multi-word query goes to the site, where
+ * site.entities ANDs a `contains` per word, so `gir rul` finds `giraffe_ruler`. Filtering here
+ * would see the page the server sent and no more. `signal` aborts the request when a newer keystroke
+ * supersedes it. `live()` is false for a superseded search, and what the search records goes behind
+ * that check.
  *
- * Returns `{refresh, relayout, close}`; pass the current item to `refresh` to put its thumbnail on
- * the trigger.
+ * Returns `{refresh, relayout}`. Pass the current item to `refresh` to put its thumbnail on the
+ * trigger.
  */
 export function searchPicker(node, target, {
   search, placeholder = "search…", onPick, label, empty = "Nothing matches those words.",
@@ -513,20 +511,19 @@ export function searchPicker(node, target, {
   const list = pop.querySelector(".sg-pop-list");
   const busyEl = pop.querySelector(".sg-pop-busy");
   input.placeholder = placeholder;
-  // Every search runs on the site, so it takes as long as the site takes: the rows already shown
-  // dim and the head says so, rather than the list going blank on each keystroke.
+  // A search against the site takes as long as the site takes. The rows already shown dim and the
+  // head reads "Searching…", rather than the list going blank on each keystroke.
   const busy = (on) => { busyEl.hidden = !on; list.classList.toggle("is-busy", on); };
 
-  // `stale` is set from the keystroke until the answer for it is drawn: the rows on screen belong
-  // to the previous search, so Enter would pick one nobody typed for.
+  // `stale` is set from the keystroke until the answer for it is drawn. The rows on screen are the
+  // previous search's, so Enter would pick one nobody typed for.
   let items = [], at = -1, seq = 0, timer, open = false, inflight = null, stale = false;
 
   const place = () => {
     const r = trigger.getBoundingClientRect();
     pop.style.left = `${Math.max(4, Math.min(r.left, innerWidth - 300))}px`;
     pop.style.width = `${Math.max(r.width + 40, 280)}px`;
-    // Below by default, above when the room is not there — a node near the bottom of the canvas is
-    // the ordinary case, not the edge case.
+    // Below the trigger by default, above it when there is no room below.
     const h = pop.offsetHeight || 260;
     pop.style.top = (r.bottom + 4 + h > innerHeight && r.top - 4 - h > 0)
       ? `${r.top - 4 - h}px` : `${r.bottom + 4}px`;
@@ -548,8 +545,7 @@ export function searchPicker(node, target, {
       at = -1;
       return;
     }
-    // One fixed thumbnail slot as soon as ANY row has a picture, so the names still line up: a list
-    // where half the rows indent themselves reads as two lists.
+    // A fixed thumbnail slot on each row once one row has a picture, so the names line up.
     const thumbs = rows.some((it) => it.image);
     list.innerHTML = rows.map((it, i) => {
       const img = cssUrl(it.image);
@@ -579,8 +575,8 @@ export function searchPicker(node, target, {
     relayout();
   };
 
-  // `live` is handed to `search` as well as read here: a search that records what it read — the
-  // ids a picked label is turned back into — must not record an older answer's rows.
+  // `live` is passed to `search` as well as read here. A search that records what it read, the ids
+  // a picked label is turned back into, must not record an older answer's rows.
   const run = () => {
     const mine = ++seq;
     clearTimeout(timer);
@@ -600,7 +596,7 @@ export function searchPicker(node, target, {
 
   const onDocDown = (e) => { if (!pop.contains(e.target) && !field.contains(e.target)) close(); };
   // A wheel over the list scrolls the list and goes no further: the canvas under it would zoom.
-  // A wheel anywhere else closes the popup, since it is about to be scrolled out from under.
+  // A wheel anywhere else closes the popup, which is about to be scrolled off screen.
   const onWheel = (e) => { if (pop.contains(e.target)) e.stopPropagation(); else close(); };
   const close = () => {
     if (!open) return;
@@ -644,8 +640,8 @@ export function searchPicker(node, target, {
   return { refresh: showCurrent, relayout };
 }
 
-/** Several statuses, any of which will do: one chip each, in the status's own colour (probe 010),
- *  so nothing has to be typed exactly right. `load()` is async and answers with status items. */
+/** Several statuses, any of which will do. One chip each, in the status's colour (probe 010), so
+ *  no code is typed. `load()` is async and returns status items. */
 export function chipSelect(node, target,
                            { load, label, empty = "This project has no statuses." }) {
   ensureCss();
@@ -656,14 +652,14 @@ export function chipSelect(node, target,
   const chosen = () => new Set(String(target.value || "").split(",").map((s) => s.trim()).filter(Boolean));
 
   // A show allows twenty statuses and uses two. `/sg/statuses` returns them most-used-first
-  // (probe 020), so the first few are the answer and the rest are the long tail.
+  // (probe 020), so the first few are the ones the show uses.
   const KEEP = 4;
   let expanded = false;
 
   const draw = (items) => {
     const on = chosen();
-    // A selected status is never hidden, however far down the tail it sits: a fold that swallows
-    // part of the current answer is worse than a long row.
+    // A selected status is shown however far down the list it is. A fold that hides part of the
+    // current value would be wrong.
     const head = items.filter((it, i) => i < KEEP || on.has(it.label));
     const shown = expanded ? items : head;
     const hidden = items.length - shown.length;
@@ -690,7 +686,7 @@ export function chipSelect(node, target,
     });
     relayout();
   };
-  // Nothing is read here: the chips are for one project, and which project that is arrives one
-  // round trip later. The caller reloads them once it knows.
+  // Nothing is read here. The chips are for one project, and which project that is arrives one
+  // round trip later. The caller reloads them then.
   return { reload: () => load().then((items) => draw(items || [])) };
 }

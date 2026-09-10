@@ -1,4 +1,4 @@
-// Measures the Task picker on SG Publish and carries one chosen Task through a Run.
+// Measures the Task picker on SG Publish and takes one chosen Task through a Run.
 // PASS needs four things: the picker offers every Task the widget holds, one of them can be chosen,
 // the panel names it before the Run, and the Version the Run files answers to that Task.
 // Live: publishes one 512x512 frame to the sandbox project.
@@ -27,6 +27,10 @@ const pick = async (label, term, want) => {
   if (!await openPicker(label)) return false;
   const inp = document.querySelector(".sg-pop-input");
   if (inp && term) { inp.value = term; inp.dispatchEvent(new Event("input", { bubbles: true })); }
+  // A row is clicked by the index it had when the list was drawn, so wait for the answer to the
+  // typed term before reading the rows.
+  const busy = () => document.querySelector(".sg-pop-busy")?.hidden === false;
+  for (let i = 0; i < 60 && busy(); i++) await pause(250);
   let hit = null;
   for (let i = 0; i < 40 && !hit; i++) {
     await pause(250);
@@ -54,6 +58,9 @@ app.canvas.centerOnNode(pub);
 app.canvas.ds.state.scale = 0.9;
 app.canvas.setDirty(true, true);
 await pause(1500);
+// The field rows live inside ComfyUI's own advanced fold, and a closed fold renders none of them.
+document.querySelector('[data-testid="advanced-inputs-button"]')?.click();
+await pause(1200);
 
 const w = (n) => pub.widgets.find((x) => x.name === n);
 await pick("project", "", "sandbox");
@@ -78,7 +85,8 @@ w("root_name").value = "task_pick_check";
 w("root_name").callback?.("task_pick_check");
 await pause(5000);
 const chosen = !!wanted && task.value === wanted.name;
-const onPanel = /sg_task Task \d+/.test(panel());
+// Two spans with no space between them, so the label runs straight into the value.
+const onPanel = /sg_task\s*Task \d+/.test(panel());
 
 await app.queuePrompt(0, 1);
 for (let i = 0; i < 120 && !/last run/i.test(panel()); i++) await pause(1000);
@@ -88,7 +96,7 @@ const href = [...document.querySelectorAll("a.sg-a")].map((a) => a.href)
 const published = Number((href.match(/\/detail\/Version\/(\d+)/) || [])[1] || 0);
 
 // The Version the Run filed, asked for by that Task alone: the load node's own resolver answers
-// with the newest Version on the link that carries it.
+// with the newest Version on the link that names it.
 const q = new URLSearchParams({ project: w("project").value, link: w("link").value,
                                 task: task.value });
 const found = await (await fetch(`/sg/resolve?${q}`)).json();
