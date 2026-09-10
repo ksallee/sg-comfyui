@@ -9,7 +9,7 @@ const m2i = LiteGraph.createNode("MaskToImage"); m2i.pos = [520, 620]; app.graph
 const pv1 = LiteGraph.createNode("PreviewImage"); pv1.pos = [520, 80]; pv1.title = "image"; app.graph.add(pv1);
 const pv2 = LiteGraph.createNode("PreviewImage"); pv2.pos = [820, 620]; pv2.title = "mask"; app.graph.add(pv2);
 ld.connect(0, pv1, 0);
-ld.connect(5, m2i, 0);
+ld.connect(2, m2i, 0);
 m2i.connect(0, pv2, 0);
 app.canvas.setDirty(true, true); await pause(4000);
 const ns = app.graph.nodes;

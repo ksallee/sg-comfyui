@@ -67,8 +67,9 @@ once, in `widgets.py`; `INPUT_TYPES`, `instrument.py` and the editor's `DECLARED
 `*.json` under `example_workflows/` and `tools/workflows/` carries one value per declared widget, so a new
 widget means a new value in every shipped graph in the same commit. `tests/test_widget_order.py` proves
 the order and the fixtures offline; `tools/smoke.py` proves the round trip, because only loading a saved
-graph in a real ComfyUI shows the shift. An input *slot* or an output is different: adding one is
-additive and safe.
+graph in a real ComfyUI shows the shift. **An output is positional too**: a saved graph names a slot
+by its index, so the order in `RETURN_NAMES` is frozen from the first release and appending is the
+only safe change after it. An input *slot* is different: adding one is additive and safe.
 
 **This node records; it does not make media.** Review media is derived and may be transcoded; a deliverable
 file is never transformed. Nothing here has an encoder or a decoder of its own: frames are written by

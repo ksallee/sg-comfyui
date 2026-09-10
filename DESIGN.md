@@ -610,9 +610,13 @@ frame**, in the pixel format core picks for that stream — an 8-bit RGB or full
 refuse a long plate before all of it is in memory rather than after. A **sequence** is refused off the
 first file's header, before one frame is decoded at all.
 
-Which is why there is a sixth output, `mask`, appended last: the alpha the decoder hands back, as
-`1 - alpha` and a 64×64 zero mask where there is none, which is ComfyUI's own convention. An output
-slot is additive, so nothing already saved moves.
+Which is why there is a sixth output, `mask`: the alpha the decoder hands back, as `1 - alpha` and a
+64×64 zero mask where there is none, which is ComfyUI's own convention. It sits third, beside the two
+media, and the record — `version_id`, `code`, `colour_space` — follows them.
+
+An output is positional exactly as `widgets_values` is: a saved graph names a slot by its index, so a
+slot inserted, removed or reordered rewires every graph already saved. The order in `RETURN_NAMES` is
+frozen from the first release, and appending is the only safe change after it.
 
 A Published File whose `path` is an `upload` is a source too. `link_type` is read before anything
 else (`field_types/url`): a `local` value has no `url` key and an `upload` one has no local path, so

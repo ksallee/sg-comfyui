@@ -1,10 +1,16 @@
 """What the two classes declare, and what they refuse before the site is touched."""
+import json
+
 import pytest
-from conftest import stub_site
+from conftest import ROOT, stub_site
 
 from comfyui_sg import site, version_name
 from comfyui_sg.nodes.load_version import SGLoadVersion
 from comfyui_sg.nodes.publish_version import SGPublishVersion
+
+# Every graph that ships or is driven here: a Load node's slots are read by index in all of them.
+GRAPHS = (sorted(ROOT.glob("example_workflows/*.json")) + sorted(ROOT.glob("tools/workflows/*.json"))
+          + sorted(ROOT.glob("tools/experiments/*.json")))
 
 
 def test_provenance_comes_from_the_hidden_inputs_not_from_asking(monkeypatch):
@@ -20,6 +26,22 @@ def test_every_output_is_named(monkeypatch):
     assert len(SGLoadVersion.RETURN_TYPES) == len(SGLoadVersion.RETURN_NAMES)
     assert SGLoadVersion.RETURN_NAMES[0] == "image"
     assert SGPublishVersion.RETURN_TYPES == ()
+
+
+def test_the_load_outputs_are_the_frozen_order():
+    """An output is positional: a saved graph names the slot by index, so this order is fixed."""
+    assert SGLoadVersion.RETURN_NAMES == ("image", "video", "mask", "version_id", "code",
+                                          "colour_space")
+    assert SGLoadVersion.RETURN_TYPES == ("IMAGE", "VIDEO", "MASK", "INT", "STRING", "STRING")
+
+
+@pytest.mark.parametrize("path", GRAPHS, ids=lambda p: p.name)
+def test_every_saved_load_node_holds_that_order(path):
+    """A graph whose outputs are out of step wires the next slot along when it loads."""
+    for node in json.loads(path.read_text()).get("nodes") or []:
+        if node.get("type") == "SGLoadVersion":
+            names = tuple(o.get("name") for o in node.get("outputs") or [])
+            assert names == SGLoadVersion.RETURN_NAMES, f'#{node["id"]} in {path.name}'
 
 
 def test_the_statuses_tooltip_names_this_projects_own_codes(monkeypatch):

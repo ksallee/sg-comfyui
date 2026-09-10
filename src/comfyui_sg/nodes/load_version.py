@@ -111,20 +111,22 @@ class SGLoadVersion:
     # | output | what it carries |
     # |---|---|
     # | image | the frames read, float32 [N,H,W,3] |
+    # | video | the clip, or the frames wrapped at a stated rate |
+    # | mask | 1 - alpha, or a zero mask where the source has no alpha |
     # | version_id | the Version resolved, for a node downstream to name |
     # | code | that Version's name |
     # | colour_space | what the publisher declared, "" when nothing was |
-    # | video | the clip, or the frames wrapped at a stated rate |
-    # | mask | 1 - alpha, or a zero mask where the source has no alpha |
+    #
+    # The media come first because they are what a graph wires; the record follows them.
     #
     # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
     # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
     # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
     #
-    # `mask` is appended last, after `video`, because an output slot is additive: a graph saved
-    # before it existed keeps every link it had.
-    RETURN_TYPES = ("IMAGE", "INT", "STRING", "STRING", "VIDEO", "MASK")
-    RETURN_NAMES = ("image", "version_id", "code", "colour_space", "video", "mask")
+    # An output is positional, as a widget value is: a saved graph names a slot by its index. This
+    # order is frozen from the first release, and appending is the only safe change after it.
+    RETURN_TYPES = ("IMAGE", "VIDEO", "MASK", "INT", "STRING", "STRING")
+    RETURN_NAMES = ("image", "video", "mask", "version_id", "code", "colour_space")
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
     DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "
@@ -258,14 +260,14 @@ class SGLoadVersion:
         short = f", short of the {frame_count} asked for" if n < int(frame_count) else ""
         # The clip is fetched only when something reads it: a download nobody asked for is a cost,
         # and the frames wrapped at a stated rate are a video too.
-        if clip_key and _wired(prompt, unique_id, 4):
+        if clip_key and _wired(prompt, unique_id, self.RETURN_NAMES.index("video")):
             video, clip_why = media.clip(v, clip_key), f"the file, {clip_key}"
         else:
             fps, fps_why = media.frame_rate(v)
             video, clip_why = _wrap(images, fps), f"the frames at {fps:g} fps, {fps_why}"
         print(f"[SG] Loaded Version {vid}: {why}. Source {key}, {got}{short}. Video: {clip_why}."
               + (f" Colour space declared {colour}, recorded but not applied." if colour else ""))
-        return (images, vid, v.get("code") or "", colour, video, mask)
+        return (images, video, mask, vid, v.get("code") or "", colour)
 
 
 def _wired(prompt, node_id, slot):

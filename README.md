@@ -167,8 +167,11 @@ Two media outputs, and each takes the best the Version has on its own:
 | `image` | the sequence, as a Published File then as path to frames; else a clip decoded; else the uploaded still; else the thumbnail |
 | `video` | a Movie Published File; else path to movie; else the uploaded mp4, untouched; else the frames wrapped at the Version's frame rate, or 24 fps when it records none |
 
-`mask` is the last output and comes off the alpha channel, on ComfyUI's own convention of `1 - alpha`.
-A source with no alpha gives a 64x64 zero mask, which is what core Load Image gives.
+The outputs read `image`, `video`, `mask`, then `version_id`, `code` and `colour_space`: the media
+first, the record after. `mask` comes off the alpha channel, on ComfyUI's own convention of
+`1 - alpha`. A source with no alpha gives a 64x64 zero mask, which is what core Load Image gives.
+A saved graph names an output by its position, so the order is fixed from the first release and
+anything new is added at the end.
 
 A Published File beats a path field of the same shape because it carries a type, a path per platform
 and the declared colour space. A file on a root this machine has not mounted does not count, so a

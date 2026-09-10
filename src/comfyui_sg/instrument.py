@@ -517,11 +517,11 @@ def replace_loader(wf, loader_path, widgets, title="SG Load"):
     # make without deleting the node and adding it again.
     nid = _add_node(wf, container, LOAD, (lx, ly - 40), widgets, title,
                     outs=[{"name": "image", "type": "IMAGE", "links": []},
+                          {"name": "video", "type": "VIDEO", "links": []},
+                          {"name": "mask", "type": "MASK", "links": []},
                           {"name": "version_id", "type": "INT", "links": []},
                           {"name": "code", "type": "STRING", "links": []},
-                          {"name": "colour_space", "type": "STRING", "links": []},
-                          {"name": "video", "type": "VIDEO", "links": []},
-                          {"name": "mask", "type": "MASK", "links": []}])
+                          {"name": "colour_space", "type": "STRING", "links": []}])
     new = container["nodes"][-1]
     cut = {l[0] if isinstance(l, list) else l.get("id") for l in container.get("links") or []
            if (l[1] if isinstance(l, list) else l.get("origin_id")) == local}
