@@ -21,6 +21,12 @@ Requirements this imposes:
 - Probes runnable by an agent to learn the API before editing
 - No framework, no plugin system, no dynamic dispatch
 
+`tools/qa_node.py` drives one node in a real, headless ComfyUI and prints only what the drive script
+returned. `--start` launches an instance with its own port and its own `--base-directory`, which
+relocates `custom_nodes`, `input`, `output`, `temp` and `user`. That isolation is the point:
+`ComfyUI/custom_nodes/<pack>` is normally a symlink to a checkout, so without it every instance loads
+that checkout's code. `COMFYUI_PATH` overrides where ComfyUI is, and defaults to `~/dev/ComfyUI`.
+
 ## Architecture
 
     __init__.py      re-exports the mappings; ComfyUI reads this file and no other
