@@ -53,7 +53,7 @@ since #80. Offline suite: 246 passed, 11 skipped.
 - #109 `carry`, `hold` and the other banned words gone from docs, `src` and `tests`. The README media
   claim: a Version has one uploaded media file (probe 022); `sg_path_to_frames` and
   `sg_path_to_movie` are path references; a sequence registers as a PublishedFile linked to the Version.
-- The `tools/` prose pass is a PR in flight at the time of writing.
+- #111 `tools/` as reference prose: drive headers, harness docstrings, the experiment notes (10,969 words to 8,480).
 
 **Sandbox project 1180.** Version 31995 keeps its row (drives pin it); its lineage is cleared.
 Retired: five unlinked probe rows, 32001 (Windows path notation from a mac publish), and every
