@@ -1,15 +1,13 @@
-// The SG Site Setup group, one state per run: a state name is prepended to this file, so one drive
-// covers all five and each run leaves one screenshot.
+// Captures the SG Site Setup group in one state per run, one screenshot per run.
+// Needs STATE prepended: not_connected, nine_of_nine, three_of_nine, refused or restart.
+// `nine_of_nine` reads the site and presses Create. Ensure reads the schema first and creates only
+// what is missing (probe 019). The other four states answer from here and need no site.
 //
 //   for s in not_connected nine_of_nine three_of_nine refused restart; do
 //     { printf 'const STATE = "%s";\n' "$s"; cat tools/drive_site_setup_states.js; } |
 //     uv run --with playwright --python 3.11 python tools/qa_node.py --port 8188 --drive - \
 //       --shot ~/Desktop/sg-site-setup-screenshots/$s.png
 //   done
-//
-// `nine_of_nine` asks the real site and presses Create, which is safe: ensure reads the schema first
-// and creates only what is missing (probe 019). The other four answer from here, so they need no
-// site at all.
 
 const REFUSAL = "You do not have permission to create custom fields on this site.";
 const ADVICE = "Ask an admin to press this button, or run the command in INSTALL.md with a script "
@@ -18,7 +16,7 @@ const NINE = ["AI Generator", "AI Model", "AI Prompt", "AI Negative Prompt", "AI
   "AI Sampler", "AI Steps", "AI CFG", "AI Generated From"];
 const named = (d) => ({ display: d, name: "sg_" + d.toLowerCase().replace(/[^a-z0-9]/g, "_") });
 
-// Everything but `nine_of_nine` answers one route from here, in the shape that route really sends.
+// Each state but `nine_of_nine` answers one route from here, in the shape that route sends.
 const CANNED = {
   not_connected: (u, m) => /\/sg\/session/.test(u) && m !== "POST"
     ? { body: { how: "none", site: "", who: "", alive: false, script_name: "", has_key: false,
@@ -96,7 +94,7 @@ btn.click();
 await until(() => results().length >= 1 && !/Asking the site/.test(results()[0]), 60000);
 await until(() => !btn.disabled, 60000);
 const lines = results();
-// The result runs past the foot of the dialog, and the screenshot is what gets reviewed.
+// The result runs past the foot of the dialog, and the screenshot is what is reviewed.
 [...el.querySelectorAll(".sg-rows > *")].pop()?.scrollIntoView({ block: "center" });
 await wait(400);
 
@@ -106,7 +104,7 @@ if (STATE === "refused") {
   return { verdict: `${ok ? "PASS" : "FAIL"} refused: "${lines[0]}" then "${lines[1]}"` };
 }
 
-// nine_of_nine: the site really answered, and pressing Create created nothing.
+// nine_of_nine: the site was read, and pressing Create created nothing.
 await until(() => value() === "9 of 9 exist on this site.");
 const ok = lines.length === 1 && lines[0] === "All 9 already exist. Nothing was created."
   && value() === "9 of 9 exist on this site.";

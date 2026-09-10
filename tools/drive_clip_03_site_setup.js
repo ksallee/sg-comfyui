@@ -1,5 +1,5 @@
 // Captures SG Site Setup reading how many of the nine provenance fields exist, and the Create press.
-// Answers /sg/fields from here, in the shapes the route sends. No site is asked. Nothing is created.
+// Answers /sg/fields here in the shapes that route sends. No site is read and nothing is created.
 //   tools/capture.py --drive tools/drive_clip_03_site_setup.js --out 03
 const NINE = ["AI Generator", "AI Model", "AI Prompt", "AI Negative Prompt", "AI Seed",
   "AI Sampler", "AI Steps", "AI CFG", "AI Generated From"];

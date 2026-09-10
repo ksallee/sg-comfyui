@@ -1,6 +1,7 @@
-// A ComfyUI whose routes are not registered: the pack was updated and nobody restarted it.
+// Checks the sentence the node draws when the /sg routes are not registered, as after the pack is
+// updated without a restart.
+// Answers the /sg routes here with a 404 page, as the server does. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_route_404.js
-// Every /sg route answers 404 with a page, which is what the running server would send.
 const real = window.fetch.bind(window);
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);

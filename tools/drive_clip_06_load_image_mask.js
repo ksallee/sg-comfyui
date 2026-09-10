@@ -1,7 +1,7 @@
 // Captures SG Load resolving a Version from a rule, its image into a Preview, and its mask through
 // Convert Mask to Image into a second Preview.
 // Needs the sandbox project, Shot sh010, and an RGBA Version whose name contains rgba.
-// `mask` is the third output since the reorder.
+// `mask` is the third output.
 //   tools/capture.py --drive tools/drive_clip_06_load_image_mask.js --out 06
 await settle(300);
 app.graph.clear();
@@ -22,7 +22,7 @@ await pause(1200);
 await frameAll(70);
 await pause(400);
 
-// Pick the link the way an operator picks one. The panel then says what the rule lands on.
+// Pick the link the way an operator does. The panel then names the Version the rule resolves to.
 await pick("link", "sh010", "sh010");
 await pause(1000);
 

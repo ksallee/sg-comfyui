@@ -1,12 +1,12 @@
-// Every concept says where it lands: a value that goes into the description says so beside itself,
-// and nothing on this panel is struck through.
+// Checks that a value going into the description says so beside itself, and that no row on the
+// panel is struck through.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_description_rows.js
-// Every /sg route is answered here, so nothing reaches a site.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });
-// The shape /sg/preview_publish answers with: a field this site has, two facts the description
-// carries, and one concept this graph has no value for.
+// What /sg/preview_publish returns: a field this site has, two values that go into the description,
+// and one concept this graph has no value for.
 const FIELDS = [
   { name: "ai_seed", label: "Seed", value: "42", into_description: false, note: "" },
   { name: "Prompt", label: "Prompt", value: "a red car on a wet street", into_description: true,
@@ -39,14 +39,13 @@ app.graph.clear();
 const n = window.LiteGraph.createNode("SGPublishVersion");
 app.graph.add(n);
 await wait(1800);
-// The picker's project list is fetched as the page loads, before this drive can answer for it, so
-// the node opens on the real profile's project. Pick the one these routes know.
+// The project list is fetched as the page loads, before this drive answers for it, so the node opens
+// on the profile's project. Pick the one these routes know.
 const w = (name) => n.widgets.find((x) => x.name === name);
 if (w("project").value !== "Chariot") {
   w("project").value = "Chariot"; w("project").callback?.("Chariot"); await wait(2200);
 }
-// The fields block lives in the node's own advanced fold, which is what an operator opens to read
-// it. The button is the editor's, named for what it does.
+// The fields block is inside the node's advanced fold. The button is the editor's own.
 const button = [...document.querySelectorAll("button, .p-button")]
   .find((b) => /Show advanced inputs/i.test(b.textContent || ""));
 button?.click();

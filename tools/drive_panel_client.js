@@ -1,9 +1,11 @@
-// What the publish panel says about the submitting client, and what it says about a storage root
-// this machine cannot write to. Live: reads the sandbox, and publishes only when RUN is prepended.
-//   tools/qa_node.py --start --repo <checkout> --drive tools/drive_panel_client.js --shot out.png
-//   (echo 'const RUN = true;'; cat tools/drive_panel_client.js) | tools/qa_node.py ... --drive -
+// Checks the publish panel's client row, and what it says about a storage root this machine cannot
+// write to.
+// Needs the sandbox project and Shot sh010. Reads the site.
+// Needs RUN prepended as true to queue the publish; without it the drive stops at the readout.
+// Needs NO_FILES prepended as true to publish review media only, with no storage root in use.
+//   (echo 'const RUN = true;'; cat tools/drive_panel_client.js) | tools/qa_node.py --start \
+//     --repo <checkout> --drive - --shot out.png
 const DO_RUN = typeof RUN !== "undefined" && RUN;
-// NO_FILES publishes review media only: the after-run rows without a storage root in play.
 const FILES = typeof NO_FILES === "undefined" || !NO_FILES;
 const pause = (ms) => wait(ms);
 const seen = [];
@@ -29,8 +31,7 @@ app.graph.clear(); await pause(300);
 const img = LiteGraph.createNode("EmptyImage"); img.pos = [40, 200]; app.graph.add(img);
 img.widgets.find(w => w.name === "width").value = 256;
 img.widgets.find(w => w.name === "height").value = 256;
-// Two frames are a sequence and want files to keep them; review media on its own is one frame,
-// which is the node's own rule rather than a preference.
+// Two frames are a sequence, which needs files. Review media on its own is one frame.
 img.widgets.find(w => w.name === "batch_size").value = FILES ? 2 : 1;
 const pub = LiteGraph.createNode("SGPublishVersion"); pub.pos = [420, 60]; app.graph.add(pub);
 img.connect(0, pub, 0);
@@ -42,7 +43,7 @@ w("root_name").value = "verify_panel_client"; w("root_name").callback?.(w("root_
 w("register_files").value = FILES; w("register_files").callback?.(FILES);
 w("note").value = "The client row, and a root that cannot be written to.";
 await pause(6000);
-// The concepts are in the node's own advanced fold, which is what an operator opens to read them.
+// The concepts are inside the node's advanced fold.
 [...document.querySelectorAll("button, .p-button")]
   .find((b) => /Show advanced inputs/i.test(b.textContent || ""))?.click();
 await pause(1200);
@@ -50,7 +51,7 @@ await pause(1200);
 const runbar = [...document.querySelectorAll("button")]
   .find((b) => /^\s*Run\s*$/i.test(b.textContent || ""))?.closest("div[class*=action], .p-panel");
 if (runbar) runbar.style.display = "none";
-// The node, framed with room around it: everything read before a Run is on its panel.
+// The node, framed with room around it. What is read before a Run is on its panel.
 const fit = () => {
   const [nw, nh] = pub.size, cw = app.canvas.canvas.width, ch = app.canvas.canvas.height;
   const s = Math.min(cw / (nw + 260), ch / (nh + 160), 1);
@@ -74,7 +75,7 @@ seen.push(`state: ${text(".sg-state")}`);
 seen.push(`panel: ${text(".sg-panel .sg-body").replace(/\n/g, " | ").slice(0, 400)}`);
 
 if (DO_RUN) {
-  // A refused publish never reaches `executed`, so the sentence arrives as an execution error.
+  // A refused publish does not reach `executed`, so the sentence arrives as an execution error.
   let refused = "";
   app.api.addEventListener("execution_error",
                            ({ detail }) => { refused = detail.exception_message || ""; });

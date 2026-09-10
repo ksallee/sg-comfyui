@@ -1,20 +1,20 @@
 #!/usr/bin/env python3
-"""Load every shipped workflow in a real ComfyUI and check its widget values survive the round trip.
+"""Load each shipped workflow in a real ComfyUI and check its widget values survive the round trip.
 
-    tools/smoke.py                 # every workflow in tools/workflows/
-    tools/smoke.py --port 8999     # somewhere nothing else is running
+    tools/smoke.py                 # the workflows in tools/workflows/
+    tools/smoke.py --port 8999     # a port nothing else is running on
 
-Needs playwright, which ComfyUI's own venv does not have:
+Requires playwright, which ComfyUI's venv does not have:
 
     uv run --with playwright --python 3.11 python tools/smoke.py --port 8999
 
-`--with sg-groundtruth` is worth adding if the interpreter running this does not have it: without it
-the node pack fails to import and every graph reports no SG node instead of failing.
+Add `--with sg-groundtruth` where the interpreter running this does not have it. Without it the node
+pack fails to import and each graph reports no SG node instead of failing.
 
-`widgets_values` is positional, and only loading a saved graph in a real ComfyUI shows a value that
-has shifted into the widget next door. That is what this checks and what nothing else can.
+`widgets_values` is positional, and loading a saved graph in a real ComfyUI is what shows a value
+that has shifted into the widget next door.
 
-Exit status is the number of workflows that failed, so it works in a pipeline.
+Exit status is the number of workflows that failed.
 """
 import argparse
 import json
@@ -27,11 +27,11 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 REPO = HERE.parent
 
-sys.path.insert(0, str(HERE))   # run as a file, so its own directory is not on the path yet
+sys.path.insert(0, str(HERE))   # run as a file, so its directory is not on the path yet
 import qa_node                                                              # noqa: E402
 
-# `filters` is a live mirror — the node fills it from the site with the filter the other widgets add
-# up to — so the stored value is a starting point rather than a thing to restore.
+# `filters` is a mirror: the node fills it from the site with the filter the other widgets add up
+# to, so the stored value is a starting point and not a value to restore.
 MIRRORED = {"filters"}
 
 # The only input types ComfyUI draws as a widget. Everything else is a socket and takes no slot in
@@ -63,10 +63,10 @@ return out;
 
 
 def declared(node_type, port):
-    """The widget names this class declares, in order — the order widgets_values is written in.
+    """The widget names this class declares, in the order widgets_values is written in.
 
-    Asked of the running server rather than the class: importing the nodes drags in torch, which the
-    interpreter holding playwright does not have, and /object_info is the same INPUT_TYPES anyway.
+    Read from the running server rather than from the class: importing the nodes imports torch,
+    which the interpreter running playwright does not have, and /object_info is the same INPUT_TYPES.
     """
     url = f"http://127.0.0.1:{port}/object_info/{node_type}"
     spec = json.load(urllib.request.urlopen(url, timeout=60))[node_type]["input"]
@@ -74,10 +74,9 @@ def declared(node_type, port):
     for section in ("required", "optional"):
         for name, v in (spec.get(section) or {}).items():
             kind = v[0] if v else None
-            # An allowlist, not a denylist of the socket types we happen to use: a denylist counts a
-            # new socket type as a widget, which is the one-slot displacement this tool exists to
-            # catch, reported against every graph at once. A combo declares its choices in place of
-            # a type name, so a list IS a widget.
+            # An allowlist, not a denylist: a denylist counts a new socket type as a widget, which
+            # reports the one-slot displacement this tool looks for against every graph at once. A
+            # combo declares its choices in place of a type name, so a list is a widget.
             if isinstance(kind, list) or kind in WIDGET_TYPES:
                 names.append(name)
     return names
@@ -86,7 +85,7 @@ def declared(node_type, port):
 def expected(graph, port):
     """({node id: {widget: value}}, [misalignment]) read out of a saved graph by position.
 
-    Keyed by node id, not node type: one graph can hold three publish nodes, and keying by type
+    Keyed by node id, not node type: one graph can have three publish nodes, and keying by type
     compares the first against the last one's stored values.
     """
     want, misaligned = {}, []
@@ -96,8 +95,8 @@ def expected(graph, port):
             continue
         vals = n.get("widgets_values") or []
         names = declared(t, port)
-        # A count that no longer matches the class means every value from the divergence on loads
-        # into the wrong widget, which is the failure itself rather than a reason to check nothing.
+        # A count that does not match the class means each value from the divergence on loads into
+        # the wrong widget. That is the failure, not a reason to skip the graph.
         if len(vals) != len(names):
             misaligned.append(f"{t}#{n.get('id')}: file has {len(vals)} values, class declares"
                               f" {len(names)} — every value from the divergence on lands in the"
@@ -108,7 +107,7 @@ def expected(graph, port):
 
 
 def check(path, port, workdir):
-    """Load one workflow in the running instance and print how it fared. True where it failed."""
+    """Load one workflow in the running instance and print the result. True where it failed."""
     graph = json.loads(path.read_text())
     want, misaligned = expected(graph, port)
     if misaligned:

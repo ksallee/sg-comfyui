@@ -1,15 +1,19 @@
-// Load one saved graph, close every toast, hide the minimap, and frame the whole graph with room
-// around it. Nothing is run. GRAPH is prepended: the JSON text of the workflow.
+// Loads one saved graph, closes the toasts, hides the minimap, and frames the graph with room
+// around it. Nothing is run.
+// Needs GRAPH prepended: the JSON text of the workflow.
+// Needs a plate named sh010_plate_f0001.png in the instance's input directory.
+//   { printf 'const GRAPH = %s;\n' "$(python3 -c 'import json; print(json.dumps(open("example_workflows/00_example.json").read()))')"; cat tools/drive_graph_shot.js; } > /tmp/graph.js
+//   uv run --with playwright --python 3.11 python tools/qa_node.py --start --repo . --drive /tmp/graph.js --shot graph.png
 const pause = (ms) => wait(ms);
-// The open workflow is marked modified by the harness's own setup, and loading over a modified
-// one asks to save. Reset its change tracker so the load goes through without a dialog.
+// The open workflow is marked modified by the harness's setup, and loading over a modified one
+// asks to save. Dismiss that dialog while the load runs.
 const closeAnyway = () => [...document.querySelectorAll("button")]
   .find((b) => /Close anyway/i.test(b.textContent))?.click();
 const loading = app.loadGraphData(JSON.parse(GRAPH));
 for (let i = 0; i < 20; i++) { await pause(250); closeAnyway(); }
 await loading; await pause(4000); closeAnyway();
-// A stock template names an example file this machine does not have; point every Load Image at
-// a plate that exists, so the graph reads as a graph and not as a red node.
+// A stock template names an example file this machine does not have. Point each Load Image at a
+// plate that exists, or the node draws as an error.
 for (const n of app.graph.nodes.filter((n) => n.type === "LoadImage")) {
   const w = n.widgets?.find((x) => x.name === "image");
   if (w) { w.value = "sh010_plate_f0001.png"; w.callback?.(w.value); }
@@ -17,7 +21,7 @@ for (const n of app.graph.nodes.filter((n) => n.type === "LoadImage")) {
 // The red badge is the validation of the first load, which a widget change does not clear.
 for (const n of app.graph.nodes) n.has_errors = false;
 app.canvas.setDirty(true, true);
-// Toasts arrive on their own clock; keep closing them until the shot.
+// Toasts appear on their own clock. Close them until the shot is taken.
 for (let i = 0; i < 10; i++) {
   await pause(400);
   document.querySelectorAll(".p-toast button, .p-toast [role=button]").forEach((b) => b.click());

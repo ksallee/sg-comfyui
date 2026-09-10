@@ -1,5 +1,6 @@
-// Hostile labels, hrefs and status icons, drawn: nothing executable and nothing positioned may
-// reach the page, and a malformed sprite must not take the redraw down.
+// Checks that a hostile label, href or status icon is drawn as text: nothing executable and nothing
+// positioned reaches the page, and a malformed sprite does not stop the redraw.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGLoadVersion --drive tools/drive_escape.js
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
@@ -35,7 +36,7 @@ await wait(1800);
 const chips = document.querySelector(".sg-chips");
 const panel = document.querySelector(".sg-panel");
 const injected = document.querySelectorAll(".sg-chips script, .sg-panel script").length;
-// A dot or a pill carries a colour of ours; nothing the site sent may carry a position.
+// A dot or a pill takes a colour from the node. Nothing the site sent may set a position.
 const positioned = [...document.querySelectorAll(".sg-chips [style], .sg-panel [style]")]
   .filter((e) => /position|inset|z-index/i.test(e.getAttribute("style") || "")).length;
 const literal = (chips?.textContent || "").includes(HOSTILE_LABEL);

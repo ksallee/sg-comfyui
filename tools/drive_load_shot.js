@@ -1,6 +1,9 @@
-// One SG Load pinned to PIN, its image into a Preview and its mask through Convert Mask to Image
-// into a second Preview, run live, then framed with room around it. PIN and SOURCE (a word from
-// the source option to pick, or "") are prepended.
+// Runs one SG Load pinned to PIN, its image into a Preview and its mask through Convert Mask to
+// Image into a second Preview, then frames the graph with room around it.
+// Needs PIN prepended: the Version id to pin.
+// Needs SOURCE prepended: a word from the source option to pick, or "".
+//   { printf 'const PIN = 31995;\nconst SOURCE = "";\n'; cat tools/drive_load_shot.js; } > /tmp/load.js
+//   uv run --with playwright --python 3.11 python tools/qa_node.py --start --repo . --drive /tmp/load.js --shot load.png
 const pause = (ms) => wait(ms);
 const seen = [];
 app.graph.clear(); await pause(300);
@@ -30,8 +33,9 @@ const s = Math.min(cw / (x1 - x0), ch / (y1 - y0), 1);
 app.canvas.ds.state.scale = s;
 app.canvas.ds.state.offset = [-x0 + ((cw / s) - (x1 - x0)) / 2, -y0 + ((ch / s) - (y1 - y0)) / 2];
 app.canvas.setDirty(true, true); await pause(1500);
-// The run's own "Job completed" arrives on its own clock and would otherwise sit in the shot.
-// Its own control only: a generic Close matches the workflow tabs, and closing one empties the graph.
+// The run's "Job completed" toast arrives on its own clock and would otherwise be in the shot.
+// Close it by its own control: a generic Close matches the workflow tabs, and closing one empties
+// the graph.
 for (let i = 0; i < 6; i++) {
   await pause(300);
   document.querySelectorAll(".p-toast-close-button").forEach((b) => b.click());

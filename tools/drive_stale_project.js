@@ -1,6 +1,6 @@
-// A login that expires between one read and the next must not empty the node.
+// Checks that a login expiring between one read and the next does not empty the node.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_stale_project.js
-// Every /sg route is answered here, so nothing reaches a site.
 const EXPIRED = "Your login has expired. Log in again under Settings, then SG.";
 let expired = false;
 const real = window.fetch.bind(window);
@@ -31,7 +31,7 @@ w("project").value = "Chariot";
 w("project").callback("Chariot");
 await wait(1200);
 
-// What a saved graph carries: a link, picked the way an operator picks one.
+// A link, picked the way an operator picks one, as a saved graph stores it.
 const row = [...document.querySelectorAll(".sg-dom")]
   .find((d) => (d.querySelector(".sg-lab")?.textContent || "").trim() === "link");
 row.querySelector("button").click();
@@ -40,7 +40,7 @@ document.querySelector('.sg-pop-list [role="option"]').click();
 await wait(900);
 const before = ["link", "task", "status"].map((k) => `${k}=${w(k).value}`).join(" ");
 
-expired = true;                       // the login goes while the graph is open
+expired = true;                       // the login expires while the graph is open
 n.widgets.find((x) => x.name === "Sync from SG").callback();
 await wait(1200);
 

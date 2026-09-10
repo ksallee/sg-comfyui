@@ -5,9 +5,9 @@
                      --node SGPublishVersion --repo ~/dev/sg-comfyui
 
 Writes `<out>.mp4`, `<out>.webm` and `<out>.webp`, then removes the frames. The instance is started
-here and stopped here. Two clips never share settings, a queue or a publish.
+and stopped here, so two clips do not share settings, a queue or a publish.
 
-Needs ffmpeg on PATH, and playwright:
+Requires ffmpeg on PATH, and playwright:
 
     uv run --with playwright --python 3.11 python tools/capture.py --drive ... --out ...
 """
@@ -25,8 +25,8 @@ import qa_node                                                    # noqa: E402
 
 KIT = Path(__file__).resolve().parent / "clip_kit.js"
 
-# The page is captured at twice its CSS size. Playwright's own recorder is too soft for UI text.
-# MP4 and WebM keep more than the CSS size. The WebP loop is smaller.
+# The page is captured at twice its CSS size: Playwright's own recorder is too soft for UI text.
+# MP4 and WebM are encoded above the CSS size. The WebP loop is smaller.
 WIDTH = 1600
 WEBP_WIDTH = 800
 WEBP_FPS = 8
@@ -37,8 +37,8 @@ def encode(frames, out, fps):
     listing = ["-f", "concat", "-safe", "0", "-i", str(frames / "frames.txt")]
     scale = f"scale={WIDTH}:-2:flags=lanczos"
     runs = [
-        # yuv420p and even dimensions, or Safari and every social player refuses the file.
-        # faststart puts the index first, so it plays before it has finished downloading.
+        # yuv420p and even dimensions, or Safari and the social players refuse the file.
+        # faststart puts the index first, so the file plays before it has downloaded.
         (f"{out}.mp4", ["-vf", f"{scale},format=yuv420p", "-r", str(fps),
                         "-c:v", "libx264", "-crf", "20", "-preset", "slow",
                         "-movflags", "+faststart"]),

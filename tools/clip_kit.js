@@ -1,15 +1,15 @@
-// The pointer, the pacing and the framing every drive_clip_*.js uses.
+// The pointer, the pacing and the framing the drive_clip_*.js files use.
 // tools/capture.py prepends this file to the drive.
-// A CDP screencast emits a frame when the page paints. The pointer's animation is what keeps frames
-// coming. A still moment costs one frame, held for as long as it lasted.
+// A CDP screencast emits a frame when the page paints, so the pointer's animation is what keeps
+// frames coming. A still moment costs one frame, held for as long as it lasted.
 const pause = (ms) => wait(ms);
 
-// Toasts arrive on their own clock over the top-right corner. Hide them.
+// Toasts appear over the top-right corner on their own clock. Hide them.
 const CLIP_STYLE = document.createElement("style");
 CLIP_STYLE.textContent = '[class*="toast"] { display: none !important; }';
 document.head.appendChild(CLIP_STYLE);
 
-// ComfyUI's run card has no class of its own. Find it by what it says.
+// ComfyUI's run card has no class of its own, so it is found by its text.
 const hideRunCards = () => {
   for (const e of document.querySelectorAll("div.flex.justify-end")) {
     if (/^Job \w+$/.test((e.textContent || "").trim())) e.style.display = "none";
@@ -44,7 +44,7 @@ const move = async (x, y, ms = 850) => {
   }
 };
 
-// Where to put the pointer on an element. The top of a tall control, never its middle.
+// Where to put the pointer on an element: the top of a tall control, not its middle.
 const aim = (el) => {
   const r = el.getBoundingClientRect();
   return [r.left + Math.min(r.width / 2, 90), r.top + Math.min(r.height / 2, 16)];
@@ -57,8 +57,8 @@ const press = async () => {
   await pause(300);
 };
 
-// Travel to the element, show the press, click it, wait.
-// Every click in a clip goes through here. The beat after a click is set once, here.
+// Move to the element, show the press, click it, wait.
+// The pause after a click is set here, for the clicks in every clip.
 const click = async (el, ms = 850) => {
   if (!el) return false;
   const [x, y] = aim(el);
@@ -81,9 +81,9 @@ const type = async (inp, text, ms = 55) => {
 const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
   .find((d) => (d.querySelector(".sg-lab")?.textContent || "").trim().toLowerCase() === label);
 
-// Open a picker, type a term, click the row that says `want`.
-// Match on text, not on position. The list is fetched per keystroke, and the unfiltered set is on
-// screen until the filtered one is drawn.
+// Open a picker, type a term, click the row whose text contains `want`.
+// The list is fetched per keystroke and the unfiltered set is on screen until the filtered one is
+// drawn, so a row is matched by text and not by position.
 const pick = async (label, term, want) => {
   const c = ctl(label);
   if (!c) return false;
@@ -94,8 +94,8 @@ const pick = async (label, term, want) => {
     inp = document.querySelector(".sg-pop-input");
   }
   if (inp && term) await type(inp, term);
-  // A row is clicked by the index it had when the list was drawn. Wait for the answer to the last
-  // keystroke, or the index points into the list that keystroke replaced and nothing is set.
+  // A row is clicked by the index it had when the list was drawn. Wait for the response to the last
+  // keystroke, or the index points into the list that keystroke replaced.
   const busy = () => document.querySelector(".sg-pop-busy")?.hidden === false;
   for (let i = 0; i < 60 && busy(); i++) await pause(250);
   let hit = null;
@@ -115,8 +115,8 @@ const pick = async (label, term, want) => {
 };
 
 // Wait for a node's height to stop changing.
-// A fold or a picker keeps relaying the node out for a frame or two. Framing before it stops leaves
-// the bottom off screen.
+// A fold or a picker relays the node out for a frame or two. Framing before that stops leaves the
+// bottom of the node off screen.
 const settleSize = async (n, ms = 3000) => {
   await pause(800);                 // a fold has not started to open at the moment it is clicked
   let last = -1;
@@ -127,8 +127,8 @@ const settleSize = async (n, ms = 3000) => {
   }
 };
 
-// Pick a value from ComfyUI's own select, which is what a fixed combo such as `format` is drawn
-// with. The site-backed rows are pickers: use `pick`.
+// Pick a value from ComfyUI's own select, which draws a fixed combo such as `format`.
+// The site-backed rows are pickers: use `pick`.
 const pickCombo = async (label, want) => {
   const row = [...document.querySelectorAll('[data-testid="node-widget"]')]
     .find((r) => (r.querySelector('[data-testid="widget-layout-field-label"]')?.textContent || "")
@@ -146,12 +146,12 @@ const pickCombo = async (label, want) => {
   return !!hit;
 };
 
-// The node's header in the editor's DOM, by the title it shows.
+// The node's header in the editor's DOM, found by its title.
 const nodeTitle = (text) => [...document.querySelectorAll('[data-testid="node-title"]')]
   .find((e) => (e.textContent || "").includes(text));
 
-// Select one node and run up to it, from the selection toolbox's own button.
-// That button runs one node rather than every node in the graph.
+// Select one node and run up to it from the selection toolbox's button.
+// That button runs one node rather than the graph.
 const runNode = async (n, title) => {
   await move(...aim(nodeTitle(title) || app.canvas.canvas), 850);
   await press();
@@ -181,14 +181,14 @@ const frameNode = async (node, scale = 0.9) => {
 };
 
 // The canvas size in CSS pixels.
-// LiteGraph sizes its canvas in device pixels and keeps its pan offset in CSS pixels. A capture
-// above a device pixel ratio of 1 frames nothing unless one is divided by the other.
+// LiteGraph sizes its canvas in device pixels and keeps its pan offset in CSS pixels, so a capture
+// above a device pixel ratio of 1 frames nothing unless the size is divided by the ratio.
 const viewSize = () => {
   const d = window.devicePixelRatio || 1;
   return [app.canvas.canvas.width / d, app.canvas.canvas.height / d];
 };
 
-// Everything on the canvas, centred.
+// All the nodes on the canvas, centred.
 const frameAll = async (pad = 90) => {
   const ns = app.graph.nodes;
   const x0 = Math.min(...ns.map((n) => n.pos[0])) - pad;
@@ -203,7 +203,7 @@ const frameAll = async (pad = 90) => {
   await pause(500);
 };
 
-// Scroll a row into view and wait for it to arrive. A row that jumps into place is unreadable.
+// Scroll a row into view and wait for the scroll to finish.
 const scrollTo = async (el, ms = 1200) => {
   el.scrollIntoView({ behavior: "smooth", block: "center" });
   await pause(ms);
@@ -218,6 +218,6 @@ const settle = async (ms = 700) => {
   await pause(ms);
 };
 
-// ComfyUI's Run button. It runs every node in the graph.
+// ComfyUI's Run button. It runs the graph, not one node.
 const runButton = () => document.querySelector('[data-testid="queue-button"]')
   || [...document.querySelectorAll("button")].find((b) => /^\s*Run\s*$/.test(b.textContent || ""));

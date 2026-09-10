@@ -1,4 +1,5 @@
-// A publish node listens for three run events. Removing it must take all three with it.
+// Checks that removing a publish node removes the three run-event listeners it added.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_listener_leak.js
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
@@ -12,7 +13,7 @@ window.fetch = (url, opts) => {
   return json({ items: [] });
 };
 
-// Counted at the source: every add and every remove on the api, by event name.
+// Counted at the source: the adds and the removes on the api, by event name.
 const WATCHED = ["execution_start", "execution_cached", "executed"];
 const added = [], removed = [];
 const add = app.api.addEventListener.bind(app.api);
@@ -26,9 +27,9 @@ app.graph.add(n);
 await wait(1200);
 const mine = WATCHED.filter((e) => added.includes(e));
 
-app.graph.remove(n);                  // the workflow was closed
+app.graph.remove(n);                  // as closing the workflow does
 await wait(400);
-// And nothing left listening throws on the next run's events.
+// Nothing left listening throws on the next run's events.
 let threw = "";
 try {
   app.api.dispatchEvent(new CustomEvent("execution_start", { detail: {} }));

@@ -1,10 +1,10 @@
-// Pick a project whose reads are slow, then a second one, and prove the first cannot write.
+// Checks that a slow project's reads cannot write to the node after a second project is picked.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_project_race.js
-// Every /sg route is answered here, so nothing reaches a site.
 const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });
-// A slow answer that honours the abort the cascade sends, the way aiohttp's does.
+// A slow response that honours the abort the cascade sends, as aiohttp does.
 const after = (ms, body) => (opts) => new Promise((ok, no) => {
   const t = setTimeout(() => ok(json(body)), ms);
   opts?.signal?.addEventListener("abort", () => {
@@ -32,7 +32,7 @@ window.fetch = (url, opts) => {
   return hit ? hit[1](opts) : real(url, opts);
 };
 
-// A node created after the patch, so every read its pickers make is answered from here.
+// The node is created after the patch, so its pickers read from here.
 app.graph.clear();
 const n = window.LiteGraph.createNode("SGPublishVersion");
 app.graph.add(n);
@@ -42,7 +42,7 @@ await wait(250);                       // Chariot's reads are in flight and will
 const project = w("project");
 project.value = "Barbarian";
 project.callback("Barbarian");         // what the picker does when a row is clicked
-await wait(2500);                      // long enough for Chariot's answers to have landed
+await wait(2500);                      // long enough for Chariot's responses to have arrived
 
 const links = w("link").options.values.join(", ");
 const statuses = w("status").options.values.join(", ");

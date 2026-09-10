@@ -1,6 +1,6 @@
-// A publish whose storage cannot be resolved says so before the Run, not in the fold.
+// Checks that a publish whose storage cannot be resolved says so before the Run, outside the fold.
+// Answers the /sg routes here. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_storage_alert.js
-// Every /sg route is answered here, so nothing reaches a site.
 const ALERT = "Create Published Files is ticked, but the paths could not be worked out. "
   + "No storage is chosen, and this site has 3 to choose from. Pick Storage under Settings, "
   + "then SG: primary, renders, review.";
@@ -15,7 +15,7 @@ const ROUTES = [
   [/\/sg\/entities/, () => json({ items: [{ label: "chr_010 (Shot)", id: 11 }] })],
   [/\/sg\/tasks/, () => json({ items: [{ label: "Comp", id: 5 }] })],
   [/\/sg\/preview_code/, () => json({ code: "chr_010_comp_v007", templates: [], latest: null })],
-  // What the route answers when `sequence.plan` refuses: no paths, and the sentence why.
+  // What the route returns when `sequence.plan` refuses: no paths, and the sentence why.
   [/\/sg\/preview_publish/, () => json({ fields: [], sources: [], writes: [], alert: ALERT,
                                          media: "Frame 1, as a still. Every frame becomes a "
                                                 + "Published File." })],
@@ -31,8 +31,8 @@ app.graph.clear();
 const n = window.LiteGraph.createNode("SGPublishVersion");
 app.graph.add(n);
 await wait(1800);
-// The picker's project list is fetched as the page loads, before this drive can answer for it, so
-// the node opens on the real profile's project. Pick the one these routes know.
+// The project list is fetched as the page loads, before this drive answers for it, so the node opens
+// on the profile's project. Pick the one these routes know.
 const w = (name) => n.widgets.find((x) => x.name === name);
 if (w("project").value !== "Chariot") {
   w("project").value = "Chariot"; w("project").callback?.("Chariot"); await wait(2200);

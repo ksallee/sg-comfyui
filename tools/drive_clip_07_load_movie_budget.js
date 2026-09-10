@@ -1,8 +1,8 @@
 // Captures SG Load reading a movie Version into Save Video, then a pinned Load refusing a batch
-// too big to hold.
+// over the budget.
 // Needs Version 31993 on the sandbox project.
-// Answers /sg/resolve from here for the refusal. No plate on this site is large enough to be
-// refused, and the budget is a profile value.
+// Answers /sg/resolve here for the refusal: no plate on this site is large enough to be refused, and
+// the budget is a profile value.
 //   tools/capture.py --drive tools/drive_clip_07_load_movie_budget.js --out 07
 const MOVIE = 31993;
 
@@ -27,7 +27,7 @@ await pause(1400);
 const saved = (document.querySelector(".sg-panel")?.innerText || "")
   .replace(/\n/g, " | ").slice(0, 240);
 
-// A 4K plate of 120 frames, pinned. The node says how many frames fit before anything is run.
+// A 4K plate of 120 frames, pinned. The node draws how many frames fit before anything is run.
 const real = window.fetch.bind(window);
 const RESOLVE = {
   id: 31875, code: "chr_010_comp_v006", why: "pinned by id",
