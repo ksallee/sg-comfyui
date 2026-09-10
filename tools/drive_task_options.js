@@ -1,6 +1,6 @@
 // Measures the Task picker on SG Publish and takes one chosen Task through a Run.
-// PASS needs four things: the picker offers every Task the widget holds, one of them can be chosen,
-// the panel names it before the Run, and the Version the Run files answers to that Task.
+// PASS needs four results: the picker offers each Task the widget lists, one of them is chosen,
+// the panel names it before the Run, and the Version the Run files resolves by that Task.
 // Live: publishes one 512x512 frame to the sandbox project.
 // Needs the sandbox project and Shot sh010, which has six Tasks.
 //   tools/qa_node.py --start --repo <checkout> --drive tools/drive_task_options.js
@@ -68,8 +68,8 @@ await pick("link", "sh010", "sh010");
 await pause(3500);
 const unset = /No task picked\./.test(panel());
 
-// What the widget holds against what the picker offers. The hidden combo is still the widget the
-// graph saves, so its options are the list a picked value has to come out of.
+// What the widget lists against what the picker offers. The hidden combo is the widget the graph
+// saves, so its options are the list a picked value comes from.
 const task = w("task");
 const held = (task.options?.values || []).slice();
 await openPicker("task");
@@ -104,7 +104,7 @@ const onVersion = published > 0 && Number(found.id) === published;
 
 const pass = unset && !missing.length && !extra.length && chosen && onPanel && onVersion;
 return {
-  verdict: `${pass ? "PASS" : "FAIL"} the widget holds ${held.length}, the picker offers `
+  verdict: `${pass ? "PASS" : "FAIL"} the widget lists ${held.length}, the picker offers `
     + `${offered.length}; picked ${task.value}; Version ${published} resolves by that Task as `
     + `${found.id}`,
   held, offered, missing, extra, unset, chosen, onPanel, onVersion, published,
