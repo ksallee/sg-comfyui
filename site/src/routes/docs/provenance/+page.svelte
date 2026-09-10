@@ -38,7 +38,7 @@
 	site has (probe 019).
 </p>
 
-<h2>A site with none of them</h2>
+<h2>Without the fields</h2>
 <ul>
 	<li>The facts go in the Version's description: the note, a blank line, then one line per fact, lineage included.</li>
 	<li>Where some of the nine exist, those take their values. The description records the rest.</li>
@@ -51,14 +51,14 @@
 	caption="The note, a blank line, then one line per fact."
 />
 
-<h2>What else is attached</h2>
+<h2>Attachments</h2>
 <ul>
 	<li>The record is attached as <code>.provenance.json</code>.</li>
 	<li>The workflow is attached when the submitting client sent one.</li>
 	<li>Provenance is scoped per branch. The node walks back through its own inputs.</li>
 </ul>
 
-<h2>Creating the fields without a browser</h2>
+<h2>Creating the fields from the command line</h2>
 <pre><code>PYTHONPATH=src &lt;comfy-python&gt; -m comfyui_sg.fields</code></pre>
 <ul>
 	<li>It reads the schema first and creates only what is missing. Pressing twice is safe.</li>
@@ -68,13 +68,13 @@
 	<li>Field names are permanent. Deleting a field frees the field, never its name. Trashed fields cannot be listed, so a name spent here is spent site-wide forever (probe 019).</li>
 </ul>
 
-<h2>Fields your studio already has</h2>
+<h2>Mapping to existing fields</h2>
 <p>
 	Point the profile's <code>provenance.map</code> at them. Mapping onto a studio's own fields works
 	and is not a release feature.
 </p>
 
-<h2>Naming the submitting client</h2>
+<h2>The submitting client</h2>
 <p>
 	A Version that reads <code>ComfyUI (unknown client)</code> means the client that POSTed
 	<code>/prompt</code> did not name itself. The name is the client's own claim, in

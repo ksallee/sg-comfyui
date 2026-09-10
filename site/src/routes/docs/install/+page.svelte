@@ -25,7 +25,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 <h2>Requirements</h2>
 <Markdown source={requirements} />
 
-<h2>The three paths</h2>
+<h2>Install paths</h2>
 <Markdown source={installCommands} />
 
 <h2>Which interpreter</h2>
@@ -57,7 +57,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 	<li>The doctor exits non-zero on anything that would fail a publish. It warns on the rest.</li>
 </ul>
 
-<h2>The four local files</h2>
+<h2>Local files</h2>
 <p>All of them yours, none of them in git.</p>
 <table>
 	<thead>

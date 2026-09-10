@@ -22,7 +22,7 @@
 	non-zero on anything that would stop a publish.
 </p>
 
-<h2>Which document</h2>
+<h2>Documents</h2>
 <table>
 	<thead>
 		<tr><th scope="col">job</th><th scope="col">read</th></tr>
@@ -34,7 +34,7 @@
 	</tbody>
 </table>
 
-<h2>The procedures</h2>
+<h2>Procedures</h2>
 <p>
 	<code>.claude/commands/</code> has four procedures. They are plain markdown with no Claude Code in
 	them. Follow the file whether or not your harness has slash commands.
@@ -69,7 +69,7 @@
 	<li>None of these reads Settings. They read <code>.env.local</code> in the pack directory, or the same three keys in the environment.</li>
 </ul>
 
-<h2>Two rules that break saved graphs</h2>
+<h2>Positional order</h2>
 <ul>
 	<li><code>widgets_values</code> is positional. Append a widget, never insert or remove one. The order is declared once, in <code>widgets.py</code>.</li>
 	<li>Outputs are positional. The order in <code>RETURN_NAMES</code> is frozen from the first release. Append only.</li>
