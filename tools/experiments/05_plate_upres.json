@@ -737,12 +737,27 @@
           ]
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": []
         },
         {
           "name": "code",
+          "type": "STRING",
+          "links": []
+        },
+        {
+          "name": "colour_space",
           "type": "STRING",
           "links": []
         }

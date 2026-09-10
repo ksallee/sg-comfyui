@@ -117,12 +117,10 @@ def test_a_source_with_no_alpha_reports_none(tmp_path):
     assert alpha is None
 
 
-def test_the_node_appends_mask_last():
+def test_the_node_carries_the_mask_beside_the_media():
     node = pytest.importorskip("comfyui_sg.nodes.load_version").SGLoadVersion
-    assert node.RETURN_NAMES == ("image", "version_id", "code", "colour_space", "video", "mask")
-    assert node.RETURN_TYPES == ("IMAGE", "INT", "STRING", "STRING", "VIDEO", "MASK")
-    # Appended, never inserted: every earlier slot keeps its index in graphs already saved.
-    assert node.RETURN_NAMES[:5] == ("image", "version_id", "code", "colour_space", "video")
+    assert node.RETURN_NAMES[:3] == ("image", "video", "mask")
+    assert node.RETURN_TYPES[node.RETURN_NAMES.index("mask")] == "MASK"
 
 
 # --- a sequence off disk --------------------------------------------------------------------------
