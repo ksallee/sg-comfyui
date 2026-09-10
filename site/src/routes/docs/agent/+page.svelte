@@ -36,7 +36,7 @@
 
 <h2>The procedures</h2>
 <p>
-	<code>.claude/commands/</code> has three procedures. They are plain markdown with no Claude Code in
+	<code>.claude/commands/</code> has four procedures. They are plain markdown with no Claude Code in
 	them. Follow the file whether or not your harness has slash commands.
 </p>
 <table>
@@ -47,6 +47,7 @@
 		<tr><td><code>setup.md</code></td><td>a first run, from the connection to the example workflow</td></tr>
 		<tr><td><code>inspect-site.md</code></td><td>measure one project and write <code>profile.local.json</code></td></tr>
 		<tr><td><code>track-workflow.md</code></td><td>put the nodes into a graph the operator already uses</td></tr>
+		<tr><td><code>task.md</code></td><td>do a job against the API, grounded in the corpus</td></tr>
 	</tbody>
 </table>
 

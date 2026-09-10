@@ -4,8 +4,9 @@
 	import Markdown from '$lib/Markdown.svelte';
 	import ProvenancePin from '$lib/ProvenancePin.svelte';
 	import Shot from '$lib/Shot.svelte';
-	import { issues, repo } from '$lib/site.js';
+	import { author, issues } from '$lib/site.js';
 	import { reveal } from '$lib/reveal.js';
+	import { onDestroy } from 'svelte';
 
 	import firstRun from '$lib/readme/first-run.md?raw';
 	import installCommands from '$lib/readme/install-commands.md?raw';
@@ -35,6 +36,39 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 			alt: 'The 02_style_from_a_reference template open in ComfyUI'
 		}
 	];
+
+	// A graph is unreadable at thumbnail size. The full PNG opens in a modal dialog, which Escape
+	// and the backdrop both close.
+	let shown = $state(null);
+	let box = $state(null);
+
+	function enlarge(template) {
+		shown = template;
+		box?.showModal();
+	}
+
+	const agentPrompt = `Clone https://github.com/ksallee/sg-comfyui into ComfyUI's custom_nodes directory.
+Install its requirements.txt into the interpreter ComfyUI runs on.
+Restart ComfyUI.
+Welcome me.
+Ask me before you run tools/doctor.py.
+Then offer to run /setup.`;
+
+	let copied = $state(false);
+	let said;
+
+	async function copyPrompt() {
+		try {
+			await navigator.clipboard.writeText(agentPrompt);
+		} catch {
+			return;
+		}
+		copied = true;
+		clearTimeout(said);
+		said = setTimeout(() => (copied = false), 3000);
+	}
+
+	onDestroy(() => clearTimeout(said));
 </script>
 
 <svelte:head>
@@ -129,31 +163,27 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 
 <!-- 4. SG Load -->
 <section class="band" id="load" use:reveal>
-	<div class="page split reverse">
-		<div class="split-media">
+	<div class="page">
+		<h2>SG Load reads the media back into the graph.</h2>
+		<p class="lede wide">
+			Find a Version by project, link, Task, status and name. <code>pin_version_id</code> takes an id
+			instead. 16-bit PNG and EXR are read at full precision.
+		</p>
+		<div class="wide-media">
 			<Clip
 				name="06_load_image_mask"
 				caption="An RGBA Version read back. Alpha becomes the mask output, on ComfyUI's convention."
 			/>
 		</div>
-		<div class="split-copy">
-			<h2>SG Load reads the media back into the graph.</h2>
-			<p>
-				Find a Version by project, link, Task, status and name. <code>pin_version_id</code> takes an
-				id instead.
-			</p>
-			<p>
-				16-bit PNG and EXR are read at full precision. The Version it read is recorded on anything
-				published downstream.
-			</p>
-			<dl class="outputs">
-				<dt>Outputs</dt>
-				<dd>
-					<code>image</code> <code>video</code> <code>mask</code> <code>version_id</code>
-					<code>code</code> <code>colour_space</code>
-				</dd>
-			</dl>
-		</div>
+		<dl class="outputs">
+			<dt>Outputs</dt>
+			<dd>
+				<code>image</code> <code>video</code> <code>mask</code> <code>version_id</code>
+				<code>code</code> <code>colour_space</code>
+			</dd>
+			<dt>Recorded downstream</dt>
+			<dd>The Version it read, on anything published from the same graph.</dd>
+		</dl>
 	</div>
 </section>
 
@@ -220,8 +250,17 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		<div class="gallery" role="group" aria-label="The shipped templates">
 			{#each templates as template (template.name)}
 				<figure>
-					<Shot name={template.name} alt={template.alt} />
-					<figcaption><code>{template.title}</code></figcaption>
+					<button type="button" class="thumb" onclick={() => enlarge(template)}>
+						<img
+							src="{base}/media/{template.name}.png"
+							alt={template.alt}
+							width="1600"
+							height="1000"
+							loading="lazy"
+							decoding="async"
+						/>
+					</button>
+					<figcaption><code>{template.title}</code> <span>Open the full graph</span></figcaption>
 				</figure>
 			{/each}
 		</div>
@@ -230,24 +269,39 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 
 <!-- 8. Storage and paths -->
 <section class="band" id="storage" use:reveal>
-	<div class="page storage">
-		<div class="storage-copy">
-			<h2>Files are copied under a storage root, never moved.</h2>
-			<p>
-				A PublishedFile's path is under one of your site's Local File Storage roots. The server
-				refuses any other path. ComfyUI writes the frames to its own output directory and the node
-				copies them under the root.
-			</p>
-			<p>
-				A publish that fails after the copy names the copies it left. A re-run overwrites the same
-				paths.
-			</p>
-			<figure class="path">
-				<figcaption class="mono-label">Sequence path, and what one publish rendered it to</figcaption>
-				<pre><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}
+	<div class="page">
+		<h2>Files are copied to the storage location.</h2>
+		<p class="lede wide">
+			The nodes use only the filesystem roots defined on your SG site (Local File Storage) and
+			relative path templates similar to SG Toolkit's.
+		</p>
+		<div class="wide-media">
+			<Shot
+				name="settings-storage-paths"
+				alt="The SG page of ComfyUI settings, showing the storage, the operating system and the sequence and movie path templates"
+				caption="Settings, then SG. Each template shows what it renders to under the root."
+			/>
+		</div>
+		<div class="storage">
+			<div>
+				<figure class="path">
+					<figcaption class="mono-label">
+						Sequence path, and what one publish rendered it to
+					</figcaption>
+					<pre><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}
 
 /Volumes/FPT/sh010/verify_pub_rows/verify_pub_rows_v003/verify_pub_rows_v003.%04d.exr</code></pre>
-			</figure>
+				</figure>
+				<p>
+					ComfyUI writes the frames to its own output directory and the node copies them under the
+					root. A publish that fails after the copy names the copies it left. A re-run overwrites
+					the same paths.
+				</p>
+				<p>
+					Settings, then SG, Operating system sets the notation the path is written in, so a mac
+					publish can write a Windows path.
+				</p>
+			</div>
 			<table>
 				<thead>
 					<tr>
@@ -274,17 +328,6 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 					</tr>
 				</tbody>
 			</table>
-			<p>
-				Settings, then SG, Operating system sets the notation the path is written in, so a mac
-				publish can write a Windows path.
-			</p>
-		</div>
-		<div class="storage-shot">
-			<Shot
-				name="04_publish_storage_alert"
-				alt="SG Publish refusing before a Run because the site has no Local File Storage"
-				caption="A missing or unmounted root refuses before the Run, and names the root."
-			/>
 		</div>
 	</div>
 </section>
@@ -314,9 +357,10 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 			protected user directory, never in the settings store.
 		</p>
 		<div class="wide-media">
-			<Clip
-				name="05_expired_login"
-				caption="An expired session keeps the link the node had, and says to sign in again."
+			<Shot
+				name="settings-sign-in"
+				alt="The SG page of ComfyUI settings, showing Log In As Yourself above Script Authentication"
+				caption="Settings, then SG. Log In As Yourself is one button. Script Authentication takes the Script name and the Application key."
 			/>
 		</div>
 	</div>
@@ -329,6 +373,15 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 			<h2>Install</h2>
 			<Markdown source={requirements} />
 			<Markdown source={installCommands} />
+			<div class="agent-install">
+				<button type="button" class="button" onclick={copyPrompt} aria-live="polite">
+					{copied ? 'Prompt copied' : 'Install with your LLM'}
+				</button>
+				<details>
+					<summary>The prompt</summary>
+					<pre><code>{agentPrompt}</code></pre>
+				</details>
+			</div>
 		</div>
 		<div class="install-run">
 			<h3 class="run-title">First run</h3>
@@ -364,7 +417,27 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 	</div>
 </section>
 
-<!-- 12. Not in scope -->
+<!-- 12. Agents -->
+<section class="band tight" id="agents" use:reveal>
+	<div class="page agents">
+		<h2>An agent can drive the repo.</h2>
+		<p>
+			<code>AGENTS.md</code> is the entry point: what the nodes do, which document answers which
+			question, and the procedures. Four commands are written as plain markdown that any harness can
+			follow, whether or not it has slash commands. An agent runs
+			<code>tools/doctor.py</code> first.
+		</p>
+		<p class="commands">
+			<code>/setup</code>
+			<code>/inspect-site</code>
+			<code>/track-workflow</code>
+			<code>/task</code>
+			<a href="{base}/docs/agent">The agent page</a>
+		</p>
+	</div>
+</section>
+
+<!-- 13. Not in scope -->
 <section class="band" id="scope" use:reveal>
 	<div class="page">
 		<h2>What this pack does not do.</h2>
@@ -377,20 +450,50 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 	</div>
 </section>
 
-<!-- 13. What is next -->
+<!-- 14. What is next -->
 <section class="band" id="next" use:reveal>
 	<div class="page next">
+		<h2>What's next</h2>
+		<Markdown source={whatsNext} />
+	</div>
+</section>
+
+<!-- 15. The state of it -->
+<section class="band" id="state" use:reveal>
+	<div class="page state">
 		<div>
-			<h2>What's next</h2>
-			<Markdown source={whatsNext} />
+			<h2>The pack is alpha, and it is built to be forked.</h2>
+			<p class="lede">
+				Adjust the nodes for your pipeline, or send the change back. Tell Kevin what breaks and what
+				is missing.
+			</p>
 		</div>
-		<div class="next-cta">
-			<p>Open an issue for the one you need, or for one that is not on the list.</p>
+		<div class="state-cta">
 			<a class="button" href={issues} rel="external">Open an issue</a>
-			<a class="button quiet" href={repo} rel="external">Read the source</a>
+			<a class="button quiet" href={author} rel="external">Message Kevin</a>
 		</div>
 	</div>
 </section>
+
+<!-- svelte-ignore a11y_click_events_have_key_events, a11y_no_noninteractive_element_interactions -->
+<dialog
+	class="viewer"
+	bind:this={box}
+	onclose={() => (shown = null)}
+	onclick={(event) => {
+		if (event.target === box) box.close();
+	}}
+>
+	{#if shown}
+		<p class="viewer-foot">
+			<code>{shown.title}</code>
+			<button type="button" class="button quiet" onclick={() => box.close()}>Close</button>
+		</p>
+		<div class="viewer-scroll">
+			<img src="{base}/media/{shown.name}.png" alt={shown.alt} />
+		</div>
+	{/if}
+</dialog>
 
 <style>
 	/* 1. Hero */
@@ -494,32 +597,20 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		font-size: 0.9375rem;
 	}
 
-	/* 4. SG Load, 7. Templates */
-	.split {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: clamp(2rem, 5vw, 4rem);
-		align-items: center;
-	}
-
-	.split.reverse .split-media {
-		order: -1;
-	}
-
-	.split-copy h2 {
-		margin-bottom: 1.1rem;
-	}
-
+	/* 4. SG Load */
 	.outputs {
-		margin: 1.75rem 0 0;
+		margin: 2rem 0 0;
 		padding-top: 1.25rem;
 		border-top: 1px solid var(--line);
+		display: grid;
+		grid-template-columns: max-content minmax(0, 1fr);
+		gap: 0.6rem 2rem;
+		align-items: baseline;
 	}
 
 	.outputs dt {
 		color: var(--muted);
 		font-size: 0.8125rem;
-		margin-bottom: 0.6rem;
 	}
 
 	.outputs dd {
@@ -527,6 +618,18 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		display: flex;
 		flex-wrap: wrap;
 		gap: 0.4rem;
+	}
+
+	/* 7. Templates */
+	.split {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+		gap: clamp(2rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.split-copy h2 {
+		margin-bottom: 1.1rem;
 	}
 
 	/* 6. Formats */
@@ -578,22 +681,96 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		margin-top: 0.7rem;
 		color: var(--muted);
 		font-size: 0.875rem;
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.6rem;
+	}
+
+	.gallery figcaption span {
+		font-size: 0.8125rem;
+	}
+
+	.thumb {
+		display: block;
+		width: 100%;
+		padding: 0;
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		background: var(--sunk);
+		overflow: hidden;
+		cursor: pointer;
+		transition: border-color 0.18s var(--ease);
+	}
+
+	.thumb:hover {
+		border-color: var(--muted);
+	}
+
+	.thumb img {
+		width: 100%;
+		height: auto;
+	}
+
+	/* The full graph, over the page. The image is shown at its own size and scrolls under a footer
+	   that keeps Close in reach. */
+	.viewer {
+		width: min(96vw, 1640px);
+		max-width: none;
+		max-height: 92vh;
+		padding: 0;
+		border: 1px solid var(--line);
+		border-radius: var(--r);
+		background: var(--surface);
+		color: var(--ink);
+		overflow: hidden;
+	}
+
+	.viewer[open] {
+		display: flex;
+		flex-direction: column;
+	}
+
+	.viewer::backdrop {
+		background: rgb(14 14 13 / 0.72);
+	}
+
+	.viewer-scroll {
+		overflow: auto;
+		padding: 0 0.75rem 0.75rem;
+	}
+
+	.viewer img {
+		width: 100%;
+		height: auto;
+		border-radius: var(--r-sm);
+	}
+
+	.viewer-foot {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		justify-content: space-between;
+		gap: 0.75rem;
+		margin: 0;
+		max-width: none;
+		padding: 0.75rem;
+		border-bottom: 1px solid var(--line);
 	}
 
 	/* 8. Storage */
 	.storage {
 		display: grid;
-		grid-template-columns: minmax(0, 1.35fr) minmax(0, 1fr);
+		grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
 		gap: clamp(2rem, 5vw, 4rem);
 		align-items: start;
-	}
-
-	.storage h2 {
-		margin-bottom: 1.1rem;
+		margin-top: 2.75rem;
+		padding-top: 2rem;
+		border-top: 1px solid var(--line);
 	}
 
 	.path {
-		margin: 2rem 0 1.75rem;
+		margin: 0 0 1.5rem;
 	}
 
 	.path figcaption {
@@ -604,11 +781,6 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		margin: 0;
 		font-size: 0.75rem;
 		white-space: pre;
-	}
-
-	.storage-shot {
-		position: sticky;
-		top: 96px;
 	}
 
 	/* 9. Signing in */
@@ -659,6 +831,28 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		margin-top: 1.5rem;
 	}
 
+	.agent-install {
+		margin-top: 1.75rem;
+		padding-top: 1.5rem;
+		border-top: 1px solid var(--line);
+	}
+
+	.agent-install summary {
+		margin-top: 1rem;
+		color: var(--muted);
+		font-size: 0.875rem;
+		cursor: pointer;
+	}
+
+	.agent-install pre {
+		margin: 0.75rem 0 0;
+		font-size: 0.75rem;
+	}
+
+	.agent-install pre code {
+		white-space: pre-wrap;
+	}
+
 	/* 11. The doctor */
 	.doctor {
 		display: grid;
@@ -701,31 +895,59 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		max-width: 44ch;
 	}
 
-	/* 13. What is next */
-	.next {
-		display: grid;
-		grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
-		gap: clamp(2rem, 5vw, 4rem);
-		align-items: start;
+	/* 12. Agents */
+	.agents p {
+		margin-top: 1.1rem;
 	}
 
+	.commands {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: baseline;
+		gap: 0.4rem 0.9rem;
+		margin-bottom: 0;
+	}
+
+	/* 14. What is next */
 	.next h2 {
 		margin-bottom: 1.25rem;
 	}
 
-	.next-cta {
-		border: 1px solid var(--line);
-		border-radius: var(--r);
-		background: var(--sunk);
-		padding: clamp(1.25rem, 2.4vw, 1.9rem);
-		display: flex;
-		flex-direction: column;
-		align-items: flex-start;
-		gap: 0.75rem;
+	/* Ten entries stack into a column too long to scan. */
+	.next :global(ul) {
+		columns: 2;
+		column-gap: clamp(2rem, 5vw, 4rem);
+		max-width: none;
+		margin-bottom: 0;
 	}
 
-	.next-cta p {
-		margin: 0 0 0.5rem;
+	.next :global(li) {
+		break-inside: avoid;
+		margin-bottom: 0.6rem;
+	}
+
+	/* 15. The state of it */
+	.state {
+		display: grid;
+		grid-template-columns: minmax(0, 1.5fr) minmax(0, 1fr);
+		gap: clamp(2rem, 5vw, 4rem);
+		align-items: center;
+	}
+
+	.state h2 {
+		margin-bottom: 1.1rem;
+	}
+
+	.state .lede {
+		margin: 0;
+		font-size: 1.125rem;
+		max-width: 46ch;
+	}
+
+	.state-cta {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
 	}
 
 	@media (max-width: 900px) {
@@ -736,7 +958,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		.paths,
 		.install,
 		.doctor,
-		.next,
+		.state,
 		.scope {
 			grid-template-columns: minmax(0, 1fr);
 		}
@@ -747,16 +969,26 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 			gap: 1.5rem;
 		}
 
-		.split.reverse .split-media {
-			order: 0;
+		.outputs {
+			grid-template-columns: minmax(0, 1fr);
+			gap: 0.3rem;
 		}
 
-		.storage-shot {
-			position: static;
+		.outputs dd:not(:last-child) {
+			margin-bottom: 0.9rem;
+		}
+
+		.next :global(ul) {
+			columns: 1;
 		}
 
 		.gallery {
 			grid-auto-columns: minmax(82%, 1fr);
+		}
+
+		.viewer {
+			width: 96vw;
+			padding: 0.5rem;
 		}
 	}
 </style>

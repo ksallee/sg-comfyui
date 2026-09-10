@@ -24,7 +24,7 @@ on anything that would stop a publish.
 
 ## The procedures
 
-`.claude/commands/` has three procedures. They are plain markdown with no Claude Code in them.
+`.claude/commands/` has four procedures. They are plain markdown with no Claude Code in them.
 Follow the file whether or not your harness has slash commands.
 
 | file | does |
@@ -32,6 +32,7 @@ Follow the file whether or not your harness has slash commands.
 | `.claude/commands/setup.md` | a first run, from the connection to the example workflow |
 | `.claude/commands/inspect-site.md` | measure one project and write `profile.local.json` |
 | `.claude/commands/track-workflow.md` | put the nodes into a graph the operator already uses |
+| `.claude/commands/task.md` | do a job against the API, grounded in the corpus |
 
 ## The launch page
 

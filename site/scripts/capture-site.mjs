@@ -81,7 +81,16 @@ const SHOTS = [
 	{ n: 11, page: '/', at: 'full', width: 1440, height: 900, scheme: 'dark' },
 	{ n: 12, page: '/', at: 'full', width: 375, height: 780, scheme: 'light' },
 	{ n: 13, page: '/docs/install/', at: 'full', width: 1440, height: 900, scheme: 'light' },
-	{ n: 14, page: '/docs/install/', at: 'full', width: 375, height: 780, scheme: 'dark' }
+	{ n: 14, page: '/docs/install/', at: 'full', width: 375, height: 780, scheme: 'dark' },
+	{ n: 15, page: '/', at: 'load', width: 1440, height: 900, scheme: 'light' },
+	{ n: 16, page: '/', at: 'templates', width: 1440, height: 900, scheme: 'light' },
+	{ n: 17, page: '/', at: 'storage', width: 1440, height: 1100, scheme: 'light' },
+	{ n: 18, page: '/', at: 'signing-in', width: 1440, height: 1100, scheme: 'dark' },
+	{ n: 19, page: '/', at: 'install', width: 1440, height: 1000, scheme: 'light' },
+	{ n: 20, page: '/', at: 'agents', width: 1440, height: 900, scheme: 'light' },
+	{ n: 21, page: '/', at: 'state', width: 1440, height: 900, scheme: 'dark' },
+	{ n: 22, page: '/', at: 'storage', width: 375, height: 780, scheme: 'light' },
+	{ n: 23, page: '/', at: 'state', width: 375, height: 780, scheme: 'light' }
 ];
 
 const browser = await chromium.launch();
@@ -100,8 +109,9 @@ for (const shot of SHOTS) {
 	await page.goto(origin + shot.page, { waitUntil: 'networkidle' });
 	await page.waitForTimeout(500);
 
-	if (shot.at === 'provenance') {
-		await page.locator('#provenance').scrollIntoViewIfNeeded();
+	// Anything but 'hero' and 'full' names a section id on the page.
+	if (shot.at !== 'hero' && shot.at !== 'full') {
+		await page.locator(`#${shot.at}`).scrollIntoViewIfNeeded();
 		await page.waitForTimeout(900);
 	}
 
