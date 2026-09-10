@@ -110,10 +110,9 @@ def _explain(resp):
         return f"The site answered {resp.status_code}. {resp.text[:160]}"
 
     if "schema_field_create() failed" in title:
-        return (f"The name is already used by a field in the trash. Rename this field in "
-                f"fields.py, changing its display name, then run again. Deleting a field never "
-                f"frees its name, and trashed fields cannot be listed (probe 019). "
-                f"The site said {title}")
+        return (f"This display name is taken. Rename the field in fields.py, changing its "
+                f"display name, then run again. Deleting a field never frees its name, and "
+                f"trashed fields cannot be listed (probe 019). The site said {title}")
     if "Only true or false" in title:
         return f"A checkbox needs a default_value property. Add one in fields.py, then run again. "\
                f"The site said {title}"
