@@ -27,7 +27,7 @@ await pause(1400);
 const saved = (document.querySelector(".sg-panel")?.innerText || "")
   .replace(/\n/g, " | ").slice(0, 240);
 
-// A 4K plate of 120 frames, pinned. The node says how many frames fit before anything is run.
+// A 4K plate of 120 frames, pinned. The node draws how many frames fit before anything is run.
 const real = window.fetch.bind(window);
 const RESOLVE = {
   id: 31875, code: "chr_010_comp_v006", why: "pinned by id",

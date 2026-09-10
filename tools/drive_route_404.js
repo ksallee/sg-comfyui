@@ -1,5 +1,5 @@
-// Checks what the node says when the /sg routes are not registered, as after the pack is updated
-// without a restart.
+// Checks the sentence the node draws when the /sg routes are not registered, as after the pack is
+// updated without a restart.
 // Answers the /sg routes here with a 404 page, as the server does. No site is read.
 //   tools/qa_node.py --start --repo . --node SGPublishVersion --drive tools/drive_route_404.js
 const real = window.fetch.bind(window);
