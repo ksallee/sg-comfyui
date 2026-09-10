@@ -92,7 +92,7 @@ Every string a person reads — a node error, a panel line, an alert, a tooltip 
 - **Use the words on screen.** `Tick Create Published Files`, never `register_files`.
 - **No internal vocabulary.** Not "single-valued", not "the truth table", not "a Version holds one
   piece of media". The operator does not have the docs open.
-- Full sentences, sentence case, a full stop. No em-dash chains and no clause stacked on clause.
+- Full sentences, sentence case, a full stop. No em dashes and no clause stacked on clause.
 - **A tooltip** says what the widget sets, in one sentence, plus an example where the format is not
   obvious from the name.
 - Diagnostic detail — a status code, a server body, a path — comes after the plain sentence, never
@@ -112,6 +112,7 @@ report is reference material. The reader scans it; nobody reads it through.
 - Name, then value. `Requires ComfyUI 0.34.0.` Not `ComfyUI 0.34.0 or newer, which is where the
   encoder lives, so an older one has nothing to write with.`
 - No rhetorical setup, no metaphor, no `the single way this fails quietly`, no `in other words`.
+- No em dashes, anywhere. A full stop or a comma.
 - A command is a fenced block with nothing before it but the heading and one line saying when.
 
 - **Docstrings** are one short sentence saying what the thing does. A parameter gets a short phrase
