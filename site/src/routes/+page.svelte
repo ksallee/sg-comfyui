@@ -37,6 +37,12 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		}
 	];
 
+	const firstRunGraph = {
+		name: 'example-workflow',
+		title: '00_example',
+		alt: 'The 00_example template open in ComfyUI after a Run'
+	};
+
 	// A graph is unreadable at thumbnail size. The full PNG opens in a modal dialog, which Escape
 	// and the backdrop both close.
 	let shown = $state(null);
@@ -396,11 +402,17 @@ Then offer to run /setup.`;
 			<p class="note">
 				Restart ComfyUI to install or upgrade the pack. A profile edit is read on a browser refresh.
 			</p>
-			<Shot
-				name="example-workflow"
-				alt="The 00_example template open in ComfyUI after a Run"
-				caption="Step 6 opens this graph."
-			/>
+			<figure class="run-shot">
+				<button
+					type="button"
+					class="thumb"
+					aria-label="Open the 00_example graph at full size"
+					onclick={() => enlarge(firstRunGraph)}
+				>
+					<img src="{base}/media/example-workflow.png" alt={firstRunGraph.alt} width="1540" height="903" loading="lazy" />
+				</button>
+				<figcaption>Step 6 opens this graph. Click it for full size.</figcaption>
+			</figure>
 		</div>
 	</div>
 </section>
@@ -684,6 +696,11 @@ Then offer to run /setup.`;
 		scroll-snap-align: start;
 	}
 
+	.run-shot {
+		margin: 1.5rem 0 0;
+	}
+
+	.run-shot figcaption,
 	.gallery figcaption {
 		margin-top: 0.7rem;
 		color: var(--muted);
@@ -891,9 +908,7 @@ Then offer to run /setup.`;
 		display: grid;
 		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 1.5rem 3rem;
-		margin-top: 2.25rem;
-		padding-top: 2rem;
-		border-top: 1px solid var(--line);
+		margin-top: 1.5rem;
 	}
 
 	.scope p {
