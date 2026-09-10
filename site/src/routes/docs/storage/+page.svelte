@@ -14,7 +14,7 @@
 	other path.
 </p>
 
-<h2>Copy, never move</h2>
+<h2>Copying</h2>
 <ul>
 	<li>ComfyUI writes the frames to its own output directory. The node copies them under the root.</li>
 	<li>Originals are never moved.</li>
@@ -28,7 +28,7 @@
 	caption="A missing, read-only or unmounted root refuses before the Run and names the root."
 />
 
-<h2>The two templates</h2>
+<h2>Path templates</h2>
 <p>Sequence path and Movie path, under Settings, then SG, SG Publish Defaults.</p>
 <pre><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}
 {'{entity}/{root_name}/{version_name}{ext}'}</code></pre>

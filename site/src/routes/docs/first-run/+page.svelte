@@ -11,7 +11,6 @@
 </svelte:head>
 
 <h1>First run</h1>
-<p class="lede">Eight steps, from the Settings dialog to a published Version.</p>
 
 <Markdown source={firstRun} />
 

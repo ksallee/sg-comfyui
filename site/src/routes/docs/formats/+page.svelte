@@ -15,7 +15,7 @@
 	ComfyUI's decoder.
 </p>
 
-<h2>The three frame formats</h2>
+<h2>Frame formats</h2>
 <table>
 	<thead>
 		<tr><th scope="col">format</th><th scope="col">what it is for</th></tr>

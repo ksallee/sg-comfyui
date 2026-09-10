@@ -10,7 +10,7 @@
 
 <h1>Docs</h1>
 <p class="lede">
-	Nine pages. The same text is in <code>README.md</code>, <code>INSTALL.md</code>
+	The same text is in <code>README.md</code>, <code>INSTALL.md</code>
 	and <code>AGENTS.md</code>.
 </p>
 
