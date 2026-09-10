@@ -283,7 +283,7 @@ Then offer to run /setup.`;
 		<div class="wide-media">
 			<Shot
 				name="settings-storage-paths"
-				alt="The SG page of ComfyUI settings, showing the storage, the operating system and the sequence and movie path templates"
+				alt="The SG page of ComfyUI settings, showing the storage, the sequence and movie path templates, and the Path to Frames and Path to Movie toggles"
 				caption="Settings, then SG. Each template shows what it renders to under the root."
 			/>
 		</div>
@@ -303,8 +303,10 @@ Then offer to run /setup.`;
 					the same paths.
 				</p>
 				<p>
-					Settings, then SG, Operating system sets the notation the path is written in, so a mac
-					publish can write a Windows path.
+					A PublishedFile path is stored against the storage root, so the site resolves it on every
+					operating system the root is mapped for. Path to Frames and Path to Movie are optional
+					Version fields, one string each, written in the notation of the operating system picked
+					under Settings, then SG.
 				</p>
 			</div>
 			<table>
