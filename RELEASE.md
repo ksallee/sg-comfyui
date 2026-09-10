@@ -13,8 +13,9 @@ and `AGENTS.md`.
    To look at: the Load outputs in the new order; the task and status pickers; the pre-run panel's
    client row; README with its three pictures; the clips in `~/Desktop/sg-comfyui-clips-2026-09-10/`;
    the screenshots in `~/Desktop/sg-comfyui-checkpoint-2026-09-10/`.
-2. **The launch page.** The brief is `docs/launch-page-brief.md`. The skill is
-   `.claude/skills/taste-skill/`. Inputs: the clips folder, the checkpoint folder, README.
+2. **The launch page, built (#113).** Review the captures in `~/Desktop/sg-comfyui-site-2026-09-10/`
+   or run `npm run dev` in `site/`. To publish: GitHub Pages set to the `gh-pages` branch, then
+   `pages.yml` by hand or a push to `main`. `BASE_PATH` is `/sg-comfyui`; a custom domain needs `/`.
 3. **Release.** GitHub release from `main` first. The Registry later. Both Kevin's.
 4. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
 
@@ -54,6 +55,10 @@ since #80. Offline suite: 246 passed, 11 skipped.
   claim: a Version has one uploaded media file (probe 022); `sg_path_to_frames` and
   `sg_path_to_movie` are path references; a sequence registers as a PublishedFile linked to the Version.
 - #111 `tools/` as reference prose: drive headers, harness docstrings, the experiment notes (10,969 words to 8,480).
+- #113 The launch page under `site/`: SvelteKit 2.70 static, fourteen sections, nine docs pages, five
+  clips, Geist self-hosted, no analytics. `site.yml` checks the four README blocks and builds on every
+  push. `pages.yml` deploys to `gh-pages` by hand or on a push to `main`. Fourteen captures in
+  `~/Desktop/sg-comfyui-site-2026-09-10/`.
 
 **Sandbox project 1180.** Version 31995 keeps its row (drives pin it); its lineage is cleared.
 Retired: five unlinked probe rows, 32001 (Windows path notation from a mac publish), and every
@@ -109,7 +114,7 @@ deny on `.env.local` ships. Version stays 0.1.0.
 ## Before the first release
 
 1. **Kevin's QA on `dev`**, item 1 above.
-2. **The launch page**, from `docs/launch-page-brief.md`.
+2. **The launch page**: review and publish, item 2 above.
 3. **Registry mechanics**, Kevin's, after the GitHub release: `PublisherId`, `Icon` (400x400 or
    smaller, square), `Banner` (21:9) in `pyproject.toml`; `comfy node pack` and `unzip -l` to check the
    archive has `src`, `web`, `example_workflows`, the docs, `pyproject.toml`, `requirements.txt`;
