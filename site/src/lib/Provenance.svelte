@@ -1,55 +1,8 @@
 <script>
 	import Shot from '$lib/Shot.svelte';
 	import { provenance } from '$lib/site.js';
-	import { onMount } from 'svelte';
-
-	// The one pinned section on the page. It keeps the section in place and steps the highlight down
-	// the nine fields, so each field name and its source is read before the next arrives.
-
-	let wrap = $state(null);
-	let active = $state(0);
-	let pinned = $state(false);
-
-	onMount(() => {
-		if (!wrap) return;
-		if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-		if (window.matchMedia('(max-width: 900px)').matches) return;
-
-		let context;
-		let cancelled = false;
-
-		(async () => {
-			const { gsap } = await import('gsap');
-			const { ScrollTrigger } = await import('gsap/ScrollTrigger');
-			if (cancelled || !wrap) return;
-			gsap.registerPlugin(ScrollTrigger);
-			pinned = true;
-
-			context = gsap.context(() => {
-				ScrollTrigger.create({
-					trigger: wrap,
-					start: 'top top',
-					end: () => `+=${provenance.length * 240}`,
-					pin: true,
-					scrub: true,
-					invalidateOnRefresh: true,
-					onUpdate(self) {
-						const step = Math.floor(self.progress * provenance.length);
-						active = Math.min(provenance.length - 1, Math.max(0, step));
-					}
-				});
-			}, wrap);
-		})();
-
-		return () => {
-			cancelled = true;
-			context?.revert();
-			pinned = false;
-		};
-	});
 </script>
-
-<section class="band" class:stepping={pinned} id="provenance" bind:this={wrap}>
+<section class="band" id="provenance">
 	<div class="page grid">
 		<div class="side">
 			<h2>Provenance</h2>
@@ -72,8 +25,8 @@
 		</div>
 
 		<ol class="fields">
-			{#each provenance as [label, name, from], index (name)}
-				<li class:on={!pinned || index === active}>
+			{#each provenance as [label, name, from] (name)}
+				<li>
 					<span class="head">
 						<span class="label">{label}</span>
 						<code>{name}</code>
@@ -145,33 +98,9 @@
 		font-size: 0.875rem;
 	}
 
-	.stepping {
-		min-height: 100dvh;
-		display: grid;
-		align-items: center;
-		padding-block: 4rem;
-	}
-
-	.stepping li {
-		opacity: 0.32;
-		transition: opacity 0.35s var(--ease), border-color 0.35s var(--ease);
-	}
-
-	.stepping li.on {
-		opacity: 1;
-		border-left-color: var(--accent);
-	}
-
 	@media (max-width: 900px) {
 		.grid {
 			grid-template-columns: minmax(0, 1fr);
-		}
-	}
-
-	@media (prefers-reduced-motion: reduce) {
-		.stepping li {
-			opacity: 1;
-			transition: none;
 		}
 	}
 </style>

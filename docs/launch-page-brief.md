@@ -9,7 +9,7 @@ Tracking as Versions with the model, prompt, seed, sampler and workflow that mad
 that media back into a graph. The audience runs ComfyUI and has a Flow Production Tracking site.
 They judge the page on the clips.
 
-- SvelteKit 2.70, `adapter-static`, GitHub Pages from a `gh-pages` branch.
+- SvelteKit 2.70, `adapter-static`, GitHub Pages from a `gh-pages` branch. No scroll-pinned section.
 - Sources under `site/`.
 - Fourteen sections, hero to footer, and nine docs pages.
 - Four blocks copied from `README.md`, diffed in CI.
@@ -25,7 +25,7 @@ Invoke with `Skill(skill="taste-skill")`. Work through it in its order: the Desi
 the process.
 
 Design Read to confirm or argue with: a developer-tool launch for pipeline TDs and VFX artists,
-restrained technical-editorial, native CSS in SvelteKit, self-hosted type, one pinned scroll section.
+restrained technical-editorial, native CSS in SvelteKit, self-hosted type, no pinned scroll section.
 Dials: `DESIGN_VARIANCE 6`, `MOTION_INTENSITY 5`, `VISUAL_DENSITY 4`.
 
 ## Inputs
@@ -54,8 +54,7 @@ Nothing is fetched from a third party at runtime.
    also appears in the product, the docs or a command. Keep the skill's own bans: no "Elevate",
    "Seamless", "Unleash", no invented numbers, no fake screenshots built from divs.
 
-Keep unchanged: the Pre-Flight Check; section 6.B reduced motion; sections 5.A and 5.B GSAP
-ScrollTrigger skeletons for the one pinned section; 5.D forbidden animation patterns; 4.7 layout
+Keep unchanged: the Pre-Flight Check; section 6.B reduced motion; 5.D forbidden animation patterns; 4.7 layout
 discipline; 4.9 content density; 6.C and 8 dark mode; 13 out of scope.
 
 ## Sections
@@ -81,7 +80,7 @@ space, storage and paths, troubleshooting, the agent page.
 ## Done means
 
 - Every Pre-Flight Check box ticked.
-- `prefers-reduced-motion: reduce` gives no pinned section, no parallax, no autoplay.
+- `prefers-reduced-motion: reduce` gives no parallax and no autoplay.
 - Every clip has a poster frame, `muted`, `playsinline`, a pause control.
 - No network request leaves the origin on a cold load.
 - The four README blocks are byte-identical to `README.md`, checked in CI.
