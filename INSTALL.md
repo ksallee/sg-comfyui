@@ -69,8 +69,8 @@ PYTHONPATH=src <comfy-python> -m comfyui_sg.fields
 - It imports no torch.
 - It reads a script key from `.env.local`, never from Settings.
 - That key needs permission to create fields on Version. Most artist accounts do not have it.
-- Field names are permanent. A deleted field frees the field and never its name, and trashed fields
-  cannot be listed, so a name spent here is spent site-wide forever (probe 019).
+- Field names are permanent. Deleting a field frees the field, never its name. Trashed fields cannot
+  be listed, so a name spent here is spent site-wide forever (probe 019).
 - Pointing the profile's `provenance.map` at fields your studio already has is the preferred move.
 
 ## Colour management
@@ -150,7 +150,7 @@ by value. On a farm, put the same three keys in the launch environment instead.
 ## Measuring a site without an agent
 
 `/inspect-site` is a procedure an agent follows. The inspector under it is a script in the
-`sg-groundtruth` checkout, and you can run it yourself.
+`sg-groundtruth` checkout. Run it yourself instead.
 
 Clone that checkout anywhere except `custom_nodes`, where ComfyUI would load it as a node pack:
 
