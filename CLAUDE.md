@@ -39,7 +39,7 @@ neither torch nor a route to the site.
 
 Operation is `README.md`. The recurring jobs are slash commands: `/inspect-site` writes
 `profile.local.json`, which is gitignored and which every picker reads; without it the pickers run
-on the site's defaults, which carry a Shot-linked show. `/track-workflow` puts the nodes into a
+on the site's defaults, which link the show to a Shot. `/track-workflow` puts the nodes into a
 graph the operator already uses. `tools/doctor.py` is the offline check, run as a file.
 
 `tests/` runs with no site, no ComfyUI and no torch: `uv run --with pytest --with numpy --with Pillow
@@ -64,7 +64,7 @@ Where each piece of provenance lands in Flow Production Tracking is the operator
 **`widgets_values` is positional.** A widget inserted, removed or reordered displaces every value below it
 in every graph already saved, silently. Append, never insert, and never remove. The order is declared
 once, in `widgets.py`; `INPUT_TYPES`, `instrument.py` and the editor's `DECLARED` derive from it, and every
-`*.json` under `example_workflows/` and `tools/workflows/` carries one value per declared widget, so a new
+`*.json` under `example_workflows/` and `tools/workflows/` has one value per declared widget, so a new
 widget means a new value in every shipped graph in the same commit. `tests/test_widget_order.py` proves
 the order and the fixtures offline; `tools/smoke.py` proves the round trip, because only loading a saved
 graph in a real ComfyUI shows the shift. **An output is positional too**: a saved graph names a slot
@@ -114,6 +114,10 @@ report is reference material. The reader scans it; nobody reads it through.
 - No rhetorical setup, no metaphor, no `the single way this fails quietly`, no `in other words`.
 - No em dashes, anywhere. A full stop or a comma.
 - A command is a fenced block with nothing before it but the heading and one line saying when.
+- A claim is short and exact. `A Version has one uploaded media file.` Not `a Version carries one
+  piece of media`. Not `roughly`, `generally`, `tends to`, `more or less`.
+- `carry`, `carries`, `carrying` are banned. Say the exact relation: has, records, lists, links to,
+  is set to, points at.
 
 - **Docstrings** are one short sentence saying what the thing does. A parameter gets a short phrase
   only where its name does not already say it. A function whose behaviour is genuinely not
