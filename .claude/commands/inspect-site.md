@@ -9,7 +9,7 @@ which statuses it uses. Without it the pickers run on the site's own defaults, w
 links Versions to Shots. This command measures the show and writes the file.
 
 The inspector is **not in this repo**. It is in the corpus checkout,
-`../sg-groundtruth/inspect_site.py`, which is the repo that owns site measurement. Run it from here.
+`../sg-groundtruth/inspect_site.py`, which is the repo that owns site measurement. Run it as it is.
 Do not copy it, do not fork it, do not add a wrapper here.
 
     <comfy-python> ../sg-groundtruth/inspect_site.py                        list projects
@@ -26,7 +26,7 @@ the file has to be written where the nodes read it: run `tools/doctor.py` first 
 prints. A profile in ComfyUI's protected user directory is read instead of one in the pack directory,
 so writing to the wrong one leaves the report looking right and nothing changed.
 
-1. **List first, always.** Run with no `--project` and read the ids and names back. Do not guess which
+1. **List first.** Run with no `--project` and read the ids and names back. Do not guess which
    show they meant from a partial name.
 2. `--project <id> --out <profile path>`. It prints a report and then writes. Both matter; the
    report is the evidence for what it wrote.

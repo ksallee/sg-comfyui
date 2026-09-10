@@ -94,12 +94,11 @@ Paths, the command-line tools, the profile key by key and the fixes are in [INST
 8. Press **Run**.
 
 A farm enters a Script name and Application key under Script Authentication instead of step 3.
-`/setup` runs the first run with an agent.
+An agent follows the same steps with `/setup`.
 
 ![The 00_example template](docs/images/example-workflow.png)
 
-Restart ComfyUI only to install or upgrade the pack. A profile edit is read on a browser
-refresh.
+Restart ComfyUI only to install or upgrade the pack. A profile edit is read on a browser refresh.
 
 ## How it works
 

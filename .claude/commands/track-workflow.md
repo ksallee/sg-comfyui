@@ -4,8 +4,8 @@ description: Add Flow Production Tracking tracking to a ComfyUI workflow the ope
 
 Workflow: $ARGUMENTS
 
-Their graph already works. You are adding tracking to it, not redesigning it. The script does the
-graph surgery; you ask the questions and explain the result.
+Their graph already works. You are adding tracking to it, not redesigning it. The script edits the
+graph. You ask the questions and explain the result.
 
 1. `python src/comfyui_sg/instrument.py <workflow.json>` analyses and writes nothing. Run it from
    the pack directory. It needs no `PYTHONPATH`, no credentials and no profile.
