@@ -69,7 +69,7 @@ def test_16_bit_rgb_keeps_every_level(tmp_path):
 
 
 def test_pillow_loses_what_the_decoder_keeps(tmp_path):
-    """The same two files through Pillow, which is why it is not on this path."""
+    """Pillow reads the same two files as two levels and as full white, so it is off this path."""
     np = pytest.importorskip("numpy")
     Image = pytest.importorskip("PIL.Image")
     rgb = write(tmp_path, "rgb16.png", ramp(channels=3), "png", "16-bit")
@@ -104,7 +104,7 @@ def test_rgba_comes_back_with_its_alpha(tmp_path):
     images, alpha = media._components(write(tmp_path, "a.png", rgba, "png", "8-bit"), "a.png")
     assert tuple(images.shape) == (1, H, W, 3)
     assert tuple(alpha.shape) == (1, H, W, 1)
-    # The node's own rule, which is ComfyUI's convention.
+    # The node's own rule: the mask is `1 - alpha`, ComfyUI's own convention.
     mask = 1.0 - alpha[..., -1]
     assert tuple(mask.shape) == (1, H, W)
     assert float(mask.mean()) == pytest.approx(0.75, abs=1 / 255.0)

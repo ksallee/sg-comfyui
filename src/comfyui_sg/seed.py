@@ -1,15 +1,14 @@
 """Publish a file that is already on disk as a Version.
 
-Setup path. A chain has to start somewhere: a graph that reads its plate from ComfyUI's `input/`
-cannot be pointed at SG until that plate is *in* SG, so `/track-workflow` offers this
-before it replaces a loader.
+Setup path. A graph that reads its plate from ComfyUI's `input/` cannot be pointed at SG until that
+plate is in SG, so `/track-workflow` offers this before it replaces a loader.
 
-Naming, link, task and version-number resolution are the publish node's own — `version_name` is
+Naming, link, task and version-number resolution are the publish node's own. `version_name` is
 called here rather than reimplemented, so a seeded Version follows the show's convention like any
 other.
 
-It writes no AI fields by design: a file on disk does not say how it was made, so the Version reads
-as `unrecorded` (media.provenance_state) rather than claiming a provenance nobody measured.
+Writes no AI fields. A file on disk does not say how it was made, so the Version reads as
+`unrecorded` (media.provenance_state) rather than claiming a provenance nobody measured.
 """
 import argparse
 from pathlib import Path
@@ -24,7 +23,7 @@ def seed(path, project="", link="", task="", code="", template="", status="", no
     sg = site.client()
 
     # The node's own resolution, so a seeded Version links the way every other one does: the label
-    # carries its own type — `sh010 (Shot)` — and a bare name falls back to the project's default
+    # carries its own type, `sh010 (Shot)`, and a bare name falls back to the project's default
     # rather than assuming one (probe 005).
     ctx = site.context(project, link, task, status)
     project_id, p, link_type = ctx.project_id, ctx.profile, ctx.link_type

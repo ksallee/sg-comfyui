@@ -57,7 +57,7 @@ def test_a_concept_mapped_to_nothing_is_recorded_nowhere():
 
 
 def test_a_field_already_on_the_site_is_not_created_again(fake_sg):
-    """probe 019 — a display name that exists is silently created a second time as <name>_1."""
+    """probe 019: a display name that exists is silently created a second time as <name>_1."""
     have = {n: {"data_type": {"value": "text"}} for n in fields.names().values()}
     fake_sg.answer("get", "/schema/Version/fields", {"data": have})
     present, created, failed = fields.ensure(fake_sg)

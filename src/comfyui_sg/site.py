@@ -1,14 +1,14 @@
 """The site profile and the cached live lookups the node's pickers read.
 
 Who the client is comes from `credentials`: the signed-in person, else the script key. Nothing here
-writes os.environ: ComfyUI is a long-lived process shared with every other installed custom node, and
-anything in its environment is readable by all of them. Values are never logged; an error names the
-missing key, never its value.
+writes os.environ. ComfyUI is a long-lived process shared with every other installed custom node,
+and anything in its environment is readable by all of them. Values are never logged, and an error
+names the missing key, never its value.
 
-Everything here is setup path — it serves the editor, never the publish path. All of it is cached and
-all of it fails soft, because INPUT_TYPES is re-evaluated on every /object_info request
-(server.py:756), which is every page load and every node search, and a node that cannot reach the
-site must still load or the operator cannot open a graph containing it.
+Everything here is setup path: it serves the editor, never the publish path. All of it is cached and
+all of it fails soft. INPUT_TYPES is re-evaluated on every /object_info request (server.py:756),
+which is every page load and every node search, and a node that cannot reach the site must still
+load or the operator cannot open a graph containing it.
 """
 import datetime
 import json
@@ -27,15 +27,15 @@ from . import credentials
 ROOT = Path(__file__).resolve().parents[2]
 PROFILE_NAME = "profile.local.json"
 
-# probe 004 — _search rejects application/json with 415 and demands a vendor type.
+# probe 004. _search rejects application/json with 415 and demands a vendor type.
 ARRAY_JSON = {"Content-Type": "application/vnd+shotgun.api3_array+json"}
-# probe 030 — boolean logic needs the hash type. api3_array's flat list is an implicit `and` and has
-# no spelling for `or`; api3_hash takes {"logical_operator", "conditions"} and expresses both, nested.
+# probe 030. Boolean logic needs the hash type. api3_array's flat list is an implicit `and` and has
+# no spelling for `or`. api3_hash takes {"logical_operator", "conditions"} and expresses both, nested.
 HASH_JSON = {"Content-Type": "application/vnd+shotgun.api3_hash+json"}
 
-# Setup-path data — projects, entities, statuses, schema — changes when someone edits the site, not
+# Setup-path data (projects, entities, statuses, schema) changes when someone edits the site, not
 # while a graph is open. Every lookup here runs inside INPUT_TYPES, which ComfyUI re-runs on every
-# /object_info, so the TTL is long: the largest endpoint in the app costs ~4s cold, and paying that
+# /object_info, so the TTL is long. The largest endpoint in the app costs ~4s cold, and paying that
 # on a page load reads as ComfyUI hanging. The "Sync from SG" button forces a read.
 TTL = 600.0
 _cache = {}
@@ -59,7 +59,7 @@ def filter_headers(filters):
 def _is(field, entity_type, entity_id):
     """One `is` filter on an entity field.
 
-    probe 017 — an entity field filters on a FULL {type, id} hash; {id} alone and a bare int both 400.
+    probe 017. An entity field filters on a FULL {type, id} hash. {id} alone and a bare int both 400.
     """
     return [field, "is", {"type": entity_type, "id": int(entity_id)}]
 
@@ -79,7 +79,7 @@ def _pairs(rows, field):
 
 
 def _coded(rows):
-    """(code, status, id) — the shape every Version picker consumes."""
+    """(code, status, id), the shape every Version picker consumes."""
     return [(d["attributes"].get("code") or "", d["attributes"].get("sg_status_list") or "", d["id"])
             for d in rows]
 
@@ -121,9 +121,9 @@ def save_profile(data):
 def set_default(project_id, key, value):
     """Write one profile value for a project, `key` dotted into nested blocks.
 
-    An empty value removes the key, so the site-wide value shows through again; False is kept,
-    because a toggle whose default is on has to be able to say no. `default_project`
-    is site-wide by nature and is written at the top whatever project is open.
+    An empty value removes the key, so the site-wide value shows through again. False is kept: a
+    toggle whose default is on has to be able to say no. `default_project` is site-wide and is
+    written at the top whatever project is open.
     """
     data = profile()
     if key == "default_project":
@@ -151,9 +151,9 @@ def for_project(project_id=None):
     """The profile values in force for one project.
 
     Top-level keys are the site default; a `projects: {"<id>": {...}}` block overrides them per show.
-    This is what lets two graphs open in one ComfyUI publish into two projects that link Versions
-    differently: `link_type` and `link_field` resolve from the project picked on the node, never from
-    one global setting.
+    `link_type` and `link_field` resolve from the project picked on the node, never from one global
+    setting, so two graphs open in one ComfyUI publish into two projects that link Versions
+    differently.
     """
     p = profile()
     out = {k: v for k, v in p.items() if k != "projects"}
@@ -162,9 +162,9 @@ def for_project(project_id=None):
 
 
 def provenance_map(project_id=None):
-    """(mapping, mode) — where this show wants each piece of provenance to land.
+    """(mapping, mode): where this show wants each piece of provenance to land.
 
-    Per project like everything else here: a field one show uses for the seed may mean something
+    Per project like everything else here. A field one show uses for the seed may mean something
     else on the next.
     """
     block = for_project(project_id).get("provenance") or {}
@@ -174,7 +174,7 @@ def provenance_map(project_id=None):
 def _cached(key, fetch, empty=()):
     """The cached answer, the stale one, or `empty`.
 
-    `empty` has to be the shape the caller expects: a dict caller handed a list reads in the editor
+    `empty` has to be the shape the caller expects. A dict caller handed a list reads in the editor
     as `'list' object has no attribute 'get'`, which is a Python error in a picker.
     """
     hit = _cache.get(key)
@@ -207,8 +207,8 @@ def forget_all():
 def warm():
     """Fill the setup caches in a background thread at import, off the first page load.
 
-    Failures are ignored — _cached already guarantees an unreachable site still lets the editor open.
-    This only decides when the waiting happens.
+    Failures are ignored. _cached already guarantees an unreachable site still lets the editor open,
+    so this only decides when the waiting happens.
     """
     def run():
         try:
@@ -224,8 +224,8 @@ def warm():
 
 
 # A project row is drawn the way SG draws one: thumbnail, name, code. `code` is a second unique
-# text field, set on a minority of shows (entity_types/Project), and `image` is a presigned S3 URL,
-# re-signed on every read and good for ~900s from that read (field_types/image) — longer than TTL, so
+# text field, set on a minority of shows (entity_types/Project). `image` is a presigned S3 URL,
+# re-signed on every read and good for ~900s from that read (field_types/image), longer than TTL, so
 # a cached row's URL is still live and a stale one degrades to a blank tile. This prefix means the
 # thumbnail is still transcoding and would render as a placeholder, so it is dropped rather than shown.
 PENDING = "/images/status/transient/"
@@ -234,10 +234,9 @@ PENDING = "/images/status/transient/"
 def project_cards():
     """{name, id, code, image} for projects worth publishing into.
 
-    probe 018 — do NOT filter on sg_status: it is null on most real projects, this sandbox included,
+    probe 018. Do NOT filter on sg_status: it is null on most real projects, this sandbox included,
     so `sg_status is Active` hides working shows. The checkboxes are the reliable discriminators.
-    Demo projects are excluded because publishing into the shipped demo show is never the intent; set
-    `show_all_projects` in the profile to see everything.
+    Demo projects are excluded. Set `show_all_projects` in the profile to see everything.
     """
     show_all = bool(profile().get("show_all_projects"))   # site-wide: it is about the picker, not a show
 
@@ -277,7 +276,7 @@ def link_types(project_id, limit=100):
 
     `Version.entity` accepts 15 types site-wide (Asset, Shot, Sequence, Level, MocapTake, Reel,
     ShootDay, Delivery, Launch, Camera, Slate, SourceClip and three CustomEntity slots), so a single
-    link type was never SG's model — one show hangs Versions off Shots, another off Assets, and
+    link type was never SG's model. One show hangs Versions off Shots, another off Assets, and
     plenty use several at once. Searching all 15 is slow and mostly empty, so this asks what the show
     does and searches that. `link_types` in the profile overrides it.
     """
@@ -299,14 +298,14 @@ def link_types(project_id, limit=100):
         return [t for t, _ in sorted(seen.items(), key=lambda kv: -kv[1])]
 
     # Observed first, then the common containers. Observation alone is circular: a brand new Asset
-    # cannot be picked because no Version points at one yet, which is exactly when you need to.
+    # cannot be picked while no Version points at one.
     out = list(_cached(("link_types", int(project_id)), fetch))
     for t in (p.get("link_type", "Shot"), "Shot", "Asset", "Sequence"):
         if t and t not in out:
             out.append(t)
     # Keep only what the field will actually accept. Old rows can point at a type the schema no
-    # longer allows — this site has Versions on Project, which is not in valid_types — and offering
-    # it would produce a picker that cannot be written back.
+    # longer allows: this site has Versions on Project, which is not in valid_types. Offering it
+    # would produce a picker that cannot be written back.
     allowed = valid_link_types(project_id)
     return [t for t in out if t in allowed] or out
 
@@ -337,8 +336,8 @@ def unset(value):
 
 def link_type_choices(project_id):
     """What the link_type combo offers: no restriction, what this show uses, then the rest the field
-    accepts. A type nothing links to yet still has to be pickable — that is precisely the case when a
-    show is starting."""
+    accepts. A type nothing links to yet still has to be pickable, which is the case when a show is
+    starting."""
     used = link_types(project_id)
     rest = [t for t in valid_link_types(project_id) if t not in used]
     return [ALL_TYPES] + used + sorted(rest)
@@ -352,12 +351,12 @@ def chosen_types(link_type, project_id):
 
 
 def links(project_id, q="", types=None):
-    """(label, type, id) — the whole list, for ComfyUI's own dropdown to search.
+    """(label, type, id) for the whole list, for ComfyUI's own dropdown to search.
 
-    Narrowing belongs to `link_type`, not to a second search box: the editor's dropdown is already
+    Narrowing belongs to `link_type`, not to a second search box. The editor's dropdown is already
     searchable, and a bespoke one beside it would filter by plain substring over what is loaded. So
     this returns everything for the chosen type, or for every type the show uses when none is chosen,
-    sorted by name because a browsable list should be predictable.
+    sorted by name.
     """
     if not project_id:
         return []
@@ -372,17 +371,17 @@ def links(project_id, q="", types=None):
 
 
 # What this client asks for: a typeahead's worth. The endpoint's own ceiling is not measured, so
-# this is a cap we set and not one the site imposes.
+# this is a cap set here and not one the site imposes.
 TEXT_SEARCH_ROWS = 25
 
 
 def text_search(project_id, text, types):
     """(label, type, id) for words typed into a picker: one call across every type.
 
-    endpoint post_entity_text_search — the site's own search: every word must appear in the name,
-    anywhere in it and in any case, so `sbx 020` finds sbx_0020. One request for all the types
-    the show uses, where a `contains` filter per type cost one round trip each. The text must not
-    be empty, so the list on open still comes from `entities`.
+    endpoint post_entity_text_search, the site's own search. Every word must appear in the name,
+    anywhere in it and in any case, so `sbx 020` finds sbx_0020. One request covers every type the
+    show uses, where a `contains` filter per type costs one round trip each. The text must not be
+    empty, so the list on open still comes from `entities`.
     """
     def fetch():
         scope = [_is("project", "Project", project_id)]
@@ -402,7 +401,7 @@ def id_for(pairs, label):
 
 
 def labels(pairs):
-    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    """Choices with a visible "no value" first. An empty string cannot be selected back."""
     return [NO_VALUE] + [label for label, _ in pairs]
 
 
@@ -418,15 +417,15 @@ def split_link(label):
 def entities(entity_type, project_id, q="", field="code", limit=200, sort="code"):
     """(name, id) for a link picker, filtered server-side.
 
-    probe 017 — `contains` is real, and an unknown operator 400s rather than passing silently, so a
+    probe 017. `contains` is real, and an unknown operator 400s rather than passing silently, so a
     bad filter cannot masquerade as an unfiltered list.
     """
     if not entity_type or not project_id:
         return []
 
     def fetch():
-        # Multi-word search the way the SG UI does it: `foo bar` matches names containing BOTH,
-        # and only the name is searched — the type is shown, never matched (probe 017: filters AND).
+        # Multi-word search the way the SG UI does it: `foo bar` matches names containing BOTH.
+        # Only the name is searched. The type is shown, never matched (probe 017: filters AND).
         filters = [_is("project", "Project", project_id)]
         filters += [[field, "contains", term] for term in (q or "").split()]
         return _pairs(_search(entity_type, filters, [field], sort=sort, limit=limit), field)
@@ -447,7 +446,7 @@ def tasks_for(link_type, link_id, limit=200):
 def versions(project_id, link_type="", link_id=0, q="", limit=200):
     """(code, id) for the Versions worth offering, newest first.
 
-    probe 005 — narrowing by the link entity is how an operator thinks about it ("the plates on this
+    probe 005. Narrowing by the link entity is how an operator thinks about it ("the plates on this
     shot"), so it is a filter rather than a scroll.
     """
     if not project_id:
@@ -464,7 +463,7 @@ def versions(project_id, link_type="", link_id=0, q="", limit=200):
 
 
 def version_filters(project_id, link_type="", link_id=0, task_id=0, terms=(), statuses=()):
-    """The SG filter the pickers add up to — the API's own language, not a private format.
+    """The SG filter the pickers add up to, in the API's own language rather than a private format.
 
     Returned so it can be shown and copied: a power user or an agent that needs something the widgets
     cannot express edits this array and hands it straight back (DESIGN: data-driven, with an eject
@@ -478,7 +477,7 @@ def version_filters(project_id, link_type="", link_id=0, task_id=0, terms=(), st
     # Same multi-word rule as the pickers: every word must appear (probe 017).
     filters += [["code", "contains", t] for t in terms if t]
     # `in` takes a plain list for a scalar field, so several statuses are one filter rather than a
-    # fight with filter_operator (probe 017).
+    # filter_operator (probe 017).
     if statuses:
         filters.append(["sg_status_list", "in", list(statuses)])
     return filters
@@ -489,8 +488,8 @@ def find_versions(project_id, link_type="", link_id=0, task_id=0, terms=(), stat
     """(code, status, id) for Versions matching a rule, newest first.
 
     Every part is optional and narrows: an entity, a Task on it, words that must all appear in the
-    code, a set of statuses any of which will do. That is the shape an artist thinks in — "the newest
-    approved depth on this shot" — rather than an id. `filters` overrides the lot.
+    code, a set of statuses any of which will do. That is the shape an artist thinks in, "the newest
+    approved depth on this shot", rather than an id. `filters` overrides the lot.
     """
     if not project_id and not filters:
         return []
@@ -545,11 +544,10 @@ Context = namedtuple("Context", "project_id profile link_type link_name link_id 
 def context(project="", link="", task="", status="", link_id=0, link_type="", fallback_type=True):
     """What a Version's pickers add up to: the project, what it hangs off, its Task and its status.
 
-    Five places resolved these same four things and had already drifted apart. A picked label
-    carries its own type — Version.entity accepts 15 and a show may use several at once (probe 005)
-    — so `link_type` is only the restriction the operator put on the picker, and the profile's own
-    `link_type` is the last resort. `fallback_type` turns that last resort off for a caller that
-    means "every type this show uses".
+    A picked label carries its own type, since Version.entity accepts 15 and a show may use several
+    at once (probe 005). So `link_type` is only the restriction the operator put on the picker, and
+    the profile's own `link_type` is the last resort. `fallback_type` turns that last resort off for
+    a caller that means every type this show uses.
 
     A named link that resolves to nothing comes back with `link_id` 0 and `link_name` set, because
     what to say about it differs between a node, a panel and a command line.
@@ -564,8 +562,8 @@ def context(project="", link="", task="", status="", link_id=0, link_type="", fa
     target = int(link_id or 0) or (id_for(entities(lt, project_id, q=picked_name), picked_name)
                                    if link else 0)
     task_id = id_for(tasks_for(lt, target), task) if (task and target) else 0
-    # Only where one was picked: this runs on every preview keystroke and the status list is
-    # a schema read.
+    # Only where one was picked. This runs on every preview keystroke and the status list is a
+    # schema read.
     status_code = next((c for l, c in statuses(project_id) if l == status), "") if status else ""
     return Context(project_id, p, lt, picked_name, target, task_id, status_code)
 
@@ -573,9 +571,9 @@ def context(project="", link="", task="", status="", link_id=0, link_type="", fa
 def status_lookup(project_id):
     """{typed: code} accepting either what the UI shows or what the API stores.
 
-    'Approved', 'approved' and 'apr' all mean the same thing, and an operator reading the SG web
-    UI has only ever seen the first. Codes are what the API wants (probe 009), so both are accepted
-    and neither is guessed at.
+    'Approved', 'approved' and 'apr' all mean the same thing, and an operator reading the SG web UI
+    has only seen the first. Codes are what the API wants (probe 009), so both are accepted and
+    neither is guessed at.
     """
     out = {}
     for label, code in statuses(project_id):
@@ -600,7 +598,7 @@ def resolve_statuses(project_id, typed):
 def status_colors():
     """{code: "r,g,b"} for every status the site defines.
 
-    probe 010 — Status.bg_color is comma-separated RGB, not hex, and is enough to render a badge
+    probe 010. Status.bg_color is comma-separated RGB, not hex, and is enough to render a badge
     without resolving the icon sprite. Site-wide: the colour of `apr` does not change per project,
     only whether a project offers it (probe 009).
     """
@@ -611,16 +609,16 @@ def status_colors():
     return _cached(("status_colors",), fetch, {})
 
 
-# recipe 010 — `url` reads as an empty string unless `image_data` is asked for in the SAME call, so
+# recipe 010. `url` reads as an empty string unless `image_data` is asked for in the SAME call, so
 # ask for both. Dotted through the entity link, one call returns the Icon's own columns flattened
-# into attributes (probe 003); undotted, `icon` is {id, name, type} and costs a second call.
+# into attributes (probe 003). Undotted, `icon` is {id, name, type} and costs a second call.
 ICON_FIELDS = ("display_type", "image_map_key", "html", "url", "image_data")
 
 
 def _stylesheets():
     """The web app's own CSS, concatenated. ~771KB on the probed site, so cached.
 
-    recipe 010 — the stock icon sheet is not in the REST API at all. `image_map_key` is a CSS class in
+    recipe 010. The stock icon sheet is not in the REST API at all. `image_map_key` is a CSS class in
     a stylesheet the site names in its own root page, behind a per-release hash, so both are
     rediscovered rather than hardcoded. Neither fetch carries the Authorization header.
     """
@@ -641,7 +639,7 @@ def _stylesheets():
 def _sprite(key):
     """The crop for one stock icon: the sheet, the offset into it, and the size to take.
 
-    None when the rule is not found — the signal to fall back to the colour badge.
+    None when the rule is not found, which is the signal to fall back to the colour badge.
     """
     css = _stylesheets()
     m = re.search(r"\.%s\b[^{}]*\{([^{}]*)\}" % re.escape(key), css) if key and css else None
@@ -661,10 +659,10 @@ def _sprite(key):
 
 
 def status_icons():
-    """{code: icon} — what can actually be drawn for a status, all three renderings resolved.
+    """{code: icon}: what can actually be drawn for a status, all three renderings resolved.
 
-    recipe 010. `image_map` is the 94 stock icons and resolves through the site's stylesheet;
-    `image` is a custom upload whose url is a self-contained data: URI; `html` is a text badge.
+    recipe 010. `image_map` is the 94 stock icons and resolves through the site's stylesheet.
+    `image` is a custom upload whose url is a self-contained data: URI. `html` is a text badge.
     """
     def fetch():
         fields = "code," + ",".join(f"icon.Icon.{f}" for f in ICON_FIELDS)
@@ -700,8 +698,8 @@ NAME_FIELD = {"Task": "content", "Project": "name"}
 def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=None):
     """{path: value} for template paths like `entity.Shot.code` or `task.Task.content`.
 
-    The prefix names which entity to read — `entity` the thing the Version hangs off, `task` its Task,
-    `project` the show — and the last segment is the field. A middle segment is the entity type, which
+    The prefix names which entity to read: `entity` the thing the Version hangs off, `task` its Task,
+    `project` the show. The last segment is the field. A middle segment is the entity type, which
     SG's own dotted syntax carries (probe 003) and which is ignorable here because the id already
     says what is being read.
     """
@@ -718,12 +716,12 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
                else None)
         if not who:
             continue
-        # A BARE token is that link's own name, the way SG hands one back in a relationship
-        # dict; which field that is depends on the type (NAME_FIELD).
+        # A BARE token is that link's own name, the way SG hands one back in a relationship dict.
+        # Which field that is depends on the type (NAME_FIELD).
         #
-        # A DOTTED token is handed to the server verbatim, minus the hops we already hold an id for:
-        # `sg_task.Task.entity.Shot.code` becomes `entity.Shot.code` asked of that Task. probe 003 —
-        # the answer comes back flat under the literal dotted key, which is why `field` is both what
+        # A DOTTED token is handed to the server verbatim, minus the hops this call already holds an
+        # id for: `sg_task.Task.entity.Shot.code` becomes `entity.Shot.code` asked of that Task.
+        # probe 003: the answer comes back flat under the literal dotted key, so `field` is both what
         # is asked for and what is read.
         field = NAME_FIELD.get(who[0], "code") if len(bits) == 1 else (".".join(bits[2:]) or bits[-1])
         wanted.setdefault(who, []).append((p, field))
@@ -742,11 +740,11 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
 
 
 def status_usage(project_id, days=30, entity_type="Version", field="sg_status_list"):
-    """{code: count} — how often this show actually used each status recently.
+    """{code: count} for how often this show actually used each status recently.
 
-    probe 020 — one `_summarize` with `grouping` returns a count per distinct value for the price of
-    one call, so this is cheap enough to sit in a picker. The schema's order is alphabetical-ish and
-    says nothing about the show; what a person reaches for is what they reached for last month.
+    probe 020. One `_summarize` with `grouping` returns a count per distinct value for the price of
+    one call, so this is cheap enough to sit in a picker. The schema's order says nothing about the
+    show. What a person reaches for is what they reached for last month.
     """
     if not project_id:
         return {}
@@ -769,7 +767,7 @@ def status_usage(project_id, days=30, entity_type="Version", field="sg_status_li
 def statuses(project_id, entity_type="Version", field="sg_status_list"):
     """(display label, code) actually usable in this project.
 
-    probe 009 — usable is valid_values MINUS hidden_values, read with project_id; valid_values alone
+    probe 009. Usable is valid_values MINUS hidden_values, read with project_id. valid_values alone
     is identical at every scope and is not the answer. Labels matter: 'pndvs' means nothing to a user.
     """
     if not project_id:

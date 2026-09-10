@@ -1,8 +1,8 @@
 """API-format PROMPT graphs, hand-written: {node_id: {class_type, inputs}}.
 
-A value in `inputs` is either a widget value or a link, `[node_id, output_slot]`. These are the
-shapes provenance has to read correctly — a zeroed-out negative, two tokenisers on one encoder, two
-branches off one node, a node taking words as a widget, and roles that must not merge.
+A value in `inputs` is either a widget value or a link, `[node_id, output_slot]`. The shapes
+provenance has to read correctly: a zeroed-out negative, two tokenisers on one encoder, two branches
+off one node, a node taking words as a widget, and roles that must not merge.
 """
 
 PUBLISH = "SGPublishVersion"

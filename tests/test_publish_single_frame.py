@@ -1,8 +1,8 @@
 """One frame is a file, not a sequence: what is registered, what `path_cache` holds, and the field
 left empty.
 
-Nothing decodes here. `write_frames` is ComfyUI's encoder and is stood in for, because what is under
-test is which path the site is given.
+Nothing decodes here. `write_frames` is ComfyUI's encoder and is stood in for: what is under test
+is the path the site is given.
 """
 import pytest
 

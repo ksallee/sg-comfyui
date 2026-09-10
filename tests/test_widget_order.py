@@ -24,7 +24,7 @@ KIND_TYPES = {"text": str, "multiline": str, "int": int, "bool": bool, "combo": 
 
 
 def declared_widgets(spec):
-    """The widget names a class declares, in order — the order widgets_values is written in."""
+    """The widget names a class declares, in order: the order widgets_values is written in."""
     names = []
     for section in ("required", "optional"):
         for name, v in (spec.get(section) or {}).items():

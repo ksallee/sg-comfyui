@@ -172,7 +172,7 @@ def test_an_uploaded_published_file_is_described_the_same_way():
 # --- the sentence for a Version that is not there ---------------------------------------------------
 
 def test_a_pinned_version_that_does_not_exist_says_so_in_words():
-    # The site's own 404 body, which reads as a field called Version until it is said again.
+    # The site's own 404 body, whose detail reads `Version: 1 not found`.
     said = routes._sentence(FPTError(
         "Could not read Version 1 from Flow Production Tracking. Check that it still exists, then "
         "run again. The site answered 404. "

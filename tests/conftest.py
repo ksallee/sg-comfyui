@@ -1,8 +1,8 @@
-"""What every test needs before the first import: the package on the path, and the fakes.
+"""The package on the path, and the fakes, before the first import.
 
 Nothing here reaches the site. `sg_groundtruth`, `numpy`, `Pillow` and `requests` are the only
-third-party imports the suite requires; a machine that also has torch and a ComfyUI checkout runs the
-tests that decode real pixels, and every other machine skips those (`DECODES`).
+third-party imports the suite requires. Tests that decode real pixels need torch and a ComfyUI
+checkout, and skip without them (`DECODES`).
 """
 import os
 import sys
@@ -14,13 +14,13 @@ import pytest
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "src"))
 
-# Reading a frame is ComfyUI's own decoder's job, so the tests that read one need a checkout of it.
+# ComfyUI's own decoder reads a frame, so a test that reads one needs a ComfyUI checkout.
 COMFYUI = os.environ.get("COMFYUI_PATH", os.path.expanduser("~/dev/ComfyUI"))
 if os.path.isdir(COMFYUI) and COMFYUI not in sys.path:
     sys.path.append(COMFYUI)
 
-# The node modules import torch at module scope and call it only inside a run, so a bare module
-# object is enough to make every module importable on a machine that has no torch.
+# The node modules import torch at module scope and call it only inside a run. A bare module object
+# is enough to import every module on a machine with no torch.
 try:
     import torch                        # noqa: F401
 except ImportError:
@@ -37,18 +37,18 @@ def _can_decode():
 
 
 CAN_DECODE = _can_decode()
-# For a test that decodes pixels rather than one that only names a file.
+# Marks a test that decodes pixels rather than one that only names a file.
 DECODES = pytest.mark.skipif(not CAN_DECODE,
                              reason="torch and a ComfyUI checkout read the pixels; set COMFYUI_PATH")
 
-# The repo root holds ComfyUI's entry point `__init__.py`, so pytest collects the root as a package
-# and imports that file under the name `__init__`, where its relative import cannot resolve. The
-# entry point has nothing to collect, so it is answered with a stub before pytest asks.
+# The repo root holds ComfyUI's entry point `__init__.py`. pytest collects the root as a package and
+# imports that file as `__init__`, where its relative import cannot resolve. The entry point has
+# nothing to collect, so a stub answers for it before pytest asks.
 _entry = types.ModuleType("__init__")
 _entry.__file__ = str(ROOT / "__init__.py")
 sys.modules.setdefault("__init__", _entry)
 
-from comfyui_sg import lineage           # noqa: E402  — after sys.path is set
+from comfyui_sg import lineage           # noqa: E402  (after sys.path is set)
 
 
 @pytest.fixture(autouse=True)
@@ -121,8 +121,8 @@ def row(id, type="Version", relationships=None, **attributes):
 def sequence_on_disk(tmp_path):
     """Write a PNG sequence and return its frame pattern.
 
-    Each frame is filled with a colour that spells its own number, so a test can say which frames
-    came back and in what order (`frame_number`).
+    Each frame is filled with a colour spelling its own number, so a test can name the frames that
+    came back and their order (`frame_number`).
     """
     from PIL import Image
 

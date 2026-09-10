@@ -50,17 +50,17 @@ def test_the_name_and_the_path_agree_on_the_root(offline):
     pl = sequence.plan(PROFILE, STORAGES, code, version_no, 1180, "Shot", 5, 7)
     assert pl.name == "sh010_RTO"
     assert code == f"{pl.name}_v003"
-    # Against the root the plan resolved, which is this machine's own: the storage row defines one
-    # per platform and the tests run on all three. A path is always written forward-slashed, a
-    # Windows root is not, so the root is spelled the way the path spells it.
+    # The plan resolves this machine's own root: the storage row defines one per platform and the
+    # tests run on all three. A path is always written forward-slashed and a Windows root is not,
+    # so the root is spelled the way the path spells it.
     root = pl.root.replace("\\", "/")
     assert sequence.destination(pl, pl.seq_template, ".exr", version_no) == (
         f"{root}/sh010/sh010_RTO/sh010_RTO_v003/sh010_RTO_v003.%04d.exr")
 
 
 def test_a_versioned_root_template_renders_the_same_everywhere(offline):
-    """The failure this closes: next_name rendered the root without the number and the path with
-    it, so the Version's code and the folder its frames landed in named two different things."""
+    """A root template carrying `{version}` renders one number, read the same by the name and the
+    path, so the Version's code and the folder its frames land in cannot disagree."""
     root_t = "{entity}_matte_v{version:03d}"
     code, version_no = version_name.next_name("{root_name}", 1180, "Shot", 5, 7, root_t)
     pl = sequence.plan(dict(PROFILE, root_name=root_t), STORAGES, code, version_no, 1180, "Shot",
@@ -77,8 +77,8 @@ def test_a_template_asking_for_a_link_it_has_not_got_names_the_picker(offline):
 
 
 def test_the_frame_token_is_the_frame_and_not_the_version():
-    """`naming.normalise_template` reads any printf pad as the version, which is right for a code
-    template and would freeze a sequence to one frame in a path."""
+    """`naming.normalise_template` reads any printf pad as the version. In a path template the
+    printf form is the frame instead, so a sequence is not frozen to one frame."""
     assert naming.render("v%04d", {}, 3) == "v0003"
     out = sequence.pattern("/r", "{version_name}.%04d", {"version_name": "a_v003"}, 3, ".exr")
     assert out == "/r/a_v003.%04d.exr"

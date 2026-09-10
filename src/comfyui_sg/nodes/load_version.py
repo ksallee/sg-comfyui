@@ -1,9 +1,9 @@
-"""SG Load — a Version's media comes back into the graph, and the link is recorded.
+"""SG Load: a Version's media comes back into the graph, and the link is recorded.
 
-The pixels are half of it. A Version loaded here is remembered as an ancestor (`lineage`), so
-anything published downstream records what it came from without the operator typing an id.
+A Version loaded here is remembered as an ancestor (`lineage`), so anything published downstream
+records what it came from without the operator typing an id.
 
-The inputs are a rule an artist would say out loud — *the newest approved depth on this shot* —
+The inputs are a rule an artist would say out loud, *the newest approved depth on this shot*,
 rather than a Version id. `pin_version_id` is the escape hatch and overrides everything above it.
 """
 import json
@@ -13,14 +13,14 @@ import torch
 from .. import lineage, media, resolve, site, widgets
 
 MAX_ID = 2 ** 31 - 1
-# The default for an unset keyword. It is NOT the label a person picks — that is site.NO_VALUE,
-# "(none)" — and the two must stay distinct, or a combo declares a value the editor cannot offer.
+# The default for an unset keyword. It is NOT the label a person picks, which is site.NO_VALUE,
+# "(none)". The two stay distinct, or a combo declares a value the editor cannot offer.
 UNSET = ""
 AUTO = "auto"
 
 
 def _labels(pairs):
-    """Choices with a visible "no value" first — an empty string cannot be selected back."""
+    """Choices with a visible "no value" first. An empty string cannot be selected back."""
     return [site.NO_VALUE] + [label for label, _ in pairs]
 
 
@@ -117,11 +117,11 @@ class SGLoadVersion:
     # | code | that Version's name |
     # | colour_space | what the publisher declared, "" when nothing was |
     #
-    # The media come first because they are what a graph wires; the record follows them.
+    # The media come first because they are what a graph wires, and the record follows them.
     #
-    # `colour_space` is an output rather than a log line because an artist about to comp acts on it:
-    # it feeds the publish node's own colour_space widget, so a claim made once upstream travels
-    # with the pixels. Empty when nothing was declared — recorded, never applied, never inferred.
+    # `colour_space` is an output rather than a log line because it feeds the publish node's own
+    # colour_space widget, so a claim made once upstream travels with the pixels. Empty when
+    # nothing was declared. Recorded, never applied, never inferred.
     #
     # An output is positional, as a widget value is: a saved graph names a slot by its index. This
     # order is frozen from the first release, and appending is the only safe change after it.
@@ -134,7 +134,7 @@ class SGLoadVersion:
 
     @classmethod
     def _context(cls, project, link_type, link, task):
-        """(project_id, link_type, link_id, task_id) — the 'where', without the 'which'."""
+        """(project_id, link_type, link_id, task_id): the 'where', without the 'which'."""
         link, task = site.unset(link), site.unset(task)
         project_id = _id_for(site.projects(), project) or site.default_project()
         picked_type, picked_name = site.split_link(link)
@@ -207,8 +207,8 @@ class SGLoadVersion:
             vid, code, why = self._resolve(project, link_type, link, task, name_contains, statuses,
                                            newest_by, filters)
             if not vid:
-                # A rule that matches nothing is when you most need to see what IS on that link, so
-                # the error carries it rather than only the rule that missed.
+                # A rule that matches nothing is where the listing matters most, so the error
+                # carries what is on that link rather than only the rule that missed.
                 project_id, lt, target, task_id = self._context(project, link_type, link, task)
                 near = site.find_versions(project_id, lt, target, task_id)[:8]
                 labels = {c: l for l, c in site.statuses(project_id)}   # 'pndvs' means nothing
@@ -230,12 +230,12 @@ class SGLoadVersion:
             key = source.split(" — ")[0].strip()
             if key not in [k for k, _ in available]:
                 # The labels, not the keys: a PublishedFile that has been renamed or re-typed no
-                # longer matches the saved value, and the listing is what tells you which.
+                # longer matches the saved value, and the listing names which one it is.
                 raise ValueError(f"Version {vid} has no {key} to read. Pick one of these "
                                  f"instead:\n  " + "\n  ".join(label for _, label in available))
             clip_key = key if media.kind_of(v, key) == "movie" else ""
 
-        # Recorded so a publish downstream can credit what was actually resolved — a rule-resolved
+        # Recorded so a publish downstream can credit what was actually resolved. A rule-resolved
         # Version is not in the prompt graph, only the rule is. The file goes with it: a read that
         # came off a PublishedFile makes the downstream dependency that one file rather than every
         # file the ancestor ever published.

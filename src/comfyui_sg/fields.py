@@ -1,10 +1,10 @@
 """Typed provenance fields on Version: the list, the idempotent create, and where each concept lands.
 
-Setup path for `ensure` — run once per site by the operator (`python -m comfyui_sg.fields`); the
+`ensure` is setup path, run once per site by the operator (`python -m comfyui_sg.fields`), and the
 node only reads the result. The routing half (`concepts`, `targets`, `route`) runs on the publish
 path and consults nothing but its arguments.
 
-Field names are permanent. probe 019 — DELETE frees the field but never its name, and trashed fields
+Field names are permanent. probe 019: DELETE frees the field but never its name, and trashed fields
 cannot be enumerated, so a name spent here is spent site-wide forever. Add to FIELDS deliberately.
 
 Display and programmatic names are kept in step: the site derives one from the other at creation, and
@@ -21,21 +21,25 @@ FIELDS = [
     ("AI Model",           "text",         {}),
     ("AI Prompt",          "text",         {}),
     ("AI Negative Prompt", "text",         {}),
-    # probe 019 — a number field takes 2**31-1 but 400s at 2**63, and ComfyUI seeds reach 2**64-1.
+    # probe 019: a number field takes 2**31-1 but 400s at 2**63, and ComfyUI seeds reach 2**64-1.
     ("AI Seed",            "text",         {}),
     ("AI Sampler",         "text",         {}),
     ("AI Steps",           "number",       {}),
     ("AI CFG",             "float",        {}),
-    # probe 019 — valid_types takes exactly one element; two returns 400.
-    # "Generated From", not "Source Versions": the sources need not be AI — a scanned plate feeding a
-    # previs is the ordinary case. The AI describes THIS Version's generation, not its inputs.
+    # probe 019: valid_types takes exactly one element, and two returns 400.
+    # "Generated From", not "Source Versions". The sources need not be AI, and a scanned plate
+    # feeding a previs is the ordinary case. The AI describes THIS Version's generation, not its
+    # inputs.
     ("AI Generated From",  "multi_entity", {"valid_types": ["Version"]}),
 ]
 
 
 def programmatic_name(display):
-    """probe 019 — the site lowercases the display name, replaces each non-alphanumeric character
-    with an underscore, and prefixes sg_. Takes a display name: 'sg_x' would become 'sg_sg_x'."""
+    """The programmatic name the site derives from a display name (probe 019).
+
+    Lowercased, each non-alphanumeric character replaced with an underscore, prefixed `sg_`. Takes
+    a display name, so `sg_x` would become `sg_sg_x`.
+    """
     return "sg_" + re.sub(r"[^a-z0-9]", "_", display.lower())
 
 
@@ -53,7 +57,7 @@ class Refused(RuntimeError):
 
 
 def _schema(sg, entity_type):
-    """Every field on the type. probe 002 — the expensive call, so it is made once per run."""
+    """Every field on the type. probe 002: the expensive call, so it is made once per run."""
     r = sg.get(f"/schema/{entity_type}/fields")
     if not r.ok:
         raise Refused(f"Could not read the {entity_type} fields from Flow Production Tracking. "
@@ -74,8 +78,8 @@ def survey(sg, entity_type="Version"):
 def ensure(sg, entity_type="Version"):
     """Create whatever is missing. Returns (present, created, failed) for the caller to report.
 
-    probe 019 — reading /schema first is mandatory, not an optimisation: POSTing a display name that
-    already exists does NOT error, it silently creates <name>_1 and every later run adds another.
+    probe 019: reading /schema first is mandatory. POSTing a display name that already exists does
+    NOT error, it silently creates <name>_1, and every later run adds another.
     """
     existing = _schema(sg, entity_type)
 
@@ -148,10 +152,10 @@ def outcome(present, created, failed):
 
 
 def schema_names(sg, entity_type="Version"):
-    """Every field this site has on the type. probe 002 — the expensive call, so one per publish.
+    """Every field this site has on the type. probe 002: the expensive call, so one per publish.
 
-    Unreadable schema is an empty set, which reads as "write nothing optional": a publish that cannot
-    see the schema must not guess a field into a 400.
+    Unreadable schema is an empty set, which reads as "write nothing optional". A publish that
+    cannot see the schema must not guess a field into a 400.
     """
     r = sg.get(f"/schema/{entity_type}/fields")
     return set(r.json()["data"]) if r.ok else set()
@@ -182,7 +186,7 @@ CONCEPT_LABELS = {"generator": "made by", "model": "model", "prompt": "prompt",
 
 
 def targets(mapping=None, mode="fields"):
-    """{concept: target} — the operator's decision, resolved once and read by everyone.
+    """{concept: target}, the operator's decision, resolved once and read by everyone.
 
     Target is a Version field, DESCRIPTION, or None for "do not record this". Shared with
     /sg/preview_publish so the panel shows where a value will actually land, not where this file
@@ -194,14 +198,14 @@ def targets(mapping=None, mode="fields"):
 
 
 def route(prov, source_version_ids=(), mapping=None, mode="fields"):
-    """({field: value}, [readable line]) — where each concept the graph knows actually lands.
+    """({field: value}, [readable line]): where each concept the graph knows actually lands.
 
     `mapping` is the operator's, from the profile: concept -> a Version field, DESCRIPTION, or None
-    to record it nowhere. A concept they did not name follows `mode`, which is the whole point of
-    having a mode: "put everything in the description" is one word, not nine null entries.
+    to record it nowhere. A concept they did not name follows `mode`, so "put everything in the
+    description" is one word rather than nine null entries.
 
-    Nothing here consults the site. A target that does not exist is the caller's to report, because
-    silently dropping a field the operator explicitly asked for is the failure worth being loud about.
+    Nothing here consults the site. A target that does not exist is the caller's to report, and a
+    field the operator asked for is never dropped silently.
     """
     where = targets(mapping, mode)
     fields, lines = {}, []
@@ -228,11 +232,11 @@ def concepts(prov, source_version_ids=()):
 
     Numeric fields take the LAST sampler: in a multi-sampler graph that is the one that produced the
     image being published. Text fields join every sampler, so nothing is lost. The full structure is
-    attached as JSON regardless — these fields are the queryable summary, not the record of truth.
+    attached as JSON regardless: these fields are the queryable summary, not the record of truth.
 
     Prompt comes from `prov["prompts"]`, not from the samplers, because half of these graphs never
-    sample: "the actor" told a segmentation graph what to cut and is the same concept as "what to
-    generate" — the words the artist gave the model. One field, one query. See DESIGN.md.
+    sample. "The actor" told a segmentation graph what to cut and is the same concept as "what to
+    generate", the words the artist gave the model. One field, one query. See DESIGN.md.
     """
     samplers = prov.get("samplers") or []
     last = samplers[-1] if samplers else {}
@@ -258,7 +262,7 @@ def concepts(prov, source_version_ids=()):
         "sampler": join("sampler_name") + (f"/{scheduler}" if scheduler else ""),
         "steps": last.get("steps"),
         "cfg": last.get("cfg"),
-        # probe 019 — multi_entity round-trips {type, id} hashes and reads back under relationships.
+        # probe 019: multi_entity round-trips {type, id} hashes and reads back under relationships.
         "generated_from": [{"type": "Version", "id": int(i)} for i in source_version_ids],
     }
     return {k: v for k, v in out.items() if v not in (None, "", [])}

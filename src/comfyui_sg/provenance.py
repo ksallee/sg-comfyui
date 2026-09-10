@@ -3,9 +3,9 @@
 PROMPT is the API-format graph: {node_id: {"class_type", "inputs", "_meta"}}. A value in `inputs` is
 either a widget value or a link of the form [node_id, output_slot].
 
-PROMPT is always present — execution requires it. EXTRA_PNGINFO is whatever the client put in
-extra_data and is None otherwise (execution.py:199), so an API, CLI or MCP client yields no
-workflow. The workflow is best effort; a publish never depends on it.
+PROMPT is always present, because execution requires it. EXTRA_PNGINFO is whatever the client put
+in extra_data and is None otherwise (execution.py:199), so an API, CLI or MCP client yields no
+workflow. The workflow is best effort, and a publish never depends on it.
 """
 
 SEED_KEYS = ("seed", "noise_seed")
@@ -20,14 +20,14 @@ LORA_KEYS = ("lora_name", "strength_model", "strength_clip")
 # where reading every string widget would not be.
 PROMPT_WIDGET_KEYS = {"prompt": "positive", "negative_prompt": "negative"}
 # Text a CLIP encoder takes: `text` on one-encoder nodes, the rest on the per-tokeniser inputs of
-# the dual and triple encoders — SDXL, Flux, SD3, HiDream, HunyuanDiT, Kandinsky5, Lumina2. Across
-# all 908 core classes each name but `text` appears on exactly one class, always a multiline STRING
-# on a node returning CONDITIONING, so the name alone identifies it.
+# the dual and triple encoders, which are SDXL, Flux, SD3, HiDream, HunyuanDiT, Kandinsky5 and
+# Lumina2. Across all 908 core classes each name but `text` appears on exactly one class, always a
+# multiline STRING on a node returning CONDITIONING, so the name alone identifies it.
 #
-# Deliberately absent: `tracks` (WanTrackToVideo — a JSON motion path, the `positive_coords` case
-# again), `texts` (MakeTrainingDataset — a file list) and `tags`/`lyrics`/`caption` (the AceStep and
-# MiniMax music encoders — an audio graph publishes no image, and a lyric sheet is a document rather
-# than a direction).
+# Absent on purpose: `tracks` (WanTrackToVideo, a JSON motion path, the `positive_coords` case
+# again), `texts` (MakeTrainingDataset, a file list) and `tags`/`lyrics`/`caption` (the AceStep and
+# MiniMax music encoders, where an audio graph publishes no image and a lyric sheet is a document
+# rather than a direction).
 ENCODER_TEXT_KEYS = ("text", "text_g", "text_l", "clip_l", "clip_g", "t5xxl", "llama",
                      "qwen25_7b", "bert", "mt5xl", "user_prompt")
 
@@ -51,9 +51,9 @@ def _trace_text(prompt, ref, role=None, seen=None):
     """Every distinct text upstream of a conditioning link, nearest first.
 
     Conditioning reaches its consumer through ControlNet, combine and guidance nodes, so the encoder
-    is rarely one hop away. `role` is the input the walk started from: a node such as
-    `ControlNetApplyAdvanced` takes both positive and negative, so where a node has an input matching
-    the role that is the only branch followed — otherwise the two prompts merge into one.
+    is rarely one hop away. `role` is the input the walk started from. A node such as
+    `ControlNetApplyAdvanced` takes both positive and negative, so where a node has an input
+    matching the role that is the only branch followed, or the two prompts merge into one.
     """
     seen = seen if seen is not None else set()
     if not _is_link(ref):
@@ -64,8 +64,8 @@ def _trace_text(prompt, ref, role=None, seen=None):
     seen.add(nid)
     node = prompt[nid]
     # ConditioningZeroOut erases what it is handed, so text behind it reached nothing. A Flux or SD3
-    # negative is conventionally the positive encoder zeroed out, and this wall is what keeps such a
-    # graph from reporting its positive prompt as its negative one too.
+    # negative is conventionally the positive encoder zeroed out, and the wall keeps such a graph
+    # from reporting its positive prompt as its negative one too.
     if node.get("class_type") == "ConditioningZeroOut":
         return []
     # One node, several tokenisers: SDXL takes text_g and text_l, Flux clip_l and t5xxl. Identical
@@ -86,7 +86,7 @@ def _trace_text(prompt, ref, role=None, seen=None):
 
 
 def _cond_role(key):
-    """The role a conditioning input names — positive, negative or unroled; "" if it is not one.
+    """The role a conditioning input names: positive, negative or unroled, "" if it is not one.
 
     Prefix and not equality: `PairConditioningSetProperties` takes `positive_NEW`,
     `ConditioningCombine` takes `conditioning_1`, `DualCFGGuider` takes `cond1`. `SAM3_Detect`'s
@@ -103,12 +103,12 @@ def _cond_role(key):
 
 
 def directing_text(prompt, scope):
-    """(positive, negative) — the words that told this branch what to do.
+    """(positive, negative), the words that told this branch what to do.
 
     Text becomes a prompt when an encoder turns it into CONDITIONING and a node consumes it. That
     holds for a sampler and equally for `SAM3_Detect`, whose `conditioning` input decides what gets
-    cut out; a seed is not what makes text a prompt, and a segmentation graph has no seed at all.
-    The consumption test is also the whole of the conservatism — `filename_prefix`, `ckpt_name` and
+    cut out. A seed is not what makes text a prompt, and a segmentation graph has no seed at all.
+    The consumption test is also the whole of the conservatism: `filename_prefix`, `ckpt_name` and
     a format enum are strings in the same graph and none of them reaches a conditioning input.
 
     `positive`/`negative` name a role, a bare `conditioning` input does not, and text found with no
@@ -146,8 +146,8 @@ def _said(texts):
 def ancestors(prompt, node_id):
     """Every node upstream of node_id.
 
-    One graph holds several independent branches — three lookdev variants off a shared depth pass —
-    and each publish node describes the branch that produced ITS image, not the whole file.
+    One graph holds several independent branches, such as three lookdev variants off a shared depth
+    pass. Each publish node describes the branch that produced ITS image, not the whole file.
     """
     seen, stack = set(), [str(node_id)]
     while stack:
