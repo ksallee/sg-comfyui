@@ -9,7 +9,7 @@ const CLIP_STYLE = document.createElement("style");
 CLIP_STYLE.textContent = '[class*="toast"] { display: none !important; }';
 document.head.appendChild(CLIP_STYLE);
 
-// ComfyUI's run card carries no class of its own. Find it by what it says.
+// ComfyUI's run card has no class of its own. Find it by what it says.
 const hideRunCards = () => {
   for (const e of document.querySelectorAll("div.flex.justify-end")) {
     if (/^Job \w+$/.test((e.textContent || "").trim())) e.style.display = "none";
@@ -82,8 +82,8 @@ const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
   .find((d) => (d.querySelector(".sg-lab")?.textContent || "").trim().toLowerCase() === label);
 
 // Open a picker, type a term, click the row that says `want`.
-// Match on text, never on position. The list is fetched per keystroke and the unfiltered set is on
-// screen until the filtered one lands.
+// Match on text, not on position. The list is fetched per keystroke, and the unfiltered set is on
+// screen until the filtered one is drawn.
 const pick = async (label, term, want) => {
   const c = ctl(label);
   if (!c) return false;
@@ -94,7 +94,10 @@ const pick = async (label, term, want) => {
     inp = document.querySelector(".sg-pop-input");
   }
   if (inp && term) await type(inp, term);
-  // A text search against the site is slow the first time and cached after it. Wait for a cold one.
+  // A row is clicked by the index it had when the list was drawn. Wait for the answer to the last
+  // keystroke, or the index points into the list that keystroke replaced and nothing is set.
+  const busy = () => document.querySelector(".sg-pop-busy")?.hidden === false;
+  for (let i = 0; i < 60 && busy(); i++) await pause(250);
   let hit = null;
   for (let i = 0; i < 60 && !hit; i++) {
     await pause(250);
@@ -102,7 +105,7 @@ const pick = async (label, term, want) => {
       .find((r) => (r.textContent || "").toLowerCase().includes(want.toLowerCase()));
   }
   await click(hit, 700);
-  // Clicking the row already held leaves the list open. Close it.
+  // Clicking the row that is already the value leaves the list open. Close it.
   const open = document.querySelector(".sg-pop-input");
   if (open) {
     open.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
@@ -124,7 +127,8 @@ const settleSize = async (n, ms = 3000) => {
   }
 };
 
-// Pick a value from ComfyUI's own select, which is what `task` and `status` are drawn with.
+// Pick a value from ComfyUI's own select, which is what a fixed combo such as `format` is drawn
+// with. The site-backed rows are pickers: use `pick`.
 const pickCombo = async (label, want) => {
   const row = [...document.querySelectorAll('[data-testid="node-widget"]')]
     .find((r) => (r.querySelector('[data-testid="widget-layout-field-label"]')?.textContent || "")
@@ -147,7 +151,7 @@ const nodeTitle = (text) => [...document.querySelectorAll('[data-testid="node-ti
   .find((e) => (e.textContent || "").includes(text));
 
 // Select one node and run up to it, from the selection toolbox's own button.
-// That button is how an operator runs a single node rather than the whole graph.
+// That button runs one node rather than every node in the graph.
 const runNode = async (n, title) => {
   await move(...aim(nodeTitle(title) || app.canvas.canvas), 850);
   await press();
@@ -214,6 +218,6 @@ const settle = async (ms = 700) => {
   await pause(ms);
 };
 
-// ComfyUI's Run button, which runs the whole graph.
+// ComfyUI's Run button. It runs every node in the graph.
 const runButton = () => document.querySelector('[data-testid="queue-button"]')
   || [...document.querySelectorAll("button")].find((b) => /^\s*Run\s*$/.test(b.textContent || ""));

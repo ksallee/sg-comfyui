@@ -432,15 +432,26 @@ def entities(entity_type, project_id, q="", field="code", limit=200, sort="code"
     return _cached(("entities", entity_type, int(project_id), q, field, limit, sort), fetch)
 
 
-def tasks_for(link_type, link_id, limit=200):
-    """(content, id) for the Tasks hanging off one entity."""
+def task_rows(link_type, link_id, limit=200):
+    """(content, id, step code) for the Tasks hanging off one entity.
+
+    The step is "" where the Task has none. `Task.step` is single-entity, and a dotted path through
+    a single-entity field reads back (probe 016), so the Step needs no second call.
+    """
     if not link_type or not link_id:
         return []
 
     def fetch():
-        rows = _search("Task", [_is("entity", link_type, link_id)], ["content"], limit=limit)
-        return _pairs(rows, "content")
+        rows = _search("Task", [_is("entity", link_type, link_id)],
+                       ["content", "step.Step.code"], limit=limit)
+        return [(r["attributes"]["content"], r["id"], r["attributes"].get("step.Step.code") or "")
+                for r in rows if r["attributes"].get("content")]
     return _cached(("tasks", link_type, int(link_id)), fetch)
+
+
+def tasks_for(link_type, link_id, limit=200):
+    """(content, id) for the Tasks hanging off one entity."""
+    return [(content, i) for content, i, _ in task_rows(link_type, link_id, limit)]
 
 
 def versions(project_id, link_type="", link_id=0, q="", limit=200):
