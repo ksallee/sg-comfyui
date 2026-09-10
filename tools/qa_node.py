@@ -9,14 +9,22 @@ share settings, workflows or a queue. Without it, an already-running instance on
 The drive file is the body of an async function receiving ({app, node, wait, $, $$}). Whatever it
 returns is printed as JSON. Nothing else is printed, so the agent pays for its own answer only.
 
+--frames writes the session as numbered PNGs plus `frames.txt`, an ffmpeg concat list carrying the
+real time between frames. Use `tools/capture.py` to drive, encode and clean up in one command.
+
 Needs playwright, which ComfyUI's own venv does not have:
 
     uv run --with playwright --python 3.11 python tools/qa_node.py --start --node SGLoadVersion
 """
 import argparse
+import asyncio
+import atexit
+import base64
 import json
 import os
+import random
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -27,6 +35,13 @@ from pathlib import Path
 
 COMFY = Path(os.environ.get("COMFYUI_PATH", Path.home() / "dev" / "ComfyUI"))
 READY = "/object_info/SGLoadVersion"
+BASE_PREFIX = "comfyqa-"
+
+# Every instance this process started and has not stopped.
+# An exit path that skips the teardown leaves a ComfyUI holding a port and a temp tree until the
+# machine is restarted. The teardown is reached from `finally`, from atexit and from a signal. Each
+# of those may run twice.
+_running = []
 
 
 def free_port(start):
@@ -35,6 +50,14 @@ def free_port(start):
             if s.connect_ex(("127.0.0.1", p)) != 0:
                 return p
     raise SystemExit("no free port")
+
+
+def holder(port):
+    """The pid listening on `port`, or 0."""
+    r = subprocess.run(["lsof", "-nP", f"-iTCP:{port}", "-sTCP:LISTEN", "-t"],
+                       capture_output=True, text=True)
+    pids = [int(x) for x in r.stdout.split() if x.strip().isdigit()]
+    return pids[0] if pids else 0
 
 
 def pack_name(repo):
@@ -50,11 +73,11 @@ def start_comfy(port, vue=True, repo=None):
     ComfyUI/custom_nodes/<pack> is a symlink to the main checkout, so without a base directory of
     its own every instance loads main's code and an agent verifies someone else's work, not its own.
 
-    --base-directory resets every default path (folder_paths.py:15) — custom_nodes, input, output,
-    temp, user AND models — so models and inputs are pointed back at the real tree explicitly.
+    --base-directory resets every default path (folder_paths.py:15). That is custom_nodes, input,
+    output, temp, user AND models, so models and inputs are pointed back at the real tree explicitly.
     Without that the instance sees an empty model list and every loader fails validation.
     """
-    base = Path(tempfile.mkdtemp(prefix=f"comfyqa-{port}-"))
+    base = Path(tempfile.mkdtemp(prefix=f"{BASE_PREFIX}{port}-"))
     repo = Path(repo or Path(__file__).resolve().parents[1])
     (base / "custom_nodes").mkdir(parents=True, exist_ok=True)
     # The Templates browser and the node footer show this directory name verbatim, so it is the
@@ -76,7 +99,10 @@ def start_comfy(port, vue=True, repo=None):
          # base-directory took these with it; the weights and plates live in the real tree.
          "--models-directory", str(COMFY / "models"),
          "--input-directory", str(COMFY / "input")],
-        cwd=COMFY, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        cwd=COMFY, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+        # Its own process group. The teardown then reaches whatever ComfyUI itself spawned.
+        start_new_session=True)
+    _running.append((proc, base))
     return proc, base
 
 
@@ -90,30 +116,65 @@ def wait_ready(port, timeout=180):
     return False
 
 
-def launch(port, vue=True, repo=None):
-    """Start an isolated ComfyUI on the first free port at or above `port`: (proc, base, port).
+def launch(port=0, vue=True, repo=None):
+    """Start an isolated ComfyUI and answer (proc, base, port). `port` 0 picks a random high one.
+
+    A free port is only free until another harness binds it. Two harnesses starting at once both see
+    the port unused, the second fails to bind and dies, and the ready check then answers from the
+    first one's instance. So the pid listening must be the pid just spawned, and a port that went to
+    someone else is given up.
 
     Raises RuntimeError, with the instance already torn down, if it never answers.
     """
-    port = free_port(port)
-    proc, base = start_comfy(port, vue=vue, repo=repo)
-    if not wait_ready(port):
+    port = port or random.randint(8600, 9400)
+    for _ in range(6):
+        port = free_port(port)
+        proc, base = start_comfy(port, vue=vue, repo=repo)
+        if wait_ready(port) and holder(port) == proc.pid:
+            return proc, base, port
         stop_comfy(proc, base)
-        raise RuntimeError(f"ComfyUI did not come up on {port}")
-    return proc, base, port
+        port += 1
+    raise RuntimeError(f"ComfyUI did not come up on a port of its own at or above {port}")
 
 
 def stop_comfy(proc, base):
-    """Terminate the instance and remove the base directory it was given."""
-    proc.terminate()
+    """Terminate the instance and its process group. Remove the base directory it was given."""
+    if (proc, base) in _running:
+        _running.remove((proc, base))
+    try:
+        os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+    except (OSError, ProcessLookupError):
+        proc.terminate()
     try:
         proc.wait(timeout=15)
     except subprocess.TimeoutExpired:
-        proc.kill()
+        try:
+            os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+        except (OSError, ProcessLookupError):
+            proc.kill()
     shutil.rmtree(base, ignore_errors=True)
 
 
-BOOT = """async ({node_type, drive}) => {
+def stop_all():
+    for proc, base in list(_running):
+        stop_comfy(proc, base)
+
+
+atexit.register(stop_all)
+
+
+def _on_signal(sig, frame):
+    raise SystemExit(128 + sig)
+
+
+for _sig in (signal.SIGINT, signal.SIGTERM, signal.SIGHUP):
+    signal.signal(_sig, _on_signal)
+
+
+# Two evaluations, not one. The wait for the node definitions, the default workflow ComfyUI loads
+# over them and the node being placed all happen before a capture starts. A clip then opens on the
+# graph it is about, not on ComfyUI's own template.
+PREPARE = """async ({node_type}) => {
   const wait = (ms) => new Promise((r) => setTimeout(r, ms));
   // The graph exists before the node definitions are registered, so wait for the type itself.
   for (let i = 0; i < 240; i++) {
@@ -128,20 +189,31 @@ BOOT = """async ({node_type, drive}) => {
   // lands drops its default on top of the node under test.
   for (let i = 0; i < 40; i++) { if (app.graph._nodes?.length) break; await wait(250); }
   await wait(500);
-  // The minimap sits over the bottom-right of every screenshot and is not a seeded setting.
+  // The minimap sits over the bottom-right of every capture and is not a seeded setting.
+  // The frame counter sits over the bottom-left and is drawn on the canvas, where CSS cannot reach it.
   if (!document.getElementById("sg-qa-style")) {
     const st = document.createElement("style"); st.id = "sg-qa-style";
     st.textContent = ".minimap-main-container { display: none !important; }";
     document.head.appendChild(st);
   }
+  app.canvas.show_info = false;
   app.graph.clear();
-  let node = null;
+  window.__sg = {node: null};
   if (node_type) {
-    node = window.LiteGraph.createNode(node_type);
+    const node = window.LiteGraph.createNode(node_type);
     if (!node) return {error: `node type not registered: ${node_type}`};
     node.pos = [60, 60];
     app.graph.add(node);
+    window.__sg.node = node;
   }
+  await wait(400);
+  return {};
+}"""
+
+DRIVE = """async ({drive}) => {
+  const app = window.comfyAPI.app.app;
+  const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+  const node = window.__sg?.node || null;
   const $ = (s) => document.querySelector(s);
   const $$ = (s) => [...document.querySelectorAll(s)];
   const fn = new Function("ctx", `return (async () => { const {app, node, wait, $, $$} = ctx; ${drive} })()`);
@@ -152,7 +224,7 @@ BOOT = """async ({node_type, drive}) => {
 USAGE_SOURCE = "sg-comfyui qa_node.py"
 
 
-def _identify(route):
+async def _identify(route):
     """Name this harness as the submitting client, in the body of every /prompt.
 
     `comfy_usage_source` is not an environment variable: it is `extra_data.comfy_usage_source` on
@@ -163,23 +235,119 @@ def _identify(route):
     """
     r = route.request
     if r.method != "POST" or not r.post_data:
-        return route.continue_()
+        return await route.continue_()
     try:
         body = json.loads(r.post_data)
         body.setdefault("extra_data", {})["comfy_usage_source"] = USAGE_SOURCE
     except Exception:
-        return route.continue_()
-    route.continue_(post_data=json.dumps(body))
+        return await route.continue_()
+    await route.continue_(post_data=json.dumps(body))
+
+
+TAIL = 1.2          # seconds the last frame is held, so a clip ends on its result
+
+
+class Screencast:
+    """A CDP screencast into `directory`: numbered PNGs and an ffmpeg concat list of real durations.
+
+    CDP emits a frame when the page paints, not on a clock. A settled canvas emits nothing for
+    seconds at a time. `fps` is a ceiling on how many frames are kept. `frames.txt` carries the time
+    each one was on screen, which is what makes an encode play at the speed it was driven.
+    """
+
+    def __init__(self, directory, fps):
+        self.dir = Path(directory)
+        self.dir.mkdir(parents=True, exist_ok=True)
+        self.gap = 1.0 / fps
+        self.times = []
+        self.n = 0
+        self.acks = set()
+
+    async def start(self, page):
+        self.cdp = await page.context.new_cdp_session(page)
+        self.cdp.on("Page.screencastFrame", self._frame)
+        await self.cdp.send("Page.startScreencast", {"format": "png", "everyNthFrame": 1})
+
+    def _frame(self, params):
+        # Acknowledge every frame, kept or not. The page sends the next one only after the ack.
+        task = asyncio.ensure_future(
+            self.cdp.send("Page.screencastFrameAck", {"sessionId": params["sessionId"]}))
+        self.acks.add(task)
+        task.add_done_callback(self.acks.discard)
+        ts = params.get("metadata", {}).get("timestamp") or time.time()
+        if self.times and ts - self.times[-1] < self.gap:
+            return
+        self.n += 1
+        (self.dir / f"{self.n:06d}.png").write_bytes(base64.b64decode(params["data"]))
+        self.times.append(ts)
+
+    async def stop(self):
+        await self.cdp.send("Page.stopScreencast")
+        await asyncio.sleep(0.2)
+        lines = []
+        for i, t in enumerate(self.times):
+            nxt = self.times[i + 1] if i + 1 < len(self.times) else t + TAIL
+            lines.append(f"file '{i + 1:06d}.png'\nduration {max(nxt - t, 1e-3):.3f}")
+        if self.times:
+            lines.append(f"file '{len(self.times):06d}.png'")   # concat applies the last duration
+        (self.dir / "frames.txt").write_text("\n".join(lines) + "\n")
+        return {"frames": self.n, "seconds": round(self.times[-1] - self.times[0] + TAIL, 2)
+                if self.times else 0}
+
+
+async def session(port, a, drive):
+    """One browser against `port`: boot, drive, and whatever capture was asked for."""
+    from playwright.async_api import async_playwright
+    out = {}
+    async with async_playwright() as p:
+        b = await p.chromium.launch(headless=True)
+        # Video is a context setting, not a page one, and the file is only finalised when the
+        # context closes, so the path is read back after, never before.
+        vw, vh = (int(x) for x in a.viewport.lower().split("x"))
+        ctx = await b.new_context(viewport={"width": vw, "height": vh},
+                                  device_scale_factor=a.scale,
+                                  **({"record_video_dir": str(Path(a.video).parent),
+                                      "record_video_size": {"width": vw, "height": vh}}
+                                     if a.video else {}))
+        pg = await ctx.new_page()
+        # ComfyUI asks "leave site?" whenever the graph is dirty; nothing here needs saving.
+        pg.on("dialog", lambda d: asyncio.ensure_future(d.accept()))
+        await pg.route("**/prompt", _identify)
+        await pg.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
+        out = await pg.evaluate(PREPARE, {"node_type": a.node})
+        cast = None
+        if not out.get("error") and a.frames:
+            cast = Screencast(a.frames, a.fps)
+            await cast.start(pg)
+        if not out.get("error"):
+            out = await pg.evaluate(DRIVE, {"drive": drive or "return {};"})
+        if cast:
+            out["screencast"] = await cast.stop()
+        if a.shot:
+            Path(a.shot).parent.mkdir(parents=True, exist_ok=True)
+            await pg.screenshot(path=a.shot)
+        src = await pg.video.path() if a.video else None
+        await ctx.close()          # flushes the video
+        await b.close()
+        if src:
+            Path(src).replace(a.video)
+            out["video"] = a.video
+    return out
 
 
 def main():
     ap = argparse.ArgumentParser(prog="qa_node.py", description=__doc__.split("\n")[0])
-    ap.add_argument("--port", type=int, default=8188)
+    ap.add_argument("--port", type=int, default=0,
+                    help="8188 by default, or a random high port with --start")
     ap.add_argument("--start", action="store_true", help="launch an isolated ComfyUI on --port")
     ap.add_argument("--node", default="", help="node type to place before driving")
     ap.add_argument("--drive", default="", help="file with the async body to run; - for stdin")
     ap.add_argument("--shot", default="", help="write a screenshot here")
     ap.add_argument("--video", default="", help="record the session to this .webm")
+    ap.add_argument("--frames", default="", help="write the session here as PNGs and frames.txt")
+    ap.add_argument("--fps", type=float, default=12, help="most frames a second --frames keeps")
+    ap.add_argument("--scale", type=float, default=1,
+                    help="device pixel ratio; 2 is what UI text needs to stay readable")
     ap.add_argument("--viewport", default="1100x950",
                     help="browser size WxH; a recording wants a fixed aspect, not a crop")
     ap.add_argument("--repo", default="", help="checkout to load as the node pack (default: this one)")
@@ -190,7 +358,7 @@ def main():
     a = ap.parse_args()
 
     proc = base = None
-    port = a.port
+    port = a.port or 8188
     if a.start:
         try:
             proc, base, port = launch(a.port, vue=not a.no_vue, repo=a.repo)
@@ -198,42 +366,24 @@ def main():
             print(json.dumps({"error": str(e)}))
             return 1
 
-    drive = ""
-    if a.drive:
-        drive = sys.stdin.read() if a.drive == "-" else Path(a.drive).read_text()
-
-    if a.video:
-        Path(a.video).parent.mkdir(parents=True, exist_ok=True)
-    from playwright.sync_api import sync_playwright
     out = {}
     try:
-        with sync_playwright() as p:
-            b = p.chromium.launch(headless=True)
-            # Video is a context setting, not a page one, and the file is only finalised when the
-            # context closes — so the path is read back after, never before.
-            vw, vh = (int(x) for x in a.viewport.lower().split("x"))
-            ctx = b.new_context(viewport={"width": vw, "height": vh},
-                                **({"record_video_dir": str(Path(a.video).parent),
-                                    "record_video_size": {"width": vw, "height": vh}}
-                                   if a.video else {}))
-            pg = ctx.new_page()
-            # ComfyUI asks "leave site?" whenever the graph is dirty; nothing here needs saving.
-            pg.on("dialog", lambda d: d.accept())
-            pg.route("**/prompt", _identify)
-            pg.goto(f"http://127.0.0.1:{port}/", wait_until="domcontentloaded")
-            out = pg.evaluate(BOOT, {"node_type": a.node, "drive": drive or "return {};"})
-            if a.shot:
-                Path(a.shot).parent.mkdir(parents=True, exist_ok=True)
-                pg.screenshot(path=a.shot)
-            src = pg.video.path() if a.video else None
-            ctx.close()          # flushes the video
-            b.close()
-            if src:
-                Path(src).replace(a.video)
-                out["video"] = a.video
+        drive = ""
+        if a.drive:
+            drive = sys.stdin.read() if a.drive == "-" else Path(a.drive).read_text()
+        if a.video:
+            Path(a.video).parent.mkdir(parents=True, exist_ok=True)
+        out = asyncio.run(session(port, a, drive))
     finally:
         if proc and not a.keep:
             stop_comfy(proc, base)
+    if proc and a.keep:
+        # --keep hands the instance on. The port it got is rarely the port that was asked for, so
+        # a second drive is told which one to drive. A second drive pointed at the port that was
+        # asked for reaches whatever else is listening there and reads that server's state.
+        _running.remove((proc, base))
+        out["port"] = port
+        out["base"] = str(base)
     print(json.dumps(out, indent=1, default=str))
     return 0
 

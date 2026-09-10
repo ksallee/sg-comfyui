@@ -31,6 +31,12 @@ app.graph.clear();
 const n = window.LiteGraph.createNode("SGPublishVersion");
 app.graph.add(n);
 await wait(1800);
+// The picker's project list is fetched as the page loads, before this drive can answer for it, so
+// the node opens on the real profile's project. Pick the one these routes know.
+const w = (name) => n.widgets.find((x) => x.name === name);
+if (w("project").value !== "Chariot") {
+  w("project").value = "Chariot"; w("project").callback?.("Chariot"); await wait(2200);
+}
 
 const alert = document.querySelector(".sg-alert")?.textContent.trim() || "";
 const state = document.querySelector(".sg-state")?.textContent.trim() || "";
