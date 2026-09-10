@@ -8,12 +8,12 @@ branches of one graph never contaminate each other.
 Keyed by node id, which one ComfyUI server hands to every graph it runs: node 1 of the graph open
 now is a different node from node 1 of the graph before it, and crediting the earlier one would
 write a Version's provenance to a source it never read. So an entry also carries a fingerprint of
-the Load node as it ran — its class and its inputs, off the PROMPT it was given — and is credited
-only to a node that is still an `SGLoadVersion` with those inputs. ComfyUI hands a node no prompt
-id, so the fingerprint is the guarantee; dropping what no longer matches is hygiene.
+the Load node as it ran, its class and its inputs off the PROMPT it was given, and is credited only
+to a node that is still an `SGLoadVersion` with those inputs. ComfyUI hands a node no prompt id, so
+the fingerprint is the guarantee. Dropping what no longer matches is hygiene.
 
-Each entry is (version_id, published_file_id, fingerprint), and the file id is 0 where the read
-came off a path field or an upload — neither is a file the site knows by id.
+Each entry is (version_id, published_file_id, fingerprint). The file id is 0 where the read came
+off a path field or an upload, since neither is a file the site knows by id.
 """
 import json
 

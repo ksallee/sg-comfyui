@@ -10,29 +10,29 @@ import re
 
 from . import credentials, resolve, site
 
-# SG answers an error as a JSON:API envelope whose useful half is one `detail` sentence, or
-# `title` where `detail` is null, which is what a refused impersonation carries (probe 027).
+# An SG error is a JSON:API envelope. The useful half is one `detail` sentence, or `title` where
+# `detail` is null. A refused impersonation carries `title` (probe 027).
 _DETAIL = re.compile(r'"detail"\s*:\s*"((?:[^"\\]|\\.)*)"')
 _TITLE = re.compile(r'"title"\s*:\s*"((?:[^"\\]|\\.)*)"')
 # The client's own line for a refused token request: `auth[ as 'x'] <status>: <body>`.
 _AUTH = re.compile(r"^auth\b[^:]*?(\d{3}): ", re.S)
-# The site's 404 for an entity that is not there: `Version: 1 not found`. Read as it stands it
-# looks like a field called Version, so it is said again in words before it is quoted.
+# The site's 404 for a missing entity: `Version: 1 not found`. That reads as a field named
+# Version, so the sentence restates it in words before quoting it.
 _NOT_FOUND = re.compile(r"^(\w+):\s*(\d+)\s+not found\.?$", re.I)
 
 # The widest id any query param may carry.
 _MAX_ID = 2 ** 31 - 1
 
 
-# The token endpoint's refusal of a session the site no longer holds (probe 052). It is the one
-# error whose fix is a click under Settings rather than a value on the node.
+# The token endpoint's refusal of a session the site no longer holds (probe 052). Its fix is a
+# click under Settings, not a value on the node.
 _SESSION_DEAD = "Can't authenticate session token"
 
 
 def _sentence(e):
     """What went wrong, in the site's own words rather than its transport's.
 
-    One truncated sentence, never a traceback: this is read in the editor and by an artist.
+    One truncated sentence, never a traceback.
     """
     text = str(e)
     if _SESSION_DEAD in text:
@@ -72,8 +72,10 @@ def _int(query, name):
 
 
 def _wired(widgets, name):
-    """Whether that input is connected. An API-format prompt writes a link as ["node", slot] and a
-    widget value as a scalar, so the shape of the entry is the answer."""
+    """Whether that input is connected.
+
+    An API-format prompt writes a link as `["node", slot]` and a widget value as a scalar.
+    """
     return isinstance(widgets.get(name), list)
 
 
@@ -93,10 +95,9 @@ def _concept_rows(values, where, schema, names=None):
     """One row per provenance concept: its value, where that value lands, and what is not settled
     until the Run.
 
-    Every concept, not only the ones with a value: an empty seed on a graph with no sampler is
-    information. The row is named for where the value LANDS, because that is the operator's
-    decision; the concept is the label beside it. The same split the run makes: a field this site
-    has takes the value, everything else is a description line.
+    Every concept, not only the ones with a value. The row is named for where the value lands; the
+    concept is the label beside it. A field this site has takes the value, everything else is a
+    description line.
     """
     from . import fields as sg_fields
 
@@ -116,8 +117,8 @@ def _concept_rows(values, where, schema, names=None):
             note = "Into the description."
         else:
             note = "" if has else "Not in this graph."
-        # Beside the value, not instead of it: the generator is ComfyUI whoever submits, and the
-        # client is added to it by the Run. Naming one before a Run names the wrong one.
+        # The generator is ComfyUI whoever submits, and the Run adds the client to it. The note
+        # sits beside the value, never instead of it.
         if concept == "generator" and has and not described:
             note = "The client that submits the Run is recorded with it."
         rows.append({
@@ -125,8 +126,8 @@ def _concept_rows(values, where, schema, names=None):
                     if target and not described else sg_fields.CONCEPT_LABELS[concept],
             "label": sg_fields.CONCEPT_LABELS[concept],
             "value": show(v) if has else "",
-            # Where a value lands is the operator's own mapping, so a fact that goes into the
-            # description says so beside its value rather than only where it has none.
+            # Where a value lands is the operator's mapping, so a fact in the description says so
+            # beside its value.
             "into_description": described,
             "note": note,
         })
@@ -136,15 +137,14 @@ def _concept_rows(values, where, schema, names=None):
 def _files_preview(widgets, prof, project_id, link_type, target, task_id):
     """(where the files would land, the sentence that stops them landing anywhere).
 
-    Resolved against the real storage row, because a publish that copies a sequence onto a shared
-    volume is what an operator reads back before pressing Run. A storage that cannot be resolved is
-    the second half: it refuses the run, so it is the panel's alert rather than a line in the fold.
+    Resolved against the real storage row. A storage that cannot be resolved refuses the run, so it
+    is the panel's alert rather than a line in the fold.
     """
     if not widgets.get("register_files"):
         return [], ""
     from . import publish, sequence, version_name
-    # The same resolution the run makes (publish_version.publish): the wires decide which files
-    # follow, and the profile decides whether the house also keeps its review movie.
+    # The same resolution the run makes (publish_version.publish). The wires decide which files
+    # follow; the profile decides whether the house also keeps its review movie.
     images, video = _wired(widgets, "images"), _wired(widgets, "video")
     pf = prof.get("published_files") or {}
     want_frames = images
@@ -163,14 +163,14 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
             ext = sequence.extension(widgets.get("format", ""))
             where.append({"label": "frames path",
                           "path": sequence.destination(pl, pl.seq_template, ext, version_no)})
-        # A deliverable is never transformed, so the clip keeps its own extension — a run-time fact
-        # this states rather than guesses.
+        # A deliverable is never transformed, so the clip keeps its own extension. That extension
+        # is a run-time fact, stated rather than guessed.
         if want_movie:
             ext = ".<the clip's own extension>"
             where.append({"label": "clip path",
                           "path": sequence.destination(pl, pl.movie_template, ext, version_no)})
-        # The run's own guard, asked here: a root that is mounted and not writable refuses at
-        # staging, and a panel that only checked for a mount would call that publish valid.
+        # The run's own guard, asked here. A root that is mounted and not writable refuses at
+        # staging.
         try:
             sequence.check_root(pl.root)
         except Exception as e:
@@ -193,8 +193,10 @@ SAMPLE = {"entity": "sh010", "task": "Roto", "sg_task": "Roto", "step": "Roto", 
 
 
 def _sample_values(template, extra=None):
-    """Values for every field a template asks for: the project's own fields resolved from the
-    site, since the project is known, and sample values for the entity and Task, which are not."""
+    """Values for every field a template asks for.
+
+    The project's own fields are resolved from the site. The entity and the Task get sample values.
+    """
     from . import naming
     vals = dict(extra or {})
     fields = [f for f in naming.template_fields(template) if f not in vals]
@@ -224,7 +226,7 @@ def _example(kind, template):
     name = naming.render(name_t, _sample_values(name_t, {"root_name": root_name}), 3)
     if kind == "name":
         return name
-    # Relative to the storage root, which is what a path template is; the Storage row names the root.
+    # A path template is relative to the storage root, which the Storage row names.
     extra = {"root_name": root_name, "version_name": name}
     if kind == "sequence":
         t = template or pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
@@ -277,8 +279,7 @@ def _defaults():
             "path": str(site.profile_path())}
 
 
-# The provenance fields, for the Settings group that creates them. A site that refuses says so in
-# its own words; this sentence is what the operator does about it.
+# Appended to a site's own refusal to create the provenance fields. It says what to do about it.
 FIELDS_REFUSED = ("Ask an admin to press this button, or run the command in INSTALL.md with a "
                   "script key that can create fields.")
 
@@ -320,8 +321,10 @@ def register():
     routes = PromptServer.instance.routes
 
     def answer(fn, empty):
-        """One route's body, or `empty` plus one sentence. Never 500 into the editor: an
-        unreachable site must degrade to an empty picker."""
+        """One route's body, or `empty` plus one sentence.
+
+        Never 500 into the editor. An unreachable site degrades to an empty picker.
+        """
         try:
             return web.json_response(fn())
         except Exception as e:
@@ -424,7 +427,7 @@ def register():
         q = request.rel_url.query
 
         def rows():
-            # probe 017 — `contains` filters server-side, so the list is never fetched whole.
+            # probe 017: `contains` filters server-side, so the list is never fetched whole.
             pid = _int(q, "project_id")
             found = site.links(pid, q.get("q", ""), site.chosen_types(q.get("type", ""), pid))
             return [{"label": l, "type": t, "id": i} for l, t, i in found]
@@ -498,16 +501,16 @@ def register():
                     q.get("project", ""), q.get("link_type", ""), q.get("link", ""),
                     q.get("task", ""), q.get("name_contains", ""), typed,
                     q.get("newest_by", ""), raw)
-            # The whole query in the API's own language — the fields plus whatever was added — so
-            # the panel shows what is actually being asked rather than half of it.
+            # The whole query in the API's own language, the fields plus whatever was added, so
+            # the panel shows what is asked rather than half of it.
             built = resolve.combine(
                 site.version_filters(pid, lt, target, task_id, terms, codes),
                 SGLoadVersion._filters(raw))
 
             if not vid:
-                # A rule that matches nothing is the moment what IS there matters most, so the same
-                # link and task are listed with their statuses and the filters dropped. With the
-                # icon, because a status is drawn the same way everywhere it appears (recipe 010).
+                # A rule that matches nothing lists what is there: the same link and task, with
+                # their statuses, and the filters dropped. A status is drawn the same way
+                # everywhere it appears (recipe 010).
                 colors = site.status_colors()
                 labels = {c: l for l, c in site.statuses(pid)}
                 icons = site.status_icons()
@@ -546,13 +549,11 @@ def register():
                 # guessed. Only a sequence has them; a movie carries no numbering.
                 "frames": (lambda r: {"first": r[0], "last": r[1], "count": r[2]} if r else None)(
                     media.frame_range(v, key)),
-                # What this machine will spend on one batch, so the panel can say a plate is too
-                # big to read in one go before the Run rather than after it. Only a sequence
-                # answers: a movie's size would cost a decode.
+                # What this machine will spend on one batch, so the panel names an oversized plate
+                # before the Run. Only a sequence answers; a movie's size would cost a decode.
                 "batch": _batch_limit(v, key),
-                # What the `image` output will actually read, off the first file's header: bit depth
-                # and channels are the difference between a plate and a preview, and neither is
-                # visible in a filename.
+                # What the `image` output will read, off the first file's header. Bit depth and
+                # channels tell a plate from a preview, and neither is visible in a filename.
                 "format": media.describe_format(v, key),
                 "colour_space": media.colour_of(v, key)}
         return answer(read, {"id": 0, "media": []})
@@ -574,7 +575,7 @@ def register():
             code = version_name.next_code(q.get("code_template", ""), project_id, lt, target,
                                           task_id, root_t)
             # Name the fields to fill in, never the consequence of leaving them empty. The run
-            # refuses on the same list, so the alert is a promise.
+            # refuses on the same list.
             missing = version_name.missing_fields(q.get("code_template", ""), root_t, project_id,
                                                   target, task_id)
             if q.get("link") and not target:
@@ -583,18 +584,17 @@ def register():
                 alert = f"Fill in the required fields ({', '.join(missing)})."
             else:
                 alert = ""
-            # What is already there, not only what comes next. `versions_on` is the same cached read
-            # `next_name` used to pick the number, and the files are cached against the Version, so
-            # scrubbing the pickers costs nothing.
+            # What is already there, not only what comes next. `versions_on` is the same cached
+            # read `next_name` picks the number from, so scrubbing the pickers costs nothing.
             latest = {}
             rows = site.versions_on(lt, target, project_id) if target else []
             if rows:
                 lcode, _lstatus, lid = rows[0]
-                # Its link only: what that Version wrote is on the site, and drawing its files here
-                # reads as the files this publish will write.
+                # Its link only. Drawing its files here would read as the files this publish
+                # writes.
                 latest = {"id": lid, "code": lcode, "site_url": site.client().site}
-            # An empty field on the node means Settings names it, and the panel is where that
-            # shows: the template in force, tagged with where it came from.
+            # An empty field on the node means Settings names it. The panel shows the template in
+            # force, tagged with where it came from.
             templates = [{"label": label, "value": value, "source": "Settings"}
                          for label, own, value in
                          (("root name", root_t, p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
@@ -632,7 +632,7 @@ def register():
             prompt, node_id = body.get("prompt") or {}, str(body.get("node_id") or "")
             prov = provenance.extract(prompt, None, node_id=node_id)
 
-            # Typed ids first, then upstream Load nodes — the order the node itself uses.
+            # Typed ids first, then upstream Load nodes. That is the order the node itself uses.
             own = (prompt.get(node_id) or {}).get("inputs") or {}
             sources = [{"id": int(x), "code": "", "why": "typed on this node"}
                        for x in str(own.get("source_versions") or "").replace(",", " ").split()
@@ -658,8 +658,8 @@ def register():
                     sources.append({"id": vid, "code": code, "why": why})
 
             sg = site.client()
-            # The whole schema, not the nine this repo declares: a mapping onto a field the studio
-            # already has is the preferred move, and intersecting the nine would strike it through.
+            # The whole schema, not the nine this repo declares. A mapping may point at a field
+            # the studio already has.
             schema = sg_fields.schema_names(sg)
             by_id = {x["id"]: (x.get("code") or f'Version {x["id"]}') for x in sources}
             w = (prompt.get(node_id) or {}).get("inputs") or {}
@@ -668,13 +668,13 @@ def register():
             pid = ctx.project_id
             where = sg_fields.targets(*site.provenance_map(pid))
             values = sg_fields.concepts(prov, [x["id"] for x in sources if x["id"]])
-            # The Version records "ComfyUI (<client>)", and the client is whoever POSTs /prompt
-            # (execution.py:224) — the frontend, a farm, the `comfy` CLI, an MCP server. This route
-            # is not that call and no Run has been submitted, so the panel names what it knows.
+            # The Version records "ComfyUI (<client>)". The client is whoever POSTs /prompt
+            # (execution.py:224): the frontend, a farm, the `comfy` CLI, an MCP server. This route
+            # is not that call, so the panel names what it knows.
             values["generator"] = prov.get("generator") or "ComfyUI"
             rows = _concept_rows(values, where, schema, by_id)
-            # The rest of the Version: not provenance, but still what gets written. Resolved the way
-            # the RUN resolves it rather than the way the picker displays it — the link field takes
+            # The rest of the Version: not provenance, but still what gets written. Resolved the
+            # way the run resolves it, not the way the picker displays it. The link field takes
             # {"type", "id"}, the status takes a code, and the field name is the profile's
             # (probe 005). `site.unset()` drops "(none)" and "(all types)", which are labels for the
             # operator and never values for the site.
@@ -694,15 +694,15 @@ def register():
             for name, val, note in plain:
                 rows.append({"name": name, "value": str(val)[:160], "note": note})
 
-            # Uploads are not fields, and a copy onto a shared volume is not an upload, so each is
+            # Uploads are not fields, and a copy onto a shared volume is not an upload. Each gets
             # its own list of what lands.
             uploads = ["image (the thumbnail)", "sg_uploaded_movie (the review movie)",
                        "<version name>.provenance.json"]
             if w.get("attach_workflow", True):
                 uploads.append("<version name>.workflow.json")
             paths, files_alert = _files_preview(w, prof, pid, link_type, target, task_id)
-            # What this node will publish, from what is wired into it: the review media the Version
-            # carries, and the files that land on disk when Create Published Files is ticked. The
+            # What this node will publish, from what is wired into it: the review media the
+            # Version carries, and the files that land when Create Published Files is ticked. The
             # frame count and the frame rate are run-time facts, so the sentences state the rule.
             images, video = _wired(w, "images"), _wired(w, "video")
             fmt = w.get("format") or sequence.DEFAULT_FORMAT
@@ -745,8 +745,8 @@ def register():
 
         def rows():
             colors, icons = site.status_colors(), site.status_icons()
-            # Most-used first (probe 020). A picker sorted by the schema makes an artist hunt for
-            # the two codes their show actually uses among the twenty it merely allows.
+            # Most-used first (probe 020). A schema-ordered picker buries the two codes a show
+            # uses among the twenty it allows.
             pid = _int(q, "project_id")
             used = site.status_usage(pid)
             ordered = sorted(enumerate(site.statuses(pid)),

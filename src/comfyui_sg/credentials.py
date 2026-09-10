@@ -1,6 +1,6 @@
 """Who the nodes talk to SG as, and where that is kept.
 
-Two ways in, and a person wins over a machine:
+Two ways in. A person wins over a script.
 
 - **A person, signed in through the App Session Launcher** (probe 052). The operator clicks Log in
   under Settings, approves the request in the browser where they are already logged into SG,
@@ -148,9 +148,9 @@ def client():
 def status():
     """What Settings shows: who the nodes publish as, the site, and whether the site still agrees.
 
-    `alive` costs one call to the site and is what turns a session the site forgot into a Log in
-    button rather than empty pickers. The script half is reported whether or not it is in use, so
-    the dialog can show what it holds; the key itself is never in the answer.
+    `alive` costs one call to the site, and it turns a session the site forgot into a Log in button
+    rather than empty pickers. The script half is reported whether or not it is in use, so the
+    dialog can show what it holds. The key itself is never in the answer.
     """
     kind, site, who = how()
     name, key, login, source = script()

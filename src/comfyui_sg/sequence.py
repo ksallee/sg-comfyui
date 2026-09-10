@@ -1,17 +1,16 @@
 """Frames on disk, and the path under a LocalStorage root that SG can resolve.
 
-A Version's media is single-valued (probe 022), so frames cannot be the media: they are a
-PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots —
-anything else is 400 code 104 (recipe 004).
+A Version's media is single-valued (probe 022), so frames cannot be the media. They are a
+PublishedFile, and a PublishedFile's path has to sit under one of the site's LocalStorage roots.
+Anything else is 400 code 104 (recipe 004).
 
 Frames land in ComfyUI's own output directory and are **copied** into place under the root. Copy,
 never move: the run stays where the artist expects it, a publish that fails half way leaves
 something to re-publish from, and a second attempt costs a copy rather than a re-render.
 
 Nothing here transcodes and nothing here infers. The frames are written by ComfyUI's own encoder in
-the format the node was told, registered under that format's own extension, and the colour space is
-recorded exactly as the operator declared it (DESIGN: a colour transform is the most consequential
-pixel change there is, and this project does not make images).
+the format the node was told, registered under that format's own extension. The colour space is
+recorded exactly as the operator declared it and never applied.
 """
 import os
 import re
@@ -27,11 +26,10 @@ from . import media, naming, site, version_name
 # so a path template speaks the same notation `sg_path_to_frames` does.
 SEQ = media.SEQ
 
-# Two shapes, because a sequence is many files and earns a folder while a movie is one file and does
-# not. Neither repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
+# Two shapes. A sequence is many files and gets a folder of its own, named for the version. A movie
+# is one file and sits beside that folder, so no folder holds frames and a movie together.
+# Neither template repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
 # themselves, so a path refers to them rather than spelling them a second time and disagreeing.
-# A sequence is many files and gets a folder of its own, named for the version; the movie is one
-# file and sits beside that folder in the stream's folder, so no folder holds both.
 DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}"
 DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
 DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # profiles in the wild name this one
@@ -114,9 +112,11 @@ THIS_PLATFORM = {"darwin": "mac", "win32": "windows"}.get(sys.platform, "linux")
 
 
 def storage_row(storages, code=""):
-    """The LocalStorage the profile names. Chosen by code, never by position: one root is not a
-    choice, several are, and taking the first would put a show's frames on whichever storage the
-    site happens to list first."""
+    """The LocalStorage the profile names, chosen by code and never by position.
+
+    Taking the first row would put a show's frames on whichever storage the site happens to list
+    first.
+    """
     have = ", ".join(sorted(s["code"] for s in storages))
     if not storages:
         raise RuntimeError("This site has no Local File Storage, so nothing can be published to "
@@ -139,8 +139,11 @@ def platforms_of(row):
 
 
 def platform_for(row, chosen=""):
-    """The platform the Version's path fields are written for: the profile's choice, else this
-    machine's where the storage defines it, else the first one it does."""
+    """The platform the Version's path fields are written for.
+
+    The profile's choice, else this machine's where the storage defines a root for it, else the
+    first platform the storage does define one for.
+    """
     have = platforms_of(row)
     if chosen in have:
         return chosen
@@ -169,7 +172,7 @@ def on_platform(path, local_root, row, platform):
 def root_for(storages, code=""):
     """(id, root) for the LocalStorage the profile names, on the platform this client runs on.
 
-    recipe 004 — a root is per platform and a row may define only one, so `local_path_windows` and
+    recipe 004: a root is per platform and a row may define only one, so `local_path_windows` and
     `local_path_linux` read back null where the row leaves them unset.
     """
     key = PLATFORM_KEY[THIS_PLATFORM]
@@ -189,7 +192,7 @@ def check_root(root):
     Same rule as staging the movie first (publish_version): a Version left behind pointing at frames
     nobody wrote is worse than a run that refused.
 
-    Both refusals are measured against a real volume, mounted read-only and then detached: each is
+    Both refusals are measured against a real volume, mounted read-only and then detached. Each is
     on the panel before the Run and stops it, and neither leaves a Version or a file behind.
     """
     if not os.path.isdir(root):
@@ -203,8 +206,8 @@ def check_root(root):
 def swap_ext(path, ext):
     """The extension the files actually have, replacing whatever the template guessed.
 
-    A template that ends in the frame token has no extension to replace — `.%04d` is the frame
-    number — so the token is kept and the real extension is appended after it.
+    A template that ends in the frame token has no extension to replace, because `.%04d` is the
+    frame number. The token is kept and the real extension is appended after it.
     """
     base, dot, tail = str(path).rpartition(".")
     if not dot or "/" in tail or "\\" in tail or SEQ.fullmatch(tail):
@@ -213,13 +216,12 @@ def swap_ext(path, ext):
 
 
 # A path template says two numbers at once and they must not be confused. `{version}` is the publish
-# revision; `%04d` (or `####`, or `@@@@`) is the frame. `naming.normalise_template` reads ANY printf
-# pad as the version, which is right for a code template — `v%04d` is how a TD spells the revision by
-# habit — and wrong here, where it would render frame 3 as `.0003.` and freeze the sequence to one
-# frame. So the frame token is lifted out before rendering and put back after.
+# revision. `%04d`, `####` and `@@@@` are the frame. `naming.normalise_template` reads ANY printf
+# pad as the version, which is right for a code template, where `v%04d` is how a TD spells the
+# revision by habit, and wrong here, where it would render frame 3 as `.0003.` and freeze the
+# sequence to one frame. So the frame token is lifted out before rendering and put back after.
 #
-# The consequence: in a PATH template the printf form is the FRAME, and the version is
-# `{version:03d}`.
+# In a PATH template the printf form is therefore the FRAME, and the version is `{version:03d}`.
 SENTINEL = "\x00"
 
 
@@ -268,7 +270,7 @@ def pattern(root, template, values, version, ext):
 
 
 def single(path):
-    """A sequence path with the frame token and its separator removed — for the movie beside it."""
+    """A sequence path with the frame token and its separator removed, for the movie beside it."""
     m = SEQ.search(path or "")
     if not m:
         return path
@@ -307,9 +309,9 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     Resolves and renders; touches no disk and creates nothing. The panel and the run both answer
     from here, so a path an operator reads before pressing Run is the path the run writes.
 
-    A path template is the language the code template already speaks — dotted SG paths and Python's
-    format spec (`naming.render`) — plus the frame token `sg_path_to_frames` uses. A sequence earns
-    a folder and a movie does not, which is why there are two templates. Neither repeats the naming
+    A path template is the language the code template already speaks, dotted SG paths and Python's
+    format spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are two
+    templates because a sequence earns a folder and a movie does not. Neither repeats the naming
     scheme: `{root_name}` and `{version_name}` are the two names themselves.
     """
     pf = p.get("published_files") or {}

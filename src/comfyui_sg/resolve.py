@@ -1,12 +1,12 @@
 """Pick the one Version a Load node should read, from a rule rather than an id.
 
-The rule is what an artist would say out loud — *the newest approved depth on this shot* — so it is
-an entity, optionally a Task on it, words that must appear in the name, and any of a set of statuses,
+The rule is what an artist would say out loud, *the newest approved depth on this shot*. It is an
+entity, optionally a Task on it, words that must appear in the name, and any of a set of statuses,
 each part optional and each one narrowing. Nothing here invents vocabulary SG does not have:
 "approved" is one status code among the ones that project allows (probe 009).
 
-Ordering is a choice because "newest" is ambiguous — a re-published v002 is newer by id but older by
-intent — so the convention's version number is offered alongside id and created_at.
+"newest" is ambiguous. A re-published v002 is newer by id but older by intent, so the convention's
+version number is offered alongside id and created_at.
 """
 from . import naming, site
 
@@ -18,9 +18,9 @@ ORDERS = [BY_VERSION, BY_CREATED, BY_ID]
 SORT = {BY_CREATED: "-created_at", BY_ID: "-id", BY_VERSION: "-id"}
 
 
-# `naming.template_regex` pins the values it is handed and writes this for the rest, which is what
-# numbering one link's own history wants. Ranking has nothing to pin and a root name usually holds an
-# underscore, so here the unpinned fields widen to match one.
+# `naming.template_regex` pins the values it is handed and writes this for the rest, so numbering
+# counts one link's own history. Ranking has nothing to pin and a root name usually holds an
+# underscore, so the unpinned fields widen to match one.
 UNPINNED = "[^_]*"
 
 
@@ -31,8 +31,8 @@ def _terms(name_contains):
 def regex_from(template):
     """A matcher for the codes a version-name template produces, naming a `version` group.
 
-    What a site with no `code_regex` ranks by, so newest-by-version-number means something on a
-    project nobody has measured a convention for.
+    A site with no `code_regex` ranks by this, so newest-by-version-number still means something on
+    a project nobody has measured a convention for.
     """
     t = (template or "").strip() or naming.DEFAULT_TEMPLATE
     return naming.template_regex(t, {}).replace(UNPINNED, ".*")
@@ -61,7 +61,7 @@ def combine(base, extra):
 
 def pick(project_id, link_type="", link_id=0, task_id=0, name_contains="", statuses=(),
          order=BY_VERSION, regex="", filters=None, where="", template=""):
-    """(version_id, code, why) — `why` is shown to the operator; nothing is guessed silently.
+    """(version_id, code, why), with `why` shown to the operator. Nothing is guessed silently.
 
     `filters` is ANDed onto what the widgets add up to. It narrows, never replaces, so every field on
     the node keeps meaning what it says.

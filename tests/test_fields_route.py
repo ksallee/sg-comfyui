@@ -20,7 +20,7 @@ def test_the_survey_names_every_field_both_ways(fake_sg):
 
 
 def test_the_survey_reads_the_schema_once(fake_sg):
-    """probe 002 — the expensive call, so the readout never loops over the nine fields."""
+    """probe 002: the expensive call, so the readout never loops over the nine fields."""
     having(fake_sg, *fields.names().values())
     fields.survey(fake_sg)
     assert fake_sg.calls == [("get", SCHEMA)]

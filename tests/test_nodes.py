@@ -85,7 +85,7 @@ def test_a_version_in_the_root_name_is_the_one_being_published(monkeypatch):
 
 
 def test_a_python_filter_is_translated_to_the_rest_spelling():
-    """probe 030 — a TD reaching for a filter types shotgun_api3's spelling."""
+    """probe 030: a TD reaching for a filter types shotgun_api3's spelling."""
     got = SGLoadVersion._filters('{"filter_operator": "any", '
                                  '"filters": [["sg_status_list", "in", ["apr"]]]}')
     assert got == {"logical_operator": "or", "conditions": [["sg_status_list", "in", ["apr"]]]}

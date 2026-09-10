@@ -1,8 +1,8 @@
 """The name a publish takes next, and the pickers that name needs.
 
-`site` and `naming` only. The setup commands — `python -m comfyui_sg.fields`, `python -m
-comfyui_sg.seed` — run on whatever Python is to hand, so nothing on the way to them may reach a
-node class and, through it, torch.
+Imports `site` and `naming` only. The setup commands `python -m comfyui_sg.fields` and `python -m
+comfyui_sg.seed` run on whatever Python is to hand, so nothing on the way to them may reach a node
+class and, through it, torch.
 """
 from . import naming, site
 
@@ -10,8 +10,8 @@ from . import naming, site
 def templates(template, root_template, project_id):
     """(version-name template, root-name template) in force: the widget, else Settings, else ours.
 
-    An empty widget means the Settings default names it, which is what lets one edit under Settings
-    reach every saved graph.
+    An empty widget takes the Settings default, so one edit under Settings reaches every saved
+    graph.
     """
     p = site.for_project(project_id)
     return ((template or p.get("code_template") or naming.DEFAULT_TEMPLATE).strip(),
@@ -35,9 +35,9 @@ def missing_fields(template, root_template, project_id, link_id, task_id):
 def root_of(root_template, values, version=None):
     """The stream's name, rendered once and read by the version name, the path and the panel alike.
 
-    A root that carries a `{version}` token is unusual — the root is what every version of this
-    publish shares — but it must render the same wherever it is read, or the Version's code and the
-    folder its frames landed in name two different things.
+    A root that carries a `{version}` token is unusual, since the root is what every version of
+    this publish shares. It must still render the same wherever it is read, or the Version's code
+    and the folder its frames landed in name two different things.
     """
     return naming.render(root_template, values, version)
 
@@ -48,7 +48,7 @@ def next_name(template, project_id, link_type, link_id, task_id, root_template="
     The number comes back because the path template needs the same one: a Version called v003
     and a sequence written to `v001/` would be two answers to one question. `{root_name}` is
     rendered first and handed to the version template as a value, because that template is
-    `{root_name}_v{version:03d}` — the stream composed, then versioned.
+    `{root_name}_v{version:03d}`: the stream composed, then versioned.
     """
     name_t, root_t = templates(template, root_template, project_id)
     if not naming.template_fields(name_t) and "{version" not in naming.normalise_template(name_t):

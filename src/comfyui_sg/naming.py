@@ -15,7 +15,7 @@ import string
 # still recognised as a field.
 FIELD_RE = re.compile(r"\{([a-zA-Z_][\w.]*?)(?::([^{}]*))?\}")
 # Toolkit spells an optional key with square brackets, and so does a template here:
-# `[_{sg_task.Task.content}]` disappears entirely — separator and all — when the task is not set.
+# `[_{sg_task.Task.content}]` disappears entirely, separator and all, when the task is not set.
 OPTIONAL_RE = re.compile(r"\[([^\[\]]*)\]")
 FRAME_SUFFIX = r"(?:_\d{2,})?"                # publish_version appends `_01` per frame of a batch
 LEGACY_VERSION_RE = re.compile(r"%(0\d+)d")   # only the printf part; a preceding `v` is literal
@@ -49,7 +49,7 @@ def parse(code, regex):
 
 
 def normalise_template(template):
-    """Accept `v%04d` beside `{version:04d}` — printf padding is what a TD writes by habit."""
+    """Accept `v%04d` beside `{version:04d}`. Printf padding is what a TD writes by habit."""
     return LEGACY_VERSION_RE.sub(lambda m: "{version:%sd}" % m.group(1), template or "")
 
 
@@ -78,9 +78,9 @@ class _Paths(string.Formatter):
     """Python's own formatter with the whole dotted path used as the key.
 
     `str.format` reads `{a.b}` as attribute access and `{a[b]}` as item access, but a template path
-    like `entity.Shot.code` is one key rather than a walk. Overriding `get_field` is what lets Flow
-    PT's dotted syntax and Python's format spec coexist, so `{sg_version_number:03d}` pads and
-    `{code:>12}` aligns without either being taught here.
+    like `entity.Shot.code` is one key rather than a walk. Overriding `get_field` lets SG's dotted
+    syntax and Python's format spec coexist, so `{sg_version_number:03d}` pads and `{code:>12}`
+    aligns without either being taught here.
     """
 
     def get_field(self, name, args, kwargs):
@@ -94,8 +94,8 @@ class _Paths(string.Formatter):
         try:
             return format(value, spec)
         except (TypeError, ValueError):
-            # SG returns numbers as strings often enough that a numeric spec on text coerces
-            # rather than refuses.
+            # SG returns numbers as strings, so a numeric spec on text coerces rather than
+            # refuses.
             coerce = int if spec[-1:] in ("d", "b", "o", "x", "X") else (
                 float if spec[-1:] in ("e", "E", "f", "F", "g", "G", "%") else None)
             if coerce:
@@ -145,9 +145,9 @@ def template_regex(template, values):
             v = values.get(path)
             out += re.escape(str(v)) if v else r"[^_]*"
         i = m.end()
-    # A batch publishes one Version per frame and appends `_01`, `_02` … to the rendered code
-    # (publish_version). The suffix is ours, so the matcher accepts it; anchored strictly, a re-run
-    # would count zero previous versions and mint v001 on top of the run already there.
+    # A batch publishes one Version per frame and appends `_01`, `_02` and so on to the rendered
+    # code (publish_version). The matcher accepts that suffix. Anchored strictly, a re-run would
+    # count zero previous versions and mint v001 on top of the run already there.
     return "^" + out + re.escape(t[i:]) + FRAME_SUFFIX + "$"
 
 

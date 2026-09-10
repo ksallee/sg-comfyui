@@ -78,7 +78,7 @@ def test_a_clip_that_is_a_file_goes_up_as_that_file(comfy_api, tmp_path):
 
 
 def test_a_trimmed_clip_is_encoded_rather_than_filed_as_its_source(comfy_api, tmp_path):
-    """corpus 028 — `as_trimmed` keeps the whole source path, so the class alone proves nothing."""
+    """corpus 028: `as_trimmed` keeps the whole source path, so the class alone proves nothing."""
     src = tmp_path / "plate.mov"
     src.write_bytes(b"movie")
     trimmed = FakeVideoFromFile(str(src), duration=2.0)

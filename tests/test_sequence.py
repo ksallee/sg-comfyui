@@ -47,8 +47,8 @@ def test_the_frame_token_survives_the_path_render():
 
 
 def test_a_template_cannot_walk_out_of_the_storage_root():
-    """A published file has to sit under the root the site resolves, so a walk out is neutralised
-    before the check and the check is what would refuse anything left."""
+    """A published file has to sit under the root the site resolves. A walk out of the root is
+    neutralised before the check, and the check refuses anything left."""
     got = sequence.pattern("/Volumes/proj", "../{entity}/{version_name}.%04d{ext}",
                            dict(VALUES, entity="../sh010"), 3, ".png")
     assert got.startswith("/Volumes/proj/")

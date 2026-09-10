@@ -32,9 +32,9 @@ class Field:
     placeholder: str = ""
 
 
-# Decided in the order they are decided: which show, what it belongs to, which task, what state it
-# is in, what it is called, whether it is a deliverable, and last the note a person writes. The
-# fold holds what a house sets once.
+# Declared in the order an operator decides them: which show, what it belongs to, which task, what
+# state it is in, what it is called, whether it is a deliverable, and last the note a person
+# writes. The fold holds what a house sets once.
 PUBLISH_FIELDS = (
     Field("project", "combo", dynamic=True,
           tooltip="Project to publish into."),

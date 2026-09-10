@@ -1,7 +1,7 @@
 """What `format` writes: the extension, the bit depth, and the sentence with no encoder.
 
 The bit depth is read back off the written file with PyAV, the library ComfyUI's own encoder writes
-with, so the file is read the way its format defines it rather than the way a library guesses.
+with, so each file is read the way its own format defines it.
 """
 import sys
 

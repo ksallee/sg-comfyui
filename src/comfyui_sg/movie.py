@@ -21,7 +21,7 @@ FRAME_FIELDS = ("sg_first_frame", "sg_last_frame", "frame_count", "frame_range")
 
 
 def frame_fields(count):
-    """The clip's own range, one-based — what a frame_range reads as everywhere else."""
+    """The clip's own range, one-based, as a frame_range reads everywhere else."""
     return {"sg_first_frame": 1, "sg_last_frame": int(count),
             "frame_count": int(count), "frame_range": f"1-{int(count)}"}
 
@@ -38,8 +38,8 @@ def source_file(video):
     clip: `as_trimmed` and `as_cropped` answer with a new `VideoFromFile` over that same file with
     the window kept beside it. Trusting the class alone would silently file a ten-second plate as
     the two-second selection a supervisor asked for (probe 028). So the test is whether the object
-    and the file are the same video — same dimensions, same duration as a plain `VideoFromFile` over
-    that path. Both are container metadata reads; neither decodes.
+    and the file are the same video: same dimensions and same duration as a plain `VideoFromFile`
+    over that path. Both are container metadata reads and neither decodes.
     """
     try:
         from comfy_api.input_impl import VideoFromFile
@@ -60,7 +60,7 @@ def source_file(video):
 
 
 def stage(video, folder, stem):
-    """(the file to publish, how it got there) — never a transform where a file already exists.
+    """(the file to publish, how it got there). Never a transform where a file already exists.
 
     `save_to` carries sRGB as BT.709, HDR as BT.2020/HLG and HDR PQ as BT.2020/PQ, at the clip's own
     bit depth, with the audio.
@@ -79,7 +79,7 @@ def poster(path):
 
     The site derives its own thumbnail from a movie only once the transcode lands, and a Version
     with no picture until then is worse. Decoded from the file rather than through
-    `get_components()`, which materialises every frame as float32 — 300 frames of 4K is 27.8 GiB.
+    `get_components()`, which materialises every frame as float32. 300 frames of 4K is 27.8 GiB.
     """
     try:
         import av   # ships with ComfyUI for its video nodes; see DESIGN

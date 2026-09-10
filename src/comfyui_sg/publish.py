@@ -1,6 +1,6 @@
 """Writing to SG: Versions, uploads, attachments and PublishedFiles.
 
-Publish path only — REST through sg_groundtruth, `requests` for the presigned PUT, nothing else.
+Publish path only. REST through sg_groundtruth, `requests` for the presigned PUT, nothing else.
 Every call here is verified by a probe; see corpus recipe 001.
 """
 import json
@@ -21,7 +21,7 @@ def _ok(r, what, cut=300):
 
 
 def create_version(sg, project_id, code, fields=None):
-    """probe 012 — entity links are {type, id}; project is required despite not being schema-mandatory."""
+    """probe 012: entity links are {type, id}, and project is required though not schema-mandatory."""
     body = {"project": {"type": "Project", "id": int(project_id)}, "code": code}
     body.update(fields or {})
     r = _ok(sg.post("/entity/versions", json=body), "create the Version")
@@ -51,8 +51,8 @@ def upload(sg, version_id, payload, filename, field=None):
 def upload_file(sg, version_id, path, filename, field=None):
     """The same three-step upload, streamed off disk rather than held in memory.
 
-    A clip is the one payload here with no ceiling — a long plate is gigabytes — and reading it into
-    a bytes object only to hand it to `requests` doubles that for nothing.
+    A clip is the one payload here with no ceiling, and a long plate is gigabytes. Reading it into a
+    bytes object only to hand it to `requests` doubles that for nothing.
     """
     with open(path, "rb") as fh:
         upload(sg, version_id, fh, filename, field=field)
@@ -80,9 +80,9 @@ def published_file_type(sg, candidates):
     """(the first of `candidates` this site has, a sentence where the site would not say).
 
     Matched case-insensitively (recipe 004). Never creates one: PublishedFileType has no `project`,
-    so a create adds it to every show on the site. A miss returns None with no sentence, because a
-    site that genuinely has no such type is the caller's story to tell; a site that refused the read
-    is this function's, and the two must not be reported as one.
+    so a create adds it to every show on the site. A miss returns None with no sentence. A site
+    that has no such type is the caller's to report, a site that refused the read is reported here,
+    and the two are never merged.
     """
     r = sg.get("/entity/published_file_types", params={"fields": "code", "page[size]": 200})
     if not r.ok:
@@ -99,17 +99,14 @@ def published_file_type(sg, candidates):
 def published_files_of(sg, version_ids, exact=None):
     """(every PublishedFile hanging off these Versions, a sentence where the search failed).
 
-    The upstream half of a dependency link.
+    The upstream half of a dependency link. `upstream_published_files` is the PublishedFile-level
+    twin of `sg_ai_generated_from`, and where an ancestor Version carries files, those files are
+    what a downstream tool opens.
 
-    `upstream_published_files` is the PublishedFile-level twin of `sg_ai_generated_from`: the node
-    already knows which Versions this one came from, and where those Versions carry files, the files
-    are what a downstream tool actually opens.
-
-    `exact` is {version_id: [published_file_id]} for ancestors a Load node actually read a file from
+    `exact` is {version_id: [published_file_id]} for ancestors a Load node read a file from
     (lineage.py). Those Versions are not searched: the dependency is the one file that was opened,
-    not every file that Version ever published, which on a Version carrying a sequence AND its mp4 is
-    the difference between a true link and a plausible one. Every other ancestor gets the search,
-    because approximate is the honest answer where nothing narrower is known.
+    not every file that Version ever published. Every other ancestor gets the search, because
+    approximate is the honest answer where nothing narrower is known.
     """
     exact = exact or {}
     ids = [int(v) for v in version_ids if v]
@@ -127,7 +124,7 @@ def published_files_of(sg, version_ids, exact=None):
 
 
 def create_published_file(sg, project_id, code, name, local_path, fields=None):
-    """recipe 004 — one create, forward slashes only, and the server splits the root off `local_path`.
+    """recipe 004: one create, forward slashes only, the server splits the root off `local_path`.
 
     The 201 already carries the resolved `path`, so nothing needs reading back: `local_storage`,
     `relative_path` and every `local_path_*` whose root the LocalStorage row defines come back filled,
