@@ -24,6 +24,8 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 
 ![SG Publish after a run: the Version it will create, and the last one it made](docs/images/sg-publish-node.png)
 
+![The side panel on Info: each SG Publish input, its type and what it sets](docs/images/sg-publish-info.png)
+
 ### SG Load
 
 - Finds a Version by project, link, Task, status and name. `pin_version_id` takes an id instead.
@@ -32,6 +34,8 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Records the Version it read on anything published downstream.
 
 ![SG Load on an EXR Version: the format line, the provenance it records, the image and the mask](docs/images/sg-load-node.png)
+
+![The side panel on Info: each SG Load input and output, with its type](docs/images/sg-load-info.png)
 
 ### In the editor
 
@@ -158,7 +162,7 @@ provenance fact is written to. It is plain JSON. Edit it by hand.
 |---|---|
 | Measure one project and write the profile | `/inspect-site` |
 | Set the name templates, status, storage and paths per project | Settings, then SG, SG Publish Defaults |
-| Put those defaults on a node | Fill from SG defaults |
+| Put a Settings template on a node | type `{` in root name or version name, then pick Default |
 | Map provenance onto Version fields you already have | the profile's `provenance.map` |
 | Add the nodes to a graph you already use | `/track-workflow` |
 

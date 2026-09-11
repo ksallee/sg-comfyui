@@ -234,25 +234,12 @@ Then offer to run /setup.`;
 <!-- 7. Templates -->
 <section class="band" id="templates" use:reveal>
 	<div class="page">
-		<div class="split">
-			<div class="split-copy">
-				<h2>Three demo templates to test the nodes.</h2>
-				<p>
-					Open the Templates browser, category <code>sg-comfyui</code>. <code>00_example</code>
-					publishes one image and reads it back.
-				</p>
-				<p>
-					For a graph you already use, <code>/track-workflow</code> adds the nodes to it. Fill from
-					SG defaults then puts your publish defaults on the node.
-				</p>
-			</div>
-			<div class="split-media">
-				<Clip
-					name="04_fill_defaults"
-					caption="Fill from SG defaults writes the storage, the paths and the status onto the node."
-				/>
-			</div>
-		</div>
+		<h2>Three demo templates to test the nodes.</h2>
+		<p class="lede wide">
+			Open the Templates browser, category <code>sg-comfyui</code>. <code>00_example</code>
+			publishes one image and reads it back. For a graph you already use,
+			<code>/track-workflow</code> adds the nodes to it.
+		</p>
 		<div class="gallery" role="group" aria-label="The shipped templates">
 			{#each templates as template (template.name)}
 				<figure>
@@ -639,18 +626,6 @@ Then offer to run /setup.`;
 		gap: 0.4rem;
 	}
 
-	/* 7. Templates */
-	.split {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: clamp(2rem, 5vw, 4rem);
-		align-items: center;
-	}
-
-	.split-copy h2 {
-		margin-bottom: 1.1rem;
-	}
-
 	/* 6. Formats */
 	.bento {
 		display: grid;
@@ -975,7 +950,6 @@ Then offer to run /setup.`;
 	@media (max-width: 900px) {
 		.hero-grid,
 		.contrast,
-		.split,
 		.storage,
 		.paths,
 		.install,

@@ -44,6 +44,8 @@ export const shotSize = {
 	'load-provenance-rows': [870, 660],
 	'settings-sign-in': [2304, 1440],
 	'settings-storage-paths': [1900, 750],
+	'sg-load-info': [1560, 2486],
 	'sg-load-node': [1050, 800],
+	'sg-publish-info': [1560, 1990],
 	'sg-publish-node': [765, 855]
 };
