@@ -10,12 +10,20 @@ import { app } from "../../scripts/app.js";
 import { addPanel } from "./sg_panel.js";
 import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets, restoreValue, textRows, cascade, call } from "./sg_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows, cascade, call,
+         setPlaceholder, templateCompletion } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 
 /** The site's own value for a label. "(none)" is a label for the operator. */
 const bare = (v) => (!v || v === NONE) ? "" : v;
+
+/** Sync from SG. The server drops its cached site reads first, so a Task or Step edited on the site
+ *  since the last read is seen. Other open nodes read the site again on their next preview. */
+const resync = async (reload) => {
+  await call("/sg/sync", { body: {} });
+  return reload();
+};
 
 /** The type out of a `name (Type)` label. Context on the row, not part of what is searched. */
 // Which of a node definition's inputs are widgets, in declared order. An input slot has a type name
@@ -262,6 +270,19 @@ function publishPickers(nodeType, nodeData) {
     // The status the operator picked, drawn the way SG draws it (probe 010).
     const statusOf = (label) => statusMeta[bare(label)] || null;
 
+    // The two name templates Settings has in force, read from each preview. The completion lists
+    // one of them as its Default row.
+    let inForce = {};
+    // An opening brace lists the tokens a template of this kind may use, and a token that names an
+    // entity descends into that type's own fields. `{entity}` is the picked link's type, else what
+    // this project links a Version to, so both are passed.
+    for (const [widget, kind] of [["root_name", "root"], ["code_template", "name"]]) {
+      templateCompletion(this, { name: widget, kind,
+                                 project: () => project?.value || "",
+                                 linkType: () => typeFromLabel(bare(link?.value)),
+                                 defaultTemplate: () => inForce[widget] || "" });
+    }
+
     // Each preview is numbered and the newest one alone may write. There are two requests per
     // preview, so a widget changed twice quickly can answer out of order and leave the panel
     // describing the older graph.
@@ -292,6 +313,13 @@ function publishPickers(nodeType, nodeData) {
       const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
       if (!keepLog) panel.clearLog();
+      // An empty root name or version name is set by Settings. The template in force is drawn
+      // greyed inside the empty field, where one would be typed, and is the completion's Default
+      // row whether the field is empty or not.
+      inForce = d.settings || {};
+      for (const name of ["root_name", "code_template"]) {
+        setPlaceholder(node, name, w(name)?.value?.trim() ? "" : inForce[name] || "");
+      }
       if (!d.code) {
         panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
           + "node, or empty it to use the default under Settings, then SG." });
@@ -310,14 +338,12 @@ function publishPickers(nodeType, nodeData) {
       // the name instead.
       const { error, ...rest } = extra || {};
       // What this Run would publish: the review media, the files, and the paths they are written
-      // to. One run creates one Version. An empty root name or version name is set by Settings, and
-      // the templates row shows what that resolves to. The previous Version is drawn as a link
-      // alone, so its files do not read as this Run's.
+      // to. One run creates one Version. The previous Version is drawn as a link alone, so its
+      // files do not read as this Run's.
       const facts = []
         .concat(rest.review ? [{ label: "review", value: rest.review }] : [])
         .concat(rest.files ? [{ label: "files", value: rest.files }] : [])
         .concat((rest.paths || []).map((x) => ({ label: x.label, value: x.path })))
-        .concat((d.templates || []).map((t) => ({ label: t.label, value: `${t.value} · ${t.source}` })))
         .concat(runFacts(d.latest));
       panel.show({
         ...rest, facts,
@@ -465,22 +491,7 @@ function publishPickers(nodeType, nodeData) {
     // serializes shifts each declared value after it. The callback takes no arguments: litegraph
     // passes a button's callback the canvas and the node, and the cascade token is the second
     // parameter.
-    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
-    // The Settings values written into the widgets, to edit from or to bring an older node up to
-    // date. An emptied root name or version name follows Settings again.
-    const copyDefaults = async () => {
-      const d = await call(`/sg/node_defaults?project=${encodeURIComponent(project?.value || "")}`);
-      if (d.error) { panel.show({ error: d.error }); return; }
-      for (const [name, value] of Object.entries(d)) {
-        const widget = w(name);
-        if (!widget) continue;
-        widget.value = widget.options?.values && !widget.options.values.includes(value)
-          ? widget.options.values[0] : value;
-      }
-      relayout();
-      preview();
-    };
-    dontSerialize(this.addWidget("button", "Fill from SG defaults", null, copyDefaults));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => resync(loadProject)));
     // Who this publishes as is set under Settings. A change there changes what each picker reads
     // (probe 027), so the node reloads.
     onSession(this, () => loadProject());
@@ -640,7 +651,7 @@ function loadPickers(nodeType, nodeData) {
       typing = setTimeout(() => refresh({ filters: value }), 400);
     });
 
-    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => resync(loadProject)));
     onSession(this, () => loadProject());
     loadProject();
   };

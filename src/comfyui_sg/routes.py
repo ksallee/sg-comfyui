@@ -237,6 +237,44 @@ def _example(kind, template):
     return ""
 
 
+_TYPE_NAME = re.compile(r"[A-Za-z][A-Za-z0-9_]{0,63}")
+
+
+def _entity_type(query):
+    """The `type` query param as an entity type. It goes into the schema path, so nothing else."""
+    name = (query.get("type") or "").strip()
+    if not _TYPE_NAME.fullmatch(name):
+        raise ValueError(f"{name or 'That'} is not an entity type.")
+    return name
+
+
+def _token_rows(kind, project, link_type=""):
+    """The tokens for one template kind, with the types `{entity}` may descend into.
+
+    `link_type` is the picked link's own type and wins. Without one, the profile's link type, else
+    the types this project's Versions link to (probe 005), else Shot.
+    """
+    from . import naming
+    try:
+        pid = site.id_for(site.projects(), project) or site.default_project()
+    except Exception:
+        pid = site.default_project()
+    types = [link_type] if link_type else [site.for_project(pid).get("link_type")]
+    if not types[0]:
+        try:
+            types = site.link_types(pid)
+        except Exception:
+            types = []
+    return naming.tokens(kind, types or ["Shot"])
+
+
+def _in_force(profile):
+    """The two name templates Settings has in force for a project, whatever a node's fields read."""
+    from . import naming
+    return {"root_name": profile.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
+            "code_template": profile.get("code_template") or naming.DEFAULT_TEMPLATE}
+
+
 def _defaults():
     """What Settings shows: the effective values for the project the nodes open on, plus the
     choices the site offers for the pickers. Storages and statuses fail soft to empty lists."""
@@ -384,6 +422,18 @@ def register():
         q = request.rel_url.query
         return answer(lambda: {"example": _example(q.get("kind", ""), q.get("template", ""))},
                       {"example": ""})
+
+    @routes.get("/sg/tokens")
+    async def template_tokens(request):
+        """The tokens a template may use, for the completion in the editor."""
+        q = request.rel_url.query
+        return items(lambda: _token_rows(q.get("kind", ""), q.get("project", ""),
+                                         q.get("link_type", "")))
+
+    @routes.get("/sg/schema_fields")
+    async def schema_fields(request):
+        """The fields of one type, for the dotted path the completion builds hop by hop."""
+        return items(lambda: site.schema_fields(_entity_type(request.rel_url.query)))
 
     @routes.post("/sg/login")
     async def login(request):
@@ -570,7 +620,7 @@ def register():
         q = request.rel_url.query
 
         def read():
-            from . import naming, version_name
+            from . import version_name
             site.client()     # nothing to preview until someone is connected: the sentence names Settings
             ctx = site.context(q.get("project", ""), q.get("link", ""), q.get("task", ""),
                                link_type=q.get("link_type", ""))
@@ -598,30 +648,20 @@ def register():
                 # Its link only. Drawing its files here would read as the files this publish
                 # writes.
                 latest = {"id": lid, "code": lcode, "site_url": site.client().site}
-            # An empty field on the node means Settings names it. The panel shows the template in
-            # force, tagged with where it came from.
-            templates = [{"label": label, "value": value, "source": "Settings"}
-                         for label, own, value in
-                         (("root name", root_t, p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
-                          ("version name", q.get("code_template", ""),
-                           p.get("code_template") or naming.DEFAULT_TEMPLATE))
-                         if not own.strip()]
+            # The two templates Settings has in force, whatever the node's own fields read. The
+            # editor draws one inside an empty field as its placeholder, and lists it as the
+            # completion's Default row whether the field is empty or not.
             return {"code": code, "link": f"{lt} {picked_name}".strip(),
                     "task": q.get("task", ""), "alert": alert, "latest": latest,
-                    "templates": templates}
+                    "settings": _in_force(p)}
         return answer(read, {"code": ""})
 
-    @routes.get("/sg/node_defaults")
-    async def node_defaults(request):
-        """What a publish node copies in from Settings, for the picked project."""
-        q = request.rel_url.query
-
-        def read():
-            from .nodes.publish_version import settings_defaults
-            site.client()
-            pid = site.id_for(site.projects(), q.get("project", "")) or site.default_project()
-            return settings_defaults(pid)
-        return answer(read, {})
+    @routes.post("/sg/sync")
+    async def sync(request):
+        """Drop every cached site read. Sync from SG calls this first, so a Task or Step edited on
+        the site is read again rather than served from the 600 second cache."""
+        site.forget()
+        return web.json_response({})
 
     @routes.post("/sg/preview_publish")
     async def preview_publish(request):

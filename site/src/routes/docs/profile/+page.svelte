@@ -21,7 +21,7 @@
 </script>
 
 <svelte:head>
-	<title>The profile. Flow Production Tracking for ComfyUI</title>
+	<title>The profile. SG ComfyUI</title>
 	<meta name="description" content="profile.local.json sets what a Version links to, what it is called, and where each provenance fact is written." />
 </svelte:head>
 

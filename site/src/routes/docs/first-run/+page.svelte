@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>First run. Flow Production Tracking for ComfyUI</title>
+	<title>First run. SG ComfyUI</title>
 	<meta name="description" content="Eight steps from the Settings dialog to a published Version, and what a farm does instead of step three." />
 </svelte:head>
 
@@ -50,6 +50,6 @@
 	<a href="{base}/docs/profile"><code>profile.local.json</code></a>.
 </p>
 <p>
-	Fill from SG defaults puts the publish defaults on a node.
+	An empty root name or version name shows the Settings template greyed inside it.
 	<code>/track-workflow</code> adds the nodes to a graph you already use.
 </p>

@@ -72,8 +72,11 @@ const CSS = `
 .sg-ok { color: #7fd18b; }
 .sg-err { color: #f08a8a; white-space: pre-wrap; }
 .sg-dim { color: #7f868f; }
+/* The head is not selectable, so the node drags from it. The name is: it is read off to be typed
+   elsewhere, and a click copies it. */
 .sg-code { font: 600 13px ui-monospace, SFMono-Regular, Menlo, monospace; color: #f2f5f8;
-  letter-spacing: .01em; overflow-wrap: anywhere; min-width: 0; }
+  letter-spacing: .01em; overflow-wrap: anywhere; min-width: 0; user-select: text; cursor: copy; }
+.sg-code.is-copied { color: #7fd18b; }
 .sg-badge { display: inline-flex; align-items: center; gap: 3px; }
 .sg-badge:empty { display: none; }
 /* One flex item for the status and the state, so a narrow node moves both to the next line
@@ -170,6 +173,21 @@ function sourcesBlock(d) {
   return `<div class="sg-sec">from</div>` + rows.map((x) =>
     `<div class="sg-full sg-v">${esc(x.code || ("Version " + x.id))}</div>` +
     (x.why ? `<div class="sg-why">${esc(x.why)}</div>` : "")).join("");
+}
+
+/** A click on `el` copies `text`. The canvas is not told about the press, so the node does not
+ *  start dragging under a selection or a click. */
+function copyOnClick(el, text) {
+  if (!el) return;
+  el.addEventListener("pointerdown", (e) => e.stopPropagation());
+  el.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      await navigator.clipboard.writeText(text);
+      el.classList.add("is-copied");
+      setTimeout(() => el.classList.remove("is-copied"), 600);
+    } catch (err) { /* no clipboard permission: the text is still selectable */ }
+  });
 }
 
 /** Add the readout to a node. `onLayout` runs after a redraw that changes the node's height. */
@@ -285,7 +303,8 @@ export function addPanel(node, title = "SG", onLayout = null) {
       // The name is drawn larger than its own label. On the publish node it is the Version the Run
       // would create, and it is what is checked before a run.
       t.innerHTML = `<span class="sg-lead">Version Name</span>` +
-        `<span class="sg-code">${esc(d.code)}</span>`;
+        `<span class="sg-code" title="Click to copy">${esc(d.code)}</span>`;
+      copyOnClick(t.querySelector(".sg-code"), d.code);
       badgeEl.innerHTML = d.status && d.status.label ? badge(d.status) : "";
       const rows = [];
       let over = "";

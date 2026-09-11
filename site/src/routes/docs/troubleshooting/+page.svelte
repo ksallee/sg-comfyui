@@ -1,5 +1,5 @@
 <svelte:head>
-	<title>Troubleshooting. Flow Production Tracking for ComfyUI</title>
+	<title>Troubleshooting. SG ComfyUI</title>
 	<meta name="description" content="The symptom, then the fix: a 404 Settings dialog, empty pickers, a stale lookup, a refused storage, an unnamed client." />
 </svelte:head>
 

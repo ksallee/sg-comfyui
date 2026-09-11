@@ -21,8 +21,12 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Uploads review media that plays in a browser.
 - Registers the frames or the movie as PublishedFiles when **Create Published Files** is ticked.
 - Writes frames as 8-bit PNG, 16-bit PNG or EXR 32-bit float, picked on the **format** widget.
+- Writes a wired **mask** as the frames' alpha, on ComfyUI's convention: white in the mask is
+  transparent in the file.
 
 ![SG Publish after a run: the Version it will create, and the last one it made](docs/images/sg-publish-node.png)
+
+![The side panel on Info: each SG Publish input, its type and what it sets](docs/images/sg-publish-info.png)
 
 ### SG Load
 
@@ -32,6 +36,8 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Records the Version it read on anything published downstream.
 
 ![SG Load on an EXR Version: the format line, the provenance it records, the image and the mask](docs/images/sg-load-node.png)
+
+![The side panel on Info: each SG Load input and output, with its type](docs/images/sg-load-info.png)
 
 ### In the editor
 
@@ -158,7 +164,7 @@ provenance fact is written to. It is plain JSON. Edit it by hand.
 |---|---|
 | Measure one project and write the profile | `/inspect-site` |
 | Set the name templates, status, storage and paths per project | Settings, then SG, SG Publish Defaults |
-| Put those defaults on a node | Fill from SG defaults |
+| Put a Settings template on a node | type `{` in root name or version name, then pick Default |
 | Map provenance onto Version fields you already have | the profile's `provenance.map` |
 | Add the nodes to a graph you already use | `/track-workflow` |
 
@@ -170,7 +176,6 @@ The procedures are in `.claude/commands/` as plain markdown. `01_concept_and_sty
 
 The order is not decided. Open an issue for the one you need, whether or not it is on this list.
 
-- A `mask` input on SG Publish, so an RGBA publish keeps its alpha.
 - Registering files another node wrote, such as Save Image (Advanced) or an OCIO Write.
 - Publishing where there is no shared storage, by uploading a zip.
 - Publishing on someone's behalf, and naming the artist on a farm.

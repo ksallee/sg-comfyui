@@ -3,7 +3,7 @@
 </script>
 
 <svelte:head>
-	<title>For an agent. Flow Production Tracking for ComfyUI</title>
+	<title>For an agent. SG ComfyUI</title>
 	<meta name="description" content="The entry point for an agent: the offline check, which document answers which question, and the three procedures." />
 </svelte:head>
 

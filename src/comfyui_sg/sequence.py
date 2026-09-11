@@ -80,6 +80,28 @@ def extension(fmt):
     return spec_for(fmt)[3]
 
 
+def with_alpha(images, mask):
+    """The batch with the mask as a fourth channel, alpha `1 - mask`, ComfyUI's own convention.
+
+    One mask applies to every frame. A batch of masks has one mask per frame. A mask of another
+    size, or another count, is refused. Nothing here resamples a mask onto the frames.
+    """
+    import torch
+
+    m = mask.reshape(1, *mask.shape) if mask.ndim == 2 else mask
+    n, h, w = images.shape[0], images.shape[1], images.shape[2]
+    if (m.shape[1], m.shape[2]) != (h, w):
+        raise ValueError(f"The mask is {m.shape[2]}x{m.shape[1]} and the frames are {w}x{h}. Wire "
+                         f"a mask the size of the frames, or unplug it.")
+    if m.shape[0] not in (1, n):
+        raise ValueError(f"There are {m.shape[0]} masks and {n} frames. Wire one mask for the "
+                         f"batch, or one mask per frame.")
+    if m.shape[0] == 1 and n > 1:
+        m = m[[0] * n]
+    alpha = (1.0 - m.to(images)).clip(0.0, 1.0)
+    return torch.cat((images[..., :3], alpha[..., None]), dim=-1)
+
+
 def write_frames(images, stem, fmt=DEFAULT_FORMAT):
     """The batch as a sequence in ComfyUI's output directory, one folder per publish.
 

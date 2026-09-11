@@ -9,22 +9,54 @@ and `AGENTS.md`.
 
 ## Next session, in order
 
-1. **Kevin's QA on `dev`, on his own ComfyUI.** Restart it first: web files and a route changed.
-   To look at: the Load outputs in the new order; the task and status pickers; the pre-run panel's
-   client row; README with its three pictures; the clips in `~/Desktop/sg-comfyui-clips-2026-09-10/`;
-   the screenshots in `~/Desktop/sg-comfyui-checkpoint-2026-09-10/`.
-2. **The launch page, built (#113).** Review the captures in `~/Desktop/sg-comfyui-site-2026-09-10/`
-   or run `npm run dev` in `site/`. To publish: GitHub Pages set to the `gh-pages` branch, then
-   `pages.yml` by hand or a push to `main`. `BASE_PATH` is `/sg-comfyui`; a custom domain needs `/`.
-3. **Release.** GitHub release from `main` first. The Registry later. Both Kevin's.
-4. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+1. **`dev` to `main`**, by merge commit, Kevin. Then the GitHub release from `main`, tagged.
+2. **Repo public.** The Registry reads the repo and links to it.
+3. **Registry mechanics**, Kevin: publisher and API key at registry.comfy.org; `PublisherId`,
+   `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`; `comfy node pack` and
+   `unzip -l` to check the archive; `comfy node publish` by hand. No publish workflow exists, and
+   Actions is off.
+4. **The launch page, after the public release, on Vercel.** The same setup as
+   sg-groundtruth.vercel.app: a Vercel project `sg-comfyui` linked from the repo root, root
+   directory `site`, output `build`, production deploys only, `BASE_PATH=/` in the project's
+   environment. `pages.yml` and `gh-pages` are then unused.
+5. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
 
 ---
 
-## State, end of 2026-09-10
+## State, end of 2026-09-11
 
-`dev` has everything below, squash-merged, CI green on Linux, macOS and Windows. `main` is untouched
-since #80. Offline suite: 246 passed, 11 skipped.
+`dev` has everything below. Kevin's QA of #126 passed on his own ComfyUI. `main` is untouched since
+#80. Offline suite: 264 passed, 17 skipped. GitHub Actions is off at the repository level, so no
+check ran on the day's PRs; the suite and `npm run build` were run locally at each merge.
+
+**Landed 2026-09-11, as #126 onto `dev`, assembled from #127 to #130 and direct commits.**
+
+- A bare linked field in a template, `{sg_task.Task.step}`, resolves to the link's name (probe 003:
+  an entity field is answered under `relationships`).
+- Sync from SG calls `POST /sg/sync`, which drops every cached site read (`site.forget()` with no
+  prefix). A Task or Step edited on the site is read again rather than served for up to 600 s.
+- The version name in the readout is selectable, and a click copies it.
+- An empty root name or version name shows the Settings template greyed inside the field. The
+  frontend drops `placeholder` from a single-line STRING spec at build, so the editor sets the input's
+  own attribute after each preview (`setPlaceholder`). `nodeElement` finds the node by the
+  `data-node-id` Nodes 2.0 stamps: the node keeps a detached copy of a rebuilt DOM widget.
+- Typing `{` in a template field, on the node and in the four Settings rows, opens a completion:
+  the documented tokens (`naming.TOKENS`, served by `/sg/tokens`), then a linked type's own fields
+  from `/sg/schema_fields` (one schema read per type, cached, probe 002), two hops, single `entity`
+  fields only. `{entity}` descends into the picked link's type, else the profile's, else the types
+  the project's Versions link to, offered as rows. A Default row, always last, writes the Settings
+  template into the field. `/sg/preview_code` returns `settings`, the two templates in force.
+- Fill from SG defaults is gone: the button, `/sg/node_defaults`, the clip, the docs.
+- A `mask` input on SG Publish, appended after the widgets. Frames are written RGBA, alpha
+  `1 - mask`, in all three formats. One mask spreads over a batch; a size mismatch is refused with
+  both sizes. The review still keeps the alpha. A mask with `video` alone is refused.
+- SG Load declares `OUTPUT_TOOLTIPS`, one sentence per output, read by the Info tab.
+- The Info tab of each node captured at 780 px (`tools/drive_info_tab.js`), in the README and on the
+  site. The root name and version name tooltips shortened to three lines at that width.
+- Every capture showing SG Publish retaken: two clips, eight stills, the hero. `08_publish_mask` is
+  new: a mask SG Load read, inverted, published as the frames' alpha. Load, Settings and Site Setup
+  captures kept.
+- The site's header bar and page titles read SG ComfyUI. The hero and the footer keep the full name.
 
 **Landed 2026-09-10, one PR each.**
 
@@ -61,11 +93,36 @@ since #80. Offline suite: 246 passed, 11 skipped.
   `~/Desktop/sg-comfyui-site-2026-09-10/`.
 
 **Sandbox project 1180.** Version 31995 keeps its row (drives pin it); its lineage is cleared.
-Retired: five unlinked probe rows, 32001 (Windows path notation from a mac publish), and every
-Version the day's drives created (32037 to 32049).
+Retired: five unlinked probe rows, 32001 (Windows path notation from a mac publish), every Version
+the drives of the 10th created (32037 to 32049), and the day's: 32070 to 32074 with PublishedFiles
+7065 to 7068. Their frames and folders under `/Volumes/FPT/sbx_0020` are deleted.
 
 **Machine state, not in git.** ComfyUI 0.34.0 runs from `~/dev/ComfyUI` on 8188.
-`~/dev/ComfyUI/custom_nodes/sg-comfyui` links here. The 88xx instances the harness leaked are gone.
+`~/dev/ComfyUI/custom_nodes/sg-comfyui` links here. Review captures: `~/Desktop/sg-comfyui-2026-09-11-site/`,
+thirteen files in page order; older folders under `~/Desktop/sg-screenshots-archive/`.
+
+---
+
+## Decisions, 2026-09-11, with Kevin
+
+- **Sync from SG drops the site cache.** The button's name is its promise.
+- **Empty template fields show the Settings template as a placeholder**, the template alone, no
+  suffix. The tooltip and the docs say where it comes from.
+- **Brace completion on template fields**, on the pattern of `~/dev/sg-widgets` (`pickers.ts`,
+  `picker-keys.ts`, the picker contract): hop by hop from the schema, single `entity` fields only,
+  Default row always listed. The root list is what exists before the Version does: the link, the
+  Task, the project, the number. Version fields are not offered.
+- **`{sg_task.Task.step}` is the step token**, not `{sg_task.Task.step.Step.code}`: shorter, same
+  result.
+- **Fill from SG defaults is removed.** The placeholder and the Default row replace it for the
+  templates; status, Create Published Files and colour space are the node's defaults on creation.
+- **A `mask` input on SG Publish is in.** Frames only. A clip with alpha is a re-encode and is not
+  planned.
+- **Tooltips fit four lines** in the Info tab at 780 px. The two long ones were shortened.
+- **The site's header reads SG ComfyUI.** The hero and the footer keep the full name.
+- **GitHub Actions stays off** until the repo is public: the private repo's runs used up the monthly
+  minutes. Tests and the site build run locally before a PR is called ready.
+- **The launch page goes to Vercel**, after the public release, not to GitHub Pages.
 
 ---
 
@@ -113,18 +170,14 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ## Before the first release
 
-1. **Kevin's QA on `dev`**, item 1 above.
-2. **The launch page**: review and publish, item 2 above.
-3. **Registry mechanics**, Kevin's, after the GitHub release: `PublisherId`, `Icon` (400x400 or
-   smaller, square), `Banner` (21:9) in `pyproject.toml`; `comfy node pack` and `unzip -l` to check the
-   archive has `src`, `web`, `example_workflows`, the docs, `pyproject.toml`, `requirements.txt`;
-   repo public; tag on `main`; `publish-node-action` on a `pyproject.toml` change.
+1. **`dev` to `main`, the GitHub release, the repo public.** Kevin.
+2. **Registry mechanics**, item 3 under "Next session".
+3. **The launch page on Vercel**, item 4 under "Next session", after the public release.
 
-**Feedback list at launch**, in README "What's next" and at the end of every post: a `mask`
-input and RGBA publishes; registering files another node wrote (Save Image (Advanced), OCIO Write);
-publishing with no shared storage, the sequence as a zip; publishing on someone's behalf and the artist
-on a farm; newest per stream; any Version field on the node in
-one line; a colour-managed template; Windows as a first-class publisher.
+**Feedback list at launch**, in README "What's next" and at the end of every post: registering files
+another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the
+sequence as a zip; publishing on someone's behalf and the artist on a farm; newest per stream; any
+Version field on the node in one line; a colour-managed template; Windows as a first-class publisher.
 
 ---
 
@@ -133,6 +186,7 @@ one line; a colour-managed template; Windows as a first-class publisher.
 | question | who |
 |---|---|
 | Release date | Kevin |
+| A path template for a still. A single frame is written into a folder named for the version, with a frame number, by the sequence template; the preview shows the `%04d` pattern. A still is one file, like a movie | Kevin |
 | `PublisherId`, `Icon`, `Banner` | Kevin, Registry day |
 | Five em dashes in runtime strings: the PublishedFile source label (`media.py`), the clip sentence (`movie.py`), the node title built in `instrument.py`. Tests and two drives assert on them. Change them or leave them | Kevin |
 | Artist attribution on the script-key path: `sudo_as_login` is wired in `credentials.client`; the fallback chain and an `artist` widget are not | after release |

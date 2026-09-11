@@ -12,7 +12,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 </script>
 
 <svelte:head>
-	<title>Install. Flow Production Tracking for ComfyUI</title>
+	<title>Install. SG ComfyUI</title>
 	<meta name="description" content="The interpreter to install into, the three install paths, the four local files, and the offline check." />
 </svelte:head>
 

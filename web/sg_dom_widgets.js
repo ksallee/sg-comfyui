@@ -105,6 +105,18 @@ const CSS = `
 .sg-pop-list.is-busy { opacity: .5; transition: opacity .15s; }
 .sg-tick { width: 8px; flex: none; opacity: 0; }
 .sg-chip.on .sg-tick { opacity: 1; }
+
+/* A completion row: the token, then the sentence about it. The sentence gives up its width first,
+   so a long field path is read in full. */
+.sg-tok-name { flex: none; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 11px; }
+.sg-tok-note { min-width: 0; flex: 0 1 auto; opacity: .55; font-size: 10px; text-align: right;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* The row travels one hop further. It is the last thing on the row, where the arrow points. */
+.sg-tok-more { flex: none; display: inline-flex; align-items: center; margin-left: -4px; }
+/* The Settings template is the last row and is not one of the tokens above it. */
+.sg-tok-default { border-top: 1px solid var(--color-border-default, rgba(128,128,128,.3));
+  border-radius: 0; }
 `;
 
 const styled = new Set();
@@ -358,12 +370,320 @@ export function requireVueNodes(node) {
   return false;
 }
 
+// A litegraph id, safe to put in an attribute selector.
+const ID = /^[\w-]+$/;
+
+/** The node's own element.
+ *
+ * Nodes 2.0 stamps the id on it. The rows this file adds are not a way in: the frontend rebuilds a
+ * DOM widget and the node keeps the detached copy, so `__sgRoots` holds elements that are in no
+ * document. They are the fallback for a frontend that does not stamp the id.
+ */
 function nodeElement(node) {
-  for (const root of node.__sgRoots || []) {
+  const id = String(node?.id ?? "");
+  if (ID.test(id)) {
+    const el = document.querySelector(`.lg-node[data-node-id="${id}"]`);
+    if (el) return el;
+  }
+  for (const root of node?.__sgRoots || []) {
     const el = root.closest?.(".lg-node");
     if (el) return el;
   }
   return null;
+}
+
+/** Grey text inside an empty text widget of `node`.
+ *
+ * The frontend drops `placeholder` from a single-line STRING spec when it builds the widget
+ * (useStringWidget, 1.51.9), and the input's own attribute is not one the Vue component manages,
+ * so it is set on the input and survives a redraw. Call it again after each preview: that is also
+ * what covers a rebuilt input. */
+export function setPlaceholder(node, name, text) {
+  const el = nodeElement(node)?.querySelector(`input[aria-label="${name}"]`);
+  if (el) el.placeholder = text || "";
+}
+
+const READS = {};
+
+/** One read per URL, however many fields ask for it. Neither the token list nor a type's fields
+ *  change while the editor is open. */
+const once = (url) => (READS[url] = READS[url] || call(url).then((d) => d.items || []));
+
+/** Every field on one type. probe 002: the expensive call, so it is read one type at a time and
+ *  only once the caret reaches that hop. */
+const schemaFields = (type) => once(`/sg/schema_fields?type=${encodeURIComponent(type)}`);
+
+// The unclosed brace the caret is inside, with what has been typed after it.
+const OPEN_BRACE = /\{[^{}]*$/;
+// `entity.Shot.code`: two hops is as deep as a template is offered.
+const MAX_HOPS = 2;
+
+/** The token path as it is typed, so `{sg_task}` is matched and inserted as `sg_task`. */
+const tokenPath = (token) => token.replace(/^\{/, "").replace(/\}$/, "");
+
+/** The types a field may be descended into from here.
+ *
+ * A single `entity` field only: a dotted path through a `multi_entity` field reads back nothing,
+ * 200 with the key absent (probe 016). The middle segment has to be one the field accepts, or the
+ * key is dropped the same way (probe 059). A type already on the path is left out, so a path
+ * cannot loop back into itself.
+ */
+const hopTargets = (field, seen) =>
+  (field && field.data_type === "entity" ? field.valid_types || [] : [])
+    .filter((t) => !seen.includes(t));
+
+/** Token completion inside a template field.
+ *
+ * `target` is a text input, or a node whose template widget is named by `name`. On a node the input
+ * is a Vue component that is replaced on a redraw, so the listeners are on the document and each
+ * event is filtered to that node's own input.
+ *
+ * The rows after `{` are the tokens `/sg/tokens` documents for `kind`, which is root, name,
+ * sequence or movie. A token that names an entity descends: the rows after `{sg_task.` are the
+ * Task's own fields, and after `{sg_task.Task.step.` the Step's. Enter or a click inserts the
+ * token and closes. The right arrow, or the chevron on the row, travels one hop further and keeps
+ * the popup open.
+ *
+ * `defaultTemplate` returns the template Settings has in force for this field. It is the last row,
+ * labelled Default, whatever is typed, and picking it replaces the value with that template.
+ * `linkType` is the picked link's own type, which `{entity}` descends into. Empty, the server
+ * offers the project's link types, and a link that accepts several lists them as rows.
+ */
+export function templateCompletion(target, {
+  name = "", kind = "", defaultTemplate = () => "", project = () => "", linkType = () => "",
+}) {
+  ensureCss();
+  const node = target instanceof HTMLElement ? null : target;
+  const tokens = () => once(`/sg/tokens?kind=${encodeURIComponent(kind)}`
+    + `&project=${encodeURIComponent(project())}&link_type=${encodeURIComponent(linkType())}`);
+
+  const pop = document.createElement("div");
+  pop.className = `sg-pop ${NATIVE.pop}`;
+  pop.setAttribute("role", "listbox");
+  pop.innerHTML = `<div class="sg-pop-list ${NATIVE.viewport}"></div>`;
+  const list = pop.querySelector(".sg-pop-list");
+  // The caret stays in the field while a row is clicked, so the token lands where it was.
+  pop.addEventListener("pointerdown", (e) => e.preventDefault());
+
+  let rows = [], at = -1, open = false, el = null, writing = false, seq = 0;
+
+  const place = () => {
+    const r = el.getBoundingClientRect();
+    pop.style.left = `${Math.max(4, Math.min(r.left, innerWidth - 340))}px`;
+    pop.style.width = `${Math.max(r.width, 340)}px`;
+    const h = pop.offsetHeight || 220;
+    pop.style.top = (r.bottom + 4 + h > innerHeight && r.top - 4 - h > 0)
+      ? `${r.top - 4 - h}px` : `${r.bottom + 4}px`;
+  };
+
+  const highlight = (i) => {
+    at = i;
+    [...list.children].forEach((row, n) => {
+      row.toggleAttribute("data-highlighted", n === at);
+      if (n === at) row.scrollIntoView({ block: "nearest" });
+    });
+  };
+
+  const onDown = (e) => { if (!pop.contains(e.target) && e.target !== el) close(); };
+  // A wheel over the list scrolls the list and goes no further: the canvas under it would zoom.
+  const onWheel = (e) => { if (pop.contains(e.target)) e.stopPropagation(); else close(); };
+
+  function close() {
+    if (!open) return;
+    open = false;
+    pop.remove();
+    document.removeEventListener("pointerdown", onDown, true);
+    window.removeEventListener("wheel", onWheel, true);
+    window.removeEventListener("resize", close);
+  }
+
+  /** What follows the unclosed brace the caret is inside, or null when it is not inside one. */
+  const partial = () => {
+    const before = el.value.slice(0, el.selectionStart ?? el.value.length);
+    const m = before.match(OPEN_BRACE);
+    return m ? m[0].slice(1) : null;
+  };
+
+  /**
+   * The type the segments before the caret land on, with the path that reaches it spelled in full.
+   *
+   * A path is `name(.Type.name)*`. A segment equal to the type just reached is that type's own
+   * segment, and anything else is a field name whose type the schema names, so `{sg_task.` and
+   * `{sg_task.Task.` list the same fields and the insertion spells the hop out either way. `types`
+   * comes back instead where a link accepts several and which one it travels through is next.
+   */
+  const locate = async (segs) => {
+    let type = "", seen = [], hops = 0, canon = "";
+    for (let i = 0; i < segs.length; i++) {
+      const seg = segs[i];
+      if (!type) {
+        const token = (await tokens()).find((t) => tokenPath(t.token) === seg);
+        if (!token) return null;
+        const next = segs[i + 1];
+        const choices = token.type ? [token.type] : token.types || [];
+        if (!choices.length) return null;
+        if (choices.length > 1 && !choices.includes(next)) {
+          return i === segs.length - 1 ? { types: choices, canon: `${seg}.` } : null;
+        }
+        type = choices.includes(next) ? next : choices[0];
+        seen = [type];
+        hops = 1;
+        canon = `${seg}.${type}.`;
+        continue;
+      }
+      if (seg === type) continue;
+      if (hops >= MAX_HOPS) return null;
+      const targets = hopTargets((await schemaFields(type)).find((f) => f.name === seg), seen);
+      if (!targets.length) return null;
+      const next = segs[i + 1];
+      if (targets.length > 1 && !targets.includes(next)) {
+        return i === segs.length - 1 ? { types: targets, canon: `${canon}${seg}.` } : null;
+      }
+      type = targets.includes(next) ? next : targets[0];
+      seen = seen.concat(type);
+      hops += 1;
+      canon = `${canon}${seg}.${type}.`;
+    }
+    return { type, seen, hops, canon };
+  };
+
+  /** The rows for what has been typed after the brace. Empty where the path names nothing. */
+  const rowsFor = async (typed) => {
+    const segs = typed.split(".");
+    const last = segs.pop();
+    const q = last.toLowerCase();
+    if (!segs.length) {
+      return (await tokens()).filter((t) => tokenPath(t.token).toLowerCase().includes(q))
+        .map((t) => ({ label: t.token, note: t.note, text: t.token,
+                       into: t.type ? `{${tokenPath(t.token)}.${t.type}.`
+                         : (t.types || []).length > 1 ? `{${tokenPath(t.token)}.` : "" }));
+    }
+    const at2 = await locate(segs);
+    if (!at2) return [];
+    if (at2.types) {
+      return at2.types.filter((t) => t.toLowerCase().includes(q))
+        .map((t) => ({ label: t, note: "entity type", text: "", into: `{${at2.canon}${t}.` }));
+    }
+    // Every whitespace-free word of the query is matched against the display name and the code,
+    // so `short` finds Short Name and `sg_` finds the fields a studio added.
+    return (await schemaFields(at2.type))
+      .filter((f) => `${f.display_name} ${f.name}`.toLowerCase().includes(q))
+      .map((f) => {
+        const targets = at2.hops < MAX_HOPS ? hopTargets(f, at2.seen) : [];
+        return {
+          label: f.name,
+          note: `${f.display_name} · ${f.data_type}`,
+          text: `{${at2.canon}${f.name}}`,
+          into: targets.length === 1 ? `{${at2.canon}${f.name}.${targets[0]}.`
+            : targets.length ? `{${at2.canon}${f.name}.` : "",
+        };
+      });
+  };
+
+  const draw = (found) => {
+    rows = found;
+    list.innerHTML = found.map((r, i) => `<div class="${NATIVE.item}${r.whole ? " sg-tok-default" : ""}"
+      role="option" data-i="${i}"><span class="sg-tok-name">${esc(r.label)}</span>
+      <span class="sg-tok-note">${esc(r.note)}</span>${r.into
+        ? `<span class="sg-tok-more" data-into="1" title="Open (right arrow)">${RIGHT}</span>` : ""
+      }</div>`).join("");
+    [...list.children].forEach((row, i) => {
+      row.onmouseenter = () => highlight(i);
+      row.onclick = (e) => insert(i, !!e.target.closest?.("[data-into]"));
+    });
+    if (!open) {
+      open = true;
+      document.body.appendChild(pop);
+      document.addEventListener("pointerdown", onDown, true);
+      window.addEventListener("wheel", onWheel, true);
+      window.addEventListener("resize", close);
+    }
+    place();
+    highlight(0);
+  };
+
+  const sync = async () => {
+    const mine = ++seq;
+    if (!el || !el.isConnected) return close();
+    const typed = partial();
+    if (typed === null) return close();
+    const found = await rowsFor(typed);
+    if (mine !== seq) return;            // a later keystroke asked a newer question
+    const fallback = String(defaultTemplate() || "");
+    const all = found.concat(fallback
+      ? [{ label: "Default", note: fallback, text: fallback, into: "", whole: true }] : []);
+    if (!all.length) return close();
+    draw(all);
+  };
+
+  /** Write a value the way the operator would have typed it. The node's widget reads `input`, and
+   *  the Settings row saves on `change`. */
+  const write = (value, caret) => {
+    writing = true;
+    el.value = value;
+    el.dispatchEvent(new Event("input", { bubbles: true }));
+    el.dispatchEvent(new Event("change", { bubbles: true }));
+    writing = false;
+    el.focus();
+    el.setSelectionRange(caret, caret);
+  };
+
+  /** Put the highlighted row in the field. `descend` travels one hop instead of picking. A row
+   *  with nothing to insert, an entity type to travel through, is a hop however it is chosen. */
+  const insert = (i, descend) => {
+    const row = rows[i];
+    if (!row || !el) return;
+    descend = descend || !row.text;
+    const text = descend ? row.into : row.text;
+    if (!text) return;
+    if (row.whole) {
+      close();
+      return write(text, text.length);
+    }
+    const caret = el.selectionStart ?? el.value.length;
+    const before = el.value.slice(0, caret);
+    const start = before.length - before.match(OPEN_BRACE)[0].length;
+    // A brace the operator has already closed is not doubled. A hop leaves it where it is.
+    const rest = descend ? el.value.slice(caret) : el.value.slice(caret).replace(/^\}/, "");
+    if (!descend) close();
+    write(before.slice(0, start) + text + rest, start + text.length);
+    if (descend) sync();
+  };
+
+  const mine = (t) => (node
+    ? t?.matches?.(`input[aria-label="${name}"]`) && nodeElement(node)?.contains(t)
+    : t === target);
+
+  const onInput = (e) => { if (!writing && mine(e.target)) { el = e.target; sync(); } };
+  const onFocus = (e) => { if (mine(e.target)) { el = e.target; sync(); } };
+  const onKey = (e) => {
+    if (!mine(e.target)) return;
+    el = e.target;
+    if (!open) return;                   // a closed popup leaves every key to the editor
+    if (e.key === "Escape") close();
+    else if (e.key === "Enter") insert(at, false);
+    else if (e.key === "ArrowRight" && rows[at] && rows[at].into) insert(at, true);
+    else if (e.key === "ArrowDown") highlight(Math.min(at + 1, rows.length - 1));
+    else if (e.key === "ArrowUp") highlight(Math.max(at - 1, 0));
+    else { setTimeout(sync, 0); return; }    // a caret moved out of the brace closes the popup
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  // Capture, so Enter picks a row before the editor reads it as a key of its own.
+  const on = node ? document : target;
+  const listeners = [["input", onInput], ["focusin", onFocus], ["keydown", onKey]];
+  for (const [event, fn] of listeners) on.addEventListener(event, fn, true);
+  // A node removed with the popup open would leave it on screen and its listeners on the document.
+  if (node) {
+    const prev = node.onRemoved;
+    node.onRemoved = function () {
+      close();
+      for (const [event, fn] of listeners) document.removeEventListener(event, fn, true);
+      return prev?.apply(this, arguments);
+    };
+  }
+  return { close };
 }
 
 /** Set node.size from the height the node renders.
@@ -451,6 +771,8 @@ const svg = (paths) => `<svg width="14" height="14" viewBox="0 0 24 24" fill="no
   stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"
   opacity=".6" aria-hidden="true" style="flex:none">${paths}</svg>`;
 const CHEVRON = svg(`<path d="m6 9 6 6 6-6"/>`);
+// On a completion row that travels one hop further.
+const RIGHT = svg(`<path d="m9 18 6-6-6-6"/>`);
 const MAGNIFIER = svg(`<circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/>`);
 
 /** A select-shaped trigger with the search in its popup.

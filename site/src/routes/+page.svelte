@@ -78,7 +78,7 @@ Then offer to run /setup.`;
 </script>
 
 <svelte:head>
-	<title>Flow Production Tracking for ComfyUI</title>
+	<title>SG ComfyUI</title>
 	<meta
 		name="description"
 		content="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph."
@@ -148,6 +148,12 @@ Then offer to run /setup.`;
 			<Clip
 				name="01_publish_pick"
 				caption="Project, link, Task and status, read live from the site. Sync from SG forces a read past the 600 second cache."
+			/>
+		</div>
+		<div class="wide-media">
+			<Clip
+				name="08_publish_mask"
+				caption="SG Load's mask wired into SG Publish, which writes it as the frames' alpha."
 			/>
 		</div>
 		<div class="facts">
@@ -234,25 +240,12 @@ Then offer to run /setup.`;
 <!-- 7. Templates -->
 <section class="band" id="templates" use:reveal>
 	<div class="page">
-		<div class="split">
-			<div class="split-copy">
-				<h2>Three demo templates to test the nodes.</h2>
-				<p>
-					Open the Templates browser, category <code>sg-comfyui</code>. <code>00_example</code>
-					publishes one image and reads it back.
-				</p>
-				<p>
-					For a graph you already use, <code>/track-workflow</code> adds the nodes to it. Fill from
-					SG defaults then puts your publish defaults on the node.
-				</p>
-			</div>
-			<div class="split-media">
-				<Clip
-					name="04_fill_defaults"
-					caption="Fill from SG defaults writes the storage, the paths and the status onto the node."
-				/>
-			</div>
-		</div>
+		<h2>Three demo templates to test the nodes.</h2>
+		<p class="lede wide">
+			Open the Templates browser, category <code>sg-comfyui</code>. <code>00_example</code>
+			publishes one image and reads it back. For a graph you already use,
+			<code>/track-workflow</code> adds the nodes to it.
+		</p>
 		<div class="gallery" role="group" aria-label="The shipped templates">
 			{#each templates as template (template.name)}
 				<figure>
@@ -639,18 +632,6 @@ Then offer to run /setup.`;
 		gap: 0.4rem;
 	}
 
-	/* 7. Templates */
-	.split {
-		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-		gap: clamp(2rem, 5vw, 4rem);
-		align-items: center;
-	}
-
-	.split-copy h2 {
-		margin-bottom: 1.1rem;
-	}
-
 	/* 6. Formats */
 	.bento {
 		display: grid;
@@ -975,7 +956,6 @@ Then offer to run /setup.`;
 	@media (max-width: 900px) {
 		.hero-grid,
 		.contrast,
-		.split,
 		.storage,
 		.paths,
 		.install,
