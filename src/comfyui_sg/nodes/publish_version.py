@@ -124,6 +124,10 @@ class SGPublishVersion:
                         "register_files": {"default": _wants_files(p.get("published_files") or {})},
                         "link_id": {"max": MAX_ID},
                     }),
+                # Appended after the widgets, because a saved graph links a slot by its index and
+                # an appended slot moves none of them.
+                "mask": ("MASK", {"tooltip": "The alpha for the frames, on ComfyUI's convention: "
+                                             "white in the mask is transparent in the file."}),
             },
             "hidden": {
                 "prompt": "PROMPT",
@@ -294,7 +298,8 @@ class SGPublishVersion:
     DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, with the "
                    "graph that made it attached.")
 
-    def publish(self, images=None, video=None, project=UNSET, link=UNSET, task=UNSET, status=UNSET,
+    def publish(self, images=None, video=None, mask=None, project=UNSET, link=UNSET, task=UNSET,
+                status=UNSET,
                 note="", code_template=UNSET,
                 source_versions="", attach_workflow=True, link_id=0,
                 register_files=False, colour_space="", root_name="",
@@ -308,6 +313,12 @@ class SGPublishVersion:
         if images is not None and frames == 0:
             raise ValueError("The image batch is empty. Check the node feeding images, then run "
                              "again.")
+        if mask is not None:
+            if images is None:
+                raise ValueError("The mask is the alpha for the frames, and no frames are wired. "
+                                 "Wire the frames into images, or unplug the mask.")
+            # Joined once, so the review still and the written frames keep the same alpha.
+            images = sequence.with_alpha(images, mask)
         # A Version has one uploaded media file (probe 022), and nothing here registers the frames,
         # so frame 1 would go up and the rest would be lost. Refused before the site is touched.
         if video is None and frames > 1 and not register_files:

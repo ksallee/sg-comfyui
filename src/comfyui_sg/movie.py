@@ -27,7 +27,10 @@ def frame_fields(count):
 
 
 def to_u8(frame):
-    """One frame of a ComfyUI IMAGE batch ([H,W,C] float 0-1) as uint8 RGB."""
+    """One frame of a ComfyUI IMAGE batch ([H,W,C] float 0-1) as uint8, a channel per channel.
+
+    Three channels are RGB and four are RGBA, which is what Pillow reads them back as.
+    """
     return (frame.cpu().numpy() * 255.0).round().clip(0, 255).astype(np.uint8)
 
 
