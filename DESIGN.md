@@ -554,6 +554,29 @@ treating that as an error breaks the ordinary case. The panel reports the path, 
 the mtime of what it registered. Closing this needs a probe of what the front end sends on a
 selective run, and that probe does not exist.
 
+### The `mask` input
+
+A fourth input, `mask`, is the alpha of the frames. It is a socket, so it moves no
+`widgets_values`, and it is declared after the widgets, so it moves no slot a saved graph links by
+index.
+
+`1 - mask` is the alpha, clamped to 0..1. That is ComfyUI's own convention: core `LoadImage` returns
+`1 - alpha` as its mask and core `JoinImageWithAlpha` writes `1.0 - mask` back. A publish of what SG
+Load read returns the mask it started from.
+
+    [H,W] or [1,H,W]    one mask, the alpha of every frame of the batch
+    [N,H,W]             one mask per frame, N the frame count
+    another size        refused, naming the mask's size and the frames'
+    another count       refused, naming both counts
+    mask, no images     refused. The mask is the alpha of frames, and a clip has none
+
+**A mismatch is refused rather than resampled.** Core `JoinImageWithAlpha` scales a mask onto the
+image. A matte scaled to fit the plate is a different matte, and this node does not make images.
+
+The frames are written RGBA by ComfyUI's own encoder, which takes four channels for 8-bit PNG,
+16-bit PNG and EXR 32-bit float (`_FORMAT_SPECS`). The review still is written from the same joined
+batch, so the still a person opens has the alpha the files have.
+
 ## Loading a Version's media
 
 A fetched Version is an ancestor, not just pixels. `version_id` is a plain widget, so it is already

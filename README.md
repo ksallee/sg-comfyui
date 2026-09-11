@@ -21,6 +21,8 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 - Uploads review media that plays in a browser.
 - Registers the frames or the movie as PublishedFiles when **Create Published Files** is ticked.
 - Writes frames as 8-bit PNG, 16-bit PNG or EXR 32-bit float, picked on the **format** widget.
+- Writes a wired **mask** as the frames' alpha, on ComfyUI's convention: white in the mask is
+  transparent in the file.
 
 ![SG Publish after a run: the Version it will create, and the last one it made](docs/images/sg-publish-node.png)
 
@@ -174,7 +176,6 @@ The procedures are in `.claude/commands/` as plain markdown. `01_concept_and_sty
 
 The order is not decided. Open an issue for the one you need, whether or not it is on this list.
 
-- A `mask` input on SG Publish, so an RGBA publish keeps its alpha.
 - Registering files another node wrote, such as Save Image (Advanced) or an OCIO Write.
 - Publishing where there is no shared storage, by uploading a zip.
 - Publishing on someone's behalf, and naming the artist on a farm.

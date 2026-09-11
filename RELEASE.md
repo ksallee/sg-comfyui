@@ -82,6 +82,8 @@ Version the day's drives created (32037 to 32049).
   click, visible pointer travel, typing at normal speed.
 - **Writing**: reference prose, one fact once, the banned list in CLAUDE.md. Applies to every file
   and to messages to Kevin.
+- **A `mask` input on SG Publish is in.** A wired mask is written as the frames' alpha, `1 - mask`,
+  and a mask that is not the size of the frames is refused rather than resampled.
 - **Process**: every PR merges onto `dev` on CI green. Kevin QAs on `dev`. Each parallel agent works
   in its own git worktree.
 
