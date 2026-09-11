@@ -194,6 +194,7 @@ projects that name Versions differently.
       "published_files": {
         "storage": "primary",
         "path_template": "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
+        "still_path_template": "{entity}/{root_name}/{version_name}{ext}",
         "movie_path_template": "{entity}/{root_name}/{version_name}{ext}",
         "register_movie": false,
         "colour_space": "sRGB"
@@ -233,6 +234,7 @@ Inside `published_files`:
 | `storage` | none, and the only Local File Storage when the site has exactly one | Settings, Storage |
 | `path_platform` | this machine's | Settings, Operating system |
 | `path_template` | `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` | Settings, Sequence path |
+| `still_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Still path |
 | `movie_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Movie path |
 | `register_movie` | `false`, so a clip beside frames is review only | Settings, Review movie |
 | `path_to_frames` | `true` | Settings, Path to Frames |

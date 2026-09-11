@@ -367,13 +367,17 @@ the publish, and `/sg/preview_publish` reports it before the Run.
 
 ### The path template
 
-The storage root and the path template are profile data, per project:
+The storage root and the path templates are profile data, per project:
 
     "published_files": {
-      "storage":       "primary",
-      "path_template": "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
-      "colour_space":  "sRGB"
+      "storage":             "primary",
+      "path_template":       "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
+      "still_path_template": "{entity}/{root_name}/{version_name}{ext}",
+      "colour_space":        "sRGB"
     }
+
+A batch of one frame takes `still_path_template`, a batch of two or more takes `path_template`.
+The frame count is a run-time fact, so the panel names both paths before the Run.
 
 `naming.render` reads Flow Production Tracking's dotted field paths and Python's format spec, so a
 path template is the same language as a code template. Two things are particular to a path:
@@ -401,6 +405,7 @@ where Task names are free text. Each token is optional. One with no value drops 
 separator, so the same template reads `sh010_RTO` on a Task and `sh010` on a bare Version.
 
     sequence      {entity}/{root_name}/{version_name}/{version_name}.%04d{ext}
+    still         {entity}/{root_name}/{version_name}{ext}
     movie         {entity}/{root_name}/{version_name}{ext}
 
 Three publish nodes on one Task read `{entity}_depth`, `{entity}_normal`, `{entity}_alpha` on their
@@ -416,8 +421,8 @@ Deriving the stream by stripping the version token out of a template breaks wher
 and all. Rendering `{root_name}` from its own template cannot fail that way.
 
 **The path refers to the names rather than respelling them.** A sequence gets a folder named for the
-version because it is many files. A movie is written beside that folder because it is one file. No
-folder contains frames and a movie together.
+version because it is many files. A still and a movie are written beside that folder because each is
+one file. No folder contains frames and a movie together.
 
 **Tokens are Flow Production Tracking's own syntax, to any depth.** `{entity.Shot.code}` works, and so
 does `{sg_task.Task.entity.Shot.code}`. The server does the traversal and answers under the literal
