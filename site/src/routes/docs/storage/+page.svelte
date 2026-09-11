@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Storage and paths. Flow Production Tracking for ComfyUI</title>
+	<title>Storage and paths. SG ComfyUI</title>
 	<meta name="description" content="Local File Storage roots, the two path templates, the tokens they take, and what a failed publish leaves behind." />
 </svelte:head>
 

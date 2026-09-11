@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Provenance fields. Flow Production Tracking for ComfyUI</title>
+	<title>Provenance fields. SG ComfyUI</title>
 	<meta name="description" content="The nine typed fields on Version, where each value comes from, and what a site without them records instead." />
 </svelte:head>
 

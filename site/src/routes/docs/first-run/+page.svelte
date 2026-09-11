@@ -6,7 +6,7 @@
 </script>
 
 <svelte:head>
-	<title>First run. Flow Production Tracking for ComfyUI</title>
+	<title>First run. SG ComfyUI</title>
 	<meta name="description" content="Eight steps from the Settings dialog to a published Version, and what a farm does instead of step three." />
 </svelte:head>
 

@@ -78,7 +78,7 @@ Then offer to run /setup.`;
 </script>
 
 <svelte:head>
-	<title>Flow Production Tracking for ComfyUI</title>
+	<title>SG ComfyUI</title>
 	<meta
 		name="description"
 		content="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph."

@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Formats and colour space. Flow Production Tracking for ComfyUI</title>
+	<title>Formats and colour space. SG ComfyUI</title>
 	<meta name="description" content="The three frame formats, what writes them, what review media is, and how a declared colour space is recorded." />
 </svelte:head>
 

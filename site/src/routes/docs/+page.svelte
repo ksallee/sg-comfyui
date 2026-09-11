@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>Docs. Flow Production Tracking for ComfyUI</title>
+	<title>Docs. SG ComfyUI</title>
 	<meta name="description" content="Nine pages: install, first run, the profile, the two nodes, provenance, formats, storage, troubleshooting, and the agent entry point." />
 </svelte:head>
 

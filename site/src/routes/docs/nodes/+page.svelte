@@ -4,7 +4,7 @@
 </script>
 
 <svelte:head>
-	<title>The two nodes. Flow Production Tracking for ComfyUI</title>
+	<title>The two nodes. SG ComfyUI</title>
 	<meta name="description" content="What SG Publish writes to a Version, what SG Load reads back, and what each node reports before a Run." />
 </svelte:head>
 

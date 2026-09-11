@@ -7,7 +7,7 @@
 //     --shot /tmp/publish.png
 //   uv run --with Pillow --python 3.11 python -c "from PIL import Image; x,y,w,h = 1220,38,780,995; \
 //     Image.open('/tmp/publish.png').crop((2*x,2*y,2*(x+w),2*(y+h))).save('docs/images/sg-publish-info.png')"
-// The same two commands with --node SGLoadVersion and h = 1243 write docs/images/sg-load-info.png.
+// The same two commands with --node SGLoadVersion, --viewport 2000x1600 and h = 1268 write docs/images/sg-load-info.png.
 const WIDTH = 780;
 
 app.canvas.selectNode(node);

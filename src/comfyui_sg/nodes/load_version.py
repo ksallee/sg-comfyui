@@ -125,6 +125,15 @@ class SGLoadVersion:
     # order is frozen from the first release, and appending is the only safe change after it.
     RETURN_TYPES = ("IMAGE", "VIDEO", "MASK", "INT", "STRING", "STRING")
     RETURN_NAMES = ("image", "video", "mask", "version_id", "code", "colour_space")
+    OUTPUT_TOOLTIPS = (
+        "The frames read from the Version, as a batch.",
+        "The Version's clip, or its frames at the rate the site recorded.",
+        "The frames' alpha, inverted the way Load Image does it. A source with no alpha gives a "
+        "zero mask.",
+        "The id of the Version read, for a node downstream to name.",
+        "The name of the Version read.",
+        "The colour space the publisher declared, empty when none was.",
+    )
     FUNCTION = "load"
     CATEGORY = "Flow Production Tracking"
     DESCRIPTION = ("Read a Flow Production Tracking Version's media into the graph, recording it "

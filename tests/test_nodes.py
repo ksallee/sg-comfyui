@@ -24,6 +24,9 @@ def test_provenance_comes_from_the_hidden_inputs_not_from_asking(monkeypatch):
 
 def test_every_output_is_named(monkeypatch):
     assert len(SGLoadVersion.RETURN_TYPES) == len(SGLoadVersion.RETURN_NAMES)
+    # One sentence per output, read by the editor's Info tab.
+    assert len(SGLoadVersion.OUTPUT_TOOLTIPS) == len(SGLoadVersion.RETURN_NAMES)
+    assert all(t.endswith(".") for t in SGLoadVersion.OUTPUT_TOOLTIPS)
     assert SGLoadVersion.RETURN_NAMES[0] == "image"
     assert SGPublishVersion.RETURN_TYPES == ()
 

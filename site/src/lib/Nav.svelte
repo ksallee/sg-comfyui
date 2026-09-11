@@ -7,7 +7,7 @@
 	<nav class="page" aria-label="Main">
 		<a class="wordmark" href="{base}/">
 			<span class="mark" aria-hidden="true">SG</span>
-			<span>Flow Production Tracking for ComfyUI</span>
+			<span>SG ComfyUI</span>
 		</a>
 		<ul>
 			<li><a href="{base}/#install">Install</a></li>
