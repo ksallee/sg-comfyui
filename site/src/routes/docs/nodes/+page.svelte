@@ -31,6 +31,12 @@
 	caption="Before a Run the panel says what this Run will publish. After a Run it says what the last one did."
 />
 
+<Shot
+	name="sg-publish-info"
+	alt="The side panel on Info, listing each SG Publish input with its type and description"
+	caption="The side panel on Info: each SG Publish input, its type and what it sets."
+/>
+
 <h2>SG Load</h2>
 <ul>
 	<li>Finds a Version by project, link, Task, status and name. <code>pin_version_id</code> takes an id instead.</li>
@@ -45,12 +51,18 @@
 	caption="SG Load on an EXR Version: the format line, the provenance it records, the image and the mask."
 />
 
+<Shot
+	name="sg-load-info"
+	alt="The side panel on Info, listing each SG Load input and output with its type and description"
+	caption="The side panel on Info: each SG Load input and output, with its type."
+/>
+
 <h2>In the editor</h2>
 <ul>
 	<li>Settings, then SG: site address, sign-in, project, publish defaults.</li>
 	<li>SG Site Setup, in that group: counts the nine provenance fields on the site, creates the missing ones.</li>
 	<li>Sync from SG on a node forces a read past the 600 second lookup cache.</li>
-	<li>Fill from SG defaults puts the publish defaults on the node.</li>
+	<li>Typing <code>{'{'}</code> in root name or version name offers a Default row that writes the Settings template into the field.</li>
 </ul>
 
 <h2>Known limits</h2>
