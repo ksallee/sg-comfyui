@@ -11,7 +11,7 @@ import { addPanel } from "./sg_panel.js";
 import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
          restoreDeclaredWidgets, restoreValue, textRows, cascade, call,
-         setPlaceholder } from "./sg_dom_widgets.js";
+         setPlaceholder, templateCompletion } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 
@@ -270,6 +270,18 @@ function publishPickers(nodeType, nodeData) {
     // The status the operator picked, drawn the way SG draws it (probe 010).
     const statusOf = (label) => statusMeta[bare(label)] || null;
 
+    // The two name templates Settings has in force, read from each preview. The completion lists
+    // one of them as its Default row.
+    let inForce = {};
+    // An opening brace lists the tokens a template of this kind may use, and a token that names an
+    // entity descends into that type's own fields. `{entity}` is the type this project links a
+    // Version to, so the project is passed.
+    for (const [widget, kind] of [["root_name", "root"], ["code_template", "name"]]) {
+      templateCompletion(this, { name: widget, kind,
+                                 project: () => project?.value || "",
+                                 defaultTemplate: () => inForce[widget] || "" });
+    }
+
     // Each preview is numbered and the newest one alone may write. There are two requests per
     // preview, so a widget changed twice quickly can answer out of order and leave the panel
     // describing the older graph.
@@ -301,10 +313,11 @@ function publishPickers(nodeType, nodeData) {
       if (mine !== previewing) return;
       if (!keepLog) panel.clearLog();
       // An empty root name or version name is set by Settings. The template in force is drawn
-      // greyed inside the empty field, where one would be typed.
-      const inForce = Object.fromEntries((d.templates || []).map((t) => [t.widget, t.value]));
+      // greyed inside the empty field, where one would be typed, and is the completion's Default
+      // row whether the field is empty or not.
+      inForce = d.settings || {};
       for (const name of ["root_name", "code_template"]) {
-        setPlaceholder(node, name, inForce[name] ? `${inForce[name]} (from Settings)` : "");
+        setPlaceholder(node, name, w(name)?.value?.trim() ? "" : inForce[name] || "");
       }
       if (!d.code) {
         panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
@@ -478,21 +491,6 @@ function publishPickers(nodeType, nodeData) {
     // passes a button's callback the canvas and the node, and the cascade token is the second
     // parameter.
     dontSerialize(this.addWidget("button", "Sync from SG", null, () => resync(loadProject)));
-    // The Settings values written into the widgets, to edit from or to bring an older node up to
-    // date. An emptied root name or version name follows Settings again.
-    const copyDefaults = async () => {
-      const d = await call(`/sg/node_defaults?project=${encodeURIComponent(project?.value || "")}`);
-      if (d.error) { panel.show({ error: d.error }); return; }
-      for (const [name, value] of Object.entries(d)) {
-        const widget = w(name);
-        if (!widget) continue;
-        widget.value = widget.options?.values && !widget.options.values.includes(value)
-          ? widget.options.values[0] : value;
-      }
-      relayout();
-      preview();
-    };
-    dontSerialize(this.addWidget("button", "Fill from SG defaults", null, copyDefaults));
     // Who this publishes as is set under Settings. A change there changes what each picker reads
     // (probe 027), so the node reloads.
     onSession(this, () => loadProject());

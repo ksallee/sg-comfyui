@@ -19,7 +19,6 @@ const ROUTES = [
   [/\/sg\/preview_publish/, () => json({ fields: [], sources: [], writes: [], alert: ALERT,
                                          media: "Frame 1, as a still. Every frame becomes a "
                                                 + "Published File." })],
-  [/\/sg\/node_defaults/, () => json({})],
 ];
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);

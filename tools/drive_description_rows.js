@@ -27,7 +27,6 @@ const ROUTES = [
   [/\/sg\/preview_publish/, () => json({ fields: FIELDS, sources: [], writes: [],
                                          uploads: ["image (the thumbnail)"],
                                          media: "Frame 1, as a still." })],
-  [/\/sg\/node_defaults/, () => json({})],
 ];
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);

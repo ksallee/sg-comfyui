@@ -24,7 +24,6 @@ const ROUTES = [
   [/\/sg\/tasks/, () => json({ items: [] })],
   [/\/sg\/preview_code/, () => json({ code: "brb_010_v001", templates: [], latest: null })],
   [/\/sg\/preview_publish/, () => json({ fields: [], sources: [] })],
-  [/\/sg\/node_defaults/, () => json({})],
 ];
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);

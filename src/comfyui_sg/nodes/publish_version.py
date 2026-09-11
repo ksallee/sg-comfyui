@@ -71,20 +71,6 @@ def _wants_files(pf):
     return bool(d) and d != site.NO_VALUE
 
 
-def settings_defaults(project_id):
-    """The values a publish node takes from Settings, as widget values."""
-    p = site.for_project(project_id)
-    pf = p.get("published_files") or {}
-    statuses = site.statuses(project_id)
-    return {
-        "root_name": p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
-        "code_template": p.get("code_template") or naming.DEFAULT_TEMPLATE,
-        "status": next((l for l, c in statuses if c == p.get("status")), site.NO_VALUE),
-        "register_files": _wants_files(pf),
-        "colour_space": pf.get("colour_space") or "",
-    }
-
-
 class SGPublishVersion:
     @classmethod
     def INPUT_TYPES(cls):
@@ -130,7 +116,7 @@ class SGPublishVersion:
                         "project": {"default": site.project_name(project_id)},
                         "status": {"default": status_label},
                         # Empty means the Settings default names it, so a Settings change reaches
-                        # every saved graph. `settings_defaults` is what a node copies in on request.
+                        # every saved graph. The editor draws that template inside the empty field.
                         "code_template": {"default": ""},
                         "root_name": {"default": ""},
                         "colour_space": {"default": (p.get("published_files") or {})

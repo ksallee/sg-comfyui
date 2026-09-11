@@ -7,7 +7,7 @@
  * so a search for "Flow" matches them.
  */
 import { app } from "../../scripts/app.js";
-import { styleOnce, esc, call } from "./sg_dom_widgets.js";
+import { styleOnce, esc, call, templateCompletion } from "./sg_dom_widgets.js";
 
 // The sidebar entry. The full product name truncates there. A short surface uses the full product
 // name or SG.
@@ -366,6 +366,10 @@ const dval = (key) => (defaults && defaults.values && defaults.values[key]) ?? "
 function templateRow(key, kind) {
   const i = input("text", "");
   const n = note();
+  // An opening brace lists the tokens a template of this kind may use. The last row is the
+  // template shipped for this field, and picking it clears the override.
+  templateCompletion(i, { kind,
+                          defaultTemplate: () => (defaults?.placeholders || {})[key] || "" });
   let typing;
   const example = async (t) => {
     const d = await call(`/sg/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
