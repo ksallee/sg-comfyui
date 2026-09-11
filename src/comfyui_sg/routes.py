@@ -611,6 +611,13 @@ def register():
                     "templates": templates}
         return answer(read, {"code": ""})
 
+    @routes.post("/sg/sync")
+    async def sync(request):
+        """Drop every cached site read. Sync from SG calls this first, so a Task or Step edited on
+        the site is read again rather than served from the 600 second cache."""
+        site.forget()
+        return web.json_response({})
+
     @routes.get("/sg/node_defaults")
     async def node_defaults(request):
         """What a publish node copies in from Settings, for the picked project."""

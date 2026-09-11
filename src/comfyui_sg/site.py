@@ -186,12 +186,13 @@ def _cached(key, fetch, empty=()):
 
 
 def forget(*prefixes):
-    """Drop cached lookups a write just invalidated, by the first element of their key.
+    """Drop cached lookups by the first element of their key. No prefix drops them all.
 
     Three publish nodes in one execution must each see what the previous one wrote, or all three read
     the version count from before any of them wrote and all three propose the same next version.
+    Sync from SG drops everything, so an entity edited on the site is read again.
     """
-    for key in [k for k in _cache if k and k[0] in prefixes]:
+    for key in [k for k in _cache if not prefixes or (k and k[0] in prefixes)]:
         _cache.pop(key, None)
 
 
@@ -730,7 +731,17 @@ def resolve_paths(paths, project_id, link_type="", link_id=0, task_id=0, extra=N
 
         def fetch(etype=etype, eid=eid, fields=tuple(fields)):
             r = client().get(f"{route(etype)}/{eid}", params={"fields": ",".join(fields)})
-            return r.json()["data"]["attributes"] if r.ok else {}
+            if not r.ok:
+                return {}
+            d = r.json()["data"]
+            # probe 003: a dotted path is answered flat under attributes. A bare entity field such as
+            # `step` is answered under relationships as {data: {type, id, name}}, so `{sg_task.Task.step}`
+            # is the Step's name.
+            vals = dict(d.get("attributes") or {})
+            for f, rel in (d.get("relationships") or {}).items():
+                link = rel.get("data") if isinstance(rel, dict) else None
+                vals.setdefault(f, link.get("name") if isinstance(link, dict) else None)
+            return vals
         attrs = _cached(("paths", etype, eid, tuple(fields)), fetch, {})
         for path, field in items:
             v = attrs.get(field)

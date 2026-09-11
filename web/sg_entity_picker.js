@@ -17,6 +17,13 @@ const NONE = "(none)";        // a visible "no value"; an empty option cannot be
 /** The site's own value for a label. "(none)" is a label for the operator. */
 const bare = (v) => (!v || v === NONE) ? "" : v;
 
+/** Sync from SG. The server drops its cached site reads first, so a Task or Step edited on the site
+ *  since the last read is seen. Other open nodes read the site again on their next preview. */
+const resync = async (reload) => {
+  await call("/sg/sync", { body: {} });
+  return reload();
+};
+
 /** The type out of a `name (Type)` label. Context on the row, not part of what is searched. */
 // Which of a node definition's inputs are widgets, in declared order. An input slot has a type name
 // this list does not list, so it is skipped. A combo arrives as an array of its labels.
@@ -465,7 +472,7 @@ function publishPickers(nodeType, nodeData) {
     // serializes shifts each declared value after it. The callback takes no arguments: litegraph
     // passes a button's callback the canvas and the node, and the cascade token is the second
     // parameter.
-    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => resync(loadProject)));
     // The Settings values written into the widgets, to edit from or to bring an older node up to
     // date. An emptied root name or version name follows Settings again.
     const copyDefaults = async () => {
@@ -640,7 +647,7 @@ function loadPickers(nodeType, nodeData) {
       typing = setTimeout(() => refresh({ filters: value }), 400);
     });
 
-    dontSerialize(this.addWidget("button", "Sync from SG", null, () => loadProject()));
+    dontSerialize(this.addWidget("button", "Sync from SG", null, () => resync(loadProject)));
     onSession(this, () => loadProject());
     loadProject();
   };
