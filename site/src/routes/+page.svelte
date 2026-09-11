@@ -481,7 +481,7 @@ Then offer to run /setup.`;
 <section class="band" id="state" use:reveal>
 	<div class="page state">
 		<div>
-			<h2>The pack is alpha, and it is built to be forked.</h2>
+			<h2>The pack is alpha, and it is built for you to contribute back!</h2>
 			<p class="lede">
 				Adjust the nodes for your pipeline, or send the change back. Tell Kevin what breaks and what
 				is missing.
