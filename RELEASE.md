@@ -26,10 +26,10 @@ and `AGENTS.md`.
 ## State, end of 2026-09-11
 
 `dev` has everything below. Kevin's QA of #126 passed on his own ComfyUI. `main` is untouched since
-#80. Offline suite: 264 passed, 17 skipped. GitHub Actions is off at the repository level, so no
+#80. Offline suite: 267 passed, 17 skipped. GitHub Actions is off at the repository level, so no
 check ran on the day's PRs; the suite and `npm run build` were run locally at each merge.
 
-**Landed 2026-09-11, as #126 onto `dev`, assembled from #127 to #130 and direct commits.**
+**Landed 2026-09-11: #126 onto `dev`, assembled from #127 to #130 and direct commits, then #131.**
 
 - A bare linked field in a template, `{sg_task.Task.step}`, resolves to the link's name (probe 003:
   an entity field is answered under `relationships`).
@@ -57,6 +57,10 @@ check ran on the day's PRs; the suite and `npm run build` were run locally at ea
   new: a mask SG Load read, inverted, published as the frames' alpha. Load, Settings and Site Setup
   captures kept.
 - The site's header bar and page titles read SG ComfyUI. The hero and the footer keep the full name.
+- #131 A still takes its own path template, `published_files.still_path_template`, default
+  `{entity}/{root_name}/{version_name}{ext}`, beside the movie. A Still path row in Settings. Before
+  a run the readout shows the frames path and the still path, since the count is settled by the run;
+  after it, the one written. A still's files row after a run reads as one frame, not as a clip.
 
 **Landed 2026-09-10, one PR each.**
 
