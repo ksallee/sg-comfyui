@@ -105,6 +105,9 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
 
 ## Decisions, 2026-09-11, with Kevin
 
+- **A still takes a path template of its own**, `published_files.still_path_template`, default
+  `{entity}/{root_name}/{version_name}{ext}`: a batch of one frame is one file, written beside the
+  folder a sequence takes.
 - **Sync from SG drops the site cache.** The button's name is its promise.
 - **Empty template fields show the Settings template as a placeholder**, the template alone, no
   suffix. The tooltip and the docs say where it comes from.
@@ -186,7 +189,6 @@ Version field on the node in one line; a colour-managed template; Windows as a f
 | question | who |
 |---|---|
 | Release date | Kevin |
-| A path template for a still. A single frame is written into a folder named for the version, with a frame number, by the sequence template; the preview shows the `%04d` pattern. A still is one file, like a movie | Kevin |
 | `PublisherId`, `Icon`, `Banner` | Kevin, Registry day |
 | Five em dashes in runtime strings: the PublishedFile source label (`media.py`), the clip sentence (`movie.py`), the node title built in `instrument.py`. Tests and two drives assert on them. Change them or leave them | Kevin |
 | Artist attribution on the script-key path: `sudo_as_login` is wired in `credentials.client`; the fallback chain and an `artist` widget are not | after release |
