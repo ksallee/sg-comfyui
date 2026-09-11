@@ -10,7 +10,8 @@ import { app } from "../../scripts/app.js";
 import { addPanel } from "./sg_panel.js";
 import { onSession } from "./sg_settings.js";
 import { searchPicker, chipSelect, hideWidget, requireVueNodes, fitNode, dontSerialize,
-         restoreDeclaredWidgets, restoreValue, textRows, cascade, call } from "./sg_dom_widgets.js";
+         restoreDeclaredWidgets, restoreValue, textRows, cascade, call,
+         setPlaceholder } from "./sg_dom_widgets.js";
 
 const NONE = "(none)";        // a visible "no value"; an empty option cannot be clicked
 
@@ -299,6 +300,12 @@ function publishPickers(nodeType, nodeData) {
       const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
       if (!keepLog) panel.clearLog();
+      // An empty root name or version name is set by Settings. The template in force is drawn
+      // greyed inside the empty field, where one would be typed.
+      const inForce = Object.fromEntries((d.templates || []).map((t) => [t.widget, t.value]));
+      for (const name of ["root_name", "code_template"]) {
+        setPlaceholder(node, name, inForce[name] ? `${inForce[name]} (from Settings)` : "");
+      }
       if (!d.code) {
         panel.show({ error: d.error || "Version name produced nothing. Edit version name on this "
           + "node, or empty it to use the default under Settings, then SG." });
@@ -317,14 +324,12 @@ function publishPickers(nodeType, nodeData) {
       // the name instead.
       const { error, ...rest } = extra || {};
       // What this Run would publish: the review media, the files, and the paths they are written
-      // to. One run creates one Version. An empty root name or version name is set by Settings, and
-      // the templates row shows what that resolves to. The previous Version is drawn as a link
-      // alone, so its files do not read as this Run's.
+      // to. One run creates one Version. The previous Version is drawn as a link alone, so its
+      // files do not read as this Run's.
       const facts = []
         .concat(rest.review ? [{ label: "review", value: rest.review }] : [])
         .concat(rest.files ? [{ label: "files", value: rest.files }] : [])
         .concat((rest.paths || []).map((x) => ({ label: x.label, value: x.path })))
-        .concat((d.templates || []).map((t) => ({ label: t.label, value: `${t.value} · ${t.source}` })))
         .concat(runFacts(d.latest));
       panel.show({
         ...rest, facts,

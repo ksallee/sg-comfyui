@@ -366,6 +366,17 @@ function nodeElement(node) {
   return null;
 }
 
+/** Grey text inside an empty text widget of `node`.
+ *
+ * The frontend drops `placeholder` from a single-line STRING spec when it builds the widget
+ * (useStringWidget, 1.51.9), and the input's own attribute is not one the Vue component manages,
+ * so it is set on the input and survives a redraw. Call it again after each preview: that is also
+ * what covers a rebuilt input. */
+export function setPlaceholder(node, name, text) {
+  const el = nodeElement(node)?.querySelector(`input[aria-label="${name}"]`);
+  if (el) el.placeholder = text || "";
+}
+
 /** Set node.size from the height the node renders.
  *
  * The Vue node is `min-h-(--node-height)`, so its DOM height is the larger of node.size and its

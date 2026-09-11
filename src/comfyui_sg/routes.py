@@ -598,12 +598,13 @@ def register():
                 # Its link only. Drawing its files here would read as the files this publish
                 # writes.
                 latest = {"id": lid, "code": lcode, "site_url": site.client().site}
-            # An empty field on the node means Settings names it. The panel shows the template in
-            # force, tagged with where it came from.
-            templates = [{"label": label, "value": value, "source": "Settings"}
-                         for label, own, value in
-                         (("root name", root_t, p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
-                          ("version name", q.get("code_template", ""),
+            # An empty field on the node means Settings names it. The editor draws the template in
+            # force as the empty widget's placeholder.
+            templates = [{"widget": widget, "label": label, "value": value, "source": "Settings"}
+                         for widget, label, own, value in
+                         (("root_name", "root name", root_t,
+                           p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE),
+                          ("code_template", "version name", q.get("code_template", ""),
                            p.get("code_template") or naming.DEFAULT_TEMPLATE))
                          if not own.strip()]
             return {"code": code, "link": f"{lt} {picked_name}".strip(),
