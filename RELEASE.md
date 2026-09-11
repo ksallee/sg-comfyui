@@ -123,7 +123,7 @@ deny on `.env.local` ships. Version stays 0.1.0.
 **Feedback list at launch**, in README "What's next" and at the end of every post: a `mask`
 input and RGBA publishes; registering files another node wrote (Save Image (Advanced), OCIO Write);
 publishing with no shared storage, the sequence as a zip; publishing on someone's behalf and the artist
-on a farm; updating the Task status on publish; newest per stream; any Version field on the node in
+on a farm; newest per stream; any Version field on the node in
 one line; a colour-managed template; Windows as a first-class publisher.
 
 ---
