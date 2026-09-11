@@ -86,6 +86,10 @@ Version the day's drives created (32037 to 32049).
   and a mask that is not the size of the frames is refused rather than resampled.
 - **Process**: every PR merges onto `dev` on CI green. Kevin QAs on `dev`. Each parallel agent works
   in its own git worktree.
+- **The captures showing SG Publish are retaken.** Nine stills and two clips show the `mask` input,
+  the Settings template drawn as a placeholder in an empty name field, and the readout without its
+  two Settings rows. `08_publish_mask` is a new clip of a mask SG Load read, published as the
+  frames' alpha. Retired: Versions 32071 to 32074, PublishedFiles 7066 to 7068.
 
 ## Decisions, 2026-09-09, with Kevin
 

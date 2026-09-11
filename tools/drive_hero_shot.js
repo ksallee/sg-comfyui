@@ -5,6 +5,7 @@
 // Crop the sidebar and the tab bar afterwards: 59 and 38 CSS pixels, times the scale.
 //   { printf 'const GRAPH = %s;\n' "$(python3 -c 'import json; print(json.dumps(open("example_workflows/00_example.json").read()))')"; cat tools/drive_hero_shot.js; } > /tmp/hero.js
 //   uv run --with playwright --python 3.11 python tools/qa_node.py --start --drive /tmp/hero.js --shot hero.png --scale 2 --viewport 1500x560
+const pause = (ms) => wait(ms);
 const closeAnyway = () => [...document.querySelectorAll("button")]
   .find((b) => /Close anyway/i.test(b.textContent))?.click();
 const loading = app.loadGraphData(JSON.parse(GRAPH));
@@ -26,7 +27,8 @@ if (mini && document.querySelector(".litegraph-minimap, [class*='minimap']")) mi
 // Hide the chrome over the canvas: the body panels, the Run bar, the canvas controls.
 const hidden = [];
 for (const sel of ["#comfyui-body-top", "#comfyui-body-left", "#comfyui-body-right", "#comfyui-body-bottom",
-                   ".actionbar", "[class*='actionbar']", "[class*='graph-canvas-menu']", "[class*='canvas-menu']",
+                   ".actionbar", "[class*='actionbar']", "[data-testid='action-bar-card']",
+                   "[class*='graph-canvas-menu']", "[class*='canvas-menu']",
                    "[class*='subgraph-breadcrumb']", ".comfyui-menu", ".p-buttongroup"]) {
   document.querySelectorAll(sel).forEach((e) => { hidden.push(sel); e.style.display = "none"; });
 }
