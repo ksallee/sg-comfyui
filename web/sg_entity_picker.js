@@ -405,9 +405,9 @@ function publishPickers(nodeType, nodeData) {
                      state: "ok", why: "" });
         // What the run did, as rows: the Version by name (its id is in the link), the review
         // media, the files in the format they were written in, and the path of each.
-        const files = (r.files || []).map((f) => f.kind === "frames"
-          ? `${f.count} frame${f.count === 1 ? "" : "s"} as ${r.format || "PNG"}`
-          : "the clip as it is").join(", ");
+        const files = (r.files || []).map((f) => f.kind === "movie"
+          ? "the clip as it is"
+          : `${f.count} frame${f.count === 1 ? "" : "s"} as ${r.format || "PNG"}`).join(", ");
         panel.ran([
           ...(r.site_url ? [["published", r.code, `${r.site_url}/detail/Version/${r.id}`]] : []),
           ...(r.media ? [["review", r.media]] : []),
