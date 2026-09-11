@@ -561,8 +561,8 @@ A fourth input, `mask`, is the alpha of the frames. It is a socket, so it moves 
 index.
 
 `1 - mask` is the alpha, clamped to 0..1. That is ComfyUI's own convention: core `LoadImage` returns
-`1 - alpha` as its mask and core `JoinImageWithAlpha` writes `1.0 - mask` back. A publish of what SG
-Load read returns the mask it started from.
+`1 - alpha` as its mask and core `JoinImageWithAlpha` writes `1.0 - mask` back. A Version published
+from what SG Load read loads back with the mask it was published with.
 
     [H,W] or [1,H,W]    one mask, the alpha of every frame of the batch
     [N,H,W]             one mask per frame, N the frame count
