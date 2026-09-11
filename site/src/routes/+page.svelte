@@ -125,7 +125,7 @@ Then offer to run /setup.`;
 				</ul>
 			</div>
 			<div class="cell">
-				<h3>On the Version</h3>
+				<h3>On the SG Version</h3>
 				<ul>
 					<li>Nine typed fields, queryable in a filter or a page layout.</li>
 					<li>The workflow, attached, when the submitting client sent one.</li>
