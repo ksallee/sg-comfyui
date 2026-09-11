@@ -1,8 +1,11 @@
 // Captures the publish panel before and after a Run, as rows: review, files in the format picked,
 // paths.
-// Needs the sandbox project and Shot sh010. Publishes a 2-frame EXR batch while RUN is true.
-//   tools/qa_node.py --start --repo <checkout> --drive tools/drive_publish_rows.js --shot rows.png
-const RUN = true;
+// Needs the sandbox project and Shot sh010. Reads the site.
+// Needs RUN prepended as true to publish a 2-frame EXR batch; without it the drive stops at the
+// readout, which is the shot site/static/media/01_publish_before_run_exr.png.
+//   (echo 'const RUN = true;'; cat tools/drive_publish_rows.js) | tools/qa_node.py --start \
+//     --repo <checkout> --node SGPublishVersion --drive - --shot rows.png
+const DO_RUN = typeof RUN !== "undefined" && RUN;
 const pause = (ms) => wait(ms);
 const seen = [];
 const ctl = (label) => [...document.querySelectorAll(".sg-dom")]
@@ -27,7 +30,9 @@ img.widgets.find(w => w.name === "width").value = 512;
 img.widgets.find(w => w.name === "height").value = 512;
 img.widgets.find(w => w.name === "batch_size").value = 2;
 img.widgets.find(w => w.name === "color").value = 3368601;
-const pub = LiteGraph.createNode("SGPublishVersion"); pub.pos = [420, 120]; app.graph.add(pub);
+// The image node is as wide as the gap the editor gives it. Place the publish node clear of it,
+// so the link between the two is drawn over the canvas.
+const pub = LiteGraph.createNode("SGPublishVersion"); pub.pos = [540, 120]; app.graph.add(pub);
 img.connect(0, pub, 0);
 app.canvas.centerOnNode(pub); app.canvas.ds.state.scale = 0.95; app.canvas.setDirty(true, true);
 await pause(1500);
@@ -40,7 +45,7 @@ w("format").value = "EXR 32-bit float"; w("format").callback?.(w("format").value
 w("note").value = "Panel rows.";
 app.canvas.setDirty(true, true); await pause(6000);
 seen.push("before: " + (document.querySelector(".sg-panel .sg-body")?.innerText || "").replace(/\n/g, " | ").slice(0, 400));
-if (RUN) {
+if (DO_RUN) {
   await app.queuePrompt(0, 1);
   for (let i = 0; i < 90; i++) { await pause(1000);
     if ((document.querySelector(".sg-panel")?.innerText || "").includes("last run")) break; }

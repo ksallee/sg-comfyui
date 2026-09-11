@@ -150,6 +150,12 @@ Then offer to run /setup.`;
 				caption="Project, link, Task and status, read live from the site. Sync from SG forces a read past the 600 second cache."
 			/>
 		</div>
+		<div class="wide-media">
+			<Clip
+				name="08_publish_mask"
+				caption="SG Load's mask wired into SG Publish, which writes it as the frames' alpha."
+			/>
+		</div>
 		<div class="facts">
 			<div>
 				<h3>Linked the way your site links</h3>
