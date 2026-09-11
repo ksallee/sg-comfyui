@@ -13,7 +13,6 @@ const ROUTES = [
   [/\/sg\/tasks/, () => json({ items: [{ label: "Comp", id: 5 }] })],
   [/\/sg\/preview_code/, () => json({ code: "chr_010_comp_v007", templates: [], latest: null })],
   [/\/sg\/preview_publish/, () => json({ fields: [], sources: [] })],
-  [/\/sg\/node_defaults/, () => json({})],
 ];
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);

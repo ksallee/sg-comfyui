@@ -28,6 +28,42 @@ DEFAULT_TEMPLATE = "{root_name}_v{version:03d}"
 # the entity alone, because an empty token drops out with its separator (render).
 DEFAULT_ROOT_TEMPLATE = "{entity}_{sg_task.Task.step.Step.short_name}"
 
+# What the editor offers inside a template, one list per kind. Each token has one sentence for the
+# operator, and the entity type it descends into where the editor may read that type's fields from
+# the schema. The list is where a template starts, not the vocabulary: a dotted field path to any
+# depth works (probe 003).
+_LINK_TOKENS = [
+    # `{entity}` descends into the type this project links a Version to, and `tokens` fills that in:
+    # it is per project (probe 005).
+    ("{entity}", "The name of the Shot or Asset this node is linked to.", ""),
+    ("{sg_task}", "The name of the Task this node is linked to.", "Task"),
+    ("{sg_task.Task.step.Step.short_name}", "The pipeline step of that Task, short, such as RTO.",
+     ""),
+    ("{sg_task.Task.step.Step.code}", "The pipeline step of that Task in full, such as Roto.", ""),
+    ("{project}", "The name of the project.", "Project"),
+]
+_VERSION_TOKEN = ("{version:03d}", "The version number, padded to three digits.", "")
+_ROOT_TOKEN = ("{root_name}", "The root name, from the Root name template.", "")
+_NAME_TOKEN = ("{version_name}", "The Version name, from the Version name template.", "")
+_EXT_TOKEN = ("{ext}", "The extension of the files being written, such as .exr.", "")
+_FRAME_TOKEN = ("%04d", "The frame number, padded to four digits.", "")
+
+TOKENS = {
+    "root": _LINK_TOKENS,
+    "name": [_ROOT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
+    "sequence": [_ROOT_TOKEN, _NAME_TOKEN, _FRAME_TOKEN, _EXT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
+    "movie": [_ROOT_TOKEN, _NAME_TOKEN, _EXT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
+}
+
+
+def tokens(kind, link_type="Shot"):
+    """The tokens a template of this kind may use. `kind` is root, name, sequence or movie.
+
+    `link_type` is what this project links a Version to. It is the type `{entity}` descends into.
+    """
+    return [{"token": t, "note": note, "type": (into or link_type) if t == "{entity}" else into}
+            for t, note, into in TOKENS.get(kind, ())]
+
 
 def next_number(existing_numbers):
     """Next value for a site's own numeric version field, which is authoritative where it exists."""

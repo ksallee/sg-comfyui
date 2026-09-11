@@ -318,6 +318,26 @@ def valid_link_types(project_id=None, field="entity", entity_type="Version"):
     return _cached(("valid_link_types", int(project_id or 0), entity_type, field), fetch)
 
 
+def schema_fields(entity_type):
+    """Every field on one type: its name, its display name, its data type and what a link accepts.
+
+    probe 002: the schema is the expensive call, about 48KB and 330ms a type, so it is read one
+    type at a time and cached like every other read here. Never looped over the type listing.
+    """
+    def fetch():
+        r = client().get(f"/schema/{entity_type}/fields")
+        if not r.ok:
+            return []
+        return sorted(({"name": name,
+                        "display_name": (raw.get("name") or {}).get("value") or name,
+                        "data_type": (raw.get("data_type") or {}).get("value") or "",
+                        "valid_types": (raw.get("properties") or {})
+                        .get("valid_types", {}).get("value") or []}
+                       for name, raw in (r.json().get("data") or {}).items()),
+                      key=lambda f: f["display_name"].lower())
+    return _cached(("schema_fields", entity_type), fetch, empty=[])
+
+
 # A combo renders nothing to click for an empty string, so an empty choice cannot be selected back
 # once left. "No restriction" and "no value" are therefore visible entries.
 ALL_TYPES = "(all types)"
