@@ -26,11 +26,12 @@ from . import media, naming, site, version_name
 # a path template uses the same notation as `sg_path_to_frames`.
 SEQ = media.SEQ
 
-# Two shapes. A sequence is many files and gets a folder of its own, named for the version. A movie
-# is one file, written beside that folder, so no folder contains frames and a movie together.
-# Neither template repeats the naming scheme: `{root_name}` and `{version_name}` are the two names
-# themselves.
+# Three shapes. A sequence is many files and gets a folder of its own, named for the version. A
+# still and a movie are one file each, written beside that folder, so no folder contains frames and
+# a movie together. No template repeats the naming scheme: `{root_name}` and `{version_name}` are
+# the two names themselves.
 DEFAULT_SEQUENCE_TEMPLATE = "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}"
+DEFAULT_STILL_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
 DEFAULT_MOVIE_TEMPLATE = "{entity}/{root_name}/{version_name}{ext}"
 DEFAULT_PATH_TEMPLATE = DEFAULT_SEQUENCE_TEMPLATE      # existing profiles name this one
 
@@ -279,8 +280,8 @@ def pattern(root, template, values, version, ext):
     out = _clean(swap_ext(f"{root}/{rel}", ext))
     if not _under(root, out):
         raise RuntimeError(f"{out} is outside the storage root {root}. A published file has to be "
-                           f"under the root. Fix Sequence path or Movie path under Settings, "
-                           f"then SG.")
+                           f"under the root. Fix Sequence path, Still path or Movie path under "
+                           f"Settings, then SG.")
     return out
 
 
@@ -314,8 +315,8 @@ def copy_one(source, dest):
     return dest
 
 
-Plan = namedtuple("Plan", "root storage_id row platform seq_template movie_template "
-                          "values blank name")
+Plan = namedtuple("Plan", "root storage_id row platform seq_template still_template "
+                          "movie_template values blank name")
 
 
 def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name=""):
@@ -325,19 +326,20 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     from here, so a path an operator reads before pressing Run is the path the run writes.
 
     A path template uses the language of the code template, dotted SG paths and Python's format
-    spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are two templates
-    because a sequence gets a folder and a movie does not. Neither repeats the naming scheme:
-    `{root_name}` and `{version_name}` are the two names themselves.
+    spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are three
+    templates because a sequence gets a folder and a single file does not. None of them repeats the
+    naming scheme: `{root_name}` and `{version_name}` are the two names themselves.
     """
     pf = p.get("published_files") or {}
     storage_id, root = root_for(storages, pf.get("storage", ""))
     row = storage_row(storages, pf.get("storage", ""))
     platform = platform_for(row, pf.get("path_platform", ""))
     seq_t = pf.get("path_template") or DEFAULT_SEQUENCE_TEMPLATE
+    still_t = pf.get("still_path_template") or DEFAULT_STILL_TEMPLATE
     mov_t = pf.get("movie_path_template") or DEFAULT_MOVIE_TEMPLATE
     root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
-    fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(mov_t))
-              | set(naming.template_fields(root_t)))
+    fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(still_t))
+              | set(naming.template_fields(mov_t)) | set(naming.template_fields(root_t)))
     vals = site.resolve_paths(fields, project_id, link_type, link_id, task_id)
     # A token nobody could resolve leaves an empty segment that `_clean` removes, so name them.
     # probe 028: a 200 proves nothing, and neither does a path that rendered.
@@ -346,7 +348,7 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     blank = sorted(k for k in fields - {"root_name", "version_name", "ext"}
                    if not str(vals.get(k, "")).strip())
     name = version_name.root_of(root_t, vals, version_no)
-    return Plan(root, storage_id, row, platform, seq_t, mov_t,
+    return Plan(root, storage_id, row, platform, seq_t, still_t, mov_t,
                 dict(vals, version_name=code, root_name=name), blank, name)
 
 

@@ -35,8 +35,13 @@ def test_a_storage_that_resolves_answers_with_the_path(tmp_path, monkeypatch):
     where, alert = routes._files_preview(WIDGETS, {}, 1, "Shot", 2, 0)
 
     assert alert == ""
-    assert where == [{"label": "frames path", "path": (
-        tmp_path / "sh010/sh010_matte/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()}]
+    # The frame count is a run-time fact, so the readout names both paths: a batch of one is a
+    # still, and two or more are a sequence.
+    assert where == [
+        {"label": "frames path", "path": (
+            tmp_path / "sh010/sh010_matte/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()},
+        {"label": "still path",
+         "path": (tmp_path / "sh010/sh010_matte/sh010_matte_v001.png").as_posix()}]
 
 
 def test_a_root_that_is_not_mounted_is_the_sentence_the_run_would_raise(tmp_path, monkeypatch):
@@ -48,7 +53,7 @@ def test_a_root_that_is_not_mounted_is_the_sentence_the_run_would_raise(tmp_path
     monkeypatch.setattr(site, "resolve_paths", lambda *a, **kw: {"entity": "sh010"})
     where, alert = routes._files_preview(WIDGETS, {}, 1, "Shot", 2, 0)
 
-    assert len(where) == 1
+    assert len(where) == 2
     assert alert == (f"The storage root {gone} is not mounted on this machine. Mount it, then run "
                      f"again.")
 
@@ -69,7 +74,7 @@ def test_a_root_that_is_mounted_and_read_only_is_refused_before_the_run(tmp_path
     finally:
         root.chmod(0o700)
 
-    assert len(where) == 1
+    assert len(where) == 2
     assert alert == (f"The storage root {root} is not writable by ComfyUI. Give it write access, "
                      f"then run again.")
 

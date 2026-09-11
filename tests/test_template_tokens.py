@@ -3,7 +3,7 @@ import pytest
 
 from comfyui_sg import credentials, naming, routes, sequence, site
 
-KINDS = ("root", "name", "sequence", "movie")
+KINDS = ("root", "name", "sequence", "still", "movie")
 
 SCHEMA = {"data": {
     "content": {"name": {"value": "Task Name"}, "data_type": {"value": "text"}},
@@ -64,15 +64,31 @@ def test_each_shipped_template_uses_tokens_its_kind_offers():
     for kind, template in (("root", naming.DEFAULT_ROOT_TEMPLATE),
                            ("name", naming.DEFAULT_TEMPLATE),
                            ("sequence", sequence.DEFAULT_SEQUENCE_TEMPLATE),
+                           ("still", sequence.DEFAULT_STILL_TEMPLATE),
                            ("movie", sequence.DEFAULT_MOVIE_TEMPLATE)):
         offered = {t.strip("{}").split(":")[0] for t in listed(kind)}
         for field in naming.template_fields(template):
             assert field in offered, f"{field} is not offered for {kind}"
 
 
-def test_a_sequence_path_names_the_frame_and_a_movie_does_not():
+def test_a_sequence_path_names_the_frame_and_a_still_or_a_movie_does_not():
     assert "%04d" in listed("sequence")
+    assert "%04d" not in listed("still")
     assert "%04d" not in listed("movie")
+
+
+def test_a_still_is_offered_the_tokens_a_movie_is():
+    assert listed("still") == listed("movie")
+
+
+def test_the_settings_example_writes_a_still_beside_the_version_folder(monkeypatch):
+    """Settings renders each path kind on one Shot, its Task and version 3."""
+    monkeypatch.setattr(site, "default_project", lambda: 1180)
+    monkeypatch.setattr(site, "for_project", lambda pid=None: {})
+    monkeypatch.setattr(site, "resolve_paths", lambda *a, **kw: {})
+    assert routes._example("still", "") == "sh010/sh010_RTO/sh010_RTO_v003.png"
+    assert routes._example("sequence", "") == ("sh010/sh010_RTO/sh010_RTO_v003/"
+                                               "sh010_RTO_v003.%04d.png")
 
 
 def test_a_profile_that_names_neither_template_is_in_force_on_the_shipped_ones():
