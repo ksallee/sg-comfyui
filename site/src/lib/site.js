@@ -46,6 +46,6 @@ export const shotSize = {
 	'settings-storage-paths': [1900, 750],
 	'sg-load-info': [1560, 2486],
 	'sg-load-node': [1050, 800],
-	'sg-publish-info': [1560, 1990],
+	'sg-publish-info': [1560, 2104],
 	'sg-publish-node': [765, 855]
 };
