@@ -39,7 +39,7 @@ _LINK_TOKENS = [
     ("{sg_task}", "The name of the Task this node is linked to.", "Task"),
     ("{sg_task.Task.step.Step.short_name}", "The pipeline step of that Task, short, such as RTO.",
      ""),
-    ("{sg_task.Task.step.Step.code}", "The pipeline step of that Task in full, such as Roto.", ""),
+    ("{sg_task.Task.step}", "The pipeline step of that Task in full, such as Roto.", "Step"),
     ("{project}", "The name of the project.", "Project"),
 ]
 _VERSION_TOKEN = ("{version:03d}", "The version number, padded to three digits.", "")
@@ -56,13 +56,22 @@ TOKENS = {
 }
 
 
-def tokens(kind, link_type="Shot"):
+def tokens(kind, link_types=("Shot",)):
     """The tokens a template of this kind may use. `kind` is root, name, sequence or movie.
 
-    `link_type` is what this project links a Version to. It is the type `{entity}` descends into.
+    `link_types` is what this node links a Version to: the picked link's type, else the types the
+    project uses. One type is what `{entity}` descends into; several are offered as `types`, and
+    the operator picks the hop.
     """
-    return [{"token": t, "note": note, "type": (into or link_type) if t == "{entity}" else into}
-            for t, note, into in TOKENS.get(kind, ())]
+    types = [link_types] if isinstance(link_types, str) else list(link_types)
+    rows = []
+    for t, note, into in TOKENS.get(kind, ()):
+        row = {"token": t, "note": note, "type": into}
+        if t == "{entity}":
+            row["type"] = types[0] if len(types) == 1 else ""
+            row["types"] = types
+        rows.append(row)
+    return rows
 
 
 def next_number(existing_numbers):

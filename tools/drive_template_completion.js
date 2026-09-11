@@ -7,13 +7,16 @@ const real = window.fetch.bind(window);
 const json = (body) => new Response(JSON.stringify(body),
   { status: 200, headers: { "Content-Type": "application/json" } });
 const ROOT_TEMPLATE = "{entity}_{sg_task.Task.step.Step.short_name}";
-const TOKENS = [
-  { token: "{entity}", note: "The name of the Shot or Asset this node is linked to.", type: "Shot" },
+// `{entity}` as the route answers it: the picked link's type when the URL names one, else the
+// types the project links to, for the operator to pick the hop.
+const TOKENS = (linkType) => [
+  { token: "{entity}", note: "The name of the Shot or Asset this node is linked to.",
+    type: linkType, types: linkType ? [linkType] : ["Shot", "Asset"] },
   { token: "{sg_task}", note: "The name of the Task this node is linked to.", type: "Task" },
   { token: "{sg_task.Task.step.Step.short_name}",
     note: "The pipeline step of that Task, short, such as RTO.", type: "" },
-  { token: "{sg_task.Task.step.Step.code}",
-    note: "The pipeline step of that Task in full, such as Roto.", type: "" },
+  { token: "{sg_task.Task.step}",
+    note: "The pipeline step of that Task in full, such as Roto.", type: "Step" },
   { token: "{project}", note: "The name of the project.", type: "Project" },
 ];
 // As the route returns them: one type at a time, by display name.
@@ -28,13 +31,20 @@ const FIELDS = {
     { name: "short_name", display_name: "Short Name", data_type: "text", valid_types: [] },
     { name: "code", display_name: "Step Name", data_type: "text", valid_types: [] },
   ],
+  Shot: [{ name: "code", display_name: "Shot Code", data_type: "text", valid_types: [] }],
+  Asset: [
+    { name: "sg_asset_type", display_name: "Asset Type", data_type: "list", valid_types: [] },
+    { name: "code", display_name: "Asset Name", data_type: "text", valid_types: [] },
+  ],
 };
 window.fetch = (url, opts) => {
   const u = String(url?.url ?? url);
   if (!/\/sg\//.test(u)) return real(url, opts);
   if (/projects/.test(u)) return json({ items: [{ label: "Chariot", id: 1 }], default: 1 });
   if (/profile/.test(u)) return json({ link_type: "Shot" });
-  if (/tokens/.test(u)) return json({ items: TOKENS });
+  if (/tokens/.test(u)) {
+    return json({ items: TOKENS(decodeURIComponent(u.split("link_type=")[1] || "")) });
+  }
   if (/schema_fields/.test(u)) {
     return json({ items: FIELDS[decodeURIComponent(u.split("type=")[1] || "")] || [] });
   }
@@ -103,6 +113,24 @@ defaultRow?.click();
 await wait(400);
 const fromDefault = widget();
 
+// No link picked: `{entity.` offers the types the project links to, and picking one is the hop.
+enter("{entity.");
+await wait(500);
+const typeRows = labels();
+const assetRow = [...document.querySelectorAll(".sg-pop [role=option]")]
+  .find((e) => e.querySelector(".sg-tok-name").textContent.trim() === "Asset");
+assetRow?.click();
+await wait(500);
+const viaType = input.value;
+const assetRows = labels();
+
+// An Asset picked on the link: `{entity.` is that type's fields, with no type to pick.
+n.widgets.find((x) => x.name === "link").value = "bunny (Asset)";
+enter("{entity.");
+await wait(500);
+const pickedRows = labels();
+n.widgets.find((x) => x.name === "link").value = "";
+
 // Escape closes it.
 enter("{sg");
 await wait(500);
@@ -128,7 +156,7 @@ await wait(500);
 
 const checks = [
   ["the tokens after {sg", tokenRows.join(" ") === "{sg_task} {sg_task.Task.step.Step.short_name} "
-    + "{sg_task.Task.step.Step.code} Default"],
+    + "{sg_task.Task.step} Default"],
   ["Escape closes the popup", closed === 0],
   ["Enter takes the highlighted token", picked === "{sg_task}"],
   ["a link lists the type's own fields",
@@ -137,9 +165,13 @@ const checks = [
   ["the hop lists the step's fields", stepRows.join(" ") === "short_name code Default"],
   ["Default is listed whatever is typed", withDefault[withDefault.length - 1] === "Default"],
   ["Default replaces the field", fromDefault === ROOT_TEMPLATE],
+  ["no link picked lists the project's types", typeRows.join(" ") === "Shot Asset Default"],
+  ["a picked type is the hop", viaType === "{entity.Asset." && assetRows.join(" ") === "sg_asset_type code Default"],
+  ["the picked link's type wins", pickedRows.join(" ") === "sg_asset_type code Default"],
 ];
 const bad = checks.filter(([, ok]) => !ok).map(([what]) => what);
 return {
   verdict: bad.length ? `FAIL ${bad.join("; ")}` : "PASS",
-  tokenRows, picked, taskRows, hopped, stepRows, fromDefault,
+  tokenRows, picked, taskRows, hopped, stepRows, fromDefault, typeRows, viaType, assetRows,
+  pickedRows,
 };

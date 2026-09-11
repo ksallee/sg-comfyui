@@ -28,12 +28,31 @@ def test_every_kind_lists_tokens_and_a_sentence_for_each():
             assert row["note"].endswith("."), row
 
 
-def test_the_entity_token_descends_into_the_type_this_project_links():
+def test_the_entity_token_descends_into_the_type_this_node_links():
     rows = {t["token"]: t["type"] for t in naming.tokens("root", "Asset")}
     assert rows["{entity}"] == "Asset"
     assert rows["{sg_task}"] == "Task"
     assert rows["{project}"] == "Project"
-    assert rows["{sg_task.Task.step.Step.code}"] == ""
+    assert rows["{sg_task.Task.step}"] == "Step"
+    assert rows["{sg_task.Task.step.Step.short_name}"] == ""
+
+
+def test_a_project_linking_several_types_offers_them_as_the_hop():
+    entity = next(t for t in naming.tokens("root", ["Shot", "Asset"]) if t["token"] == "{entity}")
+    assert entity["type"] == ""
+    assert entity["types"] == ["Shot", "Asset"]
+
+
+def test_the_picked_link_type_wins_over_the_profile(monkeypatch):
+    monkeypatch.setattr(site, "projects", lambda: [("Sandbox", 1180)])
+    monkeypatch.setattr(site, "default_project", lambda: 1180)
+    monkeypatch.setattr(site, "for_project", lambda pid=None: {"link_type": "Shot"})
+    monkeypatch.setattr(site, "link_types", lambda pid: ["Shot", "Asset"])
+    entity = lambda rows: next(t for t in rows if t["token"] == "{entity}")
+    assert entity(routes._token_rows("root", "Sandbox", "Asset"))["type"] == "Asset"
+    assert entity(routes._token_rows("root", "Sandbox"))["type"] == "Shot"
+    monkeypatch.setattr(site, "for_project", lambda pid=None: {})
+    assert entity(routes._token_rows("root", "Sandbox"))["types"] == ["Shot", "Asset"]
 
 
 def test_a_kind_with_no_list_offers_nothing():

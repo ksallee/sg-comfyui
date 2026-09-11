@@ -248,18 +248,24 @@ def _entity_type(query):
     return name
 
 
-def _token_rows(kind, project):
-    """The tokens for one template kind, with the type `{entity}` descends into on this project.
+def _token_rows(kind, project, link_type=""):
+    """The tokens for one template kind, with the types `{entity}` may descend into.
 
-    The link type is per project (probe 005). It is read from the profile, so the tokens are listed
-    on a site that cannot be reached.
+    `link_type` is the picked link's own type and wins. Without one, the profile's link type, else
+    the types this project's Versions link to (probe 005), else Shot.
     """
     from . import naming
     try:
         pid = site.id_for(site.projects(), project) or site.default_project()
     except Exception:
         pid = site.default_project()
-    return naming.tokens(kind, site.for_project(pid).get("link_type") or "Shot")
+    types = [link_type] if link_type else [site.for_project(pid).get("link_type")]
+    if not types[0]:
+        try:
+            types = site.link_types(pid)
+        except Exception:
+            types = []
+    return naming.tokens(kind, types or ["Shot"])
 
 
 def _in_force(profile):
@@ -421,7 +427,8 @@ def register():
     async def template_tokens(request):
         """The tokens a template may use, for the completion in the editor."""
         q = request.rel_url.query
-        return items(lambda: _token_rows(q.get("kind", ""), q.get("project", "")))
+        return items(lambda: _token_rows(q.get("kind", ""), q.get("project", ""),
+                                         q.get("link_type", "")))
 
     @routes.get("/sg/schema_fields")
     async def schema_fields(request):

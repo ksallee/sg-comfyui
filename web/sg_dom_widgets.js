@@ -446,15 +446,16 @@ const hopTargets = (field, seen) =>
  *
  * `defaultTemplate` returns the template Settings has in force for this field. It is the last row,
  * labelled Default, whatever is typed, and picking it replaces the value with that template.
- * `project` names the project whose link type `{entity}` descends into.
+ * `linkType` is the picked link's own type, which `{entity}` descends into. Empty, the server
+ * offers the project's link types, and a link that accepts several lists them as rows.
  */
 export function templateCompletion(target, {
-  name = "", kind = "", defaultTemplate = () => "", project = () => "",
+  name = "", kind = "", defaultTemplate = () => "", project = () => "", linkType = () => "",
 }) {
   ensureCss();
   const node = target instanceof HTMLElement ? null : target;
   const tokens = () => once(`/sg/tokens?kind=${encodeURIComponent(kind)}`
-    + `&project=${encodeURIComponent(project())}`);
+    + `&project=${encodeURIComponent(project())}&link_type=${encodeURIComponent(linkType())}`);
 
   const pop = document.createElement("div");
   pop.className = `sg-pop ${NATIVE.pop}`;
@@ -517,8 +518,14 @@ export function templateCompletion(target, {
       const seg = segs[i];
       if (!type) {
         const token = (await tokens()).find((t) => tokenPath(t.token) === seg);
-        if (!token || !token.type) return null;
-        type = token.type;
+        if (!token) return null;
+        const next = segs[i + 1];
+        const choices = token.type ? [token.type] : token.types || [];
+        if (!choices.length) return null;
+        if (choices.length > 1 && !choices.includes(next)) {
+          return i === segs.length - 1 ? { types: choices, canon: `${seg}.` } : null;
+        }
+        type = choices.includes(next) ? next : choices[0];
         seen = [type];
         hops = 1;
         canon = `${seg}.${type}.`;
@@ -548,7 +555,8 @@ export function templateCompletion(target, {
     if (!segs.length) {
       return (await tokens()).filter((t) => tokenPath(t.token).toLowerCase().includes(q))
         .map((t) => ({ label: t.token, note: t.note, text: t.token,
-                       into: t.type ? `{${tokenPath(t.token)}.${t.type}.` : "" }));
+                       into: t.type ? `{${tokenPath(t.token)}.${t.type}.`
+                         : (t.types || []).length > 1 ? `{${tokenPath(t.token)}.` : "" }));
     }
     const at2 = await locate(segs);
     if (!at2) return [];
@@ -620,10 +628,12 @@ export function templateCompletion(target, {
     el.setSelectionRange(caret, caret);
   };
 
-  /** Put the highlighted row in the field. `descend` travels one hop instead of picking. */
+  /** Put the highlighted row in the field. `descend` travels one hop instead of picking. A row
+   *  with nothing to insert, an entity type to travel through, is a hop however it is chosen. */
   const insert = (i, descend) => {
     const row = rows[i];
     if (!row || !el) return;
+    descend = descend || !row.text;
     const text = descend ? row.into : row.text;
     if (!text) return;
     if (row.whole) {

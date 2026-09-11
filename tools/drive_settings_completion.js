@@ -11,7 +11,7 @@ const TOKENS = [
   { token: "{sg_task}", note: "The name of the Task this node is linked to.", type: "Task" },
   { token: "{sg_task.Task.step.Step.short_name}",
     note: "The pipeline step of that Task, short, such as RTO.", type: "" },
-  { token: "{sg_task.Task.step.Step.code}",
+  { token: "{sg_task.Task.step}",
     note: "The pipeline step of that Task in full, such as Roto.", type: "" },
   { token: "{project}", note: "The name of the project.", type: "Project" },
 ];

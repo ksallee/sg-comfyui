@@ -274,11 +274,12 @@ function publishPickers(nodeType, nodeData) {
     // one of them as its Default row.
     let inForce = {};
     // An opening brace lists the tokens a template of this kind may use, and a token that names an
-    // entity descends into that type's own fields. `{entity}` is the type this project links a
-    // Version to, so the project is passed.
+    // entity descends into that type's own fields. `{entity}` is the picked link's type, else what
+    // this project links a Version to, so both are passed.
     for (const [widget, kind] of [["root_name", "root"], ["code_template", "name"]]) {
       templateCompletion(this, { name: widget, kind,
                                  project: () => project?.value || "",
+                                 linkType: () => typeFromLabel(bare(link?.value)),
                                  defaultTemplate: () => inForce[widget] || "" });
     }
 
