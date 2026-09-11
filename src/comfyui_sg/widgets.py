@@ -48,8 +48,8 @@ PUBLISH_FIELDS = (
     # explores variations, and the version name builds on it.
     Field("root_name", "text", label="root name",
           tooltip="The name shared by all versions of this publish, without a version number, for "
-                  "example {entity}_matte. It names the folder the files are written to. Empty "
-                  "uses the default under Settings, then SG."),
+                  "example {entity}_matte. It can be used in the path templates and as the "
+                  "Published File name. Empty uses the default under Settings, then SG."),
     Field("code_template", "text", label="version name",
           tooltip="The name given to the new Version, for example {root_name}_v{version:03d}. "
                   "{version:03d} pads the number to three digits. Empty uses the default under "
