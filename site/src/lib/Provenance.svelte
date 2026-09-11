@@ -12,8 +12,8 @@
 				same facts in the Version's description.
 			</p>
 			<p>
-				SG Publish shows what it will record. SG Load shows what a Version records. An agent sets
-				the fields up and remaps them (<code>/setup</code>, SG Site Setup).
+				SG Publish shows what it will record. SG Load shows what a Version records. An agent can
+				help you set the fields up, or map them to existing fields you already have.
 			</p>
 			<div class="side-shot">
 				<Shot
