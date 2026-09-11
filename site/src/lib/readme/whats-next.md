@@ -1,6 +1,5 @@
 The order is not decided. Open an issue for the one you need, whether or not it is on this list.
 
-- A `mask` input on SG Publish, so an RGBA publish keeps its alpha.
 - Registering files another node wrote, such as Save Image (Advanced) or an OCIO Write.
 - Publishing where there is no shared storage, by uploading a zip.
 - Publishing on someone's behalf, and naming the artist on a farm.
