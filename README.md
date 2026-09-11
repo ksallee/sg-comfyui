@@ -135,8 +135,9 @@ Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site
   any other path.
 - ComfyUI writes the frames to its own output directory. The node copies them under the root.
 - Originals are never moved. A publish that fails after the copy names the copies it left.
-- Sequence path and Movie path are the two templates, under **Settings**, then **SG**, **SG Publish
-  Defaults**.
+- Sequence path, Still path and Movie path are the three templates, under **Settings**, then
+  **SG**, **SG Publish Defaults**.
+- A batch of one frame is written by Still path, beside the folder a sequence takes.
 - `{version}` is the publish revision. `%04d`, `####` and `@@@@` are the frame number.
 - The extension follows the files, not the template.
 

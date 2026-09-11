@@ -166,19 +166,22 @@ class SGPublishVersion:
         # The extension follows the files, never the template: it is the one the node's `format`
         # widget names, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
         ext = sequence.extension(frame_format)
-        out = {"root": pl.root, "storage_id": pl.storage_id, "template": pl.seq_template,
+        # One frame is a still, not a sequence: one file, written beside the movie by the still
+        # template, where a sequence takes a folder named for the version.
+        single = want_frames and len(images) == 1
+        frames_t = pl.still_template if single else pl.seq_template
+        out = {"root": pl.root, "storage_id": pl.storage_id, "template": frames_t,
                "blank_tokens": pl.blank, "ext": ext,
-               "declared_ext": os.path.splitext(sequence.single(pl.seq_template))[1].lower(),
+               "declared_ext": os.path.splitext(sequence.single(frames_t))[1].lower(),
                "colour": colour_space.strip(), "count": count}
         if want_frames:
-            pattern = sequence.destination(pl, pl.seq_template, ext, version_no)
+            pattern = sequence.destination(pl, frames_t, ext, version_no)
             # Written to ComfyUI's own output directory first. The copy is what puts a file where
             # the site can resolve it; the original stays put so a failed publish is recoverable.
             out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
                                            pattern)
-            # One frame is a file, not a sequence: the `%04d` pattern names nothing on disk, so the
-            # file itself is what is registered and what `path_cache` records.
-            single = len(out["frames"]) == 1
+            # The still template has no frame token, so the rendered path is the file itself, and
+            # that is what is registered and what `path_cache` records.
             out["frames_pattern"] = str(out["frames"][0]) if single else pattern
             out["frames_code"] = os.path.basename(out["frames_pattern"])
             out["frames_name"] = pl.name
@@ -506,8 +509,9 @@ class SGPublishVersion:
         staged_files = []
         if staged:
             if staged.get("frames_pattern"):
-                staged_files.append({"kind": "frames", "path": staged["frames_pattern"],
-                                     "count": len(staged.get("frames") or [])})
+                n = len(staged.get("frames") or [])
+                staged_files.append({"kind": "frames" if n > 1 else "still",
+                                     "path": staged["frames_pattern"], "count": n})
             if staged.get("media"):
                 staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
         # The panel draws the run as rows, so the lines it keeps are the ones that need attention.

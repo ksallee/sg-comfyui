@@ -29,8 +29,9 @@
 />
 
 <h2>Path templates</h2>
-<p>Sequence path and Movie path, under Settings, then SG, SG Publish Defaults.</p>
+<p>Sequence path, Still path and Movie path, under Settings, then SG, SG Publish Defaults. A batch of one frame takes Still path.</p>
 <pre><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}
+{'{entity}/{root_name}/{version_name}{ext}'}
 {'{entity}/{root_name}/{version_name}{ext}'}</code></pre>
 
 <h2>Tokens</h2>

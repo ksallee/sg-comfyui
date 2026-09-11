@@ -124,7 +124,7 @@ def templates(profile):
         for key in ("root_name", "code_template"):
             if block.get(key):
                 yield where, key, block[key]
-        for key in ("path_template", "movie_path_template"):
+        for key in ("path_template", "still_path_template", "movie_path_template"):
             if files.get(key):
                 yield where, f"published_files.{key}", files[key]
 

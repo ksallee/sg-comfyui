@@ -439,7 +439,7 @@ const hopTargets = (field, seen) =>
  * event is filtered to that node's own input.
  *
  * The rows after `{` are the tokens `/sg/tokens` documents for `kind`, which is root, name,
- * sequence or movie. A token that names an entity descends: the rows after `{sg_task.` are the
+ * sequence, still or movie. A token that names an entity descends: the rows after `{sg_task.` are the
  * Task's own fields, and after `{sg_task.Task.step.` the Step's. Enter or a click inserts the
  * token and closes. The right arrow, or the chevron on the row, travels one hop further and keeps
  * the popup open.

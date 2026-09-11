@@ -374,8 +374,8 @@ function templateRow(key, kind) {
   const example = async (t) => {
     const d = await call(`/sg/preview_template?kind=${kind}&template=${encodeURIComponent(t)}`);
     const isDefault = !dval(key) || t === (defaults.placeholders || {})[key];
-    // A path is long on its own, so the two path rows show the result without a label.
-    const bare = kind === "sequence" || kind === "movie";
+    // A path is long on its own, so the three path rows show the result without a label.
+    const bare = kind === "sequence" || kind === "still" || kind === "movie";
     n.textContent = d.error ? d.error : !d.example ? ""
       : bare ? d.example : `Example: ${d.example}${isDefault ? " (the default)" : ""}`;
   };
@@ -639,6 +639,9 @@ app.registerExtension({
     entry("MoviePath", "Movie path", GROUP_PUBLISH, () => templateRow("published_files.movie_path_template", "movie"),
       "Where a published clip is written, relative to the storage root. {version_name} is the "
       + "Version's name and {ext} the clip's own extension."),
+    entry("StillPath", "Still path", GROUP_PUBLISH, () => templateRow("published_files.still_path_template", "still"),
+      "Where a published single image is written, relative to the storage root. {ext} is the "
+      + "extension of the format the node writes, such as .exr."),
     entry("SequencePath", "Sequence path", GROUP_PUBLISH, () => templateRow("published_files.path_template", "sequence"),
       "Where a published image sequence is written, relative to the storage root, with %04d for "
       + "the frame number."),

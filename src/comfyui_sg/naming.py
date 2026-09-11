@@ -52,12 +52,14 @@ TOKENS = {
     "root": _LINK_TOKENS,
     "name": [_ROOT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
     "sequence": [_ROOT_TOKEN, _NAME_TOKEN, _FRAME_TOKEN, _EXT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
+    # A still is one file and has no frame number, so it takes the movie's list.
+    "still": [_ROOT_TOKEN, _NAME_TOKEN, _EXT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
     "movie": [_ROOT_TOKEN, _NAME_TOKEN, _EXT_TOKEN, _VERSION_TOKEN] + _LINK_TOKENS,
 }
 
 
 def tokens(kind, link_types=("Shot",)):
-    """The tokens a template of this kind may use. `kind` is root, name, sequence or movie.
+    """The tokens a template of this kind may use. `kind` is root, name, sequence, still or movie.
 
     `link_types` is what this node links a Version to: the picked link's type, else the types the
     project uses. One type is what `{entity}` descends into; several are offered as `types`, and

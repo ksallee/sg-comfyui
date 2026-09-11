@@ -161,8 +161,12 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
         where = []
         if want_frames:
             ext = sequence.extension(widgets.get("format", ""))
+            # A batch of one is a still and takes the still template; two or more take the
+            # sequence template. The frame count is a run-time fact, so both paths are named.
             where.append({"label": "frames path",
                           "path": sequence.destination(pl, pl.seq_template, ext, version_no)})
+            where.append({"label": "still path",
+                          "path": sequence.destination(pl, pl.still_template, ext, version_no)})
         # A deliverable is never transformed, so the clip keeps its own extension. That extension
         # is a run-time fact, stated rather than guessed.
         if want_movie:
@@ -184,7 +188,8 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
 # The profile keys Settings may write, by their dotted path. Anything else stays a file edit.
 DEFAULT_KEYS = ("default_project", "code_template", "root_name", "status",
                 "published_files.default", "published_files.storage", "published_files.path_platform",
-                "published_files.path_template", "published_files.movie_path_template",
+                "published_files.path_template", "published_files.still_path_template",
+                "published_files.movie_path_template",
                 "published_files.register_movie", "published_files.path_to_frames",
                 "published_files.path_to_movie", "published_files.colour_space")
 
@@ -213,7 +218,7 @@ def _sample_values(template, extra=None):
 
 
 def _example(kind, template):
-    """`kind` is name, root, sequence or movie."""
+    """`kind` is name, root, sequence, still or movie."""
     from . import naming, sequence, version_name
     p = site.for_project(site.default_project())
     pf = p.get("published_files") or {}
@@ -230,6 +235,9 @@ def _example(kind, template):
     extra = {"root_name": root_name, "version_name": name}
     if kind == "sequence":
         t = template or pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE
+        return sequence.pattern("/", t, _sample_values(t, extra), 3, ".png").lstrip("/")
+    if kind == "still":
+        t = template or pf.get("still_path_template") or sequence.DEFAULT_STILL_TEMPLATE
         return sequence.pattern("/", t, _sample_values(t, extra), 3, ".png").lstrip("/")
     if kind == "movie":
         t = template or pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE
@@ -296,6 +304,7 @@ def _defaults():
         "published_files.default": bool(pf.get("default")) and pf.get("default") != site.NO_VALUE,
         "published_files.storage": pf.get("storage") or "",
         "published_files.path_template": pf.get("path_template") or "",
+        "published_files.still_path_template": pf.get("still_path_template") or "",
         "published_files.movie_path_template": pf.get("movie_path_template") or "",
         "published_files.register_movie": bool(pf.get("register_movie")),
         "published_files.path_platform": pf.get("path_platform") or "",
@@ -307,6 +316,7 @@ def _defaults():
         "code_template": naming.DEFAULT_TEMPLATE,
         "root_name": naming.DEFAULT_ROOT_TEMPLATE,
         "published_files.path_template": sequence.DEFAULT_SEQUENCE_TEMPLATE,
+        "published_files.still_path_template": sequence.DEFAULT_STILL_TEMPLATE,
         "published_files.movie_path_template": sequence.DEFAULT_MOVIE_TEMPLATE,
     }
     return {"values": values, "placeholders": placeholders,

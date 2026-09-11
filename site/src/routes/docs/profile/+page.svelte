@@ -11,6 +11,7 @@
       "published_files": {
         "storage": "primary",
         "path_template": "{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}",
+        "still_path_template": "{entity}/{root_name}/{version_name}{ext}",
         "movie_path_template": "{entity}/{root_name}/{version_name}{ext}",
         "register_movie": false,
         "colour_space": "sRGB"
@@ -87,6 +88,7 @@
 		<tr><td><code>storage</code></td><td>none, and the only Local File Storage when the site has exactly one</td><td>Settings, Storage</td></tr>
 		<tr><td><code>path_platform</code></td><td>this machine's</td><td>Settings, Operating system</td></tr>
 		<tr><td><code>path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}</code></td><td>Settings, Sequence path</td></tr>
+		<tr><td><code>still_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Still path</td></tr>
 		<tr><td><code>movie_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Movie path</td></tr>
 		<tr><td><code>register_movie</code></td><td><code>false</code>, so a clip beside frames is review only</td><td>Settings, Review movie</td></tr>
 		<tr><td><code>path_to_frames</code></td><td><code>true</code></td><td>Settings, Path to Frames</td></tr>

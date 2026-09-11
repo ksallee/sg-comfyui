@@ -82,12 +82,15 @@ def test_an_unnamed_storage_among_several_names_the_setting():
                             "Storage under Settings, then SG: primary, renders.")
 
 
-def test_the_two_default_templates_put_the_movie_beside_the_frames_folder():
-    """A sequence is many files and gets a folder; a movie is one file beside it."""
+def test_the_three_default_templates_put_one_file_beside_the_frames_folder():
+    """A sequence is many files and gets a folder; a still and a movie are one file beside it."""
     vals = {"entity": "sh010", "root_name": "sh010_RTO", "version_name": "sh010_RTO_v003"}
     frames = sequence.pattern("/Volumes/FPT", sequence.DEFAULT_SEQUENCE_TEMPLATE,
                               dict(vals, ext=".exr"), 3, ".exr")
+    still = sequence.pattern("/Volumes/FPT", sequence.DEFAULT_STILL_TEMPLATE,
+                             dict(vals, ext=".exr"), 3, ".exr")
     movie = sequence.pattern("/Volumes/FPT", sequence.DEFAULT_MOVIE_TEMPLATE,
                              dict(vals, ext=".mov"), 3, ".mov")
     assert frames == "/Volumes/FPT/sh010/sh010_RTO/sh010_RTO_v003/sh010_RTO_v003.%04d.exr"
+    assert still == "/Volumes/FPT/sh010/sh010_RTO/sh010_RTO_v003.exr"
     assert movie == "/Volumes/FPT/sh010/sh010_RTO/sh010_RTO_v003.mov"

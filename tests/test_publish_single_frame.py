@@ -1,5 +1,5 @@
-"""One frame is a file, not a sequence: what is registered, what `path_cache` is set to, and the
-field left empty.
+"""One frame is a still, not a sequence: the template it takes, what is registered, what
+`path_cache` is set to, and the field left empty.
 
 Nothing decodes here. `write_frames` is ComfyUI's encoder and is stood in for: what is under test
 is the path the site is given.
@@ -10,7 +10,8 @@ from comfyui_sg import publish, sequence, site
 from comfyui_sg.nodes.publish_version import SGPublishVersion
 
 PROFILE = {"published_files": {"path_template": "{root_name}/{version_name}/"
-                                                "{version_name}.%04d{ext}"}}
+                                                "{version_name}.%04d{ext}",
+                               "still_path_template": "{root_name}/{version_name}{ext}"}}
 
 
 @pytest.fixture
@@ -44,15 +45,22 @@ def stage(n, storage, profile=None):
                                    True, False, profile or PROFILE, None, 1, "Shot", 2, 0)
 
 
-def test_one_frame_registers_the_file_that_is_on_disk(storage, wrote):
+def test_one_frame_takes_the_still_template_and_registers_the_file_on_disk(storage, wrote):
     staged = stage(1, storage)
-    assert staged["frames_pattern"] == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png").as_posix()
-    assert staged["frames_code"] == "sh010_matte_v001.0001.png"
+    assert staged["frames_pattern"] == (storage / "sh010/sh010_matte_v001.png").as_posix()
+    assert staged["frames_code"] == "sh010_matte_v001.png"
+    assert staged["template"] == "{root_name}/{version_name}{ext}"
+
+
+def test_a_profile_with_no_still_template_writes_the_shipped_one(storage, wrote):
+    staged = stage(1, storage, {"published_files": {}})
+    assert staged["frames_pattern"] == (storage / "sh010/sh010/sh010_matte_v001.png").as_posix()
 
 
 def test_a_sequence_keeps_the_pattern(storage, wrote):
     staged = stage(3, storage)
     assert staged["frames_pattern"] == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.%04d.png").as_posix()
+    assert staged["template"] == "{root_name}/{version_name}/{version_name}.%04d{ext}"
 
 
 def test_one_frame_writes_no_frame_path_on_the_version_and_says_so(storage, wrote):
@@ -80,7 +88,7 @@ def test_path_cache_holds_the_registered_path(storage, wrote, monkeypatch):
     notes = SGPublishVersion._register(None, staged, 1, 32002, 1, "Shot", 2, 0, 1, "", "", [])
 
     path, body = sent[0]
-    assert path == (storage / "sh010/sh010_matte_v001/sh010_matte_v001.0001.png").as_posix()
-    assert body["path_cache"] == "sh010/sh010_matte_v001/sh010_matte_v001.0001.png"
-    assert notes[-1] == ("Registered 1 frame as sh010_matte_v001.0001.png, "
+    assert path == (storage / "sh010/sh010_matte_v001.png").as_posix()
+    assert body["path_cache"] == "sh010/sh010_matte_v001.png"
+    assert notes[-1] == ("Registered 1 frame as sh010_matte_v001.png, "
                          "PublishedFile 7021. " + path)
