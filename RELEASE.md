@@ -17,6 +17,11 @@ Done 2026-09-14, on the Registry: `sg-comfyui` 0.1.0 under publisher `ksallee`, 
 `comfy node publish` from the `dev` checkout at #142, changelog "First release.", status pending
 the Registry's review. The archive is the node code, the editor files, the example graphs, README,
 INSTALL, DESIGN, AGENTS, CLAUDE, the four commands, `doctor.py` and the licence, 49 files.
+Measured: the archive at `cdn.comfy.org/ksallee/sg-comfyui/0.1.0/node.zip` has the same 49 files
+as a local `comfy node pack`; unzipped into an empty `--base-directory`, ComfyUI 0.34.0 registers
+both nodes with the three path widgets, serves the editor files and `/sg/tokens`, and lists the
+three templates; `tools/doctor.py` from that copy reports ok on every line. The dependencies were
+already in the interpreter, so the Registry's `pip install` step was not exercised.
 
 Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
 an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`

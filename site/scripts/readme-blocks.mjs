@@ -16,12 +16,12 @@ export const BLOCKS = [
 		name: 'requirements',
 		title: 'Requirements',
 		start: '## Install',
-		end: '### ComfyUI Manager'
+		end: '### Which install'
 	},
 	{
 		name: 'install-commands',
 		title: 'Install commands',
-		start: '### ComfyUI Manager',
+		start: '### Which install',
 		keepStart: true,
 		end: 'Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).'
 	},
