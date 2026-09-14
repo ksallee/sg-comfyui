@@ -13,7 +13,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 
 <svelte:head>
 	<title>Install. SG ComfyUI</title>
-	<meta name="description" content="The interpreter to install into, the three install paths, the four local files, and the offline check." />
+	<meta name="description" content="The interpreter to install into, the two ways to install, the four local files, and the offline check." />
 </svelte:head>
 
 <h1>Install</h1>
@@ -58,7 +58,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 </ul>
 
 <h2>Local files</h2>
-<p>All of them yours, none of them in git.</p>
+<p>All of them yours. Neither install ships one.</p>
 <table>
 	<thead>
 		<tr>

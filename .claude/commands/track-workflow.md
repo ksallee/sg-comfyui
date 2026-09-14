@@ -7,8 +7,8 @@ Workflow: $ARGUMENTS
 Their graph already works. You are adding tracking to it, not redesigning it. The script edits the
 graph. You ask the questions and explain the result.
 
-1. `python src/comfyui_sg/instrument.py <workflow.json>` analyses and writes nothing. Run it from
-   the pack directory. It needs no `PYTHONPATH`, no credentials and no profile.
+1. `<comfy-python> src/comfyui_sg/instrument.py <workflow.json>` analyses and writes nothing. Run it
+   from the pack directory. It needs no `PYTHONPATH`, no credentials and no profile.
 2. Read the two lists back in plain language:
    - **publishable streams**: each becomes a Version. Say what feeds it and what consumes it, so they
      recognise it: "the normal_directx output that currently only goes to a Preview".
@@ -36,7 +36,7 @@ graph. You ask the questions and explain the result.
    link, and what the stream IS. The root name is written the way the node's root name widget is
    written, as a template: `{entity}_plate`, not the file's name.
 
-       PYTHONPATH=src python -m comfyui_sg.seed <file> --project P --link "sh010 (Shot)" \
+       PYTHONPATH=src <comfy-python> -m comfyui_sg.seed <file> --project P --link "sh010 (Shot)" \
            --root-name "{entity}_plate" --note "..."
 
    `PYTHONPATH=src` and the pack directory are required for `-m comfyui_sg.*`: the package is under

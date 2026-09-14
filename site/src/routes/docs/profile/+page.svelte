@@ -103,6 +103,7 @@
 	the <code>sg-groundtruth</code> checkout, and you can run it yourself. Clone that checkout anywhere
 	except <code>custom_nodes</code>, where ComfyUI would load it as a node pack.
 </p>
+<pre><code>git clone https://github.com/ksallee/sg-groundtruth.git ~/dev/sg-groundtruth</code></pre>
 <pre><code>&lt;comfy-python&gt; ~/dev/sg-groundtruth/inspect_site.py                                # list the projects
 &lt;comfy-python&gt; ~/dev/sg-groundtruth/inspect_site.py --project 1180 --out &lt;profile&gt; # measure one</code></pre>
 <ul>

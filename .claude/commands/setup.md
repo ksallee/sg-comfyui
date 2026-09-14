@@ -21,20 +21,20 @@ needed, and asks only what it cannot find out.
      Application key under Script Authentication, made under Admin > Scripts on the site, or the
      same three keys in the launch environment (`.env.local.example` names them). Publish as is
      optional and names the person the Versions are credited to.
-   The command-line tools read `.env.local` in the pack directory, never Settings, so a checkout that
-   runs them needs the script key even when the editor is logged in.
+   The command-line tools read `.env.local` in the pack directory, never Settings, so running them
+   needs the script key even when the editor is logged in.
 2. **Pick the project.** Settings, then SG, SG Defaults. Both nodes open on it, and the publish
    defaults under it are for that project.
 3. **Does the profile match their show?** `profile.local.json`, keyed per project, at the path the
-   doctor printed. It is gitignored, so a fresh install has none, and the pickers then run on the
+   doctor printed. Neither install ships one, so a fresh install has none, and the pickers run on the
    site's own defaults, which suit a show that links Versions to Shots. Run `/inspect-site
    <project>` when the show names its Versions to a convention, links them to something else, or
    hides statuses the schema still lists. Nothing needs it before a first publish.
 4. **Provenance fields.** Settings, then SG, SG Site Setup says how many of the nine exist on this
    site, and one press creates the rest. It needs an account that can create fields on Version, which
-   most artist accounts cannot; a farm or a checkout runs `PYTHONPATH=src <comfy-python> -m
-   comfyui_sg.fields` instead. Without the fields a publish records the facts in the Version's
-   description instead.
+   most artist accounts cannot; a machine with no browser runs `PYTHONPATH=src <comfy-python> -m
+   comfyui_sg.fields` from the pack directory instead. Without the fields a publish records the facts
+   in the Version's description.
 5. **Colour management.** Core ComfyUI has none, and the shipped templates use core nodes only. Ask
    once whether this pipeline is colour managed. If yes: install the
    [ComfyUI-OCIO](https://github.com/SlavaSexton/ComfyUI-OCIO) pack, set
