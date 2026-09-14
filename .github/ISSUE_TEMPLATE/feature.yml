@@ -1,0 +1,27 @@
+name: Feature
+description: Something the nodes should do. The list in README, "What's next", is where to look first.
+labels: ["feature", "user request"]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What you need
+      description: One or two sentences. If it is on the What's next list, name the line.
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Where it fits
+      description: The step in your work it is for, and what you do today instead.
+    validations:
+      required: true
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install
+      options:
+        - From the Registry, through ComfyUI Manager or the Comfy CLI
+        - From the repo, a checkout under custom_nodes
+    validations:
+      required: false

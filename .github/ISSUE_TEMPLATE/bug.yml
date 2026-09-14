@@ -1,0 +1,41 @@
+name: Bug
+description: Something the nodes did wrong.
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: install
+    attributes:
+      label: Install
+      options:
+        - From the Registry, through ComfyUI Manager or the Comfy CLI
+        - From the repo, a checkout under custom_nodes
+    validations:
+      required: true
+  - type: input
+    id: versions
+    attributes:
+      label: Versions
+      description: ComfyUI, and the pack. The pack version is in pyproject.toml, or on the Manager row.
+      placeholder: ComfyUI 0.34.0, sg-comfyui 0.1.0
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: What you did
+      description: The graph, the node, the widget values that matter.
+    validations:
+      required: true
+  - type: textarea
+    id: happened
+    attributes:
+      label: What happened
+      description: The sentence on the panel or in the node error, copied as it reads. The diagnostic detail after it helps.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: false
