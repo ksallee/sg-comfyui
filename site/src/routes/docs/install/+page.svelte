@@ -25,7 +25,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 <h2>Requirements</h2>
 <Markdown source={requirements} />
 
-<h2>Install paths</h2>
+<h2>Two ways to install</h2>
 <Markdown source={installCommands} />
 
 <h2>Which interpreter</h2>

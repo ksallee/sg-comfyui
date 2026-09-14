@@ -9,7 +9,7 @@ Tracking as Versions with the model, prompt, seed, sampler and workflow that mad
 that media back into a graph. The audience runs ComfyUI and has a Flow Production Tracking site.
 They judge the page on the clips.
 
-- SvelteKit 2.70, `adapter-static`, GitHub Pages from a `gh-pages` branch. No scroll-pinned section.
+- SvelteKit 2.70, `adapter-static`, Vercel from `main`, root directory `site`. No scroll-pinned section.
 - Sources under `site/`.
 - Fourteen sections, hero to footer, and nine docs pages.
 - Four blocks copied from `README.md`, diffed in CI.

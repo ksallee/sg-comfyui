@@ -35,7 +35,7 @@
 	</div>
 	<div class="page rule">
 		<p class="mono-label">
-			The pack is not on the Comfy Registry yet. Install it from a checkout until it is.
+			On the Comfy Registry as sg-comfyui.
 		</p>
 	</div>
 </footer>

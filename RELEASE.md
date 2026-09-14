@@ -10,10 +10,18 @@ and `AGENTS.md`.
 ## Next session, in order
 
 1. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
-2. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
-   `PublisherId`, `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`;
-   `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
-   workflow exists.
+2. **`Icon` in `pyproject.toml`**, a square image 400 px or smaller, and `Banner` at 21:9, when
+   Kevin has them. A new Registry version needs a version bump in the same commit.
+
+Done 2026-09-14, on the Registry: `sg-comfyui` 0.1.0 under publisher `ksallee`, published with
+`comfy node publish` from the `dev` checkout at #142, changelog "First release.", status pending
+the Registry's review. The archive is the node code, the editor files, the example graphs, README,
+INSTALL, DESIGN, AGENTS, CLAUDE, the four commands, `doctor.py` and the licence, 49 files.
+Measured: the archive at `cdn.comfy.org/ksallee/sg-comfyui/0.1.0/node.zip` has the same 49 files
+as a local `comfy node pack`; unzipped into an empty `--base-directory`, ComfyUI 0.34.0 registers
+both nodes with the three path widgets, serves the editor files and `/sg/tokens`, and lists the
+three templates; `tools/doctor.py` from that copy reports ok on every line. The dependencies were
+already in the interpreter, so the Registry's `pip install` step was not exercised.
 
 Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
 an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
@@ -21,7 +29,9 @@ under kevin-sallees-projects, linked to the GitHub repo with production branch `
 directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production.
 `site/vercel.json` turns Git deployments off for every branch but `main`, so a push to another
 branch creates no deployment; a push to `main` deploys production. The project's ignored build step
-also skips any non-production build. `pages.yml` and `gh-pages` are unused.
+is `git diff --quiet HEAD^ HEAD ./`, run in `site`, so a push that changes nothing under `site/` is
+skipped before building. `pages.yml` is removed. The `gh-pages` branch is a leftover build and GitHub
+Pages is not enabled.
 
 Done 2026-09-14: `dev` merged into `main` by merge commit, tag `v0.1.0`, the GitHub release, Actions
 back on at the repository level, the site workflow green on `main` by dispatch. The tests workflow
@@ -224,9 +234,9 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ---
 
-## Before the Registry
+## After the Registry
 
-Item 1 under "Next session".
+The two items under "Next session".
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the

@@ -52,20 +52,32 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 | ComfyUI | 0.34.0 or newer |
 | Python | 3.11 |
 | Site | a Flow Production Tracking site you can log into |
-| Client | `sg-groundtruth`, installed by `requirements.txt` |
 
-The pack is not on the Comfy Registry yet. Use the checkout until it is.
+### 1. From the Registry
 
-### ComfyUI Manager
+Pick this to use the nodes. Manager updates the pack, and Settings and the profile keep your
+configuration across updates: project, templates, storage, the provenance mapping, which inputs
+are advanced. The pack is in alpha. What is missing is under What's next.
 
 Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tracking`. Press
 **Install**. Restart ComfyUI.
 
-### The Registry
+With the Comfy CLI, the pack is `sg-comfyui` at https://registry.comfy.org/nodes/sg-comfyui:
 
-Coming soon.
+```sh
+comfy node install sg-comfyui
+```
 
-### A checkout
+Restart ComfyUI.
+
+The commands `/setup`, `/task` and `/track-workflow` are in the pack, at
+`ComfyUI/custom_nodes/sg-comfyui`. Start your agent in that directory to use them.
+
+### 2. From the repo
+
+Pick this to change the nodes. The checkout has the tests, the harness and the history an agent
+works with, and your change survives `git pull`. It is also where `/inspect-site` runs, since it
+needs the sg-groundtruth checkout beside it.
 
 ```sh
 cd ComfyUI/custom_nodes
@@ -81,6 +93,8 @@ Restart ComfyUI.
 ```sh
 <comfy-python> tools/doctor.py
 ```
+
+Start your agent in the checkout. The four commands are there, `/inspect-site` included.
 
 Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).
 
@@ -192,7 +206,7 @@ The order is not decided. Open an issue for the one you need, whether or not it 
 
 - A loader inside a ComfyUI subgraph is replaced there, not promoted to the top level.
 - A zip uploaded to a Version is not unpacked. SG Load returns it unchanged.
-- `pyproject.toml` has no `PublisherId` or `Icon`.
+- `pyproject.toml` has no `Icon`.
 
 ## Where to read next
 
