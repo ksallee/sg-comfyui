@@ -192,7 +192,7 @@ The order is not decided. Open an issue for the one you need, whether or not it 
 
 - A loader inside a ComfyUI subgraph is replaced there, not promoted to the top level.
 - A zip uploaded to a Version is not unpacked. SG Load returns it unchanged.
-- `pyproject.toml` has no `PublisherId` or `Icon`.
+- `pyproject.toml` has no `Icon`.
 
 ## Where to read next
 

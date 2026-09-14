@@ -27,9 +27,8 @@ DisplayName = "Flow Production Tracking"
 # The frames are written by ComfyUI's own encoder and read back by its own decoder, which is where
 # 16-bit PNG and EXR come from, and the Settings dialog calls routes an older server does not have.
 requires-comfyui = "0.34.0"
-# The publisher's own Registry handle, and an icon URL. Both are per-publisher, not per-repo, so they
-# are left empty rather than guessed; `comfy node publish` will not accept an empty PublisherId.
-PublisherId = ""
+# The publisher's Registry handle, and an icon URL, both set by the publisher.
+PublisherId = "ksallee"
 Icon = ""
 
 # MIT, because a studio's legal review of a node pack should take no time and the repo is meant to be
