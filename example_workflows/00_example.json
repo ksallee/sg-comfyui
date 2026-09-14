@@ -1,18 +1,18 @@
 {
-  "id": "fpt-00-example",
-  "last_node_id": 7,
-  "last_link_id": 4,
+  "id": "sg-00-example",
+  "last_node_id": 16,
+  "last_link_id": 15,
   "nodes": [
     {
       "id": 1,
       "type": "MarkdownNote",
       "pos": [
-        -640,
+        -1120,
         0
       ],
       "size": [
         440,
-        340
+        500
       ],
       "flags": {},
       "order": 0,
@@ -21,14 +21,14 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## Flow PT — start here\n\nTwo halves. Run one at a time.\n\n**Publish.** Run it as it is: the test card appears in the Preview on the right and nothing is sent\nanywhere. To create a Version, pick a **project** and a **link** on the Publish node and Run again.\nThe panel names the Version before you press anything. Ctrl-B mutes a node if you want it out of\nthe way.\n\n**Load.** Pick the same project and link on the Load node, then Run. It reads back the Version you\njust made and shows it below.\n\nNo model and no download. **Create Published Files** is off, so nothing is written to disk; turn it\non once your profile names a storage."
+        "## SG \u2014 start here\n\n**First, connect.** Open Settings (the gear, bottom left), then SG. Log in, or enter a script name\nand key, and press Test. Under SG Defaults, pick the project the nodes open on.\n\nRun one node at a time: select it, then run the selection. Nothing else in the graph runs.\n\n**Top row: publish a still, load it back.**\n\n1. Select Preview Image and run it. That is what will be published.\n2. Select SG Publish. Pick a link: the Shot or Asset the Version belongs to. No task is needed\n   here.\n3. Read the Version Name on the panel. It comes from the root name on the node and the version\n   name template under Settings, SG Publish Defaults. The version number is picked for you.\n4. Run it. The panel shows the Version, with a link to it on the site.\n5. Select SG Load and pick the same link. The panel names the Version it will read. Run it:\n   the Version comes back in the Preview beside it.\n\n**Bottom row: publish a sequence and its files.**\n\n1. Select SG Publish and pick a link. Twenty-four frames and a clip from Create Video go in.\n   The clip is the review movie. Create Published Files is on, so the frames are written to your\n   storage and registered as a Published File. Run it.\n2. Select SG Load and pick the same link. Run it. The frames come back in the Preview, and the\n   clip goes to Save Video.\n\nNo storage on the site: the bottom row stops and says so."
       ]
     },
     {
       "id": 2,
       "type": "EmptyImage",
       "pos": [
-        -160,
+        -640,
         0
       ],
       "size": [
@@ -61,7 +61,7 @@
       "id": 3,
       "type": "TextOverlay",
       "pos": [
-        -160,
+        -640,
         230
       ],
       "size": [
@@ -91,7 +91,7 @@
       ],
       "properties": {},
       "widgets_values": [
-        "FLOW PT\nconnection test",
+        "SG\nstill test",
         9.0,
         "#F2F4F8",
         "top",
@@ -101,9 +101,9 @@
     },
     {
       "id": 4,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
-        220,
+        100,
         0
       ],
       "size": [
@@ -132,22 +132,26 @@
         "(none)",
         "(none)",
         "(none)",
-        "{entity}_example",
+        "{entity}_example_still",
         "",
         false,
-        "Connection test from the Flow PT example workflow.",
+        "Still from the SG example workflow.",
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ]
     },
     {
       "id": 5,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
-        -640,
-        700
+        600,
+        0
       ],
       "size": [
         430,
@@ -167,22 +171,34 @@
           "slot_index": 0
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [],
+          "slot_index": 1
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 2
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": null,
-          "slot_index": 1
+          "slot_index": 3
         },
         {
           "name": "code",
           "type": "STRING",
           "links": null,
-          "slot_index": 2
+          "slot_index": 4
         },
         {
           "name": "colour_space",
           "type": "STRING",
           "links": null,
-          "slot_index": 3
+          "slot_index": 5
         }
       ],
       "properties": {},
@@ -191,7 +207,7 @@
         "(none)",
         "(none)",
         "",
-        "example",
+        "example_still",
         "auto",
         0,
         0,
@@ -204,8 +220,8 @@
       "id": 6,
       "type": "PreviewImage",
       "pos": [
-        -160,
-        700
+        1080,
+        0
       ],
       "size": [
         330,
@@ -228,7 +244,7 @@
       "id": 7,
       "type": "PreviewImage",
       "pos": [
-        700,
+        -280,
         0
       ],
       "size": [
@@ -247,6 +263,400 @@
       ],
       "outputs": [],
       "properties": {}
+    },
+    {
+      "id": 8,
+      "type": "EmptyImage",
+      "pos": [
+        -640,
+        880
+      ],
+      "size": [
+        300,
+        180
+      ],
+      "flags": {},
+      "order": 7,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            9
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        768,
+        768,
+        24,
+        2634044
+      ]
+    },
+    {
+      "id": 9,
+      "type": "TextOverlay",
+      "pos": [
+        -640,
+        1280
+      ],
+      "size": [
+        300,
+        260
+      ],
+      "flags": {},
+      "order": 8,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 10
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            11,
+            12,
+            13
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "SG\nsequence test",
+        9.0,
+        "#F2F4F8",
+        "top",
+        "center",
+        true
+      ]
+    },
+    {
+      "id": 10,
+      "type": "SGPublishVersion",
+      "pos": [
+        100,
+        880
+      ],
+      "size": [
+        430,
+        620
+      ],
+      "flags": {},
+      "order": 9,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 11
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 14
+        }
+      ],
+      "outputs": [],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "(none)",
+        "{entity}_example_sequence",
+        "",
+        true,
+        "Twenty-four frames of grain from the SG example workflow: the frames go to the storage, the clip is the review movie.",
+        "",
+        "",
+        0,
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
+      ]
+    },
+    {
+      "id": 11,
+      "type": "PreviewImage",
+      "pos": [
+        -280,
+        880
+      ],
+      "size": [
+        330,
+        340
+      ],
+      "flags": {},
+      "order": 10,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 12
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 12,
+      "type": "SGLoadVersion",
+      "pos": [
+        600,
+        880
+      ],
+      "size": [
+        430,
+        640
+      ],
+      "flags": {},
+      "order": 11,
+      "mode": 0,
+      "inputs": [],
+      "outputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "links": [
+            8
+          ],
+          "slot_index": 0
+        },
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": [
+            15
+          ],
+          "slot_index": 1
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": [],
+          "slot_index": 2
+        },
+        {
+          "name": "version_id",
+          "type": "INT",
+          "links": [],
+          "slot_index": 3
+        },
+        {
+          "name": "code",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 4
+        },
+        {
+          "name": "colour_space",
+          "type": "STRING",
+          "links": [],
+          "slot_index": 5
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "(none)",
+        "(none)",
+        "(none)",
+        "",
+        "example_sequence",
+        "auto",
+        0,
+        0,
+        "version number in the name",
+        "",
+        0
+      ]
+    },
+    {
+      "id": 13,
+      "type": "PreviewImage",
+      "pos": [
+        1080,
+        880
+      ],
+      "size": [
+        330,
+        340
+      ],
+      "flags": {},
+      "order": 12,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 8
+        }
+      ],
+      "outputs": [],
+      "properties": {}
+    },
+    {
+      "id": 14,
+      "type": "ImageAddNoise",
+      "pos": [
+        -640,
+        1110
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 13,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "image",
+          "type": "IMAGE",
+          "link": 9
+        }
+      ],
+      "outputs": [
+        {
+          "name": "IMAGE",
+          "type": "IMAGE",
+          "links": [
+            10
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        7,
+        "fixed",
+        0.35
+      ]
+    },
+    {
+      "id": 15,
+      "type": "CreateVideo",
+      "pos": [
+        -640,
+        1580
+      ],
+      "size": [
+        300,
+        130
+      ],
+      "flags": {},
+      "order": 14,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "images",
+          "type": "IMAGE",
+          "link": 13
+        },
+        {
+          "name": "audio",
+          "type": "AUDIO",
+          "link": null,
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "VIDEO",
+          "type": "VIDEO",
+          "links": [
+            14
+          ],
+          "slot_index": 0
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        24,
+        "auto",
+        "sRGB"
+      ]
+    },
+    {
+      "id": 16,
+      "type": "SaveVideo",
+      "pos": [
+        1080,
+        1250
+      ],
+      "size": [
+        330,
+        130
+      ],
+      "flags": {},
+      "order": 15,
+      "mode": 0,
+      "inputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "link": 15
+        },
+        {
+          "name": "filename_prefix",
+          "type": "STRING",
+          "link": null,
+          "widget": {
+            "name": "filename_prefix"
+          }
+        },
+        {
+          "name": "format.codec",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "format.codec"
+          }
+        },
+        {
+          "name": "format",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "format"
+          }
+        },
+        {
+          "name": "codec",
+          "type": "COMFY_DYNAMICCOMBO_V3",
+          "link": null,
+          "widget": {
+            "name": "codec"
+          },
+          "shape": 7
+        }
+      ],
+      "outputs": [
+        {
+          "name": "video",
+          "type": "VIDEO",
+          "links": null
+        }
+      ],
+      "properties": {},
+      "widgets_values": [
+        "video/sg_example_sequence",
+        "auto",
+        "auto",
+        "auto"
+      ]
     }
   ],
   "links": [
@@ -281,6 +691,70 @@
       7,
       0,
       "IMAGE"
+    ],
+    [
+      8,
+      12,
+      0,
+      13,
+      0,
+      "IMAGE"
+    ],
+    [
+      9,
+      8,
+      0,
+      14,
+      0,
+      "IMAGE"
+    ],
+    [
+      10,
+      14,
+      0,
+      9,
+      0,
+      "IMAGE"
+    ],
+    [
+      11,
+      9,
+      0,
+      10,
+      0,
+      "IMAGE"
+    ],
+    [
+      12,
+      9,
+      0,
+      11,
+      0,
+      "IMAGE"
+    ],
+    [
+      13,
+      9,
+      0,
+      15,
+      0,
+      "IMAGE"
+    ],
+    [
+      14,
+      15,
+      0,
+      10,
+      1,
+      "VIDEO"
+    ],
+    [
+      15,
+      12,
+      1,
+      16,
+      0,
+      "VIDEO"
     ]
   ],
   "groups": [],

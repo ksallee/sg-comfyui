@@ -1,0 +1,533 @@
+"""SG Publish: one run becomes one Version with its provenance.
+
+A Version has one uploaded media file (probe 022). What is wired in decides that file: a VIDEO is
+the review media, an IMAGE batch on its own is frame 1 as a still, and both wired is the video.
+
+This node records; it does not make images. A VIDEO that is already a file on disk is uploaded byte
+for byte, and anything else is written by ComfyUI's own encoder (`movie.stage`).
+
+Frames are registered as PublishedFiles, not as media. Tick `register_files` and the run produces
+one Version plus one PublishedFile per registered file, copied under a LocalStorage root the site
+can resolve (recipe 004). `sequence.py` is what happens on disk.
+"""
+import io
+import os
+
+from PIL import Image
+
+from .. import fields as sg_fields
+from .. import (lineage, movie, naming, provenance, publish, sequence, site,
+                version_name, widgets)
+
+MAX_ID = 2 ** 31 - 1
+# What a registered file is called in an operator message. `sequence.TYPE_CANDIDATES` keys the same
+# three kinds by their internal names.
+WHAT = {"frames": "an image sequence", "still": "a still image", "movie": "a movie"}
+# The default for an unset keyword. The label a person picks is site.NO_VALUE, "(none)". The two are
+# distinct, or a combo declares a value the editor cannot offer.
+UNSET = ""
+
+
+def _png(frame):
+    """One frame of a ComfyUI IMAGE batch ([H,W,C] float 0-1) as PNG bytes."""
+    buf = io.BytesIO()
+    Image.fromarray(movie.to_u8(frame)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def _as_line(concept, value):
+    """One concept as a line of the description. Only `generated_from` is not already a scalar."""
+    if concept == "generated_from":
+        return ", ".join(f'Version {v["id"]}' for v in value)
+    return str(value)
+
+
+def _split(values, where, absent_targets):
+    """({field: value}, [line]): each concept typed where this site has the field, else a line.
+
+    The operator's mapping decides the target. The schema decides whether that target can be
+    written. A concept whose field is absent is written out in full as a line.
+    """
+    fields, lines = {}, []
+    for concept, value in values.items():
+        target = where.get(concept)
+        if not target:
+            continue
+        if target == sg_fields.DESCRIPTION or target in absent_targets:
+            lines.append(f"{sg_fields.CONCEPT_LABELS[concept]}: {_as_line(concept, value)}")
+        else:
+            fields[target] = value
+    return fields, lines
+
+
+def _description(note, lines):
+    """The note, a blank line, then one line per fact. Either half may be absent."""
+    return "\n".join([x for x in (note,) if x] + ([""] if note and lines else []) + lines)
+
+
+def _wants_files(pf):
+    """The profile's default for the tick. `published_files.default` of `(none)` means no."""
+    d = pf.get("default")
+    return bool(d) and d != site.NO_VALUE
+
+
+class SGPublishVersion:
+    @classmethod
+    def INPUT_TYPES(cls):
+        # Re-evaluated on every /object_info request (server.py:756), so a profile edit or a new Shot
+        # reaches the operator on a browser refresh. The JS extension keeps the dependent lists in
+        # step while the graph is open; these are only the seed values.
+        project_id = site.default_project()
+        p = site.for_project(project_id)
+        rows = site.links(project_id)
+        links = [(l, i) for l, _, i in rows]
+        first_type, first_link = (rows[0][1], rows[0][2]) if len(rows) == 1 else ("", 0)
+        statuses = site.statuses(project_id)
+        status_label = next((l for l, c in statuses if c == p.get("status")), UNSET)
+
+        return {
+            # Neither input is declared required, and a run with both empty is refused in `publish`.
+            # The media follows what was wired, so neither one is the primary input.
+            "required": {},
+            # Order, labels and copy come from `widgets.PUBLISH_FIELDS`, which instrument.py,
+            # smoke.py and the editor extension read as well. An input slot is additive and stays
+            # outside that table; a widget is positional and does not.
+            #
+            # There is no link_type. Version.entity accepts 15 types and a show may use several at
+            # once (DESIGN); the link picker searches every type the show uses, server-side, and
+            # each option names its own type.
+            "optional": {
+                "images": ("IMAGE", {"tooltip": "The frames out of the graph to publish."}),
+                "video": ("VIDEO", {"tooltip": "The clip out of the graph to publish, from "
+                                               "LoadVideo, CreateVideo or a video model."}),
+                **widgets.declare(
+                    widgets.PUBLISH_FIELDS,
+                    choices={
+                        "project": site.labels(site.projects()),
+                        "link": site.labels(links),
+                        "task": site.labels(site.tasks_for(first_type, first_link)),
+                        "status": site.labels(statuses),
+                    },
+                    overrides={
+                        # A house decides which fields are shown unfolded; the table's own
+                        # `advanced` flags are the default (DESIGN: site profile).
+                        **widgets.folding(widgets.PUBLISH_FIELDS,
+                                          (p.get("widgets") or {}).get("publish")),
+                        "project": {"default": site.project_name(project_id)},
+                        "status": {"default": status_label},
+                        # Empty means the Settings default names it, so a Settings change reaches
+                        # every saved graph. The editor draws that template inside the empty field.
+                        "code_template": {"default": ""},
+                        "root_name": {"default": ""},
+                        "colour_space": {"default": (p.get("published_files") or {})
+                                         .get("colour_space") or ""},
+                        "register_files": {"default": _wants_files(p.get("published_files") or {})},
+                        "link_id": {"max": MAX_ID},
+                    }),
+                # Appended after the widgets, because a saved graph links a slot by its index and
+                # an appended slot moves none of them.
+                "mask": ("MASK", {"tooltip": "The alpha for the frames, on ComfyUI's convention: "
+                                             "white in the mask is transparent in the file."}),
+            },
+            "hidden": {
+                "prompt": "PROMPT",
+                "extra_pnginfo": "EXTRA_PNGINFO",
+                "usage_source": "COMFY_USAGE_SOURCE",
+                "unique_id": "UNIQUE_ID",
+            },
+        }
+
+    @classmethod
+    def VALIDATE_INPUTS(cls, project=None, link=None, task=None, status=None):
+        """Accept what the editor offered rather than what INPUT_TYPES declared.
+
+        These combos are seeded for the default project and repopulated per project by the JS
+        (`setOptions`), so a value the operator picked need not be in the list this class declared
+        at load time. ComfyUI skips its own membership check for any input named here
+        (execution.py:1019), as core nodes do (comfy_extras/nodes_model_advanced.py:380). A label
+        that resolves to no entity still fails at run time, naming the label and the project.
+        """
+        return True
+
+    @staticmethod
+    def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
+               p, sg, project_id, link_type, target, task_id, root_name="", frame_format="",
+               templates=None):
+        """Everything that touches disk, done before the Version exists. None when nothing was asked.
+
+        `sequence.plan` decides where; this decides what is written there. The panel calls the same
+        plan, so a path read before the Run is the path the run writes. `templates` is the node's
+        own three path templates, by `sequence`, `still` and `movie`.
+        """
+        if not (want_frames or want_movie):
+            return None
+        pf = p.get("published_files") or {}
+        pl = sequence.plan(p, publish.storages(sg), code, version_no, project_id, link_type, target,
+                           task_id, root_name, templates)
+        sequence.check_root(pl.root)
+        # The extension follows the files, never the template: it is the one the node's `format`
+        # widget names, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
+        ext = sequence.extension(frame_format)
+        # One frame is a still, not a sequence: one file, written beside the movie by the still
+        # template, where a sequence takes a folder named for the version.
+        single = want_frames and len(images) == 1
+        frames_t = pl.still_template if single else pl.seq_template
+        out = {"root": pl.root, "storage_id": pl.storage_id, "template": frames_t,
+               "blank_tokens": pl.blank, "ext": ext,
+               "declared_ext": os.path.splitext(sequence.single(frames_t))[1].lower(),
+               "colour": colour_space.strip(), "count": count}
+        if want_frames:
+            pattern = sequence.destination(pl, frames_t, ext, version_no)
+            # Written to ComfyUI's own output directory first. The copy is what puts a file where
+            # the site can resolve it; the original stays put so a failed publish is recoverable.
+            out["frames"] = sequence.place(sequence.write_frames(images, code, frame_format),
+                                           pattern)
+            # The still template has no frame token, so the rendered path is the file itself, and
+            # that is what is registered and what `path_cache` records.
+            out["frames_pattern"] = str(out["frames"][0]) if single else pattern
+            out["frames_code"] = os.path.basename(out["frames_pattern"])
+            out["frames_name"] = pl.name
+            # The Version's path fields take one absolute path each, written for the platform the
+            # profile picks; the files themselves are written under this machine's root.
+            # `sg_path_to_frames` names a sequence, so a still leaves it empty and says so.
+            if pf.get("path_to_frames", True):
+                if single:
+                    out["frames_note"] = ("This publish is a single image, so no frame path was "
+                                          "written on the Version.")
+                else:
+                    out["frames_field"] = sequence.field_path(pl, pattern)
+        if want_movie:
+            # The clip's own extension. A deliverable is never transformed: a `.mov` off LoadVideo
+            # is registered as a `.mov`, and only what ComfyUI encoded here is `.mp4`.
+            clip_ext = os.path.splitext(media_path)[1].lower() or ".mp4"
+            dest = sequence.destination(pl, pl.movie_template, clip_ext, version_no)
+            out["media"] = sequence.copy_one(media_path, dest)
+            out["media_code"] = os.path.basename(dest)
+            out["media_name"] = pl.name
+            if pf.get("path_to_movie", True):
+                out["media_field"] = sequence.field_path(pl, out["media"])
+        return out
+
+    @staticmethod
+    def _register(sg, staged, project_id, vid, version_no, link_type, target, task_id, count,
+                  note, colour_space, src_ids, src_files=None):
+        """One PublishedFile per registered file, linked to the Version with the review media.
+
+        Returns the lines the panel logs: what was registered, where it was written, and what could
+        not be said, such as an unrecognised type or ancestors with no files to depend on.
+
+        `upstream_published_files` is the file-level twin of `sg_ai_generated_from`: the same
+        ancestors, resolved to the files those Versions published, because a tool downstream opens
+        files rather than Versions. `src_files` is what an upstream Load node read (lineage.py).
+        Where it names a file the link is that one file; otherwise the site is asked and the link
+        is every file of that ancestor.
+        """
+        if not staged:
+            return []
+        upstream, upstream_problem = publish.published_files_of(sg, src_ids, src_files)
+        common = {"version": {"type": "Version", "id": int(vid)}, "version_number": int(version_no)}
+        if target:
+            common["entity"] = {"type": link_type, "id": int(target)}
+        if task_id:
+            common["task"] = {"type": "Task", "id": int(task_id)}
+        if upstream:
+            common["upstream_published_files"] = upstream
+        # sg_status_list is deliberately absent. PublishedFile has a status list of its own, and no
+        # entry covers whether a Version's codes are valid in it, so copying one across could write
+        # a code this field never allowed. The field's own default applies.
+        common["description"] = "\n".join(x for x in (
+            note, sequence.describe_colour(colour_space.strip()),
+            f"frames 1-{count}" if count > 1 else "") if x)
+
+        jobs = []
+        if staged.get("frames"):
+            n = len(staged["frames"])
+            jobs.append(("frames" if n > 1 else "still", staged["frames_code"],
+                         staged["frames_name"], staged["frames_pattern"],
+                         f"{n} frames" if n > 1 else "1 frame"))
+        if staged.get("media"):
+            jobs.append(("movie", staged["media_code"], staged["media_name"], staged["media"],
+                         "the clip"))
+
+        # One type read per kind, before anything is written: it is a site-wide list and does not
+        # change between two files of one publish.
+        types = {kind: publish.published_file_type(sg, sequence.TYPE_CANDIDATES[kind])
+                 for kind in {j[0] for j in jobs}}
+
+        notes = []
+        for kind, code, name, path, what in jobs:
+            body = dict(common)
+            # path_cache is null after a REST create even though the path resolved, so a filter on
+            # it misses every row published this way (entity_types/PublishedFile). It is a plain
+            # text field and takes a write, so the client writes the path it already has.
+            body["path_cache"] = sequence.relative(staged["root"], path)
+            pft, problem = types.get(kind, (None, ""))
+            if pft:
+                body["published_file_type"] = pft
+            elif problem:
+                notes.append(problem)
+            else:
+                notes.append(f"This site has no Published File Type for {WHAT[kind]}. The file was "
+                             f"registered without one. Ask an admin to add one on the site, not on "
+                             f"this project.")
+            try:
+                pf_id, resolved = publish.create_published_file(sg, project_id, code, name, path,
+                                                                body)
+            except Exception as e:
+                # One file of two failing must not take the other's line with it: the Version and
+                # whatever already registered are on the site, and the operator needs to read both.
+                notes.append(f"{what.capitalize()} could not be registered as {code}. Run again to "
+                             f"register it. {e}")
+                continue
+            # The 201 returns the resolved path, so this reports what the server stored rather than
+            # what was sent. The two differ the moment a root is ambiguous (recipe 004).
+            notes.append(f"Registered {what} as {code}, PublishedFile {pf_id}. "
+                         f'{resolved.get("local_path_mac") or path}')
+        if staged.get("declared_ext") and staged["declared_ext"] != staged.get("ext") \
+                and staged.get("frames"):
+            notes.append(f'These frames were registered as {staged["ext"]}. The path template '
+                         f'names {staged["declared_ext"]}, and nothing was converted.')
+        if upstream:
+            notes.append(f"Linked {len(upstream)} upstream published file(s).")
+        elif upstream_problem:
+            notes.append(upstream_problem)
+        elif src_ids:
+            notes.append("The source versions have no published files, so nothing upstream was "
+                         "linked.")
+        return notes
+
+    RETURN_TYPES = ()
+    FUNCTION = "publish"
+    CATEGORY = "Flow Production Tracking"
+    OUTPUT_NODE = True
+    DESCRIPTION = ("Create a Flow Production Tracking Version from this image or video, with the "
+                   "graph that made it attached.")
+
+    def publish(self, images=None, video=None, mask=None, project=UNSET, link=UNSET, task=UNSET,
+                status=UNSET,
+                note="", code_template=UNSET,
+                source_versions="", attach_workflow=True, link_id=0,
+                register_files=False, colour_space="", root_name="",
+                format=sequence.DEFAULT_FORMAT,
+                sequence_path="", still_path="", movie_path="",
+                prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
+        if images is None and video is None:
+            raise ValueError(
+                "Nothing is wired into this node. Connect an image to images, a video to video, or "
+                "both.")
+        frames = len(images) if images is not None else 0
+        if images is not None and frames == 0:
+            raise ValueError("The image batch is empty. Check the node feeding images, then run "
+                             "again.")
+        if mask is not None:
+            if images is None:
+                raise ValueError("The mask is the alpha for the frames, and no frames are wired. "
+                                 "Wire the frames into images, or unplug the mask.")
+            # Joined once, so the review still and the written frames keep the same alpha.
+            images = sequence.with_alpha(images, mask)
+        # A Version has one uploaded media file (probe 022), and nothing here registers the frames,
+        # so frame 1 would go up and the rest would be lost. Refused before the site is touched.
+        if video is None and frames > 1 and not register_files:
+            raise ValueError(
+                f"Only frame 1 would be published, and the other {frames - 1} "
+                f"frame{'' if frames == 2 else 's'} would be lost. "
+                f"Tick Create Published Files to publish all {frames}, or send the batch through "
+                f"CreateVideo and wire the video into this node.")
+        # The picked project decides, then the profile answers for THAT project. Two graphs open in
+        # one ComfyUI can target two shows that link Versions differently.
+        ctx = site.context(project, link, task, status, link_id)
+        project_id, p, link_type = ctx.project_id, ctx.profile, ctx.link_type
+        target, task_id, status_code = ctx.link_id, ctx.task_id, ctx.status_code
+        picked_name = ctx.link_name
+        link_field = p.get("link_field", "entity")   # probe 005: never assume sg_task
+        if not project_id:
+            raise ValueError("No project is selected. Pick one from the list, or pick the project "
+                             "under Settings, then SG.")
+        if site.unset(link) and not target:
+            raise ValueError(f"No {link_type} named {picked_name} on this project. Pick one from "
+                             f"the list.")
+        # The same sentence the panel shows, refused before the site is written to.
+        missing = version_name.missing_fields(code_template, root_name, project_id, target,
+                                              task_id)
+        if missing:
+            raise ValueError(f"Fill in the required fields ({', '.join(missing)}).")
+
+        # unique_id scopes provenance to this node's branch (provenance.ancestors).
+        prov = provenance.extract(prompt, extra_pnginfo, node_id=unique_id)
+        prov["comfy_usage_source"] = usage_source  # which client submitted this (execution.py:216)
+        # Declared, not measured. The colour space is recorded with the Version, never applied to
+        # the pixels.
+        if colour_space.strip():
+            prov["colour_space"] = colour_space.strip()
+        wf = provenance.workflow(extra_pnginfo)
+
+        sg = site.client()
+        # One schema read answers two questions: which of the operator's targets this site has, and
+        # whether it has the frame range fields a movie needs.
+        schema = sg_fields.schema_names(sg)
+        # Typed ids first, then what an upstream Load node recorded. The operator can add a source
+        # the graph cannot see, and never has to retype one it can.
+        src_ids = [int(x) for x in source_versions.replace(",", " ").split() if x.strip().isdigit()]
+        # Widget-pinned ids come from the graph; resolved ones only exist at run time (lineage).
+        upstream = provenance.ancestors(prompt or {}, unique_id) if prompt else set()
+        for vid in (provenance.loaded_versions(prompt or {}, unique_id)
+                    + lineage.for_nodes(upstream, prompt)):
+            if vid not in src_ids:
+                src_ids.append(vid)
+        # The operator's mapping decides the target for each concept (DESIGN). The schema decides
+        # whether that target can be written. A field this site has takes the value. A target mapped
+        # to the description, and a target this site does not have, become a line of the
+        # description. Nothing is dropped and nothing is a JSON blob.
+        mapping, prov_mode = site.provenance_map(project_id)
+        where = sg_fields.targets(mapping, prov_mode)
+        absent_targets = {t for t in where.values()
+                          if t and t != sg_fields.DESCRIPTION and t not in schema}
+        typed, prov_lines = _split(sg_fields.concepts(prov, src_ids), where, absent_targets)
+
+        # The template decides the name, rendered from the entity and task it is linked to. A
+        # version-number field is authoritative where the site has one; the template's own
+        # {version} is the fallback where it does not.
+        code, version_no = version_name.next_name(code_template, project_id, link_type, target,
+                                                  task_id, root_name)
+        vnum_field = p.get("version_number_field", "")
+        next_num = (naming.next_number(site.version_numbers(link_type, target, project_id, vnum_field))
+                    if vnum_field and target else None)
+
+        # Staged before the Version exists. An install with no PyAV, or a clip `save_to` refuses,
+        # stops here rather than leaving a Version whose still is labelled a clip. The thumbnail is
+        # read off the media rather than off `images`, so the still and the clip show the same
+        # frame.
+        media_path = ""
+        if video is not None:
+            media_path, how = movie.stage(video, sequence.folder(code), code)
+            count, media_note = movie.describe(video, how)
+            png = movie.poster(media_path)
+        else:
+            count = frames
+            media_note = "frame 1 as a still" if frames > 1 else "the image itself"
+            png = _png(images[0])
+        # Whether the house also registers the review movie as a file is set in the profile. Whether
+        # this publish is a deliverable at all is the node's tick. A clip published on its own is
+        # the deliverable, so it is registered without the profile saying so.
+        keeps_movie = bool((p.get("published_files") or {}).get("register_movie"))
+        want_frames = bool(register_files and images is not None)
+        want_movie = bool(register_files and video is not None and (images is None or keeps_movie))
+        # Same rule for the files: the root is resolved, the frames are written and copied into
+        # place before the Version exists, so an unmounted share refuses the run rather than leaving
+        # a Version pointing at frames nobody wrote.
+        staged = self._stage(images, media_path, code, version_no, count, colour_space,
+                             want_frames, want_movie, p, sg, project_id, link_type, target,
+                             task_id, root_name, format,
+                             {"sequence": sequence_path, "still": still_path, "movie": movie_path})
+
+        fields = dict(typed)
+        # The note first, then a blank line, then one line per fact this site has no field for. The
+        # full graph and the full provenance go up as attachments either way.
+        fields["description"] = _description(note, prov_lines)
+        if status_code:
+            fields["sg_status_list"] = status_code
+        if target:
+            fields[link_field] = {"type": link_type, "id": target}
+        if task_id:
+            fields["sg_task"] = {"type": "Task", "id": task_id}
+        if next_num is not None:
+            fields[vnum_field] = next_num
+        # The frame range is written here; everything derived from the media is the transcoder's
+        # (probe 022).
+        if count > 1:
+            fields.update({k: v for k, v in movie.frame_fields(count).items() if k in schema})
+        # probe 022: the `%04d` pattern belongs in sg_path_to_frames, with a transcoded movie
+        # uploaded for the player. These are tier 2 in probe 021, which the Load node reads to pull
+        # frames back. Each is written for the platform the profile names, and only when the profile
+        # asks for the field (_stage).
+        skipped_paths = []
+        for field, value in (("sg_path_to_frames", (staged or {}).get("frames_field")),
+                             ("sg_path_to_movie", (staged or {}).get("media_field"))):
+            if not value:
+                continue
+            if field in schema:
+                fields[field] = value
+            else:
+                skipped_paths.append(field)
+
+        # Staging copied files onto the storage and the create puts a Version on the site. Neither
+        # is recoverable from a traceback, so a failure from here names both in its own sentence.
+        written = [x for x in ((staged or {}).get("frames_pattern"), (staged or {}).get("media"))
+                   if x]
+        vid = 0
+        try:
+            vid = publish.create_version(sg, project_id, code, fields)
+            # Every lookup a name depends on. `find` is the one the template reads, and a stale one
+            # lets two publish nodes in one run propose the same version again.
+            site.forget("find", "versions", "vnums", "paths")
+            # Frame 1 is the thumbnail either way. The site derives one from a movie too, but not
+            # until the transcode finishes.
+            publish.upload(sg, vid, png, f"{code}.png", field="image")
+            if media_path:
+                # Streamed off disk. A clip is the one payload here with no ceiling, and the file
+                # that goes up is the file that was registered.
+                publish.upload_file(sg, vid, media_path,
+                                    f"{code}{os.path.splitext(media_path)[1].lower() or '.mp4'}",
+                                    field="sg_uploaded_movie")
+            else:
+                publish.upload(sg, vid, png, f"{code}.png", field="sg_uploaded_movie")
+            publish.attach_json(sg, vid, prov, f"{code}.provenance.json")
+            if attach_workflow and wf is not None:
+                publish.attach_json(sg, vid, wf, f"{code}.workflow.json")
+
+            file_notes = self._register(sg, staged, project_id, vid, version_no, link_type, target,
+                                        task_id, count, note, colour_space, src_ids,
+                                        lineage.files_for_nodes(upstream, prompt))
+        except Exception as e:
+            raise RuntimeError(" ".join(x for x in (
+                str(e),
+                f"Files were already written to: {', '.join(written)}." if written else "",
+                f"Version {vid} was created and is incomplete. Delete it in Flow Production "
+                f"Tracking, then run again." if vid else "") if x)) from e
+
+        published = [f"Published {code} as Version {vid}.", f"Review media: {media_note}"]
+        # A stock field this site does not have. The files are still registered with the path, so
+        # this is one line about the Version's own path field, not a refusal.
+        if skipped_paths:
+            published.append(f"This site has no {', '.join(skipped_paths)}. Ask an admin to add "
+                             f"them, so the files open from the Version.")
+        if (staged or {}).get("frames_note"):
+            published.append(staged["frames_note"])
+        if count > 1:
+            skipped = [f for f in movie.FRAME_FIELDS if f not in schema]
+            if skipped:
+                published.append(f"This site has no {', '.join(skipped)}. Ask an admin to add "
+                                 f"them, so the frame range reads on the Version.")
+        # Frames wired in that nobody asked to keep are not an error: the clip is the review and
+        # shows the same picture. They are reported all the same.
+        if images is not None and video is not None and not want_frames:
+            published.append(f"The {frames} frames were not published, only the clip. Tick Create "
+                             f"Published Files to publish them too.")
+        published += file_notes
+        if attach_workflow and wf is None:
+            published.append("No workflow was attached. This client did not send one with the run.")
+
+        # The panel turns these into links. `site_url` comes off the client rather than the profile
+        # because the run already authenticated against it, and a second source could disagree.
+        # Paths are what was written to disk this run, the one thing not recoverable from the site.
+        staged_files = []
+        if staged:
+            if staged.get("frames_pattern"):
+                n = len(staged.get("frames") or [])
+                staged_files.append({"kind": "frames" if n > 1 else "still",
+                                     "path": staged["frames_pattern"], "count": n})
+            if staged.get("media"):
+                staged_files.append({"kind": "movie", "path": staged["media"], "count": 1})
+        # The panel draws the run as rows, so the lines it keeps are the ones that need attention.
+        # What the rows already say is left to `text`.
+        said = ("Published ", "Review media: ", "Registered ")
+        # `client` is named in the body of /prompt by whoever submitted the run, and is empty when
+        # nobody did. The panel cannot read it before the Run.
+        done = [{"code": code, "id": vid, "link": f"{link_type} {picked_name}".strip(),
+                 "status": status_code, "outputs": sorted(typed), "media": media_note,
+                 "client": usage_source or "",
+                 "format": (format or sequence.DEFAULT_FORMAT) if want_frames else "", "site_url": sg.site, "files": staged_files,
+                 "notes": [x for x in published if not x.startswith(said)]}]
+        # `text` is the plain readout ComfyUI shows anywhere. `published` is what the node's own
+        # panel renders, the same run described rather than printed.
+        return {"ui": {"text": published, "published": done}}

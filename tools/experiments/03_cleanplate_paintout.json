@@ -1019,7 +1019,7 @@
       "outputs": [],
       "properties": {},
       "widgets_values": [
-        "## demo 03 — clean plate paint-out\n\nMask it once, get a temporally stable clean plate back.\n\nA locked-off Paris plate, a car painted out with SAM3 + Wan 2.1 VACE, and the result published to Flow Production Tracking with the plate it came from recorded as its ancestor.\n\nFlattened from the core `video_wan_vace_inpainting` template (which ships the same chain inside a subgraph) and re-wired to the 1.3B model path from `video_wan_vace_outpainting`.\n\n**Models** — all Apache-2.0\n\n| file | size |\n| --- | --- |\n| `wan2.1_vace_1.3B_fp16.safetensors` | 4.01 GB |\n| `Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors` | 0.08 GB |\n| `umt5_xxl_fp16.safetensors` | 11.4 GB |\n| `wan_2.1_vae.safetensors` | 0.25 GB |\n| `sam3.1_multiplex_fp16.safetensors` | 1.65 GB |\n\n1.3B replaces the template's 14B fp16 (32.29 GB). It is 480p only and its prompt adherence is weak — fine for a provenance demo, not for a shot.\n"
+        "## demo 03 \u2014 clean plate paint-out\n\nMask it once, get a temporally stable clean plate back.\n\nA locked-off Paris plate, a car painted out with SAM3 + Wan 2.1 VACE, and the result published to Flow Production Tracking with the plate it came from recorded as its ancestor.\n\nFlattened from the core `video_wan_vace_inpainting` template (which ships the same chain inside a subgraph) and re-wired to the 1.3B model path from `video_wan_vace_outpainting`.\n\n**Models** \u2014 all Apache-2.0\n\n| file | size |\n| --- | --- |\n| `wan2.1_vace_1.3B_fp16.safetensors` | 4.01 GB |\n| `Wan21_CausVid_bidirect2_T2V_1_3B_lora_rank32.safetensors` | 0.08 GB |\n| `umt5_xxl_fp16.safetensors` | 11.4 GB |\n| `wan_2.1_vae.safetensors` | 0.25 GB |\n| `sam3.1_multiplex_fp16.safetensors` | 1.65 GB |\n\n1.3B replaces the template's 14B fp16 (32.29 GB). It is 480p only and its prompt adherence is weak \u2014 fine for a provenance demo, not for a shot.\n"
       ],
       "title": "About this workflow",
       "color": "#432",
@@ -1027,7 +1027,7 @@
     },
     {
       "id": 101,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1180,
         -260
@@ -1053,10 +1053,10 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_03_cleanplate (Shot)",
         "(none)",
         "Pending Review",
@@ -1067,13 +1067,14 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
-      "title": "Flow PT Publish — cleanplate"
+      "title": "SG Publish \u2014 cleanplate"
     },
     {
       "id": 102,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -1900,
         -80
@@ -1095,6 +1096,16 @@
           ]
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": []
@@ -1103,13 +1114,18 @@
           "name": "code",
           "type": "STRING",
           "links": []
+        },
+        {
+          "name": "colour_space",
+          "type": "STRING",
+          "links": []
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_03_cleanplate (Shot)",
         "(none)",
         "",
@@ -1121,7 +1137,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load Version"
+      "title": "SG Load"
     },
     {
       "id": 25,

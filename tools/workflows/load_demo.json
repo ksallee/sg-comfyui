@@ -8,7 +8,7 @@
   "nodes": [
     {
       "id": 1,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         60,
         60
@@ -30,6 +30,16 @@
           ]
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": []
@@ -46,7 +56,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "(none)",
@@ -61,7 +71,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load — newest depth on this link"
+      "title": "SG Load: newest depth on this link"
     },
     {
       "id": 2,

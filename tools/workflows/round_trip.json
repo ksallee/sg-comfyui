@@ -8,7 +8,7 @@
   "nodes": [
     {
       "id": 1,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         40,
         40
@@ -30,6 +30,16 @@
           ]
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": []
@@ -46,7 +56,7 @@
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
         "(none)",
@@ -61,7 +71,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load — newest depth on this link"
+      "title": "SG Load \u2014 newest depth on this link"
     },
     {
       "id": 2,
@@ -102,7 +112,7 @@
     },
     {
       "id": 3,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         800,
         40
@@ -128,7 +138,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -142,9 +152,13 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "Flow PT Publish — regrade"
+      "title": "SG Publish \u2014 regrade"
     }
   ],
   "links": [

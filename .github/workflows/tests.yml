@@ -1,0 +1,69 @@
+name: tests
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  # The offline suite: no ComfyUI, no torch, no site. Three platforms, because the path a Version
+  # points at is written for one platform and Windows notation is only ever right by accident.
+  pytest:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      # numpy and pytest are not in requirements.txt: ComfyUI ships numpy and a node pack that
+      # pins it can break the install (requirements.txt says so).
+      - run: pip install -r requirements.txt numpy pytest
+      - run: python -m pytest -q
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Every module compiles
+        run: python -m compileall -q src tools
+      - name: Every shipped graph is valid JSON
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          bad = []
+          for p in sorted(Path("example_workflows").glob("*.json")) + \
+                   sorted(Path("tools/workflows").glob("*.json")):
+              try:
+                  json.loads(p.read_text())
+              except json.JSONDecodeError as e:
+                  bad.append(f"{p}: {e}")
+          for line in bad:
+              print(line)
+          raise SystemExit(1 if bad else 0)
+          PY
+
+  # Manual only. tools/smoke.py loads each shipped graph in a real ComfyUI and reads the widget
+  # values back, which is the only thing that catches a positional shift in widgets_values. It needs
+  # a ComfyUI checkout, its models, and playwright's browser, so it cannot run on a hosted runner.
+  # Run it on a machine that has ComfyUI:
+  #     uv run --with playwright --with sg-groundtruth --python 3.11 python tools/smoke.py --port 8999
+  smoke:
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: This job needs a machine with ComfyUI
+        run: |
+          echo "tools/smoke.py needs a ComfyUI checkout and playwright. Run it on a machine that has them:"
+          echo "  uv run --with playwright --with sg-groundtruth --python 3.11 python tools/smoke.py --port 8999"
+          exit 1

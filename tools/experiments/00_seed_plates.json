@@ -152,7 +152,7 @@
     },
     {
       "id": 4,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         -40,
         -40
@@ -178,7 +178,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -192,12 +192,13 @@
         "sRGB",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ]
     },
     {
       "id": 6,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         -40,
         620
@@ -223,7 +224,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -237,7 +238,8 @@
         "sRGB",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ]
     }
   ],

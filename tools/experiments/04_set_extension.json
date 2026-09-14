@@ -1018,13 +1018,13 @@
         "Node name for S&R": "MarkdownNote"
       },
       "widgets_values": [
-        "## Set extension\n\nThe plate is 512x288. `ImagePadForOutpaint` adds 96px left, 96px right, 32px top and 64px bottom, so the delivered frame is 704x384 — both divisible by 16, which `WanVaceToVideo` requires.\n\nThe pad node's MASK is the new territory. It goes round through `MaskToImage` → `RepeatImageBatch` → `ImageToMask` so it can be repeated to match `length`; at length 1 that is a single frame, and VACE outpaints the still.\n\nChange the pad and you must change Width and Height to match, or `WanVaceToVideo` rescales the plate and the original pixels stop lining up.\n\n1.3B + CausVid LoRA: steps 3, cfg 1.0, shift 8.0."
+        "## Set extension\n\nThe plate is 512x288. `ImagePadForOutpaint` adds 96px left, 96px right, 32px top and 64px bottom, so the delivered frame is 704x384 \u2014 both divisible by 16, which `WanVaceToVideo` requires.\n\nThe pad node's MASK is the new territory. It goes round through `MaskToImage` \u2192 `RepeatImageBatch` \u2192 `ImageToMask` so it can be repeated to match `length`; at length 1 that is a single frame, and VACE outpaints the still.\n\nChange the pad and you must change Width and Height to match, or `WanVaceToVideo` rescales the plate and the original pixels stop lining up.\n\n1.3B + CausVid LoRA: steps 3, cfg 1.0, shift 8.0."
       ],
       "title": "How the extension is framed"
     },
     {
       "id": 188,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1370,
         800
@@ -1050,10 +1050,10 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_04_setext (Shot)",
         "(none)",
         "Pending Review",
@@ -1064,13 +1064,14 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG"
       ],
-      "title": "Flow PT Publish — extension"
+      "title": "SG Publish \u2014 extension"
     },
     {
       "id": 189,
-      "type": "FPTLoadVersion",
+      "type": "SGLoadVersion",
       "pos": [
         -680,
         1060
@@ -1093,6 +1094,16 @@
           ]
         },
         {
+          "name": "video",
+          "type": "VIDEO",
+          "links": []
+        },
+        {
+          "name": "mask",
+          "type": "MASK",
+          "links": []
+        },
+        {
           "name": "version_id",
           "type": "INT",
           "links": []
@@ -1101,13 +1112,18 @@
           "name": "code",
           "type": "STRING",
           "links": []
+        },
+        {
+          "name": "colour_space",
+          "type": "STRING",
+          "links": []
         }
       ],
       "properties": {
-        "Node name for S&R": "FPTLoadVersion"
+        "Node name for S&R": "SGLoadVersion"
       },
       "widgets_values": [
-        "comfyui-fpt sandbox",
+        "sg-comfyui Sandbox",
         "demo_04_setext (Shot)",
         "(none)",
         "",
@@ -1119,7 +1135,7 @@
         "",
         0
       ],
-      "title": "Flow PT Load Version — clean plate"
+      "title": "SG Load \u2014 clean plate"
     }
   ],
   "links": [

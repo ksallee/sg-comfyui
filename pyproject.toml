@@ -1,28 +1,32 @@
 # Comfy Registry metadata, read by `comfy node publish`. ComfyUI itself reads only __init__.py.
-# Names come from DESIGN.md, "Names" — `[project].name` is immutable on the Registry once claimed.
+# Names come from DESIGN.md, "Names". `[project].name` is immutable on the Registry once claimed.
 
 [project]
-name = "comfyui-flow-production-tracking"
-description = "Publish ComfyUI generations to Flow Production Tracking as Versions, with their provenance."
+name = "sg-comfyui"
+description = "Publish a ComfyUI generation to Flow Production Tracking as a Version, with the model, prompt, seed and workflow that made it, and load a Version's media back into a graph."
 readme = "README.md"
 requires-python = ">=3.11"
 # 0.1.0 because nothing has been published yet: this is a starting point, not a release. The Registry
 # rejects a re-publish of a version it already has, so bump it in the same commit that publishes.
 version = "0.1.0"
 # Half the audience still searches "shotgrid", and the Registry searches keywords (DESIGN: Names).
-keywords = ["flow production tracking", "shotgrid", "shotgun", "vfx", "provenance", "version", "pipeline"]
+keywords = ["sg", "flow production tracking", "shotgrid", "shotgun", "autodesk", "vfx", "animation",
+            "provenance", "version", "publish", "pipeline", "production", "studio", "exr"]
 license = "MIT"
 license-files = ["LICENSE"]
 # sg-groundtruth is the corpus repo's client half, on PyPI since 0.1.1 (DESIGN: "The dependency
 # problem"). It pulls `requests` itself; `requests` and `Pillow` are named anyway because ComfyUI
 # ships both and a Registry install must not depend on that staying true.
-dependencies = ["sg-groundtruth>=0.1.1", "requests", "Pillow"]
+dependencies = ["sg-groundtruth>=0.1.3", "requests", "Pillow"]
 
 [project.urls]
-Repository = "https://github.com/ksallee/comfyui-flow-production-tracking"
+Repository = "https://github.com/ksallee/sg-comfyui"
 
 [tool.comfy]
 DisplayName = "Flow Production Tracking"
+# The frames are written by ComfyUI's own encoder and read back by its own decoder, which is where
+# 16-bit PNG and EXR come from, and the Settings dialog calls routes an older server does not have.
+requires-comfyui = "0.34.0"
 # The publisher's own Registry handle, and an icon URL. Both are per-publisher, not per-repo, so they
 # are left empty rather than guessed; `comfy node publish` will not accept an empty PublisherId.
 PublisherId = ""
@@ -31,3 +35,9 @@ Icon = ""
 # MIT, because a studio's legal review of a node pack should take no time and the repo is meant to be
 # forked. Nothing is vendored from ComfyUI's GPL-3.0 frontend, which is the constraint that would
 # have forced otherwise.
+
+# The offline suite. `tests/conftest.py` puts `src/` on the path and stubs torch, so the whole run
+# needs pytest, numpy and what requirements.txt already installs. No ComfyUI, no site.
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+xfail_strict = false

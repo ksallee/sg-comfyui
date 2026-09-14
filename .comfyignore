@@ -1,0 +1,14 @@
+# What `comfy node publish` leaves out of the Registry package. Gitignore syntax.
+# The node pack is what ComfyUI loads; the rest is how this repo is developed.
+tests/
+tools/experiments/
+tools/workflows/
+site/
+.github/
+
+# Skills an agent reads to build the launch page. Not part of the node pack.
+.claude/skills/
+
+# Screenshots the README shows on GitHub. Not part of the node pack.
+docs/images/
+docs/launch-page-brief.md

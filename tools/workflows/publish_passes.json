@@ -326,7 +326,7 @@
     },
     {
       "id": 10,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1450,
         40
@@ -352,7 +352,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -366,13 +366,17 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "Flow PT Publish — depth"
+      "title": "SG Publish \u2014 depth"
     },
     {
       "id": 11,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1450,
         400
@@ -398,7 +402,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -412,13 +416,17 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "Flow PT Publish — normals"
+      "title": "SG Publish \u2014 normals"
     },
     {
       "id": 12,
-      "type": "FPTPublishVersion",
+      "type": "SGPublishVersion",
       "pos": [
         1450,
         760
@@ -444,7 +452,7 @@
       ],
       "outputs": [],
       "properties": {
-        "Node name for S&R": "FPTPublishVersion"
+        "Node name for S&R": "SGPublishVersion"
       },
       "widgets_values": [
         "(none)",
@@ -458,9 +466,13 @@
         "",
         "",
         0,
-        true
+        true,
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "Flow PT Publish — mask"
+      "title": "SG Publish \u2014 mask"
     }
   ],
   "links": [
