@@ -18,9 +18,10 @@ and `AGENTS.md`.
 Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
 an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
 under kevin-sallees-projects, linked to the GitHub repo with production branch `main`, root
-directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production, and
-an ignored build step that skips non-production builds. A push to `main` deploys. `pages.yml` and
-`gh-pages` are unused.
+directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production.
+`site/vercel.json` turns Git deployments off for every branch but `main`, so a push to another
+branch creates no deployment; a push to `main` deploys production. The project's ignored build step
+also skips any non-production build. `pages.yml` and `gh-pages` are unused.
 
 Done 2026-09-14: `dev` merged into `main` by merge commit, tag `v0.1.0`, the GitHub release, Actions
 back on at the repository level, the site workflow green on `main` by dispatch. The tests workflow
