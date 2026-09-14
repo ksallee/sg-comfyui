@@ -21,7 +21,9 @@ under kevin-sallees-projects, linked to the GitHub repo with production branch `
 directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production.
 `site/vercel.json` turns Git deployments off for every branch but `main`, so a push to another
 branch creates no deployment; a push to `main` deploys production. The project's ignored build step
-also skips any non-production build. `pages.yml` and `gh-pages` are unused.
+is `git diff --quiet HEAD^ HEAD ./`, run in `site`, so a push that changes nothing under `site/` is
+skipped before building. `pages.yml` is removed. The `gh-pages` branch is a leftover build and GitHub
+Pages is not enabled.
 
 Done 2026-09-14: `dev` merged into `main` by merge commit, tag `v0.1.0`, the GitHub release, Actions
 back on at the repository level, the site workflow green on `main` by dispatch. The tests workflow
