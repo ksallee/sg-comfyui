@@ -105,4 +105,4 @@ def describe(video, how):
     """
     count = int(video.get_frame_count())
     rate = float(video.get_frame_rate())
-    return count, f"{count} frames at {rate:g} fps — {how}"
+    return count, f"{count} frames at {rate:g} fps, {how}"

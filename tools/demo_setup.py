@@ -116,7 +116,7 @@ def main():
     if not project_id:
         print("no project: pass --project or set default_project in profile.local.json")
         return 1
-    log = [f"project {project_id}" + ("" if a.write else "   DRY RUN — nothing is written")]
+    log = [f"project {project_id}" + ("" if a.write else "   DRY RUN, nothing is written")]
     for code, tasks in SHOTS.items():
         ensure(sg, "shots", "Shot", project_id, code, tasks, a.write, log)
     for code, tasks in ASSETS.items():

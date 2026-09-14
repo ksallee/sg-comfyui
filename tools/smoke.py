@@ -99,7 +99,7 @@ def expected(graph, port):
         # the wrong widget. That is the failure, not a reason to skip the graph.
         if len(vals) != len(names):
             misaligned.append(f"{t}#{n.get('id')}: file has {len(vals)} values, class declares"
-                              f" {len(names)} — every value from the divergence on lands in the"
+                              f" {len(names)}; every value from the divergence on lands in the"
                               f" wrong widget")
             continue
         want[str(n.get("id"))] = {k: v for k, v in zip(names, vals) if k not in MIRRORED}

@@ -184,7 +184,7 @@ deny on `.env.local` ships. Version stays 0.1.0.
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the
 sequence as a zip; publishing on someone's behalf and the artist on a farm; newest per stream; any
-Version field on the node in one line; a colour-managed template; Windows as a first-class publisher.
+Version field on the node in one line; a colour-managed template; publishing from a Windows machine, untested.
 
 ---
 
@@ -194,7 +194,6 @@ Version field on the node in one line; a colour-managed template; Windows as a f
 |---|---|
 | Release date | Kevin |
 | `PublisherId`, `Icon`, `Banner` | Kevin, Registry day |
-| Five em dashes in runtime strings: the PublishedFile source label (`media.py`), the clip sentence (`movie.py`), the node title built in `instrument.py`. Tests and two drives assert on them. Change them or leave them | Kevin |
 | Artist attribution on the script-key path: `sudo_as_login` is wired in `credentials.client`; the fallback chain and an `artist` widget are not | after release |
 | `data_type -> widget` so any Version field is one line | after release |
 | OCIO: `/track-workflow`'s three questions, a `10_` template, registering `OCIO Write`'s files | after release |

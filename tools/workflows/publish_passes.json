@@ -369,7 +369,7 @@
         true,
         "8-bit PNG"
       ],
-      "title": "SG Publish — depth"
+      "title": "SG Publish: depth"
     },
     {
       "id": 11,
@@ -416,7 +416,7 @@
         true,
         "8-bit PNG"
       ],
-      "title": "SG Publish — normals"
+      "title": "SG Publish: normals"
     },
     {
       "id": 12,
@@ -463,7 +463,7 @@
         true,
         "8-bit PNG"
       ],
-      "title": "SG Publish — mask"
+      "title": "SG Publish: mask"
     }
   ],
   "links": [
