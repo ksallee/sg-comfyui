@@ -29,6 +29,13 @@ Behaviour with no entry is a gap. The probe that closes it goes in `sg-groundtru
 - A new dependency needs a line in DESIGN.md.
 - The sibling checkout `../sg-groundtruth` is still needed for the corpus and for `inspect_site.py`.
 
+## Process
+
+- Branch from `dev`. Open a PR onto `dev`. Squash-merge it once the suite and the site build pass.
+  Merging onto `dev` is authorized in the session.
+- `main` is human-gated: Kevin QAs `dev` and promotes it by merge commit, unless he says otherwise
+  in the session.
+
 ## Running it
 
 - Run from the repo root.
