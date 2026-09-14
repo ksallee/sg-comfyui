@@ -1,5 +1,6 @@
 // The four blocks this page copies out of README.md, and how to cut them out of it.
-// `start` and `end` are matched as whole lines. The block is everything between them, trimmed.
+// `start` and `end` are matched as whole lines. The block is everything between them, trimmed;
+// `keepStart` keeps the start line itself, for a block that begins with a heading.
 // check-readme-blocks.mjs compares the cut against src/lib/readme/*.md and fails on any difference.
 
 import { readFileSync } from 'node:fs';
@@ -15,12 +16,13 @@ export const BLOCKS = [
 		name: 'requirements',
 		title: 'Requirements',
 		start: '## Install',
-		end: 'The pack is not on the Comfy Registry yet. Use the checkout until it is.'
+		end: '### ComfyUI Manager'
 	},
 	{
 		name: 'install-commands',
 		title: 'Install commands',
-		start: 'The pack is not on the Comfy Registry yet. Use the checkout until it is.',
+		start: '### ComfyUI Manager',
+		keepStart: true,
 		end: 'Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).'
 	},
 	{
@@ -48,7 +50,7 @@ export function cut(readme, block) {
 	if (from === -1) throw new Error(`README.md has no line "${block.start}"`);
 	const to = lines.indexOf(block.end, from + 1);
 	if (to === -1) throw new Error(`README.md has no line "${block.end}" after "${block.start}"`);
-	return lines.slice(from + 1, to).join('\n').trim() + '\n';
+	return lines.slice(block.keepStart ? from : from + 1, to).join('\n').trim() + '\n';
 }
 
 export function blockPath(block) {

@@ -5,7 +5,13 @@ Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tra
 
 ### The Registry
 
-Coming soon.
+The pack is `sg-comfyui` at https://registry.comfy.org/nodes/sg-comfyui. With the Comfy CLI:
+
+```sh
+comfy node install sg-comfyui
+```
+
+Restart ComfyUI.
 
 ### A checkout
 
