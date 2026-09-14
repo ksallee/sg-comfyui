@@ -26,6 +26,7 @@
 	function ended() {
 		clearTimeout(hold);
 		hold = setTimeout(restart, HOLD);
+		playing = true;
 	}
 
 	function pause() {
@@ -73,7 +74,7 @@
 			muted
 			playsinline
 			onplay={() => (playing = true)}
-			onpause={() => (playing = hold !== null)}
+			onpause={() => (playing = false)}
 			onended={ended}
 		>
 			<source src="{base}/media/{name}.webm" type="video/webm" />
