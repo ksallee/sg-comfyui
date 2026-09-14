@@ -6,7 +6,7 @@
 	 * A screen recording. WebM first, MP4 second, a poster frame under both. It plays on entering
 	 * the viewport and never on its own under `prefers-reduced-motion: reduce`. At the end it
 	 * shows the last frame for HOLD milliseconds, then starts again. `control` adds the
-	 * Pause button. `frame` draws the border. Without it the edges fade into the page.
+	 * Pause button. `frame` draws the border and the background.
 	 */
 	let { name, caption = '', ratio = '1600 / 1382', control = true, frame = true } = $props();
 
@@ -107,16 +107,7 @@
 
 	.frame.bare {
 		border: 0;
-		border-radius: 0;
 		background: none;
-		-webkit-mask-image:
-			linear-gradient(to right, transparent, #000 10%, #000 90%, transparent),
-			linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
-		mask-image:
-			linear-gradient(to right, transparent, #000 10%, #000 90%, transparent),
-			linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
-		-webkit-mask-composite: source-in;
-		mask-composite: intersect;
 	}
 
 	video {
