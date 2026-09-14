@@ -55,8 +55,9 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 
 ### 1. From the Registry
 
-The pack as released. ComfyUI Manager updates it. An edit inside the pack is lost at the next
-update.
+Pick this to use the nodes. Manager updates the pack, and Settings and the profile keep your
+configuration across updates: project, templates, storage, the provenance mapping, which inputs
+are advanced. The pack is in alpha. What is missing is under What's next.
 
 Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tracking`. Press
 **Install**. Restart ComfyUI.
@@ -69,13 +70,14 @@ comfy node install sg-comfyui
 
 Restart ComfyUI.
 
-The commands `/setup`, `/inspect-site`, `/task` and `/track-workflow` are in the pack, at
+The commands `/setup`, `/task` and `/track-workflow` are in the pack, at
 `ComfyUI/custom_nodes/sg-comfyui`. Start your agent in that directory to use them.
 
 ### 2. From the repo
 
-The repository: the pack, the tests, the tools, the site. Customize it with an agent, run the
-suite, fork it. `git pull` updates it.
+Pick this to change the nodes. The checkout has the tests, the harness and the history an agent
+works with, and your change survives `git pull`. It is also where `/inspect-site` runs, since it
+needs the sg-groundtruth checkout beside it.
 
 ```sh
 cd ComfyUI/custom_nodes
@@ -92,8 +94,7 @@ Restart ComfyUI.
 <comfy-python> tools/doctor.py
 ```
 
-Start your agent in the checkout. The same four commands are there, with `CLAUDE.md`, the tests
-and the tools an agent changes the pack with.
+Start your agent in the checkout. The four commands are there, `/inspect-site` included.
 
 Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).
 
