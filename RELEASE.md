@@ -9,17 +9,44 @@ and `AGENTS.md`.
 
 ## Next session, in order
 
-1. **`dev` to `main`**, by merge commit, Kevin. Then the GitHub release from `main`, tagged.
-2. **Repo public.** The Registry reads the repo and links to it.
-3. **Registry mechanics**, Kevin: publisher and API key at registry.comfy.org; `PublisherId`,
-   `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`; `comfy node pack` and
-   `unzip -l` to check the archive; `comfy node publish` by hand. No publish workflow exists, and
-   Actions is off.
-4. **The launch page, after the public release, on Vercel.** The same setup as
-   sg-groundtruth.vercel.app: a Vercel project `sg-comfyui` linked from the repo root, root
-   directory `site`, output `build`, production deploys only, `BASE_PATH=/` in the project's
-   environment. `pages.yml` and `gh-pages` are then unused.
-5. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+1. **`dev` to `main`**, by merge commit. Then the GitHub release from `main`, tagged.
+2. **Repo public.** Then GitHub Actions back on at the repository level. From this point merges
+   onto `dev` and `main` are Kevin's again.
+3. **The launch page on Vercel.** The same setup as sg-groundtruth.vercel.app: a Vercel project
+   `sg-comfyui` linked from the repo root, root directory `site`, output `build`, production
+   deploys only, `BASE_PATH=/` in the project's environment. `pages.yml` and `gh-pages` are then
+   unused. The page's content is Kevin's brother's from 2026-09-14.
+4. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+5. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
+   `PublisherId`, `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`;
+   `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
+   workflow exists.
+
+---
+
+## State, end of 2026-09-14
+
+`dev` has everything below. `main` is untouched since #80. Offline suite: 272 passed, 17 skipped.
+Actions is still off; the suite, the README block check and `npm run build` were run locally at
+each merge.
+
+**Landed 2026-09-14, one PR each, onto `dev`.**
+
+- #133 No em dash in a runtime string. The source label separator is a middle dot
+  (`Rendered Image · sh010_v001.mov, uploaded file`), the clip sentence takes a comma
+  (`240 frames at 24 fps, encoded by ComfyUI`), an instrumented node is titled
+  `SG Publish: <name>`. README's What's next reads "Publishing from a Windows machine is
+  untested. You can contribute." and the site's copy of the block follows.
+- #134 The two comment lines in `pyproject.toml` and one in `tests.yml`.
+- #135 SG Publish takes its three path templates as advanced inputs: `sequence_path`,
+  `still_path`, `movie_path`, appended after `format`. Empty is the template under Settings, drawn
+  greyed inside the field; brace completion with a Default row; `sequence.plan` takes the node's
+  three and the run and the preview call it the same way. Ten SG Publish nodes across the shipped
+  graphs gained three values. The SG Publish Info tab capture retaken at 780 px, 1560 by 2606,
+  in `docs/images` and `site/static/media`.
+- #136 `LAYOUT_API.md` as reference prose, 1,858 words to 1,749, names checked against the three
+  editor files. Its Exports table lists what it listed before; `textRows`, `setPlaceholder`,
+  `templateCompletion`, `styleOnce`, `esc`, `rgbParts` and `rgbCss` are exported and not in it.
 
 ---
 
@@ -107,6 +134,21 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
 
 ---
 
+## Decisions, 2026-09-14, with Kevin
+
+- **The three path templates are inputs on SG Publish**, advanced, empty meaning Settings, the
+  Settings template as the placeholder, on the pattern of root name and version name. Storage,
+  operating system, the two path-field toggles and review movie stay in Settings only.
+- **The readout keeps both the frames path and the still path before a Run.** The labels stay.
+- **Windows** is listed as untested with an invitation to contribute, not as a feature.
+- **No em dash in a runtime string.** The source label separator is a middle dot.
+- **Merges onto `dev` and `main` are the agent's until the repo is public.** Kevin QAs after they
+  land. Once the repo is public, PRs wait for his merge again.
+- **The Registry is the last step**, after the release, the public repo, the launch page and the
+  corpus.
+- **The launch page is Kevin's brother's** from 2026-09-14. `dev` and `main` are kept green for
+  him at each merge.
+
 ## Decisions, 2026-09-11, with Kevin
 
 - **A still takes a path template of its own**, `published_files.still_path_template`, default
@@ -177,9 +219,7 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ## Before the first release
 
-1. **`dev` to `main`, the GitHub release, the repo public.** Kevin.
-2. **Registry mechanics**, item 3 under "Next session".
-3. **The launch page on Vercel**, item 4 under "Next session", after the public release.
+Items 1 to 4 under "Next session", then the Registry.
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the
