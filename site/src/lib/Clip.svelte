@@ -5,9 +5,10 @@
 	/**
 	 * A screen recording. WebM first, MP4 second, a poster frame under both. It plays on entering
 	 * the viewport and never on its own under `prefers-reduced-motion: reduce`. At the end it
-	 * shows the last frame for HOLD milliseconds, then starts again.
+	 * shows the last frame for HOLD milliseconds, then starts again. `control` adds the
+	 * Pause button. `frame` draws the border and the background.
 	 */
-	let { name, caption, ratio = '1600 / 1382' } = $props();
+	let { name, caption = '', ratio = '1600 / 1382', control = true, frame = true } = $props();
 
 	const HOLD = 3000;
 
@@ -65,7 +66,7 @@
 </script>
 
 <figure class="clip">
-	<div class="frame" style="aspect-ratio: {ratio}">
+	<div class="frame" class:bare={!frame} style="aspect-ratio: {ratio}">
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
 			bind:this={node}
@@ -80,13 +81,15 @@
 			<source src="{base}/media/{name}.webm" type="video/webm" />
 			<source src="{base}/media/{name}.mp4" type="video/mp4" />
 		</video>
-		{#if ready}
+		{#if ready && control}
 			<button type="button" class="control" onclick={toggle}>
 				{playing ? 'Pause' : 'Play'}
 			</button>
 		{/if}
 	</div>
-	<figcaption>{caption}</figcaption>
+	{#if caption}
+		<figcaption>{caption}</figcaption>
+	{/if}
 </figure>
 
 <style>
@@ -100,6 +103,11 @@
 		border: 1px solid var(--line);
 		border-radius: var(--r);
 		overflow: hidden;
+	}
+
+	.frame.bare {
+		border: 0;
+		background: none;
 	}
 
 	video {
@@ -130,6 +138,5 @@
 		margin-top: 0.7rem;
 		color: var(--muted);
 		font-size: 0.875rem;
-		max-width: 58ch;
 	}
 </style>

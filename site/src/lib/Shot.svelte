@@ -30,6 +30,5 @@
 		margin-top: 0.7rem;
 		color: var(--muted);
 		font-size: 0.875rem;
-		max-width: 58ch;
 	}
 </style>
