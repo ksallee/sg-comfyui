@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import { docs } from '$lib/site.js';
 </script>
 
 <svelte:head>
-	<title>Docs. SG ComfyUI</title>
-	<meta name="description" content="Nine pages: install, first run, the profile, the two nodes, provenance, formats, storage, troubleshooting, and the agent entry point." />
+	<Head title="Docs. SG ComfyUI" description="Nine pages: install, first run, the profile, the two nodes, provenance, formats, storage, troubleshooting, and the agent entry point." />
 </svelte:head>
 
 <h1>Docs</h1>

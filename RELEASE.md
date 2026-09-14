@@ -49,6 +49,13 @@ locally at each merge.
 
 **Landed 2026-09-14, one PR each, onto `dev`.**
 
+- Site SEO and LLM readers: `robots.txt`, `sitemap.xml` with the eleven pages, `llms.txt` from the
+  docs list, on the pattern of sg-groundtruth. A `Head` component on every page: title, description,
+  canonical, Open Graph and Twitter tags, one share card at `media/og.png`, 1200 by 630, composed
+  from the site's font and the SG Publish node picture. The landing title reads "SG ComfyUI: Flow
+  Production Tracking for ComfyUI".
+- #153, #148 Kevin's brother: dark scheme only; the hero copy left and the clip right; one box style;
+  `Clip` takes `control` and `frame` props.
 - #150 Every document says which install an instruction applies to. AGENTS.md opens with a
   table of what the Registry pack has and what only the checkout has, and an "also needs" column
   on the procedures: `inspect-site` and `task` need the `sg-groundtruth` checkout. INSTALL.md, the

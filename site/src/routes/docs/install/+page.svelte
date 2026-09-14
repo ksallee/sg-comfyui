@@ -1,4 +1,5 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Markdown from '$lib/Markdown.svelte';
 	import requirements from '$lib/readme/requirements.md?raw';
@@ -12,8 +13,7 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 </script>
 
 <svelte:head>
-	<title>Install. SG ComfyUI</title>
-	<meta name="description" content="The interpreter to install into, the two ways to install, the four local files, and the offline check." />
+	<Head title="Install. SG ComfyUI" description="The interpreter to install into, the two ways to install, the four local files, and the offline check." />
 </svelte:head>
 
 <h1>Install</h1>

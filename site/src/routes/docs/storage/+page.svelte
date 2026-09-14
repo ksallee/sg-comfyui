@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Shot from '$lib/Shot.svelte';
 </script>
 
 <svelte:head>
-	<title>Storage and paths. SG ComfyUI</title>
-	<meta name="description" content="Local File Storage roots, the two path templates, the tokens they take, and what a failed publish leaves behind." />
+	<Head title="Storage and paths. SG ComfyUI" description="Local File Storage roots, the two path templates, the tokens they take, and what a failed publish leaves behind." />
 </svelte:head>
 
 <h1>Storage and paths</h1>
