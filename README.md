@@ -69,6 +69,9 @@ comfy node install sg-comfyui
 
 Restart ComfyUI.
 
+The commands `/setup`, `/inspect-site`, `/task` and `/track-workflow` are in the pack, at
+`ComfyUI/custom_nodes/sg-comfyui`. Start your agent in that directory to use them.
+
 ### 2. From the repo
 
 The repository: the pack, the tests, the tools, the site. Customize it with an agent, run the
@@ -89,8 +92,8 @@ Restart ComfyUI.
 <comfy-python> tools/doctor.py
 ```
 
-Both include `CLAUDE.md` and the commands under `.claude/commands/`, so `/setup`, `/inspect-site`,
-`/task` and `/track-workflow` run from either.
+Start your agent in the checkout. The same four commands are there, with `CLAUDE.md`, the tests
+and the tools an agent changes the pack with.
 
 Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).
 
