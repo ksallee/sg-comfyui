@@ -10,10 +10,13 @@ and `AGENTS.md`.
 ## Next session, in order
 
 1. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
-2. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
-   `PublisherId`, `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`;
-   `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
-   workflow exists.
+2. **`Icon` in `pyproject.toml`**, a square image 400 px or smaller, and `Banner` at 21:9, when
+   Kevin has them. A new Registry version needs a version bump in the same commit.
+
+Done 2026-09-14, on the Registry: `sg-comfyui` 0.1.0 under publisher `ksallee`, published with
+`comfy node publish` from the `dev` checkout at #142, changelog "First release.", status pending
+the Registry's review. The archive is the node code, the editor files, the example graphs, README,
+INSTALL, DESIGN, AGENTS, CLAUDE, the four commands, `doctor.py` and the licence, 49 files.
 
 Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
 an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
@@ -226,9 +229,9 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ---
 
-## Before the Registry
+## After the Registry
 
-Item 1 under "Next session".
+The two items under "Next session".
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the
