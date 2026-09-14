@@ -9,7 +9,6 @@
 	import { onDestroy } from 'svelte';
 
 	import firstRun from '$lib/readme/first-run.md?raw';
-	import installCommands from '$lib/readme/install-commands.md?raw';
 	import requirements from '$lib/readme/requirements.md?raw';
 	import whatsNext from '$lib/readme/whats-next.md?raw';
 
@@ -53,25 +52,32 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 		box?.showModal();
 	}
 
-	const agentPrompt = `Clone https://github.com/ksallee/sg-comfyui into ComfyUI's custom_nodes directory.
+	const packPrompt = `Install the sg-comfyui node pack from the Comfy Registry into my ComfyUI:
+\`comfy node install sg-comfyui\` with the Comfy CLI, or ComfyUI Manager.
+Install its requirements.txt into the interpreter ComfyUI runs on.
+Restart ComfyUI.
+Welcome me.
+Then offer to run /setup from ComfyUI/custom_nodes/sg-comfyui.`;
+
+	const repoPrompt = `Clone https://github.com/ksallee/sg-comfyui into ComfyUI's custom_nodes directory.
 Install its requirements.txt into the interpreter ComfyUI runs on.
 Restart ComfyUI.
 Welcome me.
 Ask me before you run tools/doctor.py.
 Then offer to run /setup.`;
 
-	let copied = $state(false);
+	let copied = $state('');
 	let said;
 
-	async function copyPrompt() {
+	async function copyPrompt(which) {
 		try {
-			await navigator.clipboard.writeText(agentPrompt);
+			await navigator.clipboard.writeText(which === 'pack' ? packPrompt : repoPrompt);
 		} catch {
 			return;
 		}
-		copied = true;
+		copied = which;
 		clearTimeout(said);
-		said = setTimeout(() => (copied = false), 3000);
+		said = setTimeout(() => (copied = ''), 3000);
 	}
 
 	onDestroy(() => clearTimeout(said));
@@ -378,14 +384,25 @@ Then offer to run /setup.`;
 		<div class="install-copy">
 			<h2>Install</h2>
 			<Markdown source={requirements} />
-			<Markdown source={installCommands} />
+			<p>
+				From the Registry, <code>comfy node install sg-comfyui</code> or ComfyUI Manager: the pack as
+				released. From the repo, a clone into <code>custom_nodes</code>: the pack you customize with an
+				agent. Both routes, what each gives you and which interpreter to install into:
+				<a href="{base}/docs/install">Install</a>.
+			</p>
 			<div class="agent-install">
-				<button type="button" class="button" onclick={copyPrompt} aria-live="polite">
-					{copied ? 'Prompt copied' : 'Install with your LLM'}
-				</button>
+				<div class="agent-buttons">
+					<button type="button" class="button" onclick={() => copyPrompt('pack')} aria-live="polite">
+						{copied === 'pack' ? 'Prompt copied' : 'Install the pack with your LLM'}
+					</button>
+					<button type="button" class="button" onclick={() => copyPrompt('repo')} aria-live="polite">
+						{copied === 'repo' ? 'Prompt copied' : 'Install the repo with your LLM'}
+					</button>
+				</div>
 				<details>
-					<summary>The prompt</summary>
-					<pre><code>{agentPrompt}</code></pre>
+					<summary>The prompts</summary>
+					<pre><code>{packPrompt}</code></pre>
+					<pre><code>{repoPrompt}</code></pre>
 				</details>
 			</div>
 		</div>
@@ -840,6 +857,12 @@ Then offer to run /setup.`;
 		margin-top: 1.75rem;
 		padding-top: 1.5rem;
 		border-top: 1px solid var(--line);
+	}
+
+	.agent-buttons {
+		display: flex;
+		flex-wrap: wrap;
+		gap: 0.75rem;
 	}
 
 	.agent-install summary {

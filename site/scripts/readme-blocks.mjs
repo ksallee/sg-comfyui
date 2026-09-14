@@ -16,12 +16,12 @@ export const BLOCKS = [
 		name: 'requirements',
 		title: 'Requirements',
 		start: '## Install',
-		end: '### Which install'
+		end: '### 1. From the Registry'
 	},
 	{
 		name: 'install-commands',
-		title: 'Install commands',
-		start: '### Which install',
+		title: 'Two ways to install',
+		start: '### 1. From the Registry',
 		keepStart: true,
 		end: 'Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).'
 	},
