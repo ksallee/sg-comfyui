@@ -44,7 +44,7 @@ in place.
 
 - No analytics, no tracking, no consent banner.
 - No request to a third party at runtime: no external fonts, scripts, images or embeds.
-- Both colour schemes. `prefers-color-scheme` picks one; there is no toggle.
+- Dark only. There is no light scheme and no toggle.
 - `prefers-reduced-motion: reduce` disables parallax and autoplay.
 - No horizontal scroll at 375px.
 - Every image and clip is a capture of the real product. Nothing is mocked in HTML.

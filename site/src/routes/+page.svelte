@@ -119,7 +119,7 @@ Then offer to run /setup.`;
 			that leaves it has a name and a date.
 		</p>
 		<div class="contrast">
-			<div class="cell sunk">
+			<div class="cell">
 				<h3>In the output directory</h3>
 				<ul>
 					<li>A file name.</li>
@@ -222,7 +222,7 @@ Then offer to run /setup.`;
 				<h3>16-bit PNG</h3>
 				<p>SG Load reads it back at full precision.</p>
 			</div>
-			<div class="cell sunk">
+			<div class="cell">
 				<h3>EXR 32-bit float</h3>
 				<p>
 					Pixels are written unchanged. The declared colour space goes in the PublishedFile's
@@ -560,7 +560,7 @@ Then offer to run /setup.`;
 
 	.contrast {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 1.25rem;
 		margin-top: 2.75rem;
 	}
@@ -570,10 +570,6 @@ Then offer to run /setup.`;
 		border-radius: var(--r);
 		background: var(--surface);
 		padding: clamp(1.25rem, 2.4vw, 1.9rem);
-	}
-
-	.cell.sunk {
-		background: var(--sunk);
 	}
 
 	.cell h3 {
