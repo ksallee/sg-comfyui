@@ -113,7 +113,11 @@ Which copy is read:
 - **The profile** comes from the protected user directory when a `profile.local.json` is there, and
   from the pack directory otherwise. Settings writes wherever that resolves to.
 - Once a profile exists in the protected user directory, a second one in the pack directory is
-  ignored. `tools/doctor.py` prints the path in use. Write to that path.
+  ignored. A running ComfyUI answers the path in use at `/sg/paths`, for example
+  `http://127.0.0.1:8188/sg/paths`. Write to that path. With ComfyUI stopped, `tools/doctor.py`
+  prints the pack directory, which is read only while the protected user directory holds no profile.
+- A Registry or Manager update keeps a `profile.local.json` in the pack directory. It deletes only
+  the files the previous version of the pack shipped.
 
 ## Running the command-line tools
 

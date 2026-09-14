@@ -86,9 +86,11 @@ def _coded(rows):
 def profile_path():
     """Where the profile is: ComfyUI's protected per-pack directory, else the checkout root.
 
-    The inspector writes to the checkout root, and that file is read as long as it is the only one.
-    A Registry install has no checkout to write to, so Settings writes beside the session file,
-    which a Manager update leaves alone.
+    `/sg/paths` answers this path, so the inspector writes where the nodes read it. A Registry
+    install has no checkout to write to, so Settings writes beside the session file. A Manager
+    update leaves both directories alone: `cnr_switch_version_instant` in ComfyUI Manager's
+    `glob/manager_core.py` deletes only the files its `.tracking` list names and the new archive
+    does not, and the protected directory is outside `custom_nodes`.
     """
     for d in (credentials.store_dir(), ROOT):
         if (d / PROFILE_NAME).is_file():
