@@ -9,24 +9,18 @@ and `AGENTS.md`.
 
 ## Next session, in order
 
-1. **Repo public**, Kevin. The agent's permission mode refuses a visibility change:
-
-       gh repo edit ksallee/sg-comfyui --visibility public --accept-visibility-change-consequences
-
-   From this point merges onto `dev` and `main` are Kevin's again.
-2. **The first production deploy**, Kevin. The Vercel project `sg-comfyui` exists under
-   kevin-sallees-projects, linked to the GitHub repo with production branch `main`, root directory
-   `site`, framework SvelteKit, `BASE_PATH=/` in production, and an ignored build step that skips
-   every non-production build. A push to `main` deploys, or by hand:
-
-       vercel deploy --prod --yes --scope kevin-sallees-projects
-
-   `pages.yml` and `gh-pages` are unused. The page's content is Kevin's brother's from 2026-09-14.
-3. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
-4. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
+1. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+2. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
    `PublisherId`, `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`;
    `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
    workflow exists.
+
+Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
+an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
+under kevin-sallees-projects, linked to the GitHub repo with production branch `main`, root
+directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production, and
+an ignored build step that skips non-production builds. A push to `main` deploys. `pages.yml` and
+`gh-pages` are unused.
 
 Done 2026-09-14: `dev` merged into `main` by merge commit, tag `v0.1.0`, the GitHub release, Actions
 back on at the repository level, the site workflow green on `main` by dispatch. The tests workflow
@@ -153,8 +147,9 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
 - **The readout keeps both the frames path and the still path before a Run.** The labels stay.
 - **Windows** is listed as untested with an invitation to contribute, not as a feature.
 - **No em dash in a runtime string.** The source label separator is a middle dot.
-- **Merges onto `dev` and `main` are the agent's until the repo is public.** Kevin QAs after they
-  land. Once the repo is public, PRs wait for his merge again.
+- **Merging onto `dev` is authorized in the session; `main` is QA-gated and human-gated** unless
+  Kevin says otherwise in the session. Before the repo was public, on 2026-09-14, `main` was
+  granted too, for the release.
 - **The Registry is the last step**, after the release, the public repo, the launch page and the
   corpus.
 - **The launch page is Kevin's brother's** from 2026-09-14. `dev` and `main` are kept green for
@@ -230,7 +225,7 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ## Before the Registry
 
-Items 1 to 3 under "Next session".
+Item 1 under "Next session".
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the
