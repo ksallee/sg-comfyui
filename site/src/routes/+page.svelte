@@ -1,4 +1,5 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Clip from '$lib/Clip.svelte';
 	import Markdown from '$lib/Markdown.svelte';
@@ -84,11 +85,7 @@ Then offer to run /setup.`;
 </script>
 
 <svelte:head>
-	<title>SG ComfyUI</title>
-	<meta
-		name="description"
-		content="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph."
-	/>
+	<Head title="SG ComfyUI: Flow Production Tracking for ComfyUI" description="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph." />
 </svelte:head>
 
 <!-- 1. Hero -->

@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import { repo } from '$lib/site.js';
 </script>
 
 <svelte:head>
-	<title>For an agent. SG ComfyUI</title>
-	<meta name="description" content="The entry point for an agent: the offline check, which install this is, which document answers which question, and the four procedures." />
+	<Head title="For an agent. SG ComfyUI" description="The entry point for an agent: the offline check, which install this is, which document answers which question, and the four procedures." />
 </svelte:head>
 
 <h1>For an agent</h1>

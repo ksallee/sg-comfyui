@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Shot from '$lib/Shot.svelte';
 </script>
 
 <svelte:head>
-	<title>Formats and colour space. SG ComfyUI</title>
-	<meta name="description" content="The three frame formats, what writes them, what review media is, and how a declared colour space is recorded." />
+	<Head title="Formats and colour space. SG ComfyUI" description="The three frame formats, what writes them, what review media is, and how a declared colour space is recorded." />
 </svelte:head>
 
 <h1>Formats and colour space</h1>

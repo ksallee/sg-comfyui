@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import Shot from '$lib/Shot.svelte';
 	import { provenance } from '$lib/site.js';
 </script>
 
 <svelte:head>
-	<title>Provenance fields. SG ComfyUI</title>
-	<meta name="description" content="The nine typed fields on Version, where each value comes from, and what a site without them records instead." />
+	<Head title="Provenance fields. SG ComfyUI" description="The nine typed fields on Version, where each value comes from, and what a site without them records instead." />
 </svelte:head>
 
 <h1>Provenance fields</h1>
