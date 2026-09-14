@@ -137,6 +137,8 @@ Nine typed fields on Version, created under **Settings**, then **SG**, **SG Site
 - Originals are never moved. A publish that fails after the copy names the copies it left.
 - Sequence path, Still path and Movie path are the three templates, under **Settings**, then
   **SG**, **SG Publish Defaults**.
+- The same three are advanced inputs on SG Publish. A filled one applies to that publish. An
+  empty one shows the Settings template greyed inside the field.
 - A batch of one frame is written by Still path, beside the folder a sequence takes.
 - `{version}` is the publish revision. `%04d`, `####` and `@@@@` are the frame number.
 - The extension follows the files, not the template.

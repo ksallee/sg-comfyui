@@ -63,6 +63,19 @@ def test_a_sequence_keeps_the_pattern(storage, wrote):
     assert staged["template"] == "{root_name}/{version_name}/{version_name}.%04d{ext}"
 
 
+def test_the_still_path_on_the_node_is_the_one_written(storage, wrote):
+    """A non-empty still path on the node overrides the profile's; the sequence one, empty, is
+    the profile's."""
+    own = {"sequence": "", "still": "{root_name}/stills/{version_name}{ext}", "movie": ""}
+    staged = SGPublishVersion._stage([object()], "", "sh010_matte_v001", 1, 1, "", True, False,
+                                     PROFILE, None, 1, "Shot", 2, 0, "", "", own)
+    assert staged["frames_pattern"] == (storage / "sh010/stills/sh010_matte_v001.png").as_posix()
+    assert staged["template"] == own["still"]
+    staged = SGPublishVersion._stage([object()] * 2, "", "sh010_matte_v001", 1, 2, "", True,
+                                     False, PROFILE, None, 1, "Shot", 2, 0, "", "", own)
+    assert staged["template"] == "{root_name}/{version_name}/{version_name}.%04d{ext}"
+
+
 def test_one_frame_writes_no_frame_path_on_the_version_and_says_so(storage, wrote):
     staged = stage(1, storage)
     assert "frames_field" not in staged

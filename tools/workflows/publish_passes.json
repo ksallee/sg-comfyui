@@ -367,9 +367,12 @@
         "",
         0,
         true,
-        "8-bit PNG"
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "SG Publish — depth"
+      "title": "SG Publish \u2014 depth"
     },
     {
       "id": 11,
@@ -414,9 +417,12 @@
         "",
         0,
         true,
-        "8-bit PNG"
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "SG Publish — normals"
+      "title": "SG Publish \u2014 normals"
     },
     {
       "id": 12,
@@ -461,9 +467,12 @@
         "",
         0,
         true,
-        "8-bit PNG"
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "SG Publish — mask"
+      "title": "SG Publish \u2014 mask"
     }
   ],
   "links": [

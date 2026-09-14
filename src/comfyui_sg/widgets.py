@@ -76,6 +76,20 @@ PUBLISH_FIELDS = (
           choices=("8-bit PNG", "16-bit PNG", "EXR 32-bit float"),
           tooltip="What the published frames are written as, for example EXR 32-bit float for a "
                   "scene-linear plate. The review still stays 8-bit PNG."),
+    # The three path templates, per publish. Empty is the template under Settings, which the editor
+    # draws inside the empty field, the same as root name and version name.
+    Field("sequence_path", "text", advanced=True, label="sequence path", default="",
+          tooltip="Where a batch of two or more frames is written, relative to the storage root, "
+                  "for example {entity}/{root_name}/{version_name}/{version_name}.%04d{ext}. "
+                  "Empty uses Sequence path under Settings."),
+    Field("still_path", "text", advanced=True, label="still path", default="",
+          tooltip="Where a batch of one frame is written, relative to the storage root, for "
+                  "example {entity}/{root_name}/{version_name}{ext}. Empty uses Still path under "
+                  "Settings."),
+    Field("movie_path", "text", advanced=True, label="movie path", default="",
+          tooltip="Where the clip is written, relative to the storage root, for example "
+                  "{entity}/{root_name}/{version_name}{ext}. Empty uses Movie path under "
+                  "Settings."),
 )
 
 # Which show, what to read from, which task, which of its media, and which frames. The fold contains

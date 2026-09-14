@@ -29,7 +29,7 @@
 />
 
 <h2>Path templates</h2>
-<p>Sequence path, Still path and Movie path, under Settings, then SG, SG Publish Defaults. A batch of one frame takes Still path.</p>
+<p>Sequence path, Still path and Movie path, under Settings, then SG, SG Publish Defaults. A batch of one frame takes Still path. The same three are advanced inputs on SG Publish: a filled one applies to that publish, an empty one shows the Settings template greyed inside the field.</p>
 <pre><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}
 {'{entity}/{root_name}/{version_name}{ext}'}
 {'{entity}/{root_name}/{version_name}{ext}'}</code></pre>

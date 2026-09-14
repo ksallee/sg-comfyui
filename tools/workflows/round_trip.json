@@ -71,7 +71,7 @@
         "",
         0
       ],
-      "title": "SG Load — newest depth on this link"
+      "title": "SG Load \u2014 newest depth on this link"
     },
     {
       "id": 2,
@@ -153,9 +153,12 @@
         "",
         0,
         true,
-        "8-bit PNG"
+        "8-bit PNG",
+        "",
+        "",
+        ""
       ],
-      "title": "SG Publish — regrade"
+      "title": "SG Publish \u2014 regrade"
     }
   ],
   "links": [

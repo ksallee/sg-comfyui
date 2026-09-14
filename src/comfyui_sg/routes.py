@@ -157,7 +157,10 @@ def _files_preview(widgets, prof, project_id, link_type, target, task_id):
                                                   widgets.get("root_name", ""))
         # `sequence.plan` is what the run stages from, so the two cannot render a path differently.
         pl = sequence.plan(prof, publish.storages(site.client()), code, version_no, project_id,
-                           link_type, target, task_id, widgets.get("root_name", ""))
+                           link_type, target, task_id, widgets.get("root_name", ""),
+                           {"sequence": widgets.get("sequence_path", ""),
+                            "still": widgets.get("still_path", ""),
+                            "movie": widgets.get("movie_path", "")})
         where = []
         if want_frames:
             ext = sequence.extension(widgets.get("format", ""))
@@ -277,10 +280,15 @@ def _token_rows(kind, project, link_type=""):
 
 
 def _in_force(profile):
-    """The two name templates Settings has in force for a project, whatever a node's fields read."""
-    from . import naming
+    """The templates Settings has in force for a project, by the node widget each one fills when
+    that widget is empty."""
+    from . import naming, sequence
+    pf = profile.get("published_files") or {}
     return {"root_name": profile.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE,
-            "code_template": profile.get("code_template") or naming.DEFAULT_TEMPLATE}
+            "code_template": profile.get("code_template") or naming.DEFAULT_TEMPLATE,
+            "sequence_path": pf.get("path_template") or sequence.DEFAULT_SEQUENCE_TEMPLATE,
+            "still_path": pf.get("still_path_template") or sequence.DEFAULT_STILL_TEMPLATE,
+            "movie_path": pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE}
 
 
 def _defaults():
@@ -658,7 +666,7 @@ def register():
                 # Its link only. Drawing its files here would read as the files this publish
                 # writes.
                 latest = {"id": lid, "code": lcode, "site_url": site.client().site}
-            # The two templates Settings has in force, whatever the node's own fields read. The
+            # The templates Settings has in force, whatever the node's own fields read. The
             # editor draws one inside an empty field as its placeholder, and lists it as the
             # completion's Default row whether the field is empty or not.
             return {"code": code, "link": f"{lt} {picked_name}".strip(),

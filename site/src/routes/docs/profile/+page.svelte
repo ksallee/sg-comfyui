@@ -87,9 +87,9 @@
 		<tr><td><code>default</code></td><td><code>false</code>, so Create Published Files starts unticked</td><td>Settings, SG Publish Defaults</td></tr>
 		<tr><td><code>storage</code></td><td>none, and the only Local File Storage when the site has exactly one</td><td>Settings, Storage</td></tr>
 		<tr><td><code>path_platform</code></td><td>this machine's</td><td>Settings, Operating system</td></tr>
-		<tr><td><code>path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}</code></td><td>Settings, Sequence path</td></tr>
-		<tr><td><code>still_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Still path</td></tr>
-		<tr><td><code>movie_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Movie path</td></tr>
+		<tr><td><code>path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}'}</code></td><td>Settings, Sequence path, or sequence path on the node</td></tr>
+		<tr><td><code>still_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Still path, or still path on the node</td></tr>
+		<tr><td><code>movie_path_template</code></td><td><code>{'{entity}/{root_name}/{version_name}{ext}'}</code></td><td>Settings, Movie path, or movie path on the node</td></tr>
 		<tr><td><code>register_movie</code></td><td><code>false</code>, so a clip beside frames is review only</td><td>Settings, Review movie</td></tr>
 		<tr><td><code>path_to_frames</code></td><td><code>true</code></td><td>Settings, Path to Frames</td></tr>
 		<tr><td><code>path_to_movie</code></td><td><code>true</code></td><td>Settings, Path to Movie</td></tr>

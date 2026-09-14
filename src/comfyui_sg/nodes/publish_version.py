@@ -151,17 +151,19 @@ class SGPublishVersion:
 
     @staticmethod
     def _stage(images, media_path, code, version_no, count, colour_space, want_frames, want_movie,
-               p, sg, project_id, link_type, target, task_id, root_name="", frame_format=""):
+               p, sg, project_id, link_type, target, task_id, root_name="", frame_format="",
+               templates=None):
         """Everything that touches disk, done before the Version exists. None when nothing was asked.
 
         `sequence.plan` decides where; this decides what is written there. The panel calls the same
-        plan, so a path read before the Run is the path the run writes.
+        plan, so a path read before the Run is the path the run writes. `templates` is the node's
+        own three path templates, by `sequence`, `still` and `movie`.
         """
         if not (want_frames or want_movie):
             return None
         pf = p.get("published_files") or {}
         pl = sequence.plan(p, publish.storages(sg), code, version_no, project_id, link_type, target,
-                           task_id, root_name)
+                           task_id, root_name, templates)
         sequence.check_root(pl.root)
         # The extension follows the files, never the template: it is the one the node's `format`
         # widget names, and a template reading `.exr` must not relabel 8-bit frames as scene-linear.
@@ -307,6 +309,7 @@ class SGPublishVersion:
                 source_versions="", attach_workflow=True, link_id=0,
                 register_files=False, colour_space="", root_name="",
                 format=sequence.DEFAULT_FORMAT,
+                sequence_path="", still_path="", movie_path="",
                 prompt=None, extra_pnginfo=None, usage_source=None, unique_id=None):
         if images is None and video is None:
             raise ValueError(
@@ -414,7 +417,8 @@ class SGPublishVersion:
         # a Version pointing at frames nobody wrote.
         staged = self._stage(images, media_path, code, version_no, count, colour_space,
                              want_frames, want_movie, p, sg, project_id, link_type, target,
-                             task_id, root_name, format)
+                             task_id, root_name, format,
+                             {"sequence": sequence_path, "still": still_path, "movie": movie_path})
 
         fields = dict(typed)
         # The note first, then a blank line, then one line per fact this site has no field for. The
