@@ -94,8 +94,8 @@ Then offer to run /setup.`;
 <!-- 1. Hero -->
 <section class="hero">
 	<div class="page hero-grid">
-		<h1>Publish generations to Flow Production Tracking.</h1>
 		<div class="hero-copy">
+			<h1>Publish generations to Flow Production Tracking.</h1>
 			<p class="lede">
 				SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it.
 			</p>
@@ -105,10 +105,7 @@ Then offer to run /setup.`;
 			</div>
 		</div>
 		<div class="hero-media">
-			<Clip
-				name="02_publish_run"
-				caption="One Run. The node reports the Version it created and the files it registered."
-			/>
+			<Clip name="02_publish_run" control={false} frame={false} />
 		</div>
 	</div>
 </section>
@@ -531,18 +528,18 @@ Then offer to run /setup.`;
 
 	.hero-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
 		column-gap: clamp(2rem, 5vw, 4rem);
-		row-gap: clamp(2rem, 4vw, 3rem);
-		align-items: start;
+		row-gap: clamp(1.5rem, 4vw, 3rem);
+		align-items: center;
 	}
 
-	.hero-grid h1 {
-		grid-column: 1 / -1;
-		max-width: 20ch;
+	.hero-copy h1 {
+		font-size: clamp(2.15rem, 1rem + 2.8vw, 3.4rem);
 	}
 
 	.hero-copy .lede {
+		margin-top: 1.5rem;
 		max-width: 34ch;
 		font-size: 1.125rem;
 	}

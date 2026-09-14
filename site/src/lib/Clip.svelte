@@ -5,9 +5,10 @@
 	/**
 	 * A screen recording. WebM first, MP4 second, a poster frame under both. It plays on entering
 	 * the viewport and never on its own under `prefers-reduced-motion: reduce`. At the end it
-	 * shows the last frame for HOLD milliseconds, then starts again.
+	 * shows the last frame for HOLD milliseconds, then starts again. `control` adds the
+	 * Pause button. `frame` draws the border. Without it the edges fade into the page.
 	 */
-	let { name, caption, ratio = '1600 / 1382' } = $props();
+	let { name, caption = '', ratio = '1600 / 1382', control = true, frame = true } = $props();
 
 	const HOLD = 3000;
 
@@ -65,7 +66,7 @@
 </script>
 
 <figure class="clip">
-	<div class="frame" style="aspect-ratio: {ratio}">
+	<div class="frame" class:bare={!frame} style="aspect-ratio: {ratio}">
 		<!-- svelte-ignore a11y_media_has_caption -->
 		<video
 			bind:this={node}
@@ -80,13 +81,15 @@
 			<source src="{base}/media/{name}.webm" type="video/webm" />
 			<source src="{base}/media/{name}.mp4" type="video/mp4" />
 		</video>
-		{#if ready}
+		{#if ready && control}
 			<button type="button" class="control" onclick={toggle}>
 				{playing ? 'Pause' : 'Play'}
 			</button>
 		{/if}
 	</div>
-	<figcaption>{caption}</figcaption>
+	{#if caption}
+		<figcaption>{caption}</figcaption>
+	{/if}
 </figure>
 
 <style>
@@ -100,6 +103,20 @@
 		border: 1px solid var(--line);
 		border-radius: var(--r);
 		overflow: hidden;
+	}
+
+	.frame.bare {
+		border: 0;
+		border-radius: 0;
+		background: none;
+		-webkit-mask-image:
+			linear-gradient(to right, transparent, #000 10%, #000 90%, transparent),
+			linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
+		mask-image:
+			linear-gradient(to right, transparent, #000 10%, #000 90%, transparent),
+			linear-gradient(to bottom, transparent, #000 10%, #000 90%, transparent);
+		-webkit-mask-composite: source-in;
+		mask-composite: intersect;
 	}
 
 	video {
