@@ -15,8 +15,8 @@ and `AGENTS.md`.
    `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
    workflow exists.
 
-Done 2026-09-14, after the release: the repo is public, and merges onto `dev` and `main` are
-Kevin's again. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
+Done 2026-09-14, after the release: the repo is public. The process from here is in CLAUDE.md:
+an agent branches from `dev`, opens a PR onto `dev` and merges it; `main` is Kevin's. The launch page is at https://sg-comfyui.vercel.app: Vercel project `sg-comfyui`
 under kevin-sallees-projects, linked to the GitHub repo with production branch `main`, root
 directory `site`, framework SvelteKit, output directory `build`, `BASE_PATH=/` in production, and
 an ignored build step that skips non-production builds. A push to `main` deploys. `pages.yml` and
@@ -147,8 +147,9 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
 - **The readout keeps both the frames path and the still path before a Run.** The labels stay.
 - **Windows** is listed as untested with an invitation to contribute, not as a feature.
 - **No em dash in a runtime string.** The source label separator is a middle dot.
-- **Merges onto `dev` and `main` are the agent's until the repo is public.** Kevin QAs after they
-  land. Once the repo is public, PRs wait for his merge again.
+- **Merging onto `dev` is authorized in the session; `main` is QA-gated and human-gated** unless
+  Kevin says otherwise in the session. Before the repo was public, on 2026-09-14, `main` was
+  granted too, for the release.
 - **The Registry is the last step**, after the release, the public repo, the launch page and the
   corpus.
 - **The launch page is Kevin's brother's** from 2026-09-14. `dev` and `main` are kept green for
