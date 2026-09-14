@@ -89,3 +89,21 @@ def test_plan_names_every_token_that_came_back_blank(monkeypatch, offline):
     pl = sequence.plan(PROFILE, STORAGES, "x_v001", 1, 1180, "Shot", 5, 7)
     # root_name, version_name and ext are filled by the plan itself and are never "unresolved".
     assert pl.blank == ["entity", "sg_task.Task.step.Step.short_name"]
+
+
+def test_a_template_on_the_node_overrides_the_profile_and_reaches_the_path(offline):
+    """A non-empty path template on the node is the one the plan renders. An empty one leaves the
+    profile's in force."""
+    code, version_no = version_name.next_name("", 1180, "Shot", 5, 7)
+    profile = dict(PROFILE, published_files={
+        "storage": "primary", "path_template": "{entity}/seq/{version_name}.%04d{ext}",
+        "still_path_template": "{entity}/still/{version_name}{ext}",
+        "movie_path_template": "{entity}/movie/{version_name}{ext}"})
+    pl = sequence.plan(profile, STORAGES, code, version_no, 1180, "Shot", 5, 7, "",
+                       {"sequence": " {root_name}/own/{version_name}.%04d{ext} ",
+                        "still": "", "movie": None})
+    root = pl.root.replace("\\", "/")
+    assert sequence.destination(pl, pl.seq_template, ".exr", version_no) == (
+        f"{root}/sh010_RTO/own/sh010_RTO_v003.%04d.exr")
+    assert pl.still_template == "{entity}/still/{version_name}{ext}"
+    assert pl.movie_template == "{entity}/movie/{version_name}{ext}"

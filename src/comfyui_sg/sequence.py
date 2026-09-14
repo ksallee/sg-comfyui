@@ -319,11 +319,15 @@ Plan = namedtuple("Plan", "root storage_id row platform seq_template still_templ
                           "movie_template values blank name")
 
 
-def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name=""):
-    """Where this publish's files would be written: the root, the two templates and the values.
+def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id, root_name="",
+         templates=None):
+    """Where this publish's files would be written: the root, the three templates and the values.
 
     Resolves and renders; touches no disk and creates nothing. The panel and the run both answer
     from here, so a path an operator reads before pressing Run is the path the run writes.
+
+    `templates` is the node's own `{"sequence", "still", "movie"}`. A non-empty one overrides the
+    profile's, the way a non-empty `root_name` does.
 
     A path template uses the language of the code template, dotted SG paths and Python's format
     spec (`naming.render`), plus the frame token `sg_path_to_frames` uses. There are three
@@ -334,9 +338,10 @@ def plan(p, storages, code, version_no, project_id, link_type, link_id, task_id,
     storage_id, root = root_for(storages, pf.get("storage", ""))
     row = storage_row(storages, pf.get("storage", ""))
     platform = platform_for(row, pf.get("path_platform", ""))
-    seq_t = pf.get("path_template") or DEFAULT_SEQUENCE_TEMPLATE
-    still_t = pf.get("still_path_template") or DEFAULT_STILL_TEMPLATE
-    mov_t = pf.get("movie_path_template") or DEFAULT_MOVIE_TEMPLATE
+    own = {k: (v or "").strip() for k, v in (templates or {}).items()}
+    seq_t = own.get("sequence") or pf.get("path_template") or DEFAULT_SEQUENCE_TEMPLATE
+    still_t = own.get("still") or pf.get("still_path_template") or DEFAULT_STILL_TEMPLATE
+    mov_t = own.get("movie") or pf.get("movie_path_template") or DEFAULT_MOVIE_TEMPLATE
     root_t = (root_name or p.get("root_name") or naming.DEFAULT_ROOT_TEMPLATE).strip()
     fields = (set(naming.template_fields(seq_t)) | set(naming.template_fields(still_t))
               | set(naming.template_fields(mov_t)) | set(naming.template_fields(root_t)))

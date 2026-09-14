@@ -91,14 +91,22 @@ def test_the_settings_example_writes_a_still_beside_the_version_folder(monkeypat
                                                "sh010_RTO_v003.%04d.png")
 
 
-def test_a_profile_that_names_neither_template_is_in_force_on_the_shipped_ones():
-    assert routes._in_force({}) == {"root_name": naming.DEFAULT_ROOT_TEMPLATE,
-                                    "code_template": naming.DEFAULT_TEMPLATE}
+SHIPPED_IN_FORCE = {"root_name": naming.DEFAULT_ROOT_TEMPLATE,
+                    "code_template": naming.DEFAULT_TEMPLATE,
+                    "sequence_path": sequence.DEFAULT_SEQUENCE_TEMPLATE,
+                    "still_path": sequence.DEFAULT_STILL_TEMPLATE,
+                    "movie_path": sequence.DEFAULT_MOVIE_TEMPLATE}
+
+
+def test_a_profile_that_names_no_template_is_in_force_on_the_shipped_ones():
+    assert routes._in_force({}) == SHIPPED_IN_FORCE
 
 
 def test_a_template_on_the_profile_is_the_one_in_force():
-    got = routes._in_force({"root_name": "{entity}_matte"})
-    assert got == {"root_name": "{entity}_matte", "code_template": naming.DEFAULT_TEMPLATE}
+    got = routes._in_force({"root_name": "{entity}_matte",
+                            "published_files": {"still_path_template": "{entity}/{version_name}{ext}"}})
+    assert got == dict(SHIPPED_IN_FORCE, root_name="{entity}_matte",
+                       still_path="{entity}/{version_name}{ext}")
 
 
 def test_the_fields_of_a_type_are_read_once_and_sorted_by_display_name(monkeypatch, fake_sg):

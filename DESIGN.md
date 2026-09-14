@@ -379,6 +379,10 @@ The storage root and the path templates are profile data, per project:
 A batch of one frame takes `still_path_template`, a batch of two or more takes `path_template`.
 The frame count is a run-time fact, so the panel names both paths before the Run.
 
+SG Publish has the three templates as advanced widgets, sequence path, still path and movie path.
+A non-empty widget overrides the profile's template for that publish. An empty one shows the
+profile's template as its placeholder, the same as root name and version name.
+
 `naming.render` reads Flow Production Tracking's dotted field paths and Python's format spec, so a
 path template is the same language as a code template. Two things are particular to a path:
 

@@ -233,9 +233,9 @@ Inside `published_files`:
 | `default` | `false`, so Create Published Files starts unticked | Settings, SG Publish Defaults |
 | `storage` | none, and the only Local File Storage when the site has exactly one | Settings, Storage |
 | `path_platform` | this machine's | Settings, Operating system |
-| `path_template` | `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` | Settings, Sequence path |
-| `still_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Still path |
-| `movie_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Movie path |
+| `path_template` | `{entity}/{root_name}/{version_name}/{version_name}.%04d{ext}` | Settings, Sequence path, or sequence path on the node |
+| `still_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Still path, or still path on the node |
+| `movie_path_template` | `{entity}/{root_name}/{version_name}{ext}` | Settings, Movie path, or movie path on the node |
 | `register_movie` | `false`, so a clip beside frames is review only | Settings, Review movie |
 | `path_to_frames` | `true` | Settings, Path to Frames |
 | `path_to_movie` | `true` | Settings, Path to Movie |

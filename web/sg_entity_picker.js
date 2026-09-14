@@ -270,13 +270,16 @@ function publishPickers(nodeType, nodeData) {
     // The status the operator picked, drawn the way SG draws it (probe 010).
     const statusOf = (label) => statusMeta[bare(label)] || null;
 
-    // The two name templates Settings has in force, read from each preview. The completion lists
-    // one of them as its Default row.
+    // The templates Settings has in force, by widget, read from each preview. The completion
+    // lists one of them as its Default row.
     let inForce = {};
+    const TEMPLATES = [["root_name", "root"], ["code_template", "name"],
+                       ["sequence_path", "sequence"], ["still_path", "still"],
+                       ["movie_path", "movie"]];
     // An opening brace lists the tokens a template of this kind may use, and a token that names an
     // entity descends into that type's own fields. `{entity}` is the picked link's type, else what
     // this project links a Version to, so both are passed.
-    for (const [widget, kind] of [["root_name", "root"], ["code_template", "name"]]) {
+    for (const [widget, kind] of TEMPLATES) {
       templateCompletion(this, { name: widget, kind,
                                  project: () => project?.value || "",
                                  linkType: () => typeFromLabel(bare(link?.value)),
@@ -313,11 +316,11 @@ function publishPickers(nodeType, nodeData) {
       const d = await call(`/sg/preview_code?${q}`);
       if (mine !== previewing) return;
       if (!keepLog) panel.clearLog();
-      // An empty root name or version name is set by Settings. The template in force is drawn
-      // greyed inside the empty field, where one would be typed, and is the completion's Default
-      // row whether the field is empty or not.
+      // An empty template field is set by Settings. The template in force is drawn greyed inside
+      // the empty field, where one would be typed, and is the completion's Default row whether
+      // the field is empty or not.
       inForce = d.settings || {};
-      for (const name of ["root_name", "code_template"]) {
+      for (const [name] of TEMPLATES) {
         setPlaceholder(node, name, w(name)?.value?.trim() ? "" : inForce[name] || "");
       }
       if (!d.code) {
@@ -484,8 +487,8 @@ function publishPickers(nodeType, nodeData) {
     // loop.
     ["task", "status", "attach_workflow", "register_files"].forEach((n) =>
       wrap(w(n), () => preview()));
-    ["code_template", "root_name", "note", "source_versions", "colour_space"].forEach((n) =>
-      wrap(w(n), previewSoon));
+    ["code_template", "root_name", "note", "source_versions", "colour_space", "sequence_path",
+     "still_path", "movie_path"].forEach((n) => wrap(w(n), previewSoon));
 
     // domRow marks each row we add. litegraph does not mark a button, and an injected widget that
     // serializes shifts each declared value after it. The callback takes no arguments: litegraph
