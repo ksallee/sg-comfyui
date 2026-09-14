@@ -1,5 +1,5 @@
 # Comfy Registry metadata, read by `comfy node publish`. ComfyUI itself reads only __init__.py.
-# Names come from DESIGN.md, "Names" — `[project].name` is immutable on the Registry once claimed.
+# Names come from DESIGN.md, "Names". `[project].name` is immutable on the Registry once claimed.
 
 [project]
 name = "sg-comfyui"
@@ -37,7 +37,7 @@ Icon = ""
 # have forced otherwise.
 
 # The offline suite. `tests/conftest.py` puts `src/` on the path and stubs torch, so the whole run
-# needs pytest, numpy and what requirements.txt already installs — no ComfyUI, no site.
+# needs pytest, numpy and what requirements.txt already installs. No ComfyUI, no site.
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 xfail_strict = false
