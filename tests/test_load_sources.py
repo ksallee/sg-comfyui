@@ -101,8 +101,8 @@ def version(*paths):
 def test_sources_label_each_row_by_kind():
     v = version(UPLOAD, UPLOAD_ZIP)
     labels = dict(media.sources(v)).values()
-    assert "Rendered Image — sh010_v001.mov, uploaded file" in labels
-    assert "Rendered Image — sh010_v001.zip, zip on the site" in labels
+    assert "Rendered Image · sh010_v001.mov, uploaded file" in labels
+    assert "Rendered Image · sh010_v001.zip, zip on the site" in labels
 
 
 def test_the_stored_key_still_names_type_file_and_id():

@@ -7,4 +7,4 @@ The order is not decided. Open an issue for the one you need, whether or not it 
 - Version fields and linked fields as inputs on SG Publish: a field search in Settings, a
   re-orderable list, each field a normal or advanced input.
 - A colour-managed template.
-- Windows as a first-class publisher.
+- Publishing from a Windows machine is untested. You can contribute.

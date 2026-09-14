@@ -435,11 +435,11 @@ def sources(v):
     for pf in v.get("published_files") or []:
         detail = _pf_detail(pf)
         if detail:
-            out.append((pf_key(pf), f'{pf["type"]} — {pf["name"]}, {detail}'))
+            out.append((pf_key(pf), f'{pf["type"]} · {pf["name"]}, {detail}'))
     for key, label in TIERS:
         detail = _resolve(v, key)
         if detail:
-            out.append((key, f"{label} — {detail}"))
+            out.append((key, f"{label} · {detail}"))
     return out
 
 

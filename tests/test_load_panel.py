@@ -121,7 +121,7 @@ def test_a_read_the_site_refused_is_not_blamed_on_the_storage():
 def test_one_file_is_one_frame(tmp_path):
     (tmp_path / "plate.1001.png").write_bytes(b"")
     v = {"id": 1, "published_files": [], "sg_path_to_frames": str(tmp_path / "plate.%04d.png")}
-    assert media.sources(v) == [("frames", "path to frames — 1 frame")]
+    assert media.sources(v) == [("frames", "path to frames · 1 frame")]
 
 
 # --- how the fallback sources are labelled ---------------------------------------------------------
@@ -130,7 +130,7 @@ def test_the_thumbnail_row_says_it_is_a_preview(monkeypatch):
     v = {"id": 1, "published_files": [], "image": "https://s3/t.jpg?sig"}
     monkeypatch.setattr(media, "_download", lambda url: b"jpeg")
     monkeypatch.setattr(media, "_header", lambda blob: {"width": 480, "height": 270})
-    assert media.sources(v) == [("thumbnail", "thumbnail — a preview the site made")]
+    assert media.sources(v) == [("thumbnail", "thumbnail · a preview the site made")]
     assert media.describe_format(v, "thumbnail") == (
         "thumbnail, 480x270, a preview the site made. Publish media to read the original.")
 
