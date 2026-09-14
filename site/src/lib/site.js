@@ -1,6 +1,6 @@
 export const repo = 'https://github.com/ksallee/sg-comfyui';
 export const issues = `${repo}/issues/new`;
-export const registry = 'https://registry.comfy.org/';
+export const registry = 'https://registry.comfy.org/nodes/sg-comfyui';
 export const licence = `${repo}/blob/main/LICENSE`;
 export const author = 'https://www.linkedin.com/in/kevinsallee/';
 

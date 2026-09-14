@@ -54,8 +54,6 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 | Site | a Flow Production Tracking site you can log into |
 | Client | `sg-groundtruth`, installed by `requirements.txt` |
 
-The pack is not on the Comfy Registry yet. Use the checkout until it is.
-
 ### ComfyUI Manager
 
 Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tracking`. Press
@@ -63,7 +61,13 @@ Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tra
 
 ### The Registry
 
-Coming soon.
+The pack is `sg-comfyui` at https://registry.comfy.org/nodes/sg-comfyui. With the Comfy CLI:
+
+```sh
+comfy node install sg-comfyui
+```
+
+Restart ComfyUI.
 
 ### A checkout
 
