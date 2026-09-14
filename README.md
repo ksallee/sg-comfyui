@@ -52,26 +52,17 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 | ComfyUI | 0.34.0 or newer |
 | Python | 3.11 |
 | Site | a Flow Production Tracking site you can log into |
-| Client | `sg-groundtruth`, installed by `requirements.txt` |
 
-### Which install
+### 1. From the Registry
 
-| install | what you get | updates |
-|---|---|---|
-| ComfyUI Manager or the Registry | the pack as released | Manager. An edit inside the pack is lost at the next update |
-| A checkout | the repository: the pack, the tests, the tools, the site. Customize it with an agent, run the suite, fork it | `git pull` |
-
-Both include `CLAUDE.md` and the commands under `.claude/commands/`, so `/setup`, `/inspect-site`,
-`/task` and `/track-workflow` run from either.
-
-### ComfyUI Manager
+Pick this to use the nodes. Manager updates the pack, and Settings and the profile keep your
+configuration across updates: project, templates, storage, the provenance mapping, which inputs
+are advanced. The pack is in alpha. What is missing is under What's next.
 
 Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tracking`. Press
 **Install**. Restart ComfyUI.
 
-### The Registry
-
-The pack is `sg-comfyui` at https://registry.comfy.org/nodes/sg-comfyui. With the Comfy CLI:
+With the Comfy CLI, the pack is `sg-comfyui` at https://registry.comfy.org/nodes/sg-comfyui:
 
 ```sh
 comfy node install sg-comfyui
@@ -79,7 +70,14 @@ comfy node install sg-comfyui
 
 Restart ComfyUI.
 
-### A checkout
+The commands `/setup`, `/task` and `/track-workflow` are in the pack, at
+`ComfyUI/custom_nodes/sg-comfyui`. Start your agent in that directory to use them.
+
+### 2. From the repo
+
+Pick this to change the nodes. The checkout has the tests, the harness and the history an agent
+works with, and your change survives `git pull`. It is also where `/inspect-site` runs, since it
+needs the sg-groundtruth checkout beside it.
 
 ```sh
 cd ComfyUI/custom_nodes
@@ -95,6 +93,8 @@ Restart ComfyUI.
 ```sh
 <comfy-python> tools/doctor.py
 ```
+
+Start your agent in the checkout. The four commands are there, `/inspect-site` included.
 
 Paths, the command-line tools, the profile key by key and the fixes are in [INSTALL.md](INSTALL.md).
 
