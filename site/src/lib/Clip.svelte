@@ -4,13 +4,36 @@
 
 	/**
 	 * A screen recording. WebM first, MP4 second, a poster frame under both. It plays on entering
-	 * the viewport and never on its own under `prefers-reduced-motion: reduce`.
+	 * the viewport and never on its own under `prefers-reduced-motion: reduce`. At the end it
+	 * shows the last frame for HOLD milliseconds, then starts again.
 	 */
 	let { name, caption, ratio = '1600 / 1382' } = $props();
+
+	const HOLD = 3000;
 
 	let node = $state(null);
 	let playing = $state(false);
 	let ready = $state(false);
+	let hold = null;
+
+	function restart() {
+		hold = null;
+		if (!node) return;
+		node.currentTime = 0;
+		node.play().catch(() => {});
+	}
+
+	function ended() {
+		clearTimeout(hold);
+		hold = setTimeout(restart, HOLD);
+		playing = true;
+	}
+
+	function pause() {
+		clearTimeout(hold);
+		hold = null;
+		node?.pause();
+	}
 
 	onMount(() => {
 		ready = true;
@@ -21,18 +44,22 @@
 			(entries) => {
 				for (const entry of entries) {
 					if (entry.isIntersecting) node?.play().catch(() => {});
-					else node?.pause();
+					else pause();
 				}
 			},
 			{ threshold: 0.35 }
 		);
 		seen.observe(node);
-		return () => seen.disconnect();
+		return () => {
+			seen.disconnect();
+			clearTimeout(hold);
+		};
 	});
 
 	function toggle() {
 		if (!node) return;
-		if (node.paused) node.play().catch(() => {});
+		if (hold) pause();
+		else if (node.paused) node.play().catch(() => {});
 		else node.pause();
 	}
 </script>
@@ -45,10 +72,10 @@
 			poster="{base}/media/{name}.jpg"
 			preload="metadata"
 			muted
-			loop
 			playsinline
 			onplay={() => (playing = true)}
 			onpause={() => (playing = false)}
+			onended={ended}
 		>
 			<source src="{base}/media/{name}.webm" type="video/webm" />
 			<source src="{base}/media/{name}.mp4" type="video/mp4" />
