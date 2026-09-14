@@ -9,26 +9,37 @@ and `AGENTS.md`.
 
 ## Next session, in order
 
-1. **`dev` to `main`**, by merge commit. Then the GitHub release from `main`, tagged.
-2. **Repo public.** Then GitHub Actions back on at the repository level. From this point merges
-   onto `dev` and `main` are Kevin's again.
-3. **The launch page on Vercel.** The same setup as sg-groundtruth.vercel.app: a Vercel project
-   `sg-comfyui` linked from the repo root, root directory `site`, output `build`, production
-   deploys only, `BASE_PATH=/` in the project's environment. `pages.yml` and `gh-pages` are then
-   unused. The page's content is Kevin's brother's from 2026-09-14.
-4. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
-5. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
+1. **Repo public**, Kevin. The agent's permission mode refuses a visibility change:
+
+       gh repo edit ksallee/sg-comfyui --visibility public --accept-visibility-change-consequences
+
+   From this point merges onto `dev` and `main` are Kevin's again.
+2. **The first production deploy**, Kevin. The Vercel project `sg-comfyui` exists under
+   kevin-sallees-projects, linked to the GitHub repo with production branch `main`, root directory
+   `site`, framework SvelteKit, `BASE_PATH=/` in production, and an ignored build step that skips
+   every non-production build. A push to `main` deploys, or by hand:
+
+       vercel deploy --prod --yes --scope kevin-sallees-projects
+
+   `pages.yml` and `gh-pages` are unused. The page's content is Kevin's brother's from 2026-09-14.
+3. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
+4. **Registry mechanics**, last, Kevin: publisher and API key at registry.comfy.org;
    `PublisherId`, `Icon` (square, 400 px or smaller), `Banner` (21:9) in `pyproject.toml`;
    `comfy node pack` and `unzip -l` to check the archive; `comfy node publish` by hand. No publish
    workflow exists.
+
+Done 2026-09-14: `dev` merged into `main` by merge commit, tag `v0.1.0`, the GitHub release, Actions
+back on at the repository level, the site workflow green on `main` by dispatch. The tests workflow
+runs on the next push; a dispatch of it runs its manual smoke job, which fails on a hosted runner
+by design.
 
 ---
 
 ## State, end of 2026-09-14
 
-`dev` has everything below. `main` is untouched since #80. Offline suite: 272 passed, 17 skipped.
-Actions is still off; the suite, the README block check and `npm run build` were run locally at
-each merge.
+`main` is `dev` plus the merge commit, tagged `v0.1.0`. Offline suite: 272 passed, 17 skipped.
+Actions was off until the release; the suite, the README block check and `npm run build` were run
+locally at each merge.
 
 **Landed 2026-09-14, one PR each, onto `dev`.**
 
@@ -217,9 +228,9 @@ deny on `.env.local` ships. Version stays 0.1.0.
 
 ---
 
-## Before the first release
+## Before the Registry
 
-Items 1 to 4 under "Next session", then the Registry.
+Items 1 to 3 under "Next session".
 
 **Feedback list at launch**, in README "What's next" and at the end of every post: registering files
 another node wrote (Save Image (Advanced), OCIO Write); publishing with no shared storage, the

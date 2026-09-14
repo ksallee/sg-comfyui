@@ -20,3 +20,4 @@ uv.lock
 site/node_modules/
 site/build/
 site/.svelte-kit/
+.vercel
