@@ -291,6 +291,15 @@ def _in_force(profile):
             "movie_path": pf.get("movie_path_template") or sequence.DEFAULT_MOVIE_TEMPLATE}
 
 
+def _paths():
+    """Where this ComfyUI reads the profile from, and the directory Settings writes to.
+
+    A tool run outside ComfyUI resolves both to the pack directory, so the inspector asks the
+    running ComfyUI instead. Reaches the site for nothing.
+    """
+    return {"profile": str(site.profile_path()), "store": str(credentials.store_dir())}
+
+
 def _defaults():
     """What Settings shows: the effective values for the project the nodes open on, plus the
     choices the site offers for the pickers. Storages and statuses fail soft to empty lists."""
@@ -415,6 +424,11 @@ def register():
         """One round trip as whoever the nodes would publish as, so a wrong key or a refused login
         is read in Settings rather than on the first Run."""
         return answer(credentials.test, {"ok": False})
+
+    @routes.get("/sg/paths")
+    async def paths(request):
+        """Where the profile is read from, for a tool that runs outside ComfyUI."""
+        return answer(_paths, {"profile": "", "store": ""})
 
     @routes.get("/sg/defaults")
     async def defaults(request):

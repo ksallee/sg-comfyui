@@ -12,6 +12,9 @@ from pathlib import Path
 
 PACK = Path(__file__).resolve().parents[1]
 LOCAL_FILES = ("profile.local.json", "settings.local.json", "session.local.json", ".env.local")
+# The route that answers where a running ComfyUI reads the profile from, on ComfyUI's default
+# address. Nothing here requests it; the operator does.
+PATHS_URL = "http://127.0.0.1:8188/sg/paths"
 
 # The sample a template is rendered on: one Shot, one Roto Task, version 3. `{root_name}` and
 # `{version_name}` are the two names a run passes to a path template.
@@ -90,9 +93,13 @@ def check_paths(r, credentials, sg_site):
     if store == credentials.ROOT:
         r.ok(f"Settings and the session would be kept at {store}, the checkout root, because "
              f"ComfyUI is not running this.")
+        r.ok(f"This run reads the profile from {sg_site.profile_path()}.")
+        r.ok(f"ComfyUI reads it from its own protected user directory, which this run cannot see. "
+             f"Open {PATHS_URL} on the ComfyUI you publish from for that path, and write the "
+             f"profile there.")
     else:
         r.ok(f"Settings and the session are kept at {store}.")
-    r.ok(f"The profile is read from {sg_site.profile_path()}.")
+        r.ok(f"ComfyUI and this run both read the profile from {sg_site.profile_path()}.")
 
     present = [name for name in LOCAL_FILES
                if (credentials.ROOT / name).is_file() or (store / name).is_file()]

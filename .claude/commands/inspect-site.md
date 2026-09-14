@@ -22,9 +22,18 @@ own root (`sg_groundtruth.env.load`), layered over the environment. Same three k
 (`.env.local.example`). A missing key is named, never printed.
 
 Always pass `--out`. Its default is `./profile.local.json` relative to the *working directory*, and
-the file has to be written where the nodes read it: run `tools/doctor.py` first and pass the path it
-prints. A profile in ComfyUI's protected user directory is read instead of one in the pack directory,
-so writing to the wrong one leaves the report looking right and nothing changed.
+the file has to be written where the nodes read it. Ask the running ComfyUI for that path:
+
+    curl http://127.0.0.1:8188/sg/paths
+
+The answer is `{"profile": ..., "store": ...}`. Pass `profile` to `--out`. Use the address the
+operator opens ComfyUI at where that is not the default. A ComfyUI started before this version of the
+pack answers 404 there; restart ComfyUI, then ask again. With ComfyUI stopped, `tools/doctor.py`
+prints the pack directory instead, which is read only while the protected user directory holds no
+profile.
+
+A profile in ComfyUI's protected user directory is read instead of one in the pack directory, so
+writing to the wrong one leaves the report looking right and nothing changed.
 
 1. **List first.** Run with no `--project` and read the ids and names back. Do not guess which
    show they meant from a partial name.
