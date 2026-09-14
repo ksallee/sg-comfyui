@@ -1,4 +1,5 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	const sample = `{
   "default_project": 1180,
   "projects": {
@@ -22,8 +23,7 @@
 </script>
 
 <svelte:head>
-	<title>The profile. SG ComfyUI</title>
-	<meta name="description" content="profile.local.json sets what a Version links to, what it is called, and where each provenance fact is written." />
+	<Head title="The profile. SG ComfyUI" description="profile.local.json sets what a Version links to, what it is called, and where each provenance fact is written." />
 </svelte:head>
 
 <h1>The profile</h1>

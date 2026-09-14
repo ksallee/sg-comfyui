@@ -1,4 +1,5 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Markdown from '$lib/Markdown.svelte';
 	import Shot from '$lib/Shot.svelte';
@@ -6,8 +7,7 @@
 </script>
 
 <svelte:head>
-	<title>First run. SG ComfyUI</title>
-	<meta name="description" content="Eight steps from the Settings dialog to a published Version, and what a farm does instead of step three." />
+	<Head title="First run. SG ComfyUI" description="Eight steps from the Settings dialog to a published Version, and what a farm does instead of step three." />
 </svelte:head>
 
 <h1>First run</h1>

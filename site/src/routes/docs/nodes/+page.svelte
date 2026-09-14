@@ -1,11 +1,11 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Shot from '$lib/Shot.svelte';
 </script>
 
 <svelte:head>
-	<title>The two nodes. SG ComfyUI</title>
-	<meta name="description" content="What SG Publish writes to a Version, what SG Load reads back, and what each node reports before a Run." />
+	<Head title="The two nodes. SG ComfyUI" description="What SG Publish writes to a Version, what SG Load reads back, and what each node reports before a Run." />
 </svelte:head>
 
 <h1>The two nodes</h1>

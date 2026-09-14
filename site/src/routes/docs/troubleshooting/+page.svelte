@@ -1,6 +1,9 @@
+<script>
+	import Head from '$lib/Head.svelte';
+</script>
+
 <svelte:head>
-	<title>Troubleshooting. SG ComfyUI</title>
-	<meta name="description" content="The symptom, then the fix: a 404 Settings dialog, empty pickers, a stale lookup, a refused storage, an unnamed client." />
+	<Head title="Troubleshooting. SG ComfyUI" description="The symptom, then the fix: a 404 Settings dialog, empty pickers, a stale lookup, a refused storage, an unnamed client." />
 </svelte:head>
 
 <h1>Troubleshooting</h1>

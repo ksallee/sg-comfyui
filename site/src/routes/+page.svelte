@@ -1,4 +1,5 @@
 <script>
+	import Head from '$lib/Head.svelte';
 	import { base } from '$app/paths';
 	import Clip from '$lib/Clip.svelte';
 	import Markdown from '$lib/Markdown.svelte';
@@ -84,18 +85,14 @@ Then offer to run /setup.`;
 </script>
 
 <svelte:head>
-	<title>SG ComfyUI</title>
-	<meta
-		name="description"
-		content="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph."
-	/>
+	<Head title="SG ComfyUI: Flow Production Tracking for ComfyUI" description="Two ComfyUI nodes. SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it. SG Load reads that media back into a graph." />
 </svelte:head>
 
 <!-- 1. Hero -->
 <section class="hero">
 	<div class="page hero-grid">
-		<h1>Publish generations to Flow Production Tracking.</h1>
 		<div class="hero-copy">
+			<h1>Publish generations to Flow Production Tracking.</h1>
 			<p class="lede">
 				SG Publish creates a Version with the model, prompt, seed, sampler and workflow that made it.
 			</p>
@@ -105,10 +102,7 @@ Then offer to run /setup.`;
 			</div>
 		</div>
 		<div class="hero-media">
-			<Clip
-				name="02_publish_run"
-				caption="One Run. The node reports the Version it created and the files it registered."
-			/>
+			<Clip name="02_publish_run" control={false} frame={false} />
 		</div>
 	</div>
 </section>
@@ -122,7 +116,7 @@ Then offer to run /setup.`;
 			that leaves it has a name and a date.
 		</p>
 		<div class="contrast">
-			<div class="cell sunk">
+			<div class="cell">
 				<h3>In the output directory</h3>
 				<ul>
 					<li>A file name.</li>
@@ -225,7 +219,7 @@ Then offer to run /setup.`;
 				<h3>16-bit PNG</h3>
 				<p>SG Load reads it back at full precision.</p>
 			</div>
-			<div class="cell sunk">
+			<div class="cell">
 				<h3>EXR 32-bit float</h3>
 				<p>
 					Pixels are written unchanged. The declared colour space goes in the PublishedFile's
@@ -531,18 +525,18 @@ Then offer to run /setup.`;
 
 	.hero-grid {
 		display: grid;
-		grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr);
 		column-gap: clamp(2rem, 5vw, 4rem);
-		row-gap: clamp(2rem, 4vw, 3rem);
-		align-items: start;
+		row-gap: clamp(1.5rem, 4vw, 3rem);
+		align-items: center;
 	}
 
-	.hero-grid h1 {
-		grid-column: 1 / -1;
-		max-width: 20ch;
+	.hero-copy h1 {
+		font-size: clamp(2.15rem, 1rem + 2.8vw, 3.4rem);
 	}
 
 	.hero-copy .lede {
+		margin-top: 1.5rem;
 		max-width: 34ch;
 		font-size: 1.125rem;
 	}
@@ -563,7 +557,7 @@ Then offer to run /setup.`;
 
 	.contrast {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) minmax(0, 1.25fr);
+		grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 		gap: 1.25rem;
 		margin-top: 2.75rem;
 	}
@@ -573,10 +567,6 @@ Then offer to run /setup.`;
 		border-radius: var(--r);
 		background: var(--surface);
 		padding: clamp(1.25rem, 2.4vw, 1.9rem);
-	}
-
-	.cell.sunk {
-		background: var(--sunk);
 	}
 
 	.cell h3 {
