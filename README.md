@@ -54,6 +54,16 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 | Site | a Flow Production Tracking site you can log into |
 | Client | `sg-groundtruth`, installed by `requirements.txt` |
 
+### Which install
+
+| install | what you get | updates |
+|---|---|---|
+| ComfyUI Manager or the Registry | the pack as released | Manager. An edit inside the pack is lost at the next update |
+| A checkout | the repository: the pack, the tests, the tools, the site. Customize it with an agent, run the suite, fork it | `git pull` |
+
+Both include `CLAUDE.md` and the commands under `.claude/commands/`, so `/setup`, `/inspect-site`,
+`/task` and `/track-workflow` run from either.
+
 ### ComfyUI Manager
 
 Open **Manager**, then **Custom Nodes Manager**. Search for `Flow Production Tracking`. Press
