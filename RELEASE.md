@@ -42,12 +42,34 @@ by design.
 
 ## State, end of 2026-09-14
 
-`main` is `dev` plus the merge commit, tagged `v0.1.0`. Offline suite: 272 passed, 17 skipped.
+`main` was promoted at #147; `dev` is #149 and #150 ahead. Tag `v0.1.0` is at the first merge.
+Offline suite: 278 passed, 17 skipped.
 Actions was off until the release; the suite, the README block check and `npm run build` were run
 locally at each merge.
 
 **Landed 2026-09-14, one PR each, onto `dev`.**
 
+- #150 Every document says which install an instruction applies to. AGENTS.md opens with a
+  table of what the Registry pack has and what only the checkout has, and an "also needs" column
+  on the procedures: `inspect-site` and `task` need the `sg-groundtruth` checkout. INSTALL.md, the
+  three other commands, the agent, install and profile docs pages follow.
+- #149 `GET /sg/paths` answers where the running ComfyUI reads the profile from and the directory
+  Settings writes to. `/inspect-site` asks it for the `--out` path. `tools/doctor.py` says which
+  path each route reads. Measured in ComfyUI Manager's code: a Registry update deletes only the
+  files the previous archive shipped (`cnr_switch_version_instant`, `glob/manager_core.py`), so a
+  profile in the pack directory survives one. Six tests.
+- #147 Issue forms: Bug (install route, versions, what happened as the panel reads it) and Feature
+  (what you need, where it fits). Labels `feature` and `user request` created on the repo.
+- #146, #145, #144 README Install: "1. From the Registry" and "2. From the repo", each opening with
+  why to pick it. The landing page's Install is the requirements, three sentences pointing at the
+  docs, and two agent prompts, one per route. The install docs page reads "Two ways to install".
+  The footer names the Registry entry and links to its page.
+- #143, #142 `PublisherId` `ksallee`; `.comfyignore` leaves every tool but `doctor.py`, RELEASE.md
+  and `LAYOUT_API.md` out of the archive.
+- #141 `pages.yml` removed.
+- #140 `site/vercel.json`: Git deployments off for every branch but `main`.
+- #139, #138, #137 RELEASE.md and CLAUDE.md's Process section; the SG Publish Info tab retaken.
+- #136 `LAYOUT_API.md` as reference prose.
 - #133 No em dash in a runtime string. The source label separator is a middle dot
   (`Rendered Image · sh010_v001.mov, uploaded file`), the clip sentence takes a comma
   (`240 frames at 24 fps, encoded by ComfyUI`), an instrumented node is titled
@@ -152,6 +174,16 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
 
 ## Decisions, 2026-09-14, with Kevin
 
+- **Two installs, one reason each.** The Registry to use the nodes: Manager updates the pack,
+  Settings and the profile keep the configuration. The repo to change the nodes: tests, harness,
+  history, and `/inspect-site`, which needs the `sg-groundtruth` checkout beside it.
+  Configuration is not a reason to pick the repo.
+- **The Registry display name stays "Flow Production Tracking"**: it is what a Registry or Manager
+  search reads. SG is the short name on the node and in the editor.
+- **Vercel builds production only.** No preview deployment for any branch, for the monthly quota.
+- **Issues have forms and labels**: Bug, Feature; `bug`, `feature`, `user request`.
+- **The launch page is Kevin's brother's**, from `main`, which is kept level with `dev` when Kevin
+  says promote.
 - **The three path templates are inputs on SG Publish**, advanced, empty meaning Settings, the
   Settings template as the placeholder, on the pattern of root name and version name. Storage,
   operating system, the two path-field toggles and review movie stay in Settings only.
@@ -163,8 +195,6 @@ thirteen files in page order; older folders under `~/Desktop/sg-screenshots-arch
   granted too, for the release.
 - **The Registry is the last step**, after the release, the public repo, the launch page and the
   corpus.
-- **The launch page is Kevin's brother's** from 2026-09-14. `dev` and `main` are kept green for
-  him at each merge.
 
 ## Decisions, 2026-09-11, with Kevin
 

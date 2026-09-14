@@ -34,8 +34,8 @@ ok    This is the interpreter ComfyUI runs on, /Users/you/ComfyUI/venv/bin/pytho
 - `COMFYUI_PATH` tells the doctor where ComfyUI is. It defaults to `~/dev/ComfyUI`.
 - The doctor exits non-zero on anything that would fail a publish. It warns on the rest.
 
-The API client is `sg-groundtruth`, from PyPI. `requirements.txt` names it. Each install path
-installs that file.
+The API client is `sg-groundtruth`, from PyPI. `requirements.txt` names it. Manager and the
+Registry install that file. A clone installs it with the pip line in README.md.
 
 ## Signing in
 
@@ -59,7 +59,7 @@ does not need them. A site with none of them records the facts in the Version's 
 Open Settings, then SG, SG Site Setup. It reports how many of the nine exist. Press Create to add the
 rest.
 
-Run the same thing from a farm or a checkout with no browser on it:
+Run the same thing from the pack directory, on a farm or a machine with no browser on it:
 
 ```sh
 PYTHONPATH=src <comfy-python> -m comfyui_sg.fields
@@ -85,7 +85,7 @@ For a colour-managed pipeline:
 
 ## The local files
 
-Four files, all of them yours, none of them in git.
+Four files, all of them yours. Neither install ships one.
 
 | file | what it is | written by | read from |
 |---|---|---|---|
@@ -98,7 +98,7 @@ The **protected user directory** is `<ComfyUI user directory>/__sg_comfyui`. Tha
 `ComfyUI/user/__sg_comfyui` unless `--user-directory` or `--base-directory` moved it. It is outside
 `custom_nodes`, so an upgrade leaves it alone. ComfyUI serves no HTTP route for a `__` directory.
 
-The **pack directory** is where this repo's files are.
+The **pack directory** is where the pack's own files are.
 
 | install | the pack directory |
 |---|---|
@@ -113,11 +113,15 @@ Which copy is read:
 - **The profile** comes from the protected user directory when a `profile.local.json` is there, and
   from the pack directory otherwise. Settings writes wherever that resolves to.
 - Once a profile exists in the protected user directory, a second one in the pack directory is
-  ignored. `tools/doctor.py` prints the path in use. Write to that path.
+  ignored. A running ComfyUI answers the path in use at `/sg/paths`, for example
+  `http://127.0.0.1:8188/sg/paths`. Write to that path. With ComfyUI stopped, `tools/doctor.py`
+  prints the pack directory, which is read only while the protected user directory holds no profile.
+- A Registry or Manager update keeps a `profile.local.json` in the pack directory. It deletes only
+  the files the previous version of the pack shipped.
 
 ## Running the command-line tools
 
-They run from the pack directory. On a Registry or Manager install, `cd` into it first:
+They run from the pack directory. `cd` into it first:
 
 ```sh
 cd ComfyUI/custom_nodes/sg-comfyui
@@ -144,8 +148,8 @@ A workstation signed in through Log in still needs a script name and key for the
 cp .env.local.example .env.local        # then fill in the three keys
 ```
 
-`.env.local` is gitignored, never printed and never logged. A missing key is reported by name, never
-by value. On a farm, put the same three keys in the launch environment instead.
+`.env.local` is never printed and never logged. A missing key is reported by name, never by value.
+On a farm, put the same three keys in the launch environment instead.
 
 ## Measuring a site without an agent
 
