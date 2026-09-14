@@ -186,8 +186,8 @@ provenance fact is written to. It is plain JSON. Edit it by hand.
 | Add the nodes to a graph you already use | `/track-workflow` |
 
 Without a measured profile the pickers run on the site's own defaults, which suit a Shot-linked show.
-The procedures are in `.claude/commands/` as plain markdown. `01_concept_and_style` and
-`02_style_from_a_reference` are worked graphs.
+The procedures are in `.claude/commands/`, in either install, as plain markdown.
+`01_concept_and_style` and `02_style_from_a_reference` are worked graphs.
 
 ## What's next
 

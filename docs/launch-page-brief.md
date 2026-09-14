@@ -68,7 +68,7 @@ discipline; 4.9 content density; 6.C and 8 dark mode; 13 out of scope.
 7. Templates, and `/track-workflow` on an existing graph.
 8. Storage and paths: copy never move, the frame token, Windows notation.
 9. Signing in: App Session Launcher, or a script name and key.
-10. Install: ComfyUI Manager, the Registry, a checkout. Command blocks match `README.md`.
+10. Install: the Registry pack, or the repo checkout. Command blocks match `README.md`.
 11. `tools/doctor.py`: the offline check.
 12. Not in scope: no encoder, no decoder, no charts, no dashboards, no automations.
 13. What's next, tell us: the feedback list from `RELEASE.md`, verbatim.

@@ -1,6 +1,6 @@
 # For an agent
 
-This repo is two ComfyUI nodes. SG Publish sends a generation to Flow Production Tracking as a
+This pack is two ComfyUI nodes. SG Publish sends a generation to Flow Production Tracking as a
 Version with the model, prompt, seed, sampler and workflow that produced it. SG Load reads a Version's
 media back into a graph. Nothing here makes images.
 
@@ -13,6 +13,17 @@ Run this first:
 
 It prints one line per thing a publish needs, with the fix appended where it fails. It exits non-zero
 on anything that would stop a publish.
+
+## Which install this is
+
+| file | the Registry pack | the repo checkout |
+|---|---|---|
+| `__init__.py`, `src/`, `web/`, `example_workflows/` | yes | yes |
+| `README.md`, `INSTALL.md`, `DESIGN.md`, `CLAUDE.md`, `AGENTS.md` | yes | yes |
+| `.claude/commands/`, `tools/doctor.py` | yes | yes |
+| `tests/`, the rest of `tools/`, `site/`, `.claude/skills/`, `RELEASE.md` | no | yes |
+
+Manager updates the pack. `git pull` updates the checkout. Changing the code needs the checkout.
 
 ## Which document
 
@@ -27,18 +38,21 @@ on anything that would stop a publish.
 `.claude/commands/` has four procedures. They are plain markdown with no Claude Code in them.
 Follow the file whether or not your harness has slash commands.
 
-| file | does |
-|---|---|
-| `.claude/commands/setup.md` | a first run, from the connection to the example workflow |
-| `.claude/commands/inspect-site.md` | measure one project and write `profile.local.json` |
-| `.claude/commands/track-workflow.md` | put the nodes into a graph the operator already uses |
-| `.claude/commands/task.md` | do a job against the API, grounded in the corpus |
+| file | does | also needs |
+|---|---|---|
+| `.claude/commands/setup.md` | a first run, from the connection to the example workflow | nothing |
+| `.claude/commands/inspect-site.md` | measure one project and write `profile.local.json` | the `sg-groundtruth` checkout |
+| `.claude/commands/track-workflow.md` | put the nodes into a graph the operator already uses | nothing |
+| `.claude/commands/task.md` | do a job against the API, grounded in the corpus | the `sg-groundtruth` checkout |
+
+INSTALL.md, "Measuring a site without an agent", says where to clone `sg-groundtruth`.
 
 ## The launch page
 
-The page under `site/` is written under `taste-skill`, in `.claude/skills/taste-skill/`. It is copied
-verbatim from `github.com/leonxlnx/taste-skill` at `ccbc156` and pinned here, so a review reads what
-the agent read. `minimalist-skill` is an aesthetic reference, read in part and not followed.
+`site/` is in the repo checkout. The page is written under `taste-skill`, in
+`.claude/skills/taste-skill/`. It is copied verbatim from `github.com/leonxlnx/taste-skill` at
+`ccbc156` and pinned here, so a review reads what the agent read. `minimalist-skill` is an aesthetic
+reference, read in part and not followed.
 
 `RELEASE.md` takes precedence over the skill.
 
