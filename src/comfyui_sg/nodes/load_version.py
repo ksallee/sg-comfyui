@@ -234,7 +234,7 @@ class SGLoadVersion:
         if source in (AUTO, UNSET):
             key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
         else:
-            key = source.split(" — ")[0].strip()
+            key = source.split(" · ")[0].strip()
             if key not in [k for k, _ in available]:
                 # The labels, not the keys: a PublishedFile that has been renamed or re-typed no
                 # longer matches the saved value, and the listing names which one it is.

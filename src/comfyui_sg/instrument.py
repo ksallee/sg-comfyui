@@ -610,7 +610,7 @@ def _cli(argv=None):
         crossed = SEP in path
         was = len(_flatten(wf).subs[top][0].get("outputs") or []) if crossed else 0
         # Every tap re-reads the graph, because promoting a stream out of a subgraph changes it.
-        new = add_publish(wf, path, slot, w, title=f"SG Publish — {d}", name=d)
+        new = add_publish(wf, path, slot, w, title=f"SG Publish: {d}", name=d)
         note = ""
         if crossed:
             grew = len(_flatten(wf).subs[top][0].get("outputs") or []) > was

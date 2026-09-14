@@ -12,7 +12,7 @@ app.api.dispatchEvent(new CustomEvent("executed", { detail: {
     published: [{
       code: "demo_01_roto_matte_v006", id: 31875, link: "Shot demo_01_roto", status: "",
       outputs: ["sg_ai_generator","sg_ai_model","sg_ai_prompt"],
-      media: "3 frames at 25 fps — encoded by ComfyUI",
+      media: "3 frames at 25 fps, encoded by ComfyUI",
       site_url: "https://kevinsallee.shotgrid.autodesk.com",
       files: [{ kind: "frames", count: 3,
                 path: "/Volumes/FPT/demo_01_roto/matte/v006/demo_01_roto_matte_v006.%04d.png" }]

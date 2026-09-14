@@ -33,7 +33,7 @@ const RESOLVE = {
   id: 31875, code: "chr_010_comp_v006", why: "pinned by id",
   status: { code: "rev", label: "Pending Review", rgb: "149,227,167", icon: "" },
   media: ["Rendered Image · chr_010_comp_v006.%04d.exr #7101"],
-  image_label: "Rendered Image — chr_010_comp_v006.%04d.exr, 120 frames",
+  image_label: "Rendered Image · chr_010_comp_v006.%04d.exr, 120 frames",
   video_label: "the frames at 25 fps, from the Version",
   frames: { first: 1, last: 120, count: 120 },
   batch: { width: 3840, height: 2160, fits: 43, gib: "4" },

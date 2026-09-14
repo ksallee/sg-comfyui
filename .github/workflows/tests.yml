@@ -54,8 +54,8 @@ jobs:
 
   # Manual only. tools/smoke.py loads each shipped graph in a real ComfyUI and reads the widget
   # values back, which is the only thing that catches a positional shift in widgets_values. It needs
-  # a ComfyUI checkout, its models, and playwright's browser, so it cannot run on a hosted runner —
-  # run it on a machine that has ComfyUI:
+  # a ComfyUI checkout, its models, and playwright's browser, so it cannot run on a hosted runner.
+  # Run it on a machine that has ComfyUI:
   #     uv run --with playwright --with sg-groundtruth --python 3.11 python tools/smoke.py --port 8999
   smoke:
     if: github.event_name == 'workflow_dispatch'

@@ -101,4 +101,4 @@ def test_a_clip_held_in_memory_has_no_file_to_leave_untouched(comfy_api, tmp_pat
 def test_the_sentence_names_the_count_the_rate_and_the_path_taken(comfy_api, tmp_path):
     count, said = movie.describe(FakeVideoFromFile(str(tmp_path / "x.mov")), "encoded by ComfyUI")
     assert count == 240
-    assert said == "240 frames at 24 fps — encoded by ComfyUI"
+    assert said == "240 frames at 24 fps, encoded by ComfyUI"

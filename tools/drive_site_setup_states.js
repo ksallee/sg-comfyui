@@ -108,4 +108,4 @@ if (STATE === "refused") {
 await until(() => value() === "9 of 9 exist on this site.");
 const ok = lines.length === 1 && lines[0] === "All 9 already exist. Nothing was created."
   && value() === "9 of 9 exist on this site.";
-return { verdict: `${ok ? "PASS" : "FAIL"} "${lines[0]}" — "${value()}"` };
+return { verdict: `${ok ? "PASS" : "FAIL"} "${lines[0]}", "${value()}"` };

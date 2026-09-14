@@ -604,7 +604,7 @@ def register():
             if picked == "auto":
                 key, clip_key = media.best(v, "image", available), media.best(v, "video", available)
             else:
-                key = picked.split(" — ")[0].strip()
+                key = picked.split(" · ")[0].strip()
                 clip_key = key if media.kind_of(v, key) == "movie" else ""
             label = dict(available)
             fps, fps_why = media.frame_rate(v)

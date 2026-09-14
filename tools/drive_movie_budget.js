@@ -9,7 +9,7 @@ const json = (body) => new Response(JSON.stringify(body),
 const RESOLVE = {
   id: 31875, code: "chr_010_comp_v006", why: "newest on this link",
   status: { code: "rev", label: "Pending Review", rgb: "255,169,0", icon: "" },
-  media: ["chr_010_comp_v006.mov — Movie"],
+  media: ["chr_010_comp_v006.mov · Movie"],
   image_label: "chr_010_comp_v006.mov, 300 frames",
   video_label: "chr_010_comp_v006.mov",
   frames: { count: 300 },
