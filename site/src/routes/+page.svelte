@@ -387,8 +387,7 @@ Then offer to run /setup.`;
 			<p>
 				From the Registry, <code>comfy node install sg-comfyui</code> or ComfyUI Manager: the pack as
 				released. From the repo, a clone into <code>custom_nodes</code>: the pack you customize with an
-				agent. Both routes, what each gives you and which interpreter to install into:
-				<a href="{base}/docs/install">Install</a>.
+				agent. Check which one you should install in <a href="{base}/docs/install">the docs</a>.
 			</p>
 			<div class="agent-install">
 				<div class="agent-buttons">
