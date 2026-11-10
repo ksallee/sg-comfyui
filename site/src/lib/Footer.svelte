@@ -27,6 +27,7 @@
 
 		<nav aria-label="Project">
 			<ul>
+				<li><a href="{base}/provenance">Provenance</a></li>
 				<li><a href={repo} rel="external">Repository</a></li>
 				<li><a href={registry} rel="external">Comfy Registry</a></li>
 				<li><a href={licence} rel="external">MIT licence</a></li>

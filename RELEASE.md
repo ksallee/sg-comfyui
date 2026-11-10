@@ -13,6 +13,10 @@ and `AGENTS.md`.
 2. **`Icon` in `pyproject.toml`**, a square image 400 px or smaller, and `Banner` at 21:9, when
    Kevin has them. A new Registry version needs a version bump in the same commit.
 
+Launched 2026-09-14: posted on LinkedIn and on the Flow Production Tracking community forum, with
+the run clip. Feedback arrives as GitHub issues through the Bug and Feature forms, as forum replies,
+and as LinkedIn comments. The next session starts by reading those.
+
 Done 2026-09-14, on the Registry: `sg-comfyui` 0.1.0 under publisher `ksallee`, published with
 `comfy node publish` from the `dev` checkout at #142, changelog "First release.", status pending
 the Registry's review. The archive is the node code, the editor files, the example graphs, README,
