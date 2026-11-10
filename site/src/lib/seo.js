@@ -11,9 +11,9 @@ export const localBase = '/sg-comfyui';
 /** The share card. 1200 by 630, the size LinkedIn, Slack and X read. */
 export const shareImage = `${origin}/media/og.png`;
 
-/** Every page, as served: the landing page, the docs index, the nine docs pages. */
+/** Every page, as served: the landing page, the provenance page, the docs index, the nine docs pages. */
 export function pages() {
-	return ['/', '/docs/', ...docs.map((d) => `/docs/${d.slug}/`)];
+	return ['/', '/provenance/', '/docs/', ...docs.map((d) => `/docs/${d.slug}/`)];
 }
 
 export function sitemap() {
@@ -47,6 +47,10 @@ export function llmsTxt() {
 		'',
 		`Requires ComfyUI 0.34.0 and Python 3.11. On the Comfy Registry as sg-comfyui: ${registry}.`,
 		`Source, MIT: ${repo}. Issues: ${repo}/issues.`,
+		'',
+		'## Pages',
+		'',
+		`- [Provenance for generative pipelines](${origin}/provenance/): what the pack records about each generation, and where it is stored.`,
 		'',
 		'## Docs',
 		'',
