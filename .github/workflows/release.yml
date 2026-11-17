@@ -15,6 +15,8 @@ jobs:
     if: github.repository_owner == 'ksallee'
     runs-on: ubuntu-latest
     steps:
-      - uses: Comfy-Org/publish-node-action@1.0.1
+      # The action's main branch, by commit. Its tag 1.0.1 runs `comfy --yes`, which comfy-cli 1.26
+      # refuses.
+      - uses: Comfy-Org/publish-node-action@d2366e7abb6ab16f3bb03e3520ae25c8cf749bc9
         with:
           personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}
