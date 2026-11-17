@@ -16,3 +16,8 @@ LAYOUT_API.md
 # Screenshots the README shows on GitHub. Not part of the node pack.
 docs/images/
 docs/launch-page-brief.md
+
+# Command-line tools that read a path given to them. The Registry flags that as an arbitrary file
+# read. No node or route imports them. They run from a git clone.
+src/comfyui_sg/instrument.py
+src/comfyui_sg/seed.py

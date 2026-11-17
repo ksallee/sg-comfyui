@@ -134,6 +134,7 @@ cd ComfyUI/custom_nodes/sg-comfyui
 | `PYTHONPATH=src <comfy-python> -m comfyui_sg.fields` | `.env.local` |
 | `PYTHONPATH=src <comfy-python> -m comfyui_sg.seed <file> ...` | `.env.local`, `profile.local.json` |
 
+- `instrument.py` and `seed.py` are in a git clone only. The Registry archive leaves them out.
 - `PYTHONPATH=src` is required for every `-m comfyui_sg.*`. The package is under `src/` and nothing
   installs it.
 - `instrument.py` and `doctor.py` are run as files. `-m` would import the package `__init__` and
