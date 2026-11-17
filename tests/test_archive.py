@@ -22,7 +22,7 @@ def _shipped():
     """The tracked files `.comfyignore` does not match."""
     git = ["git", "-C", str(ROOT)]
     tracked = subprocess.run([*git, "ls-files"], capture_output=True, text=True).stdout.split()
-    ignored = subprocess.run([*git, "-c", f"core.excludesFile={ROOT / '.comfyignore'}",
+    ignored = subprocess.run([*git, "-c", f"core.excludesFile={(ROOT / '.comfyignore').as_posix()}",
                               "check-ignore", "--no-index", "--stdin"],
                              input="\n".join(tracked), capture_output=True, text=True)
     return set(tracked) - set(ignored.stdout.split())
