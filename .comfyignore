@@ -4,6 +4,8 @@ tests/
 tools/*
 !tools/doctor.py
 site/
+# The SG tab's source. The pack has its build, web/sidebar/.
+sidebar/
 .github/
 RELEASE.md
 LAYOUT_API.md
