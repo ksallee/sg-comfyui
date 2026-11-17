@@ -41,8 +41,11 @@ normally a symlink to a checkout, so without that isolation each instance loads 
       publish.py     create Version, three-step upload, attach, register PublishedFile
       sequence.py    frames on disk: written to ComfyUI's output, copied under a LocalStorage root
       provenance.py  extract model/prompt/seed/graph from the ComfyUI prompt object
+      relay.py       which REST reads the SG tab may forward to the site
       nodes/         one file per node
       __init__.py    NODE_CLASS_MAPPINGS
+    sidebar/         the SG tab: a Svelte app on sg-widgets, built into web/sidebar/
+    web/             the editor files: pickers, panels, Settings rows, the SG tab's glue
 
 Site access goes through `sg_groundtruth`, the sibling corpus repo's client. This repo contains node
 code only.
@@ -1058,10 +1061,42 @@ everything nearer the stream.
 Charts, dashboards, reports, webhooks, automations, per `CLAUDE.md`. Video and OTIO. Inpainting UI.
 three.js. Browser extension.
 
-## Later
+## The SG tab
 
-React review surface showing iteration lineage, extracted into an MIT component registry. Not in this
-repo.
+A sidebar tab that searches a project's Versions and adds them to the graph as SG Load nodes.
+
+| part | what it is |
+|---|---|
+| `sidebar/` | A Svelte 5 app. The widgets are registry copies from sg-widgets. What they lack is added there. |
+| `web/sidebar/sg_sidebar_app.js` | The app's build, one ES module. Committed, so neither install route needs Node. |
+| `web/sg_sidebar.js` | Registers the tab, adds the node a tile asks for, accepts a tile dropped on the canvas. |
+| `relay.py`, `/sg/rest` | Forwards the widgets' REST reads to the site with this ComfyUI's credentials. |
+| `/sg/provenance_fields` | The field each provenance concept is recorded in on a project. |
+
+**Reads only.** The widgets run sg-widgets' `RestClient` against `/sg/rest`. The relay forwards the
+reads the widgets make: schema, one row, statuses, `_search`, `_text_search`. Anything else answers
+403 before it reaches the site. The browser holds no credential. Anyone who can reach ComfyUI's port
+can read the site through the relay, as through the pickers' routes.
+
+**A shadow root.** The widgets bring Tailwind and shadcn styles, and ComfyUI has its own. The tab is
+drawn in a shadow root. ComfyUI defines the shadcn tokens (`--background`, `--primary`, `--border`)
+for its theme, and the shadow root inherits them, so the widgets follow ComfyUI's palette. The
+tokens ComfyUI does not define are set in `sidebar/src/app.css`. A browser ignores `@property`
+inside a shadow root, so Tailwind's `@property` rules are added to the document.
+
+**A tile.** Dragging it, or its **+**, adds an SG Load with `pin_version_id` set to the Version and
+project, link and Task filled from it. Setting the pin to 0 then loads the newest Version of that
+Task. The values are restored by name, the way a saved graph restores them.
+
+**The detail.** A click opens the Version: the fields a reviewer reads first, under the site's own
+labels, then the provenance fields the project's mapping names. The lineage is read one level per
+request, with `id in [...]` (probe 017), because a dotted path through a multi-entity field reads
+back nothing (probe 016). Four levels are read. A Version already in the tree is not read again.
+
+**The project picked last** is a hidden ComfyUI setting, `SG.Sidebar.Project`.
+
+**Build-time dependencies**, none shipped to ComfyUI's Python: Svelte, Vite, Tailwind, bits-ui,
+`sg-widgets-core` and the widgets' own (`sidebar/package.json`).
 
 ## Node anatomy
 
