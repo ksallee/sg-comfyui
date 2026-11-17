@@ -8,7 +8,7 @@ readme = "README.md"
 requires-python = ">=3.11"
 # 0.1.0 because nothing has been published yet: this is a starting point, not a release. The Registry
 # rejects a re-publish of a version it already has, so bump it in the same commit that publishes.
-version = "1.0.0"
+version = "1.0.1"
 # Half the audience still searches "shotgrid", and the Registry searches keywords (DESIGN: Names).
 keywords = ["sg", "flow production tracking", "shotgrid", "shotgun", "autodesk", "vfx", "animation",
             "provenance", "version", "publish", "pipeline", "production", "studio", "exr"]

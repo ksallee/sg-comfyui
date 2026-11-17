@@ -7,6 +7,11 @@ and `AGENTS.md`.
 
 ---
 
+## 1.0.1
+
+The Registry archive leaves out `instrument.py` and `seed.py` (#164). 0.1.0 and 1.0.0 are flagged
+for them under `policy-v0.5: arbitrary-file-read`. Both tools are in a git clone only.
+
 ## 1.0.0
 
 The SG tab (#159): search a project's Versions, drag them in as SG Load, open their provenance and
