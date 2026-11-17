@@ -21,11 +21,12 @@ IMPORTS_ONE = re.compile(r"^\s*(from|import)\s.*\b(instrument|seed)\b", re.M)
 def _shipped():
     """The tracked files `.comfyignore` does not match."""
     git = ["git", "-C", str(ROOT)]
-    tracked = subprocess.run([*git, "ls-files"], capture_output=True, text=True).stdout.split()
-    ignored = subprocess.run([*git, "-c", f"core.excludesFile={ROOT / '.comfyignore'}",
-                              "check-ignore", "--no-index", "--stdin"],
-                             input="\n".join(tracked), capture_output=True, text=True)
-    return set(tracked) - set(ignored.stdout.split())
+    tracked = subprocess.run([*git, "ls-files", "-z"], capture_output=True).stdout.split(b"\0")
+    # NUL-separated bytes: a text pipe on Windows turns "\n" into "\r\n", which matches no pattern.
+    ignored = subprocess.run([*git, "-c", f"core.excludesFile={(ROOT / '.comfyignore').as_posix()}",
+                              "check-ignore", "--no-index", "--stdin", "-z"],
+                             input=b"\0".join(tracked), capture_output=True)
+    return {p.decode() for p in set(tracked) - set(ignored.stdout.split(b"\0")) if p}
 
 
 def test_tools_that_read_a_given_path_are_not_shipped():
