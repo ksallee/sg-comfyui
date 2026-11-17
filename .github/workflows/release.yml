@@ -1,0 +1,20 @@
+name: release
+
+# Uploads the pack to the Comfy Registry when a GitHub release is published. A tag alone does not
+# trigger it. The upload is the checkout of the release's tag, minus .comfyignore.
+# REGISTRY_ACCESS_TOKEN is a publisher API key from registry.comfy.org, stored as a repo secret.
+# The version uploaded is pyproject.toml's, and the Registry refuses a version it already has.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+
+jobs:
+  registry:
+    if: github.repository_owner == 'ksallee'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Comfy-Org/publish-node-action@1.0.1
+        with:
+          personal_access_token: ${{ secrets.REGISTRY_ACCESS_TOKEN }}

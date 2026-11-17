@@ -25,6 +25,26 @@ jobs:
       - run: pip install -r requirements.txt numpy pytest
       - run: python -m pytest -q
 
+  # The SG tab's unit tests and type check. web/sidebar/ is the build of this source.
+  sidebar:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: sidebar
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: sidebar/package.json
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: sidebar/pnpm-lock.yaml
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm test
+      - run: pnpm check
+
   lint:
     runs-on: ubuntu-latest
     steps:

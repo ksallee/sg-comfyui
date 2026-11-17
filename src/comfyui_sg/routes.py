@@ -5,10 +5,11 @@ ComfyUI imports custom nodes between constructing PromptServer and calling add_r
 
 Setup path: these serve the editor and are never touched while publishing.
 """
+import asyncio
 import json
 import re
 
-from . import credentials, resolve, site
+from . import credentials, relay, resolve, site
 
 # An SG error is a JSON:API envelope. The useful half is one `detail` sentence, or `title` where
 # `detail` is null. A refused impersonation returns `title` (probe 027).
@@ -852,6 +853,40 @@ def register():
         except Exception as e:
             return web.json_response({"rows": [], "present": 0, "created": 0, "failed": 0,
                                       "total": len(sg_fields.FIELDS), "error": _fields_error(e)})
+
+    @routes.get("/sg/provenance_fields")
+    async def provenance_fields(request):
+        """The Version field each provenance concept is recorded in on this project, for the sidebar."""
+        from . import fields as sg_fields
+
+        def read():
+            mapping, mode = site.provenance_map(_int(request.rel_url.query, "project_id") or None)
+            present = sg_fields.schema_names(site.client())   # the operator may map to any field
+            return [{"concept": c, "label": label, "field": field}
+                    for c, label, field in sg_fields.shown(sg_fields.targets(mapping, mode), present)]
+        return items(read)
+
+    @routes.route("*", "/sg/rest/api/v1/{tail:.*}")
+    async def rest_relay(request):
+        """Forward one of the sidebar's reads to the site, as whoever Settings is connected as."""
+        method, path = request.method, "/" + request.match_info["tail"]
+        if not relay.allowed(method, path):
+            return web.json_response(relay.refusal(method, path), status=403)
+        body = await request.read()
+
+        def call():
+            return site.client().request(method, path, params=list(request.rel_url.query.items()),
+                                         data=body or None,
+                                         headers=relay.forward_headers(request.headers))
+        try:
+            # The site call blocks. ComfyUI's event loop serves the queue and the editor.
+            r = await asyncio.get_running_loop().run_in_executor(None, call)
+        except Exception as e:
+            return web.json_response({"errors": [{"status": 502, "title": _sentence(e)}]},
+                                     status=502)
+        return web.Response(status=r.status_code, body=r.content,
+                            headers={"Content-Type": r.headers.get("Content-Type",
+                                                                   "application/json")})
 
     site.warm()   # prime the setup caches now, not on the operator's first page load
     return True

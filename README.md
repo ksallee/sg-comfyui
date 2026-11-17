@@ -1,10 +1,12 @@
 # Flow Production Tracking for ComfyUI
 
-Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly ShotGrid.
+Two ComfyUI nodes and a sidebar tab that record a generation in Flow Production Tracking, formerly
+ShotGrid, and bring Versions back into a graph.
 
 - **SG Publish** creates a Version from an IMAGE or a VIDEO, uploads the media, and attaches the
   model, prompt, seed, sampler and workflow that made it.
 - **SG Load** reads a Version's media back into a graph as image, video and mask.
+- **The SG tab** searches Versions, shows their provenance and lineage, and adds them to the graph.
 - Nothing here generates, encodes or decodes. ComfyUI writes and reads the pixels.
 
 ![The example workflow: an image into SG Publish, and SG Load reading the Version back](docs/images/example-top-row.png)
@@ -38,6 +40,19 @@ Two ComfyUI nodes that record a generation in Flow Production Tracking, formerly
 ![SG Load on an EXR Version: the format line, the provenance it records, the image and the mask](docs/images/sg-load-node.png)
 
 ![The side panel on Info: each SG Load input and output, with its type](docs/images/sg-load-info.png)
+
+### The SG tab
+
+A tab in ComfyUI's sidebar, under **SG**.
+
+- Searches one project's Versions by name, and narrows them by status, artist, link and Task.
+- Drag a Version onto the canvas, or click its **+**, to add an SG Load pinned to it.
+- Click a Version's name to open its detail: status, link, Task, artist, date, description, the
+  provenance fields, and its lineage, the Versions it was generated from.
+- Opens on the project picked last.
+- Reads only. The reads go through this ComfyUI, which adds the credentials.
+
+![The SG tab: a Version's provenance and the Versions it was generated from](docs/images/sg-tab.png)
 
 ### In the editor
 

@@ -16,6 +16,9 @@ uv.lock
 # JetBrains project files. Kevin's local IDE setup, swept in by a `git add -A`.
 .idea/
 
+# The SG tab's dependencies. Its build, web/sidebar/, is committed.
+sidebar/node_modules/
+
 # The launch page's build products.
 site/node_modules/
 site/build/

@@ -7,6 +7,14 @@ and `AGENTS.md`.
 
 ---
 
+## 1.0.0
+
+The SG tab (#159): search a project's Versions, drag them in as SG Load, open their provenance and
+lineage. Released on `main` as `v1.0.0`. Publishing the GitHub release uploads it to the Registry
+(`release.yml`, secret `REGISTRY_ACCESS_TOKEN`). 0.1.0 is listed on the Registry as flagged, with no
+reason given by the API. Whether 1.0.0 is flagged too is read from the Registry's publisher page
+after the upload.
+
 ## Next session, in order
 
 1. **Corpus**, Kevin's repo: sg-groundtruth #48, and the two gaps under "Open".
