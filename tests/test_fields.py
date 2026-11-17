@@ -75,3 +75,18 @@ def test_the_fields_this_site_has_are_the_ones_it_answers_with(fake_sg):
 def test_unreadable_schema_writes_nothing_optional(fake_sg):
     fake_sg.answer("get", "/schema/Version/fields", rows(), status=403, ok=False)
     assert fields.schema_names(fake_sg) == set()
+
+
+def test_the_sidebar_shows_each_concept_recorded_in_a_field_the_site_has():
+    present = {"sg_ai_model", "sg_ai_seed", "sg_ai_generated_from", "sg_shot_seed"}
+    by_concept = fields.targets({"seed": "sg_shot_seed", "prompt": "description"})
+    assert fields.shown(by_concept, present) == [
+        ("model", "model", "sg_ai_model"),
+        ("seed", "seed", "sg_shot_seed"),
+        ("generated_from", "generated from", "sg_ai_generated_from"),
+    ]
+
+
+def test_the_sidebar_shows_nothing_when_provenance_goes_to_the_description():
+    by_concept = fields.targets({}, mode="description")
+    assert fields.shown(by_concept, {"sg_ai_model", "description"}) == []
