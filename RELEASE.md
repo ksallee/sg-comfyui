@@ -11,9 +11,10 @@ and `AGENTS.md`.
 
 The SG tab (#159): search a project's Versions, drag them in as SG Load, open their provenance and
 lineage. Released on `main` as `v1.0.0`. Publishing the GitHub release uploads it to the Registry
-(`release.yml`, secret `REGISTRY_ACCESS_TOKEN`). 0.1.0 is listed on the Registry as flagged, with no
-reason given by the API. Whether 1.0.0 is flagged too is read from the Registry's publisher page
-after the upload.
+(`release.yml`, secret `REGISTRY_ACCESS_TOKEN`). 0.1.0 is flagged on the Registry under
+`policy-v0.5: arbitrary-file-read`, for `instrument.py` and `seed.py`. The reason is read with
+`GET https://api.comfy.org/nodes/sg-comfyui/versions?include_status_reason=true`. The publisher page
+does not show it. `.comfyignore` leaves both files out from the next version (#164).
 
 ## Next session, in order
 
