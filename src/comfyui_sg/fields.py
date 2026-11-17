@@ -195,6 +195,15 @@ def targets(mapping=None, mode="fields"):
     return {c: mapping.get(c, DEFAULT_MAP[c] if fallback is None else fallback) for c in DEFAULT_MAP}
 
 
+def shown(by_concept, present):
+    """[(concept, label, field)] for each concept written to a Version field in `present`, in order.
+
+    The sidebar's detail lists these. A concept written to the description is in the description.
+    """
+    return [(c, CONCEPT_LABELS[c], t) for c, t in by_concept.items()
+            if t and t != DESCRIPTION and t in present]
+
+
 def route(prov, source_version_ids=(), mapping=None, mode="fields"):
     """({field: value}, [readable line]): the target for each concept the graph recorded.
 

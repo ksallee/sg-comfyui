@@ -45,6 +45,14 @@ Behaviour with no entry is a gap. The probe that closes it goes in `sg-groundtru
   pickers use the site's defaults.
 - `/track-workflow` adds the nodes to an existing graph.
 - `tools/doctor.py` is the offline check. Run it as a file.
+- The SG tab is built from `sidebar/`. Commit `web/sidebar/` with the source it was built from:
+
+```sh
+cd sidebar && pnpm install && pnpm test && pnpm check && pnpm build
+```
+
+- The widgets in `sidebar/src/lib/components/` are registry copies from `../sg-widgets`. What they
+  lack is added there, issue and PR there.
 - Tests need no site, no ComfyUI, no torch:
 
 ```sh
